@@ -981,7 +981,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		case .concatenateND:
 			try concatenateNDLayer(for: operation)
 		case .leakyReLU, .sigmoid, .exponential, .multiply, .reshape, .transpose, .sliceChannels, .softmaxChannel, .upsample2D,
-			.reshapeND, .transposeND, .sliceND, .splitND, .batchedMatrixMultiplicationND:
+			.reshapeND, .transposeND, .sliceND, .splitND, .batchedMatrixMultiplicationND,
+			.floor, .naturalLogarithm, .greaterOrEqual, .minimumND, .maximumND, .subtract:
 			try detectionLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
@@ -1342,7 +1343,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	}
 
 	/// Routes the operations introduced for detection decoding. Split from `layer(for:)` so the
-	/// operator table stays inside the cyclomatic-complexity limit.
+	/// operator table stays inside the cyclomatic-complexity limit; the kinds it does not name go on to
+	/// `boxArithmeticLayer(for:)`, which raises the same unsupported-operation error for anything
+	/// neither router handles.
 	private func detectionLayer(for operation: NativeModelOperation) throws -> Data {
 		switch operation.kind {
 		case .leakyReLU: try leakyReLULayer(for: operation)
@@ -1359,12 +1362,92 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		case .sliceND: try sliceNDLayer(for: operation)
 		case .splitND: try splitNDLayer(for: operation)
 		case .batchedMatrixMultiplicationND: try batchedMatrixMultiplicationNDLayer(for: operation)
+		default: try boxArithmeticLayer(for: operation)
+		}
+	}
+
+	/// Routes the elementwise and mask primitives the box arithmetic is built from — FPN level
+	/// assignment, small-box filtering, and coordinate clipping. A third router rather than more cases
+	/// in the two above it, for the same reason those were split: to stay inside the
+	/// cyclomatic-complexity limit.
+	private func boxArithmeticLayer(for operation: NativeModelOperation) throws -> Data {
+		switch operation.kind {
+		case .floor: try floorLayer(for: operation)
+		case .naturalLogarithm: try naturalLogarithmLayer(for: operation)
+		case .greaterOrEqual: try greaterOrEqualLayer(for: operation)
+		case .minimumND: try elementwiseBoundLayer(for: operation, parameterField: 870)
+		case .maximumND: try elementwiseBoundLayer(for: operation, parameterField: 875)
+		case .subtract: try subtractLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
 				operation: operation.name,
 				kind: operation.kind.serializedValue
 			)
 		}
+	}
+
+	/// Rounds toward negative infinity — Core ML's parameterless `FloorLayerParams` (field 670). The
+	/// level assignment relies on the negative side truncating downward: a box smaller than the
+	/// canonical scale has a negative level before clamping, where `trunc` would round it the wrong way.
+	private func floorLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 670, parameters: Data())
+	}
+
+	/// `ln(x)`, expressed as Core ML's unary-function layer with type LOG. Any other base is one
+	/// multiply away (`log2(x) = ln(x) · 1/ln 2`), which is what lets the level assignment sum two
+	/// half-logarithms instead of forming a box area that overflows fp16 above 65504.
+	private func naturalLogarithmLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		let unary = CoreMLProtobufEncoder.message { unary in
+			// UnaryFunctionLayerParams.type = 1; the LOG member of that enum is 5.
+			CoreMLProtobufEncoder.appendVarintField(1, value: 5, to: &unary)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 220, parameters: unary)
+	}
+
+	/// `x >= threshold` as a 1.0/0.0 mask. `GreaterEqualLayerParams` (field 832) accepts either two
+	/// blobs or one blob and its threshold scalar; this is the single-input form, so the threshold
+	/// rides in the layer rather than costing a constant blob. That scalar is the message's *only*
+	/// field and it is numbered 2, not 1 — writing it as field 1 leaves the layer comparing against 0.
+	private func greaterOrEqualLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let threshold = operation.attributes["threshold"]?.floatingPointValue else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "greaterEqual requires a floating-point 'threshold' attribute"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendFloatField(2, value: Float(threshold), to: &parameters)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 832, parameters: parameters)
+	}
+
+	/// Elementwise `min(a, b)` (field 870) and `max(a, b)` (field 875), both parameterless. Taking the
+	/// bound as a second tensor is what makes a per-coordinate box clip expressible: the scalar Clip
+	/// layer would force one interval on x and y, which is wrong the moment the image is not square.
+	private func elementwiseBoundLayer(for operation: NativeModelOperation, parameterField: Int) throws -> Data {
+		guard operation.inputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "\(operation.kind.serializedValue) requires exactly two activation inputs"
+			)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: parameterField, parameters: Data())
+	}
+
+	/// `a - b`, Core ML's parameterless `SubtractBroadcastableLayerParams` (field 905). The classic
+	/// layer set has add (230) and multiply (231) but no subtract at all, which is why this one
+	/// operation the graph validator has always accepted had no emitter case until now.
+	private func subtractLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "subtract requires exactly two activation inputs"
+			)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 905, parameters: Data())
 	}
 
 	/// Core ML's classic softmax (field 175), which always normalizes over the channel axis. The

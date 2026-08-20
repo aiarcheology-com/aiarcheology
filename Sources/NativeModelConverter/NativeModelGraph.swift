@@ -184,6 +184,18 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 	case subtract
 	case multiply
 	case divide
+	/// Elementwise bounds taken against a *second tensor* rather than a scalar attribute. A box clip
+	/// needs a different bound per coordinate (x to `[0, W]`, y to `[0, H]`), which is exactly what a
+	/// single scalar cannot express; the second operand is already expressible as a `constantND`, so a
+	/// tensor-valued attribute would duplicate the weight-blob mechanism inside the graph JSON.
+	case minimumND
+	case maximumND
+	case floor
+	case naturalLogarithm
+	/// `x >= threshold` as a 1.0/0.0 mask. The threshold is a scalar attribute because Core ML's
+	/// comparison layer carries one itself; a per-element threshold is a `minimumND`-style two-tensor
+	/// problem and would be a separate operation.
+	case greaterOrEqual
 	case batchNormalization
 	case sigmoid
 	case tanh
@@ -222,6 +234,11 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		case .subtract: "subtract"
 		case .multiply: "multiply"
 		case .divide: "divide"
+		case .minimumND: "minND"
+		case .maximumND: "maxND"
+		case .floor: "floor"
+		case .naturalLogarithm: "log"
+		case .greaterOrEqual: "greaterEqual"
 		case .batchNormalization: "batchNorm"
 		case .sigmoid: "sigmoid"
 		case .tanh: "tanh"
@@ -268,6 +285,11 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		"subtract": .subtract,
 		"multiply": .multiply,
 		"divide": .divide,
+		"minND": .minimumND,
+		"maxND": .maximumND,
+		"floor": .floor,
+		"log": .naturalLogarithm,
+		"greaterEqual": .greaterOrEqual,
 		"batchNorm": .batchNormalization,
 		"sigmoid": .sigmoid,
 		"tanh": .tanh,
@@ -650,7 +672,7 @@ public struct NativeModelGraphValidator {
 			// so its only parameter is a positive [H, W] scaling factor.
 			requireArity(operation, exact: 1, issues: &issues)
 			requirePositiveIntegerArray(operation, name: "scalingFactor", count: 2, issues: &issues)
-		case .batchedMatrixMultiplicationND, .add, .subtract, .multiply, .divide:
+		case .batchedMatrixMultiplicationND, .add, .subtract, .multiply, .divide, .minimumND, .maximumND:
 			requireArity(operation, exact: 2, issues: &issues)
 		case .splitND:
 			requireArity(operation, exact: 1, issues: &issues)
@@ -675,11 +697,15 @@ public struct NativeModelGraphValidator {
 		issues: inout [NativeModelGraphValidationIssue]
 	) {
 		switch operation.kind {
-		case .globalAveragePool2D, .relu, .relu6, .sigmoid, .tanh, .exponential, .softmaxChannel, .identity:
+		case .globalAveragePool2D, .relu, .relu6, .sigmoid, .tanh, .exponential, .softmaxChannel, .identity,
+			.floor, .naturalLogarithm:
 			requireArity(operation, exact: 1, issues: &issues)
 		case .leakyReLU:
 			requireArity(operation, exact: 1, issues: &issues)
 			requireFloatingPoint(operation, name: "alpha", issues: &issues)
+		case .greaterOrEqual:
+			requireArity(operation, exact: 1, issues: &issues)
+			requireFloatingPoint(operation, name: "threshold", issues: &issues)
 		case .sliceChannels:
 			// Half-open [startChannel, endChannel) on the channel axis, as Core ML's slice layer takes it.
 			requireArity(operation, exact: 1, issues: &issues)
@@ -721,10 +747,16 @@ public struct NativeModelGraphValidator {
 
 	/// V2 is an exact-ND graph family. V1 retains the classic rank-5 layout operations exactly as
 	/// shipped; the two families may share ordinary convolution/activation/elementwise nodes only.
+	///
+	/// The box-arithmetic primitives are exact-ND only for a second reason: the classic layer set has
+	/// no floor, no comparison, and no subtract at all, so their only Core ML form is a spec-4 layer.
+	/// Admitting them into V1 would mean writing exact-rank layers into a graph whose other layers
+	/// address the rank-5 layout — a mix that compiles and then reads the blob differently.
 	private func isValid(_ kind: NativeModelOperationKind, forFormatVersion formatVersion: Int) -> Bool {
 		let exactNDOnly: [NativeModelOperationKind] = [
 			.reshapeND, .transposeND, .concatenateND, .sliceND, .splitND,
-			.batchedMatrixMultiplicationND, .constantND
+			.batchedMatrixMultiplicationND, .constantND,
+			.minimumND, .maximumND, .floor, .naturalLogarithm, .greaterOrEqual, .subtract
 		]
 		let legacyLayoutOnly: [NativeModelOperationKind] = [
 			.reshape, .transpose, .concatenate, .sliceChannels, .softmaxChannel, .constant

@@ -21,13 +21,14 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 	private func run(
 		operation kind: NativeModelOperationKind,
 		attributes: [String: NativeModelAttribute] = [:],
+		formatVersion: Int = NativeModelGraph.currentFormatVersion,
 		inputShape: [Int],
 		outputShape: [Int],
 		values: [Float]
 	) async throws -> [Float] {
 		let input = NativeModelTensor(name: "x", dataType: .float32, shape: inputShape)
 		let graph = NativeModelGraph(
-			formatVersion: NativeModelGraph.currentFormatVersion,
+			formatVersion: formatVersion,
 			producer: NativeModelGraphProducer(name: "test", version: "1"),
 			inputs: [input],
 			weights: [],
@@ -76,6 +77,60 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		XCTAssertEqual(actual.count, expected.count, file: file, line: line)
 		for (index, pair) in zip(actual, expected).enumerated() {
 			XCTAssertEqual(pair.0, pair.1, accuracy: accuracy, "element \(index)", file: file, line: line)
+		}
+	}
+
+	/// Accumulates an exact-ND graph whose blobs all share one shape — the row-per-box shape the box
+	/// arithmetic below works in. A bound or coefficient becomes a `constantND` repeated over the whole
+	/// blob rather than a scalar, because classic add (230) and multiply (231) are per-position layers
+	/// with no broadcasting. The one-operation `run` harness cannot express these chains.
+	private struct BoxArithmeticGraph {
+		let shape: [Int]
+		private(set) var weightData = Data()
+		private var weights: [NativeModelWeight] = []
+		private var operations: [NativeModelOperation] = []
+
+		init(shape: [Int]) {
+			self.shape = shape
+		}
+
+		mutating func constant(_ value: Float, name: String) -> String {
+			let values = [Float](repeating: value, count: shape.reduce(1, *))
+			let payload = values.withUnsafeBytes { Data($0) }
+			let weightName = "\(name)_values"
+			weights.append(NativeModelWeight(
+				name: weightName, dataType: .float32, shape: shape,
+				offset: UInt64(weightData.count), byteCount: UInt64(payload.count)
+			))
+			weightData.append(payload)
+			return apply(.constantND, [weightName], name: name)
+		}
+
+		@discardableResult
+		mutating func apply(
+			_ kind: NativeModelOperationKind,
+			_ inputs: [String],
+			name: String,
+			attributes: [String: NativeModelAttribute] = [:],
+			shape outputShape: [Int]? = nil
+		) -> String {
+			operations.append(NativeModelOperation(
+				name: name, kind: kind, inputs: inputs,
+				outputs: [NativeModelTensor(name: name, dataType: .float32, shape: outputShape ?? shape)],
+				attributes: attributes
+			))
+			return name
+		}
+
+		func graph(inputs: [String], output: String) -> NativeModelGraph {
+			NativeModelGraph(
+				formatVersion: NativeModelGraph.exactNDFormatVersion,
+				producer: NativeModelGraphProducer(name: "test", version: "1"),
+				inputs: inputs.map { NativeModelTensor(name: $0, dataType: .float32, shape: shape) },
+				weights: weights,
+				operations: operations,
+				outputs: [output]
+			)
 		}
 	}
 
@@ -326,6 +381,191 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		assertClose(output, [10, 40, 90, 160, 250, 360])
 	}
 
+	// MARK: - Elementwise and mask primitives
+
+	// These are exact-ND only: the classic layer set has no floor, no comparison, and no subtract, so
+	// each is a spec-4 layer and each is rejected under format version 1 (see the rejection section).
+
+	func testFloor_roundsTowardNegativeInfinity() async throws {
+		// Toward negative infinity, not toward zero: a box below the canonical scale reaches `floor`
+		// with a negative level, where truncation would round it up into the wrong FPN level.
+		let output = try await run(
+			operation: .floor, formatVersion: NativeModelGraph.exactNDFormatVersion,
+			inputShape: [1, 4], outputShape: [1, 4],
+			values: [-1.5, -0.25, 0.5, 3]
+		)
+		assertClose(output, [-2, -1, 0, 3])
+	}
+
+	func testNaturalLogarithm_isBaseEAndNotBaseTwo() async throws {
+		// ln(2) = 0.6931, log2(2) = 1: the unary type must be LOG (5) and the base conversion must stay
+		// an explicit multiply, otherwise every level assignment is off by a factor of ln 2.
+		let output = try await run(
+			operation: .naturalLogarithm, formatVersion: NativeModelGraph.exactNDFormatVersion,
+			inputShape: [1, 4], outputShape: [1, 4],
+			values: [1, 2, 2.718282, 0.5]
+		)
+		assertClose(output, [0, 0.693147, 1, -0.693147], accuracy: 0.0001)
+	}
+
+	func testGreaterOrEqual_isInclusiveAtTheThreshold() async throws {
+		// `>=`, not `>`. The boundary sample is the whole difference between this layer (832) and the
+		// strictly-greater one two field numbers below it (830), and it decides whether a box exactly
+		// at the minimum size survives.
+		let output = try await run(
+			operation: .greaterOrEqual, attributes: ["threshold": .floatingPoint(3)],
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			inputShape: [1, 4], outputShape: [1, 4],
+			values: [2.5, 3, 3.5, -1]
+		)
+		assertClose(output, [0, 1, 1, 0])
+	}
+
+	func testMinimumAndMaximum_boundAgainstAConstantTensor() async throws {
+		var builder = BoxArithmeticGraph(shape: [1, 4])
+		let lower = builder.constant(1, name: "lower")
+		let upper = builder.constant(3, name: "upper")
+		let raised = builder.apply(.maximumND, ["x", lower], name: "raised")
+		builder.apply(.minimumND, [raised, upper], name: "y")
+
+		let output = try await predict(
+			graph: builder.graph(inputs: ["x"], output: "y"), weights: builder.weightData,
+			inputs: ["x": ([1, 4], [0, 1.5, 2.5, 9])], outputShape: [1, 4]
+		)
+		// Both ends bound, and the interior values pass through untouched — 870 and 875 must not be swapped.
+		assertClose(output, [1, 1.5, 2.5, 3])
+	}
+
+	func testSubtract_isLeftMinusRight() async throws {
+		// The emitter had no case for subtract at all until the box arithmetic needed one, even though
+		// the graph validator has always accepted it. A reversed operand order still compiles.
+		var builder = BoxArithmeticGraph(shape: [1, 3])
+		let offset = builder.constant(1.5, name: "offset")
+		builder.apply(.subtract, ["x", offset], name: "y")
+
+		let output = try await predict(
+			graph: builder.graph(inputs: ["x"], output: "y"), weights: builder.weightData,
+			inputs: ["x": ([1, 3], [1, 2, 3])], outputShape: [1, 3]
+		)
+		assertClose(output, [-0.5, 0.5, 1.5])
+	}
+
+	// MARK: - Box post-processing compositions
+
+	func testLevelAssignment_productFreeFormMatchesTorchvision() async throws {
+		// torchvision's LevelMapper (`ops/poolers.py`) assigns floor(4 + log2(sqrt(w·h) / 224)), clamped
+		// to [2, 5]. The graph evaluates the algebraically identical product-free form
+		// 4 + 0.5·log2(w) + 0.5·log2(h) − log2(224), which never forms the area: three of these six
+		// boxes have an area above fp16's 65504 (120000, 720000, 1200000) and would come out of an fp16
+		// area as infinity, while every intermediate here stays under 21.
+		//
+		// Fixture: `.venv-m3a` python (torch 2.8.0, torchvision 0.23.0), levels taken from the mapper's
+		// own expression and confirmed equal to the product-free form. The sizes deliberately avoid
+		// exact powers of two, where the mapper's 1e-6 epsilon — added outside the logarithm — is what
+		// decides which side `floor` falls on.
+		let widths: [Float] = [10, 32, 100, 300, 800, 1200]
+		let heights: [Float] = [8, 32, 150, 400, 900, 1000]
+		var builder = BoxArithmeticGraph(shape: [1, 6])
+		let halfInverseLn2 = builder.constant(0.5 / Float(log(2.0)), name: "half_inverse_ln2")
+		let canonicalLevel = builder.constant(4, name: "canonical_level")
+		let canonicalScale = builder.constant(Float(log2(224.0)), name: "canonical_scale")
+		let lowestLevel = builder.constant(2, name: "lowest_level")
+		let highestLevel = builder.constant(5, name: "highest_level")
+		let logWidth = builder.apply(.naturalLogarithm, ["w"], name: "log_width")
+		let logHeight = builder.apply(.naturalLogarithm, ["h"], name: "log_height")
+		let halfLog2Width = builder.apply(.multiply, [logWidth, halfInverseLn2], name: "half_log2_width")
+		let halfLog2Height = builder.apply(.multiply, [logHeight, halfInverseLn2], name: "half_log2_height")
+		let halfLog2Area = builder.apply(.add, [halfLog2Width, halfLog2Height], name: "half_log2_area")
+		let biased = builder.apply(.add, [halfLog2Area, canonicalLevel], name: "biased")
+		let level = builder.apply(.subtract, [biased, canonicalScale], name: "level")
+		let floored = builder.apply(.floor, [level], name: "floored")
+		let raised = builder.apply(.maximumND, [floored, lowestLevel], name: "raised")
+		builder.apply(.minimumND, [raised, highestLevel], name: "y")
+
+		let output = try await predict(
+			graph: builder.graph(inputs: ["w", "h"], output: "y"), weights: builder.weightData,
+			inputs: ["w": ([1, 6], widths), "h": ([1, 6], heights)], outputShape: [1, 6]
+		)
+		// Pre-clamp values are −0.65, 1.19, 3.13, 4.63, 5.92, 6.29 — both clamps are exercised.
+		assertClose(output, [2, 2, 3, 4, 5, 5])
+	}
+
+	func testSmallBoxMask_requiresBothSidesAndKeepsTheBoundary() async throws {
+		// torchvision's remove_small_boxes keeps a box when (w >= min_size) AND (h >= min_size) — two
+		// per-side comparisons, not one area threshold. Box 3 is 10 × 3.5, an area of 35 against a
+		// min_size² of 16, and is still dropped; box 0 is exactly 4 wide, which `>` would drop and `>=`
+		// keeps. Fixture: torchvision 0.23.0 `remove_small_boxes` under `.venv-m3a`.
+		let widths: [Float] = [4, 3.9, 10, 10, 5]
+		let heights: [Float] = [10, 10, 4, 3.5, 5]
+		var builder = BoxArithmeticGraph(shape: [1, 5])
+		let wideEnough = builder.apply(
+			.greaterOrEqual, ["w"], name: "wide_enough", attributes: ["threshold": .floatingPoint(4)]
+		)
+		let tallEnough = builder.apply(
+			.greaterOrEqual, ["h"], name: "tall_enough", attributes: ["threshold": .floatingPoint(4)]
+		)
+		// Both masks are 0/1, so the product is their logical AND.
+		builder.apply(.multiply, [wideEnough, tallEnough], name: "y")
+
+		let output = try await predict(
+			graph: builder.graph(inputs: ["w", "h"], output: "y"), weights: builder.weightData,
+			inputs: ["w": ([1, 5], widths), "h": ([1, 5], heights)], outputShape: [1, 5]
+		)
+		assertClose(output, [1, 0, 1, 0, 1])
+	}
+
+	func testBoxClip_boundsEachAxisToItsOwnImageSide() async throws {
+		// `clip_boxes_to_image` on a 640 × 384 image: x into [0, 640], y into [0, 384]. A scalar Clip
+		// layer carries one interval for the whole blob, so it cannot express this at all once W != H —
+		// the reason the bound is a tensor operand here. Fixture: torchvision 0.23.0 under `.venv-m3a`.
+		let horizontal: [Float] = [-5, 0, 100, 700, 640]
+		let vertical: [Float] = [-10, 20, 400, 384, 383]
+		var builder = BoxArithmeticGraph(shape: [1, 5])
+		let zero = builder.constant(0, name: "zero")
+		let imageWidth = builder.constant(640, name: "image_width")
+		let imageHeight = builder.constant(384, name: "image_height")
+		let leftRaised = builder.apply(.maximumND, ["left", zero], name: "left_raised")
+		let leftClipped = builder.apply(.minimumND, [leftRaised, imageWidth], name: "left_clipped")
+		let topRaised = builder.apply(.maximumND, ["top", zero], name: "top_raised")
+		let topClipped = builder.apply(.minimumND, [topRaised, imageHeight], name: "top_clipped")
+		builder.apply(
+			.concatenateND, [leftClipped, topClipped], name: "y",
+			attributes: ["axis": .integer(1)], shape: [1, 10]
+		)
+
+		let output = try await predict(
+			graph: builder.graph(inputs: ["left", "top"], output: "y"), weights: builder.weightData,
+			inputs: ["left": ([1, 5], horizontal), "top": ([1, 5], vertical)], outputShape: [1, 10]
+		)
+		// A shared bound would have let y reach 640; each axis stops at its own side.
+		assertClose(output, [0, 0, 100, 640, 640, 0, 20, 384, 384, 383])
+	}
+
+	func testScoreMask_pushesDroppedRowsBelowEveryKeptOne() async throws {
+		// score' = score·mask + (mask − 1)·BIG: a dropped row is zeroed and then driven to −BIG, so a
+		// following top-k or suppression can never select it. Every blob keeps the same shape, which is
+		// what classic add (230) and multiply (231) require — they are per-position, not broadcasting.
+		let scores: [Float] = [0.9, 0.5, 0.49, 0.1]
+		var builder = BoxArithmeticGraph(shape: [1, 4])
+		let one = builder.constant(1, name: "one")
+		let big = builder.constant(1000, name: "big")
+		let mask = builder.apply(
+			.greaterOrEqual, ["score"], name: "mask", attributes: ["threshold": .floatingPoint(0.5)]
+		)
+		let kept = builder.apply(.multiply, ["score", mask], name: "kept")
+		let dropped = builder.apply(.subtract, [mask, one], name: "dropped")
+		let penalty = builder.apply(.multiply, [dropped, big], name: "penalty")
+		builder.apply(.add, [kept, penalty], name: "y")
+
+		let output = try await predict(
+			graph: builder.graph(inputs: ["score"], output: "y"), weights: builder.weightData,
+			inputs: ["score": ([1, 4], scores)], outputShape: [1, 4]
+		)
+		// 0.5 is kept because the comparison is inclusive; 0.49 lands at exactly −1000, not −999.51,
+		// because the multiply zeroes the score before the penalty is added.
+		assertClose(output, [0.9, 0.5, -1000, -1000], accuracy: 0.001)
+	}
+
 	// MARK: - Rejection
 
 	func testLeakyReLU_withoutAlphaIsRejected() {
@@ -344,14 +584,87 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		assertEmissionFails(kind: .upsample2D, attributes: [:])
 	}
 
+	func testGreaterOrEqual_withoutThresholdIsRejected() {
+		assertEmissionFails(kind: .greaterOrEqual, attributes: [:], formatVersion: NativeModelGraph.exactNDFormatVersion)
+	}
+
+	func testFloor_underTheLegacyFormatIsRejected() {
+		assertLegacyFormatRejects(kind: .floor)
+	}
+
+	func testNaturalLogarithm_underTheLegacyFormatIsRejected() {
+		assertLegacyFormatRejects(kind: .naturalLogarithm)
+	}
+
+	func testGreaterOrEqual_underTheLegacyFormatIsRejected() {
+		assertLegacyFormatRejects(kind: .greaterOrEqual, attributes: ["threshold": .floatingPoint(1)])
+	}
+
+	func testMinimum_underTheLegacyFormatIsRejected() {
+		assertLegacyFormatRejects(kind: .minimumND, inputCount: 2)
+	}
+
+	func testMaximum_underTheLegacyFormatIsRejected() {
+		assertLegacyFormatRejects(kind: .maximumND, inputCount: 2)
+	}
+
+	func testSubtract_underTheLegacyFormatIsRejected() {
+		assertLegacyFormatRejects(kind: .subtract, inputCount: 2)
+	}
+
+	/// A V2-only operation must be turned away by the graph validator, naming the operation, rather
+	/// than reaching the emitter's layer table — where a legacy graph would otherwise be handed a
+	/// spec-4 layer sitting among rank-5 ones.
+	private func assertLegacyFormatRejects(
+		kind: NativeModelOperationKind,
+		attributes: [String: NativeModelAttribute] = [:],
+		inputCount: Int = 1,
+		file: StaticString = #filePath,
+		line: UInt = #line
+	) {
+		let inputNames = (0 ..< inputCount).map { "x\($0)" }
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.legacyFormatVersion,
+			producer: NativeModelGraphProducer(name: "test", version: "1"),
+			inputs: inputNames.map { NativeModelTensor(name: $0, dataType: .float32, shape: [1, 4, 1, 1]) },
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "y", kind: kind, inputs: inputNames,
+					outputs: [NativeModelTensor(name: "y", dataType: .float32, shape: [1, 4, 1, 1])],
+					attributes: attributes
+				)
+			],
+			outputs: ["y"]
+		)
+		let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
+		defer { try? FileManager.default.removeItem(at: url) }
+		XCTAssertThrowsError(
+			try NativeModelCoreMLEmitter().emit(graph: graph, weights: Data(), to: url),
+			"Format version 1 must reject \(kind.serializedValue).",
+			file: file, line: line
+		) { error in
+			guard case .invalidGraph(let issues) = error as? NativeModelCoreMLEmissionError else {
+				XCTFail("Expected a validation failure for \(kind.serializedValue), got \(error).", file: file, line: line)
+				return
+			}
+			XCTAssertTrue(
+				issues.contains(.unsupportedOperation(operation: "y", kind: kind.serializedValue)),
+				"Format version 1 must report \(kind.serializedValue) as unsupported, got \(issues).",
+				file: file, line: line
+			)
+		}
+	}
+
 	private func assertEmissionFails(
 		kind: NativeModelOperationKind,
 		attributes: [String: NativeModelAttribute],
+		formatVersion: Int = NativeModelGraph.currentFormatVersion,
 		file: StaticString = #filePath,
 		line: UInt = #line
 	) {
 		let graph = NativeModelGraph(
-			formatVersion: NativeModelGraph.currentFormatVersion,
+			formatVersion: formatVersion,
 			producer: NativeModelGraphProducer(name: "test", version: "1"),
 			inputs: [NativeModelTensor(name: "x", dataType: .float32, shape: [1, 4, 1, 1])],
 			weights: [],
