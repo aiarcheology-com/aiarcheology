@@ -968,8 +968,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			try linearLayer(for: operation, weightsByName: weightsByName, weights: weights)
 		case .add:
 			try addLayer(for: operation)
-		case .maxPool2D:
-			try maxPoolLayer(for: operation)
+		case .maxPool2D, .averagePool2D:
+			try poolingLayer(for: operation)
 		case .concatenate:
 			try concatenateLayer(for: operation)
 		case .softmax:
@@ -982,7 +982,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			try concatenateNDLayer(for: operation)
 		case .leakyReLU, .sigmoid, .exponential, .multiply, .reshape, .transpose, .sliceChannels, .softmaxChannel, .upsample2D,
 			.reshapeND, .transposeND, .sliceND, .splitND, .batchedMatrixMultiplicationND,
-			.floor, .naturalLogarithm, .greaterOrEqual, .minimumND, .maximumND, .subtract:
+			.floor, .naturalLogarithm, .greaterOrEqual, .minimumND, .maximumND, .subtract, .cropResize:
 			try detectionLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
@@ -1247,7 +1247,17 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 120, parameters: pooling)
 	}
 
-	private func maxPoolLayer(for operation: NativeModelOperation) throws -> Data {
+	/// Max and average pooling are one `PoolingLayerParams` (field 120) apart: the two differ only in the
+	/// `type` member and in the average-only padding rule below, so they share an emitter rather than a
+	/// copied one. Field numbers read off coremltools 9.0's `NeuralNetwork_pb2.PoolingLayerParams`
+	/// descriptor: type = 1, kernelSize = 10, stride = 20, valid = 30, avgPoolExcludePadding = 50.
+	///
+	/// `avgPoolExcludePadding` is pinned to true, meaning the divisor counts only real samples. It is
+	/// unobservable at the zero padding the ROI construction uses, so the pin is chosen for the padded
+	/// case: it matches ONNX AveragePool's default (`count_include_pad = 0`). PyTorch's `AvgPool2d`
+	/// defaults the other way, so a future reader that meets `count_include_pad=True` with non-zero
+	/// padding has to reject it rather than assume this emitter agrees.
+	private func poolingLayer(for operation: NativeModelOperation) throws -> Data {
 		try requireSingleActivationInput(operation)
 		guard let kernelSize = operation.attributes["kernelSize"]?.integerArrayValue, kernelSize.count == 2,
 			let strides = operation.attributes["strides"]?.integerArrayValue, strides.count == 2,
@@ -1255,12 +1265,16 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		else {
 			throw NativeModelCoreMLEmissionError.invalidOperation(
 				operation: operation.name,
-				reason: "maxPool2d requires kernelSize/strides pairs of positive integers"
+				reason: "\(operation.kind.serializedValue) requires kernelSize/strides pairs of positive integers"
 			)
 		}
+		let isAverage = operation.kind == .averagePool2D
 		let padding = try paddingAttribute(for: operation)
 		let pooling = CoreMLProtobufEncoder.message { pooling in
-			// PoolingLayerParams.type MAX is the proto3 default (0), so no explicit type field is written.
+			// PoolingType MAX is the proto3 default (0), so only AVERAGE (1) is written.
+			if isAverage {
+				CoreMLProtobufEncoder.appendVarintField(1, value: 1, to: &pooling)
+			}
 			for dimension in kernelSize {
 				CoreMLProtobufEncoder.appendVarintField(10, value: UInt64(dimension), to: &pooling)
 			}
@@ -1268,6 +1282,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				CoreMLProtobufEncoder.appendVarintField(20, value: UInt64(stride), to: &pooling)
 			}
 			CoreMLProtobufEncoder.appendMessageField(30, value: validPadding(padding), to: &pooling)
+			if isAverage {
+				CoreMLProtobufEncoder.appendVarintField(50, value: 1, to: &pooling)
+			}
 		}
 		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 120, parameters: pooling)
 	}
@@ -1367,9 +1384,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	}
 
 	/// Routes the elementwise and mask primitives the box arithmetic is built from — FPN level
-	/// assignment, small-box filtering, and coordinate clipping. A third router rather than more cases
-	/// in the two above it, for the same reason those were split: to stay inside the
-	/// cyclomatic-complexity limit.
+	/// assignment, small-box filtering, and coordinate clipping — plus the ROI crop those boxes feed.
+	/// A third router rather than more cases in the two above it, for the same reason those were split:
+	/// to stay inside the cyclomatic-complexity limit, which the router above is already at.
 	private func boxArithmeticLayer(for operation: NativeModelOperation) throws -> Data {
 		switch operation.kind {
 		case .floor: try floorLayer(for: operation)
@@ -1378,6 +1395,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		case .minimumND: try elementwiseBoundLayer(for: operation, parameterField: 870)
 		case .maximumND: try elementwiseBoundLayer(for: operation, parameterField: 875)
 		case .subtract: try subtractLayer(for: operation)
+		case .cropResize: try cropResizeLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
 				operation: operation.name,
@@ -1435,6 +1453,58 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			)
 		}
 		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: parameterField, parameters: Data())
+	}
+
+	/// Core ML's `CropResize` (layer field 212) — one bilinear ROI patch per box, and the first layer
+	/// here with two runtime inputs that are not interchangeable: input 0 is the feature map and input 1
+	/// the boxes. Both must be declared rank 5 (the layer validates `rank >= 5` and rejects less):
+	/// features `[1, B, C, H, W]`, boxes `[K, 1, 4, 1, 1]`, output `[K, B, C, targetHeight, targetWidth]`
+	/// — measured, not assumed, in `scripts/m3a_parity_spike/probes.py`.
+	///
+	/// `CropResizeLayerParams` field numbers verified against coremltools 9.0's
+	/// `NeuralNetwork_pb2.CropResizeLayerParams` descriptor: targetSize = 1 (repeated uint64, height then
+	/// width, matching `NeuralNetworkBuilder.add_crop_resize`'s append order), normalizedCoordinates = 2,
+	/// mode = 3, boxIndicesMode = 4, spatialScale = 5.
+	///
+	/// Sampling mode and box order are pinned rather than parameterised. `SamplingMode.samplingMethod`
+	/// (field 1) is written as ROI_ALIGN_MODE (3) because the enum's zero member is
+	/// STRICT_ALIGN_ENDPOINTS_MODE, a *different* sampling grid that would silently take the default.
+	/// `BoxCoordinatesMode.boxMode` (field 1) is CORNERS_HEIGHT_FIRST, which *is* that enum's zero member,
+	/// so field 4 carries an empty message: the submessage is present on the wire without writing a
+	/// redundant zero. `[y0, x0, y1, x1]` is the order the box blob must already be in.
+	private func cropResizeLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "cropResize requires exactly two inputs: the feature map and the box blob"
+			)
+		}
+		guard let targetHeight = operation.attributes["targetHeight"]?.integerValue, targetHeight > 0,
+			let targetWidth = operation.attributes["targetWidth"]?.integerValue, targetWidth > 0,
+			let spatialScale = operation.attributes["spatialScale"]?.floatingPointValue, spatialScale > 0
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "cropResize requires positive 'targetHeight'/'targetWidth' integers and a positive 'spatialScale'"
+			)
+		}
+		// Absent means unnormalized box coordinates — the form the box arithmetic produces, in feature
+		// pixels once `spatialScale` has been applied.
+		let normalizedROI = operation.attributes["normalizedROI"]?.booleanValue ?? false
+		let samplingMode = CoreMLProtobufEncoder.message { mode in
+			CoreMLProtobufEncoder.appendVarintField(1, value: 3, to: &mode)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(targetHeight), to: &parameters)
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(targetWidth), to: &parameters)
+			if normalizedROI {
+				CoreMLProtobufEncoder.appendVarintField(2, value: 1, to: &parameters)
+			}
+			CoreMLProtobufEncoder.appendMessageField(3, value: samplingMode, to: &parameters)
+			CoreMLProtobufEncoder.appendMessageField(4, value: Data(), to: &parameters)
+			CoreMLProtobufEncoder.appendFloatField(5, value: Float(spatialScale), to: &parameters)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 212, parameters: parameters)
 	}
 
 	/// `a - b`, Core ML's parameterless `SubtractBroadcastableLayerParams` (field 905). The classic

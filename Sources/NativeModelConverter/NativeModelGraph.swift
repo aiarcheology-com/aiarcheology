@@ -196,6 +196,18 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 	/// comparison layer carries one itself; a per-element threshold is a `minimumND`-style two-tensor
 	/// problem and would be a separate operation.
 	case greaterOrEqual
+	/// Bilinear ROI extraction: one fixed-size patch resampled from a feature map per box. The first
+	/// operation with two *heterogeneous* runtime inputs — input 0 is the rank-5 feature map
+	/// `[1, B, C, H, W]` and input 1 the box blob `[K, 1, 4, 1, 1]`, giving `[K, B, C, targetHeight,
+	/// targetWidth]`. Swapping them is not a shape error Core ML catches; it is a different model.
+	///
+	/// Deliberately *only* the crop. torchvision's `roi_align(sampling_ratio=2)` averages 2x2 bilinear
+	/// samples per output bin, which is reproduced by cropping at twice the target size and following
+	/// with a separate `averagePool2D` — a graph-level composition, so neither operation is welded to
+	/// one sampling ratio. Sampling mode and box-coordinate order are pinned at emission
+	/// (ROI_ALIGN_MODE, CORNERS_HEIGHT_FIRST) rather than carried as attributes that could only ever
+	/// hold one legal value.
+	case cropResize
 	case batchNormalization
 	case sigmoid
 	case tanh
@@ -239,6 +251,7 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		case .floor: "floor"
 		case .naturalLogarithm: "log"
 		case .greaterOrEqual: "greaterEqual"
+		case .cropResize: "cropResize"
 		case .batchNormalization: "batchNorm"
 		case .sigmoid: "sigmoid"
 		case .tanh: "tanh"
@@ -290,6 +303,7 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		"floor": .floor,
 		"log": .naturalLogarithm,
 		"greaterEqual": .greaterOrEqual,
+		"cropResize": .cropResize,
 		"batchNorm": .batchNormalization,
 		"sigmoid": .sigmoid,
 		"tanh": .tanh,
@@ -328,6 +342,11 @@ public enum NativeModelAttribute: Codable, Equatable, Sendable {
 	case integers([Int])
 	case floatingPoints([Double])
 	case strings([String])
+
+	public var booleanValue: Bool? {
+		guard case .boolean(let value) = self else { return nil }
+		return value
+	}
 
 	public var integerValue: Int? {
 		guard case .integer(let value) = self else { return nil }
@@ -674,6 +693,15 @@ public struct NativeModelGraphValidator {
 			requirePositiveIntegerArray(operation, name: "scalingFactor", count: 2, issues: &issues)
 		case .batchedMatrixMultiplicationND, .add, .subtract, .multiply, .divide, .minimumND, .maximumND:
 			requireArity(operation, exact: 2, issues: &issues)
+		case .cropResize:
+			// Two inputs, and the arity is exact rather than a range: a crop with only a feature map has
+			// no boxes to crop to, and a third input has nowhere to go.
+			requireArity(operation, exact: 2, issues: &issues)
+			requirePositiveInteger(operation, name: "targetHeight", issues: &issues)
+			requirePositiveInteger(operation, name: "targetWidth", issues: &issues)
+			// A zero or negative scale maps every box onto the same degenerate point; the attribute is
+			// the feature map's stride reciprocal, so it is positive by construction.
+			requirePositiveFloatingPoint(operation, name: "spatialScale", issues: &issues)
 		case .splitND:
 			requireArity(operation, exact: 1, issues: &issues)
 			requireInteger(operation, name: "axis", issues: &issues)
@@ -752,11 +780,16 @@ public struct NativeModelGraphValidator {
 	/// no floor, no comparison, and no subtract at all, so their only Core ML form is a spec-4 layer.
 	/// Admitting them into V1 would mean writing exact-rank layers into a graph whose other layers
 	/// address the rank-5 layout — a mix that compiles and then reads the blob differently.
+	///
+	/// `cropResize` is exact-ND only for a third reason again: its blobs are rank 5 *as data* — the box
+	/// input is `[K, 1, 4, 1, 1]` and the output batches over K — so the legacy mapping, which reads a
+	/// declared rank-4 shape as `[1, C, H, W]`, cannot name those axes at all.
 	private func isValid(_ kind: NativeModelOperationKind, forFormatVersion formatVersion: Int) -> Bool {
 		let exactNDOnly: [NativeModelOperationKind] = [
 			.reshapeND, .transposeND, .concatenateND, .sliceND, .splitND,
 			.batchedMatrixMultiplicationND, .constantND,
-			.minimumND, .maximumND, .floor, .naturalLogarithm, .greaterOrEqual, .subtract
+			.minimumND, .maximumND, .floor, .naturalLogarithm, .greaterOrEqual, .subtract,
+			.cropResize
 		]
 		let legacyLayoutOnly: [NativeModelOperationKind] = [
 			.reshape, .transpose, .concatenate, .sliceChannels, .softmaxChannel, .constant

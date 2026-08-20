@@ -566,6 +566,233 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		assertClose(output, [0.9, 0.5, -1000, -1000], accuracy: 0.001)
 	}
 
+	// MARK: - ROI feature extraction
+
+	func testAveragePool_averagesEachWindowAndKeepsTheNonSquareShape() async throws {
+		// AVERAGE is `PoolingLayerParams.type` 1; leaving the field at its proto3 default emits MAX, which
+		// on this input returns 8, 10, 12, 20, 22, 24 — plausible, larger, and wrong. The 4x6 input pooled
+		// to 2x3 also catches a kernel/stride pair written height-last.
+		let output = try await run(
+			operation: .averagePool2D,
+			attributes: [
+				"kernelSize": .integers([2, 2]),
+				"strides": .integers([2, 2]),
+				"padding": .integers([0, 0])
+			],
+			inputShape: [1, 1, 4, 6], outputShape: [1, 1, 2, 3],
+			values: (1 ... 24).map(Float.init)
+		)
+		assertClose(output, [4.5, 6.5, 8.5, 16.5, 18.5, 20.5])
+	}
+
+	func testAveragePool_dividesByTheRealSamplesOnly() async throws {
+		// The pinned `avgPoolExcludePadding` (field 50), made observable. A 3x3 window at stride 2 over a
+		// padded 4x4 sees 4, 6, 6 and 9 real cells; excluding the padding divides by those counts, giving
+		// 14/4, 30/6, 57/6, 99/9. Including it would divide all four by 9 — 1.56, 3.33, 6.33, 11 — which
+		// is ONNX AveragePool's `count_include_pad=1` and PyTorch's default, and is not what is emitted.
+		let output = try await run(
+			operation: .averagePool2D,
+			attributes: [
+				"kernelSize": .integers([3, 3]),
+				"strides": .integers([2, 2]),
+				"padding": .integers([1, 1])
+			],
+			inputShape: [1, 1, 4, 4], outputShape: [1, 1, 2, 2],
+			values: (1 ... 16).map(Float.init)
+		)
+		assertClose(output, [3.5, 5, 9.5, 11])
+	}
+
+	func testCropResize_overARampMatchesTheAnalyticSamplingGrid() async throws {
+		// The coordinate-convention control, and the only test with a non-square target. Channel 0 of the
+		// feature map is the row index and channel 1 the column index; bilinear interpolation is exact on
+		// an affine function and a bin's 2x2 sub-samples are symmetric about its centre, so every output
+		// cell must come out as its own sample position — analytically `start + (i + 0.5) * extent`. A
+		// swapped box packing then shows up as channel 0 varying along the wrong axis, and a `targetSize`
+		// written width-first as a 6x4 patch, neither of which a square target could tell apart.
+		// [x0, y0, x1, y1] = [1.5, 2.25, 7.5, 6.75], packed CORNERS_HEIGHT_FIRST as [y0, x0, y1, x1].
+		let output = try await roiAlign(
+			featureShape: [1, 1, 2, Self.rampSide, Self.rampSide], features: Self.coordinateRamp,
+			boxes: [[2.25, 1.5, 6.75, 7.5]], outputHeight: 4, outputWidth: 6
+		)
+		assertClose(output, Self.rampSamplingGrid(outputHeight: 4, outputWidth: 6))
+	}
+
+	func testCropResize_appliesTheSpatialScaleToTheBoxCoordinates() async throws {
+		// Boxes arrive in *image* coordinates and `spatialScale` converts them to feature pixels — in a
+		// real FPN it is the level's stride reciprocal, so it differs per level and a dropped one is not
+		// visible at the 1.0 the tests above use. Doubling the box and halving the scale must land on the
+		// identical sampling grid; a scale that divided instead of multiplied would sample four times out.
+		let output = try await roiAlign(
+			featureShape: [1, 1, 2, Self.rampSide, Self.rampSide], features: Self.coordinateRamp,
+			boxes: [[4.5, 3, 13.5, 15]], outputHeight: 4, outputWidth: 6, spatialScale: 0.5
+		)
+		assertClose(output, Self.rampSamplingGrid(outputHeight: 4, outputWidth: 6))
+	}
+
+	private static let rampSide = 10
+
+	/// Channel 0 is the row index and channel 1 the column index, shaped `[1, 1, 2, 10, 10]`.
+	private static let coordinateRamp: [Float] = {
+		var ramp = [Float](repeating: 0, count: 2 * rampSide * rampSide)
+		for row in 0 ..< rampSide {
+			for column in 0 ..< rampSide {
+				ramp[row * rampSide + column] = Float(row)
+				ramp[rampSide * rampSide + row * rampSide + column] = Float(column)
+			}
+		}
+		return ramp
+	}()
+
+	/// The sample position of every output cell for the ROI `[x0, y0, x1, y1] = [1.5, 2.25, 7.5, 6.75]`,
+	/// which is what the coordinate ramp must reproduce: channel 0 the row, channel 1 the column.
+	private static func rampSamplingGrid(outputHeight: Int, outputWidth: Int) -> [Float] {
+		let cells = outputHeight * outputWidth
+		var expected = [Float](repeating: 0, count: 2 * cells)
+		let rowExtent = (6.75 - 2.25) / Float(outputHeight)
+		let columnExtent = (7.5 - 1.5) / Float(outputWidth)
+		for row in 0 ..< outputHeight {
+			for column in 0 ..< outputWidth {
+				expected[row * outputWidth + column] = 2.25 + (Float(row) + 0.5) * rowExtent
+				expected[cells + row * outputWidth + column] = 1.5 + (Float(column) + 0.5) * columnExtent
+			}
+		}
+		return expected
+	}
+
+	func testCropResizeThenAveragePool_matchesTorchvisionRoIAlign() async throws {
+		// The RoIAlign construction, end to end: `cropResize` at 14x14 followed by a 2x2 average pool is
+		// `roi_align(output_size=7, sampling_ratio=2, aligned=False)`, because that sampling ratio averages
+		// exactly the 2x2 bilinear sub-samples the 14x14 crop grid lands on. Two boxes, so a K-indexing
+		// mistake in the [K, 1, 4, 1, 1] box blob cannot pass as a coordinate error.
+		//
+		// Fixture: `.venv-m3a` python (torch 2.8.0, torchvision 0.23.0, coremltools 9.0) — feature map
+		// seeded with numpy default_rng(20260820), expected values from `torchvision.ops.roi_align`
+		// itself. Both boxes are interior: `criterion_edge_rois.overhang` reports 0.0 for each, so the
+		// boundary divergence the next test pins plays no part here.
+		let output = try await roiAlign(
+			featureShape: [1, 1, 1, 8, 8], features: Self.featureMap8x8,
+			boxes: [[0.75, 1.5, 5.5, 6.25], [3.5, 2, 6.9, 6.75]], outputHeight: 7, outputWidth: 7
+		)
+		assertClose(output, [
+			4.19382, 3.70912, 3.38148, 3.47984, 3.65668, 3.81946, 3.81178,
+			2.49284, 2.60012, 2.83532, 3.3557, 2.58873, 2.19378, 3.14934,
+			1.80274, 2.19287, 2.51383, 2.73358, 2.37198, 2.19137, 2.65162,
+			2.03919, 2.41547, 2.50567, 2.22828, 2.63821, 2.85526, 2.34388,
+			3.38059, 3.40899, 3.12648, 2.88494, 2.80706, 2.65432, 2.31443,
+			3.54529, 3.91925, 3.91715, 3.59509, 3.13916, 2.90404, 3.15978,
+			3.35744, 4.08551, 4.38203, 3.91671, 3.14457, 2.94876, 3.94358,
+			3.38166, 3.13471, 2.87955, 2.78347, 2.74488, 2.37677, 2.4409,
+			3.85536, 3.66096, 3.4028, 3.08423, 2.77569, 2.70077, 2.9029,
+			3.9143, 4.21637, 3.94176, 3.4388, 3.01275, 3.46278, 3.62136,
+			3.92331, 4.35561, 4.01086, 3.31685, 2.76467, 3.72086, 3.90918,
+			3.86102, 3.90031, 3.40877, 2.51415, 1.82355, 3.25905, 3.58179,
+			3.63306, 3.46475, 3.10517, 2.29336, 1.58238, 2.8953, 3.22461,
+			3.10138, 3.06538, 3.34881, 3.13941, 2.62447, 2.71132, 2.81282
+		])
+	}
+
+	func testCropResize_zeroesSamplesPastTheFeatureMapEdge() async throws {
+		// A known, measured divergence from `roi_align`, pinned so a Core ML runtime change is caught.
+		// The box [3, 3, 8, 8] over an 8x8 map samples up to 0.82 feature pixels past the last
+		// interpolable row and column (index 7): `roi_align` CLAMPS there, replicating the edge, while
+		// CropResize contributes exactly zero. Every value in this feature map is positive, so the whole
+		// last output row and column coming out as 0 is unmistakably the zeroing rule and not a clamp.
+		//
+		// Measured, not assumed: `scripts/m3a_parity_spike/criterion_edge_rois.py` reproduced each
+		// operator with its own numpy behavioural model and reports the divergence at 0.13–0.34 relative
+		// on edge-touching and overhanging populations (`results/criterion_edge_rois.json`); this single
+		// deliberately overhanging box sits at 0.38. M3c closes it with a replicate ring plus a
+		// one-feature-pixel ROI shift — a zero ring, the obvious-looking fix, only halves it.
+		//
+		// Fixture: `.venv-m3a` python (coremltools 9.0), expected values from that file's
+		// `crop_resize_zero` behavioural model, confirmed against a compiled CropResize to 5.8e-07.
+		let output = try await roiAlign(
+			featureShape: [1, 1, 1, 8, 8], features: Self.featureMap8x8,
+			boxes: [[3, 3, 8, 8]], outputHeight: 7, outputWidth: 7
+		)
+		assertClose(output, [
+			2.62765, 2.44405, 2.84981, 2.60639, 2.24, 1.14053, 0,
+			3.35901, 3.09221, 2.8306, 2.61105, 2.60239, 1.46688, 0,
+			4.20815, 3.76224, 3.09379, 3.35661, 3.77466, 1.82236, 0,
+			3.90329, 3.25042, 2.18425, 2.9335, 3.85429, 1.72625, 0,
+			3.28899, 2.80259, 1.69617, 2.39286, 3.3087, 1.49013, 0,
+			1.58055, 1.73336, 1.48419, 1.35687, 1.34281, 0.704453, 0,
+			0, 0, 0, 0, 0, 0, 0
+		])
+	}
+
+	/// The seeded 8x8 feature map shared by the interior-parity and edge-behaviour tests, so the only
+	/// thing that differs between them is where the box sits. Every value is positive by construction
+	/// (`default_rng(20260820).normal() + 3`), which is what makes a zeroed output cell legible.
+	private static let featureMap8x8: [Float] = [
+		3.967, 4.601, 3.219, 4.144, 1.577, 3.124, 3.967, 3.932,
+		3.03, 5.258, 4.468, 3.46, 3.586, 4.237, 4.04, 1.182,
+		4.949, 1.428, 1.94, 2.429, 3.498, 1.114, 3.164, 3.375,
+		3.31, 0.859, 1.905, 2.46, 1.944, 3.151, 2.23, 1.872,
+		3.11, 2.411, 4.058, 3.379, 3.049, 2.698, 2.212, 3.071,
+		3.63, 1.84, 3.571, 4.685, 4.073, 2.938, 4.267, 3.724,
+		3.256, 2.633, 3.894, 3.678, 2.732, 0.766, 3.763, 2.806,
+		5.438, 1.483, 2.76, 2.66, 3.896, 3.471, 2.256, 2.904
+	]
+
+	/// The RoIAlign construction as a two-operation graph: `cropResize` at twice the target size, then a
+	/// 2x2 `averagePool2D`. It stays a composition rather than one fused operation so neither half is
+	/// welded to a single sampling ratio. `boxes` rows are CORNERS_HEIGHT_FIRST — `[y0, x0, y1, x1]` —
+	/// laid into the `[K, 1, 4, 1, 1]` blob the layer requires.
+	private func roiAlign(
+		featureShape: [Int],
+		features: [Float],
+		boxes: [[Float]],
+		outputHeight: Int,
+		outputWidth: Int,
+		spatialScale: Double = 1
+	) async throws -> [Float] {
+		let batch = featureShape[1]
+		let channels = featureShape[2]
+		let (cropHeight, cropWidth) = (outputHeight * 2, outputWidth * 2)
+		let boxShape = [boxes.count, 1, 4, 1, 1]
+		let outputShape = [boxes.count, batch, channels, outputHeight, outputWidth]
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "test", version: "1"),
+			inputs: [
+				NativeModelTensor(name: "features", dataType: .float32, shape: featureShape),
+				NativeModelTensor(name: "rois", dataType: .float32, shape: boxShape)
+			],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "cropped", kind: .cropResize, inputs: ["features", "rois"],
+					outputs: [NativeModelTensor(
+						name: "cropped", dataType: .float32,
+						shape: [boxes.count, batch, channels, cropHeight, cropWidth]
+					)],
+					attributes: [
+						"targetHeight": .integer(cropHeight),
+						"targetWidth": .integer(cropWidth),
+						"spatialScale": .floatingPoint(spatialScale)
+					]
+				),
+				NativeModelOperation(
+					name: "y", kind: .averagePool2D, inputs: ["cropped"],
+					outputs: [NativeModelTensor(name: "y", dataType: .float32, shape: outputShape)],
+					attributes: [
+						"kernelSize": .integers([2, 2]),
+						"strides": .integers([2, 2]),
+						"padding": .integers([0, 0])
+					]
+				)
+			],
+			outputs: ["y"]
+		)
+		return try await predict(
+			graph: graph, weights: Data(),
+			inputs: ["features": (featureShape, features), "rois": (boxShape, boxes.flatMap { $0 })],
+			outputShape: outputShape
+		)
+	}
+
 	// MARK: - Rejection
 
 	func testLeakyReLU_withoutAlphaIsRejected() {
@@ -611,6 +838,43 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 	func testSubtract_underTheLegacyFormatIsRejected() {
 		assertLegacyFormatRejects(kind: .subtract, inputCount: 2)
 	}
+
+	func testCropResize_underTheLegacyFormatIsRejected() {
+		assertLegacyFormatRejects(kind: .cropResize, attributes: Self.cropResizeAttributes, inputCount: 2)
+	}
+
+	func testCropResize_withOnlyAFeatureMapIsRejected() {
+		// One input is a crop with nothing to crop to. The arity is exact rather than a range because the
+		// second input is not optional the way a convolution's bias is.
+		assertEmissionFails(
+			kind: .cropResize, attributes: Self.cropResizeAttributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion
+		)
+	}
+
+	func testCropResize_withoutATargetSizeIsRejected() {
+		var attributes = Self.cropResizeAttributes
+		attributes["targetHeight"] = nil
+		assertEmissionFails(
+			kind: .cropResize, attributes: attributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2
+		)
+	}
+
+	func testCropResize_withoutASpatialScaleIsRejected() {
+		var attributes = Self.cropResizeAttributes
+		attributes["spatialScale"] = nil
+		assertEmissionFails(
+			kind: .cropResize, attributes: attributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2
+		)
+	}
+
+	private static let cropResizeAttributes: [String: NativeModelAttribute] = [
+		"targetHeight": .integer(14),
+		"targetWidth": .integer(14),
+		"spatialScale": .floatingPoint(1)
+	]
 
 	/// A V2-only operation must be turned away by the graph validator, naming the operation, rather
 	/// than reaching the emitter's layer table — where a legacy graph would otherwise be handed a
@@ -660,17 +924,19 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		kind: NativeModelOperationKind,
 		attributes: [String: NativeModelAttribute],
 		formatVersion: Int = NativeModelGraph.currentFormatVersion,
+		inputCount: Int = 1,
 		file: StaticString = #filePath,
 		line: UInt = #line
 	) {
+		let inputNames = (0 ..< inputCount).map { "x\($0)" }
 		let graph = NativeModelGraph(
 			formatVersion: formatVersion,
 			producer: NativeModelGraphProducer(name: "test", version: "1"),
-			inputs: [NativeModelTensor(name: "x", dataType: .float32, shape: [1, 4, 1, 1])],
+			inputs: inputNames.map { NativeModelTensor(name: $0, dataType: .float32, shape: [1, 4, 1, 1]) },
 			weights: [],
 			operations: [
 				NativeModelOperation(
-					name: "y", kind: kind, inputs: ["x"],
+					name: "y", kind: kind, inputs: inputNames,
 					outputs: [NativeModelTensor(name: "y", dataType: .float32, shape: [1, 4, 1, 1])],
 					attributes: attributes
 				)
