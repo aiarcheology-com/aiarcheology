@@ -262,12 +262,207 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		)
 	}
 
+	/// Emits the model together with a standalone ROI box head chunk beside it, and records in the
+	/// primary model's metadata which companion it needs and how to verify it.
+	///
+	/// Two independent `.mlmodel` files, never a Core ML pipeline: a pipeline stage is embedded in
+	/// the outer model and runs inside the same `prediction` call, which is exactly the in-graph
+	/// chunking AIA-0670 measured as saving nothing. See ``NativeModelROIBoxHeadChunkEmission``.
+	///
+	/// The companion is written first and the primary last. The primary is the discovery anchor — it
+	/// is the file that carries the manifest — so publishing it before the companion exists would
+	/// leave a model advertising a file that is not there.
+	///
+	/// The pair is not production-managed yet: the app's cleanup path removes exactly the model and
+	/// its metadata sidecar, and the CLI reports one model size. Teaching those paths about
+	/// companions is M3c; until then the caller owns the companion's lifetime.
+	@discardableResult
+	public func emit(
+		graph: NativeModelGraph,
+		weights: Data,
+		to outputURL: URL,
+		roiBoxHeadChunk chunk: NativeModelROIBoxHeadChunkEmission
+	) throws -> NativeModelEmissionArtifactSet {
+		guard chunk.fixedBatchSize > 0 else {
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
+				reason: "the chunk's fixed batch size must be positive, got \(chunk.fixedBatchSize)"
+			)
+		}
+		guard chunk.proposalCount > 0 else {
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
+				reason: "the chunk's proposal count must be positive, got \(chunk.proposalCount)"
+			)
+		}
+		// Resolved before anything is written: a name the runtime could not resolve beside the primary
+		// must never reach a shipped manifest.
+		let companionFilename = try Self.companionFilename(for: .roiBoxHeadChunk, besidePrimaryAt: outputURL)
+		let companionURL = outputURL.deletingLastPathComponent().appendingPathComponent(companionFilename)
+
+		// The companion's bytes come first because the primary's manifest records their digest; the
+		// primary therefore cannot be built until the companion is final. Its metadata is its own —
+		// the primary's would state the wrong interface, graph and weights digest for this file — and
+		// it is emitted as a plain neural network, not through the detector overload, which would wrap
+		// it in the network + suppression pipeline it is not.
+		let companionInterface = try resolveEmissionInterface(
+			graph: chunk.graph,
+			classifierLabels: nil,
+			imagePreprocessing: nil,
+			detection: nil,
+			detectionTarget: nil,
+			targetSemanticsIntent: nil
+		)
+		let companionMetadata = try onnxTargetMetadata(
+			source: nil,
+			sourceProvenance: nil,
+			graph: chunk.graph,
+			emittedWeights: chunk.weights,
+			interface: companionInterface
+		)
+		let companionModel = try modelData(
+			graph: chunk.graph,
+			weights: chunk.weights,
+			context: EmissionContext(
+				metadata: companionMetadata,
+				interface: companionInterface,
+				progress: nil,
+				cancellationCheck: nil
+			)
+		)
+		let companionSHA256 = NativeModelConversionChecksums.sha256Hex(of: companionModel)
+
+		let manifest = NativeModelArtifactManifest(companions: [
+			NativeModelArtifactManifest.Companion(
+				role: .roiBoxHeadChunk,
+				filename: companionFilename,
+				sha256: companionSHA256,
+				fixedBatchSize: chunk.fixedBatchSize,
+				proposalCount: chunk.proposalCount,
+				invocationCount: chunk.invocationCount
+			)
+		])
+		let primaryInterface = try resolveEmissionInterface(
+			graph: graph,
+			classifierLabels: nil,
+			imagePreprocessing: nil,
+			detection: nil,
+			detectionTarget: nil,
+			targetSemanticsIntent: nil
+		)
+		// The manifest rides in the primary's target metadata, which makeModel attaches to the model's
+		// outer description — the only description `MLModelDescription` publishes.
+		let primaryMetadata = try metadata(
+			onnxTargetMetadata(
+				source: nil,
+				sourceProvenance: nil,
+				graph: graph,
+				emittedWeights: weights,
+				interface: primaryInterface
+			),
+			addingUserDefined: NativeModelArtifactManifest.userDefinedKey,
+			value: manifest.canonicalJSON()
+		)
+		let primaryModel = try modelData(
+			graph: graph,
+			weights: weights,
+			context: EmissionContext(
+				metadata: primaryMetadata,
+				interface: primaryInterface,
+				progress: nil,
+				cancellationCheck: nil
+			)
+		)
+
+		try companionModel.write(to: companionURL, options: .atomic)
+		try primaryModel.write(to: outputURL, options: .atomic)
+
+		// Byte counts come from the same buffers the digests cover, so a reported size can never
+		// describe different bytes than the reported hash.
+		return NativeModelEmissionArtifactSet(
+			primary: NativeModelEmittedArtifact(
+				role: .primary,
+				url: outputURL,
+				byteCount: UInt64(primaryModel.count),
+				sha256: NativeModelConversionChecksums.sha256Hex(of: primaryModel)
+			),
+			companions: [
+				NativeModelEmittedArtifact(
+					role: .roiBoxHeadChunk,
+					url: companionURL,
+					byteCount: UInt64(companionModel.count),
+					sha256: companionSHA256
+				)
+			]
+		)
+	}
+
+	/// The plain basename a companion takes beside the primary model: `converted.mlmodel` yields
+	/// `converted.roi-box-head-chunk.mlmodel`, following the `<model-name>.metadata.json` sidecar
+	/// convention. The `.mlmodel` extension is fixed rather than inherited because Core ML compiles
+	/// by extension.
+	///
+	/// The manifest records a name the runtime resolves *beside* the primary, so anything that is not
+	/// a plain basename — a path separator, a leading dot that could read as a traversal component —
+	/// is rejected here instead of being written into a shipped model.
+	static func companionFilename(
+		for role: NativeModelEmittedArtifact.Role,
+		besidePrimaryAt primaryURL: URL
+	) throws -> String {
+		let suffix: String
+		switch role {
+		case .primary:
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(reason: "the primary model is not a companion of itself")
+		case .roiBoxHeadChunk:
+			suffix = "roi-box-head-chunk"
+		}
+		let filename = "\(primaryURL.deletingPathExtension().lastPathComponent).\(suffix).mlmodel"
+		guard !filename.contains("/"), !filename.hasPrefix(".") else {
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
+				reason: "'\(filename)' is not a plain filename that resolves beside the primary model"
+			)
+		}
+		return filename
+	}
+
+	/// Returns `metadata` carrying one more `userDefined` entry. Core ML's string map is the only
+	/// place a manifest can travel with the model it describes.
+	private func metadata(
+		_ metadata: NativeModelCoreMLMetadata,
+		addingUserDefined key: String,
+		value: String
+	) -> NativeModelCoreMLMetadata {
+		var userDefined = metadata.userDefined
+		userDefined[key] = value
+		return NativeModelCoreMLMetadata(
+			shortDescription: metadata.shortDescription,
+			versionString: metadata.versionString,
+			author: metadata.author,
+			license: metadata.license,
+			userDefined: userDefined
+		)
+	}
+
 	private func emit(
 		graph: NativeModelGraph,
 		weights: Data,
 		to outputURL: URL,
 		context: EmissionContext
 	) throws {
+		let model = try modelData(graph: graph, weights: weights, context: context)
+		try context.cancellationCheck?()
+		context.progress?(NativeModelConversionProgress(phase: .writingModel))
+		try model.write(to: outputURL, options: .atomic)
+		context.progress?(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
+	}
+
+	/// Validates the graph against the emitter's contract and serializes it, without touching disk.
+	///
+	/// Separated from writing so a multi-artifact emission can build every file's bytes — and hash
+	/// them — before any of them is published.
+	private func modelData(
+		graph: NativeModelGraph,
+		weights: Data,
+		context: EmissionContext
+	) throws -> Data {
 		try context.cancellationCheck?()
 		let validation = NativeModelGraphValidator().validate(graph)
 		guard validation.isConvertible else {
@@ -295,7 +490,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			return tensor
 		}
 
-		let model = try makeModel(
+		return try makeModel(
 			input: ModelBuildInput(
 				inputTensors: graph.inputs,
 				outputTensors: outputTensors,
@@ -305,10 +500,6 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			),
 			context: context
 		)
-		try context.cancellationCheck?()
-		context.progress?(NativeModelConversionProgress(phase: .writingModel))
-		try model.write(to: outputURL, options: .atomic)
-		context.progress?(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
 	}
 
 	private func tensorIndex(for graph: NativeModelGraph) -> [String: NativeModelTensor] {
@@ -2169,6 +2360,7 @@ public enum NativeModelCoreMLEmissionError: Error, Equatable, LocalizedError, Se
 	case invalidConvolution(operation: String, reason: String)
 	case invalidOperation(operation: String, reason: String)
 	case invalidDetectionInterface(reason: String)
+	case invalidArtifactSet(reason: String)
 	case outputFileSizeUnavailable(String)
 
 	public var errorDescription: String? {
@@ -2191,6 +2383,8 @@ public enum NativeModelCoreMLEmissionError: Error, Equatable, LocalizedError, Se
 			"Operation '\(operation)' is invalid: \(reason)."
 		case .invalidDetectionInterface(let reason):
 			"The detection interface is invalid: \(reason)."
+		case .invalidArtifactSet(let reason):
+			"The emitted artifact set is invalid: \(reason)."
 		case .outputFileSizeUnavailable(let file):
 			"The emitted model '\(file)' could not be measured."
 		}
