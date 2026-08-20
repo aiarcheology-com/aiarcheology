@@ -1,34 +1,26 @@
 Build: TBD
 
-Test Focus 1 (NEW, look hardest here): what the app says about a PyTorch model file.
+Test Focus 1 (NEW): nothing should look different - and that is the test.
 
-This build changed how model checkpoints are read. Nothing about it is visible on screen except the
-message you get when you import one - so that message IS the test.
+This build adds the arithmetic that will one day resize an aerial image for an ADAF detector and put
+the detected boxes back in the right place. None of it is wired into the app yet, on purpose, so
+there is no new screen, no new setting and no new message anywhere. What matters is that detection
+you already rely on is EXACTLY as it was.
 
-1. Download from URL (Model Import > Download from URL) using:
-   https://zenodo.org/records/15848663/files/OD_ringfort.tar?download=1
-   It is ~518 MB, so use Wi-Fi. When it finishes the app must refuse it, saying it "describes
-   itself as an ADAF Ringfort detection model" and that converting it is not supported yet. A
-   cryptic failure, a hang, or a message naming no model is the bug. Refusing is correct.
+1. Run a detection over a page you have used before, with the same model and the same tiling
+   settings (Settings > Tiled detection). Boxes must sit where they sat in the last build. A box
+   drifting, shifting up or down the page, or landing in the wrong tile is the single most serious
+   thing you can find here - photograph it beside the old build if you can.
 
-2. Try OD_barrow.tar and OD_AO.tar from the same record: they must say "Barrow" and
-   "All archaeology". A WRONG name here matters more than any other result in this build.
+2. Do it once with Pyramid only, once with 3x3 only, and once with both on. Then rotate the device
+   and repeat: portrait and landscape must both be right. Tiling changes how many passes run, so a
+   fault that only appears in one of these is exactly what we are looking for.
 
-3. Rename OD_ringfort.tar to anything else before importing. It must still say "Ringfort" - the name
-   comes from inside the file, not from the filename.
+3. Check both a tall page and a wide one, and a page you have to scroll. Labels and counts must
+   match what you saw before.
 
-4. Try one HRNet file from that record (the long ..._with_Transformation.tar): it must say
-   "image segmentation model" and that those are not supported - a DIFFERENT message from item 1.
-
-5. Feed it something that is not a model - a photo renamed to .tar. It must fail the ordinary
-   import failure (NOT the messages above), promptly, with no hang and no cleanup left behind.
-
-6. Watch memory and battery during 1-4: reading these files should be quick and must NOT feel like
-   the app is loading half a gigabyte. If the app is killed while importing, tell us at once.
-
-7. Model import you already rely on must be UNCHANGED: .mlmodel and .onnx by URL, Open Catalog, and
-   Files import. A model that imported before and is refused now is the most serious thing you can
-   find. The download hint still reads ".mlmodel or .onnx" - check it in each language you read.
+If detection behaves as it always did, this build has passed its own test. Report anything that
+moved.
 
 Test Focus 2: sharing a finding as a link.
 
