@@ -176,6 +176,32 @@ final class NativeModelEmittedArtifactsTests: XCTestCase {
 		XCTAssertEqual(FileManager.default.fileExists(atPath: modelURL.path), false)
 	}
 
+	func testEmitWithROIBoxHeadChunk_rejectsAnInputBatchedAtNeitherTheBatchNorOne() throws {
+		let modelURL = try temporaryDirectory().appendingPathComponent("converted.mlmodel")
+		// One input declaring the batch is necessary but not sufficient. The real chunk mixes both
+		// extents — the ROIs are batched at B while the four FPN feature maps are shared at 1 — so the
+		// check cannot demand the batch everywhere. That leaves room for a third value to pass unnoticed,
+		// which is what this pins: 91 is neither 52 nor 1, and the runtime would have nothing to bind it
+		// to.
+		XCTAssertThrowsError(try NativeModelCoreMLEmitter().emit(
+			graph: primaryGraph(), weights: Data(), to: modelURL,
+			roiBoxHeadChunk: chunk(fixedBatchSize: 52, additionalInputBatchExtent: 91)
+		)) { error in
+			guard case .invalidArtifactSet(let reason) = error as? NativeModelCoreMLEmissionError else {
+				return XCTFail("expected an invalidArtifactSet failure, got \(error)")
+			}
+			XCTAssertEqual(reason.contains("91"), true, reason)
+		}
+		XCTAssertEqual(FileManager.default.fileExists(atPath: modelURL.path), false)
+
+		// The shared-at-1 case is the one that must keep working, or the check has rejected the model it
+		// exists to protect.
+		XCTAssertNoThrow(try NativeModelCoreMLEmitter().emit(
+			graph: primaryGraph(), weights: Data(), to: modelURL,
+			roiBoxHeadChunk: chunk(fixedBatchSize: 52, additionalInputBatchExtent: 1)
+		))
+	}
+
 	func testEmitWithROIBoxHeadChunk_rejectsABatchSizeTheChunkGraphDoesNotDeclare() throws {
 		let modelURL = try temporaryDirectory().appendingPathComponent("converted.mlmodel")
 		// The manifest is an instruction — "send 91 proposals per invocation" — and nothing but this check
@@ -275,14 +301,21 @@ final class NativeModelEmittedArtifactsTests: XCTestCase {
 	private func chunk(
 		fixedBatchSize: Int = 52,
 		proposalCount: Int = 1000,
-		declaredBatchExtent: Int? = nil
+		declaredBatchExtent: Int? = nil,
+		additionalInputBatchExtent: Int? = nil
 	) -> NativeModelROIBoxHeadChunkEmission {
 		let shape = [max(declaredBatchExtent ?? fixedBatchSize, 1), 4, 1, 1]
 		let identity = (0 ..< 4).flatMap { row in (0 ..< 4).map { Float($0 == row ? 1 : 0) } }
 		let graph = NativeModelGraph(
 			formatVersion: 1,
 			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
-			inputs: [NativeModelTensor(name: "proposal_features", dataType: .float32, shape: shape)],
+			inputs: [NativeModelTensor(name: "proposal_features", dataType: .float32, shape: shape)]
+				// A second runtime input, for the case where one input carries the batch and another
+				// declares something else entirely. It is never consumed by an operation, which does not
+				// matter: the batch-contract checks run before the graph is validated or built.
+				+ (additionalInputBatchExtent.map {
+					[NativeModelTensor(name: "level_weights", dataType: .float32, shape: [$0, 4, 1, 1])]
+				} ?? []),
 			weights: [
 				NativeModelWeight(name: "projection", dataType: .float32, shape: [4, 4, 1, 1], offset: 0, byteCount: 64),
 				NativeModelWeight(name: "offsets", dataType: .float32, shape: [4], offset: 64, byteCount: 16)

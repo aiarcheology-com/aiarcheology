@@ -317,10 +317,23 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		// The manifest is an instruction to the runtime: send `fixedBatchSize` proposals per invocation.
 		// Nothing else ties that number to the model it is written beside, so a chunk graph declaring a
 		// different batch extent would ship a manifest Core ML refuses at input-binding time.
+		//
+		// "At least one input" rather than "every input", because the two are different shapes and only
+		// one of them is this graph: the ROI and level-weight inputs are batched per proposal, while the
+		// four FPN feature maps are shared across the whole batch and declare a leading extent of 1.
+		// Demanding the batch everywhere would reject the very model this overload exists to emit. But
+		// `contains` alone would also accept a stray input declaring some third extent, so anything that
+		// is neither the batch nor the shared 1 is refused by name.
 		let declaredBatchExtents = chunk.graph.inputs.compactMap(\.shape.first)
 		guard declaredBatchExtents.contains(chunk.fixedBatchSize) else {
 			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
 				reason: "the manifest would ask the runtime for batches of \(chunk.fixedBatchSize), but no chunk input declares that leading extent (declared: \(declaredBatchExtents))"
+			)
+		}
+		let unbatchable = declaredBatchExtents.filter { $0 != chunk.fixedBatchSize && $0 != 1 }
+		guard unbatchable.isEmpty else {
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
+				reason: "every chunk input must be batched at \(chunk.fixedBatchSize) or shared at 1, but \(unbatchable) is neither"
 			)
 		}
 		// Resolved before anything is written: a name the runtime could not resolve beside the primary
@@ -405,7 +418,19 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		)
 
 		try companionModel.write(to: companionURL, options: .atomic)
-		try primaryModel.write(to: outputURL, options: .atomic)
+		do {
+			try primaryModel.write(to: outputURL, options: .atomic)
+		} catch {
+			// The companion was published for a primary that never arrived. Take it back rather than
+			// leave a file nothing names: on a fresh directory this restores the pre-emission state
+			// exactly. It cannot do so when an *existing* pair was being replaced — the old companion's
+			// bytes are already gone — which is why the emission is documented as non-atomic against a
+			// live pair, and why a consumer is expected to verify the manifest digest rather than trust
+			// the file beside it. Best effort by construction: the write failed, so the filesystem is
+			// already misbehaving, and a failure to clean up must not replace the error that explains it.
+			try? FileManager.default.removeItem(at: companionURL)
+			throw error
+		}
 
 		// Byte counts come from the same buffers the digests cover, so a reported size can never
 		// describe different bytes than the reported hash.
