@@ -982,7 +982,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			try concatenateNDLayer(for: operation)
 		case .leakyReLU, .sigmoid, .exponential, .multiply, .reshape, .transpose, .sliceChannels, .softmaxChannel, .upsample2D,
 			.reshapeND, .transposeND, .sliceND, .splitND, .batchedMatrixMultiplicationND,
-			.floor, .naturalLogarithm, .greaterOrEqual, .minimumND, .maximumND, .subtract, .cropResize:
+			.floor, .naturalLogarithm, .greaterOrEqual, .minimumND, .maximumND, .subtract, .cropResize,
+			.topK, .gather:
 			try detectionLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
@@ -1384,7 +1385,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	}
 
 	/// Routes the elementwise and mask primitives the box arithmetic is built from — FPN level
-	/// assignment, small-box filtering, and coordinate clipping — plus the ROI crop those boxes feed.
+	/// assignment, small-box filtering, and coordinate clipping — plus the ROI crop those boxes feed and
+	/// the top-K/gather pair that decides which boxes reach it at all.
 	/// A third router rather than more cases in the two above it, for the same reason those were split:
 	/// to stay inside the cyclomatic-complexity limit, which the router above is already at.
 	private func boxArithmeticLayer(for operation: NativeModelOperation) throws -> Data {
@@ -1396,6 +1398,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		case .maximumND: try elementwiseBoundLayer(for: operation, parameterField: 875)
 		case .subtract: try subtractLayer(for: operation)
 		case .cropResize: try cropResizeLayer(for: operation)
+		case .topK: try topKLayer(for: operation)
+		case .gather: try gatherLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
 				operation: operation.name,
@@ -1505,6 +1509,73 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			CoreMLProtobufEncoder.appendFloatField(5, value: Float(spatialScale), to: &parameters)
 		}
 		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 212, parameters: parameters)
+	}
+
+	/// Core ML's `TopK` (layer field 1015): the `k` largest values along `axis` and the source index of
+	/// each. Two outputs, values first and indices second — not a choice this emitter makes, but the
+	/// layer's own rule: Core ML's validator rejects any other count outright ("Layer 'tk' of type 1015
+	/// has 1 outputs but expects exactly 2", measured on a compiled model with coremltools 9.0). So a
+	/// values-only emitter fails to compile, while a swapped one compiles and returns ranks as scores.
+	///
+	/// `TopKLayerParams` field numbers verified against coremltools 9.0's `NeuralNetwork_pb2.TopKLayerParams`
+	/// descriptor: axis = 1 (int64), K = 2 (uint64), useBottomK = 3 (bool). `useBottomK` stays at its
+	/// proto3 default of false; the bottom-k form is the same layer returning the K *smallest* values and
+	/// would compile identically.
+	///
+	/// Values come back in descending order (measured on that same probe). Which of two *equal* values
+	/// wins is not part of the contract — nothing in the parameters orders them — so a graph that depends
+	/// on tie order is depending on an unspecified detail.
+	private func topKLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard operation.outputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "topK produces exactly two outputs: the values, then their source indices"
+			)
+		}
+		guard let k = operation.attributes["k"]?.integerValue, k > 0,
+			let axis = operation.attributes["axis"]?.integerValue, axis >= 0
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "topK requires a positive 'k' and a non-negative 'axis' (the reader normalizes negative axes)"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(axis), to: &parameters)
+			CoreMLProtobufEncoder.appendVarintField(2, value: UInt64(k), to: &parameters)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 1015, parameters: parameters)
+	}
+
+	/// Core ML's `Gather` (layer field 930): input 0 is the data blob, input 1 the indices, and the output
+	/// takes the indices tensor's shape in place of `data`'s `axis`. Its rank is therefore
+	/// `data.rank - 1 + indices.rank` — the same expression coremltools' own `add_gather` records for the
+	/// output — so rank-2 indices over rank-2 data give a rank-3 result. Nothing here recomputes that: the
+	/// emitter declares the shape the graph already carries, and Core ML rejects a declaration that
+	/// disagrees. The two inputs are not interchangeable and a swap still compiles whenever both ranks
+	/// permit it.
+	///
+	/// `GatherLayerParams` has exactly one field, axis = 1 (int64), verified against coremltools 9.0's
+	/// `NeuralNetwork_pb2.GatherLayerParams` descriptor. Indices ride in an ordinary float blob — the
+	/// neural-network spec has no integer blob — and the layer truncates them.
+	private func gatherLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "gather requires exactly two inputs: the data blob and the indices"
+			)
+		}
+		guard let axis = operation.attributes["axis"]?.integerValue, axis >= 0 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "gather requires a non-negative 'axis' (the reader normalizes negative axes)"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(axis), to: &parameters)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 930, parameters: parameters)
 	}
 
 	/// `a - b`, Core ML's parameterless `SubtractBroadcastableLayerParams` (field 905). The classic

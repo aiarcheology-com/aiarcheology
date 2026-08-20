@@ -50,6 +50,21 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		inputs: [String: ([Int], [Float])],
 		outputShape: [Int]
 	) async throws -> [Float] {
+		let outputs = try await predict(
+			graph: graph, weights: weights, inputs: inputs, outputShapes: ["y": outputShape]
+		)
+		return try XCTUnwrap(outputs["y"])
+	}
+
+	/// The multi-output form. `topK` is why it exists: a harness that can only read a blob called `y`
+	/// makes no assertion an emitter wiring output 0 alone would fail, so every declared output is read
+	/// back by name and shape-checked.
+	private func predict(
+		graph: NativeModelGraph,
+		weights: Data,
+		inputs: [String: ([Int], [Float])],
+		outputShapes: [String: [Int]]
+	) async throws -> [String: [Float]] {
 		let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
 		addTeardownBlock { try? FileManager.default.removeItem(at: url) }
 		try NativeModelCoreMLEmitter().emit(graph: graph, weights: weights, to: url)
@@ -68,9 +83,16 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 			features[name] = MLFeatureValue(multiArray: array)
 		}
 		let prediction = try await model.prediction(from: try MLDictionaryFeatureProvider(dictionary: features))
-		let output = try XCTUnwrap(prediction.featureValue(for: "y")?.multiArrayValue)
-		XCTAssertEqual(output.shape.map(\.intValue), outputShape, "The emitted output shape drifted from the graph's declaration.")
-		return (0 ..< output.count).map { output[$0].floatValue }
+		var results: [String: [Float]] = [:]
+		for (name, shape) in outputShapes {
+			let output = try XCTUnwrap(prediction.featureValue(for: name)?.multiArrayValue)
+			XCTAssertEqual(
+				output.shape.map(\.intValue), shape,
+				"The emitted '\(name)' shape drifted from the graph's declaration."
+			)
+			results[name] = (0 ..< output.count).map { output[$0].floatValue }
+		}
+		return results
 	}
 
 	private func assertClose(_ actual: [Float], _ expected: [Float], accuracy: Float = 0.0005, file: StaticString = #filePath, line: UInt = #line) {
@@ -793,6 +815,176 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		)
 	}
 
+	// MARK: - Multi-output arity
+
+	func testSplitND_withThreeOutputsSplitsByItsOwnSizes() async throws {
+		// The output-count rule became a table when `topK` joined `splitND` as a multi-output operation.
+		// splitND's row is the one with no other unskipped coverage — the graphs that exercise it are the
+		// fixture-gated trunk conversions — so this pins that an uneven three-way split is still admitted
+		// and still cut at its declared sizes. A rule collapsed to "exactly one" or "exactly two" outputs
+		// would reject this graph outright rather than mis-split it.
+		let outputNames = ["first", "second", "third"]
+		let outputShapes = [[1, 1], [1, 2], [1, 3]]
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "test", version: "1"),
+			inputs: [NativeModelTensor(name: "x", dataType: .float32, shape: [1, 6])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "split", kind: .splitND, inputs: ["x"],
+					outputs: zip(outputNames, outputShapes).map {
+						NativeModelTensor(name: $0.0, dataType: .float32, shape: $0.1)
+					},
+					attributes: ["axis": .integer(1), "splitSizes": .integers([1, 2, 3])]
+				)
+			],
+			outputs: outputNames
+		)
+		let outputs = try await predict(
+			graph: graph, weights: Data(), inputs: ["x": ([1, 6], [1, 2, 3, 4, 5, 6])],
+			outputShapes: Dictionary(uniqueKeysWithValues: zip(outputNames, outputShapes))
+		)
+		assertClose(try XCTUnwrap(outputs["first"]), [1])
+		assertClose(try XCTUnwrap(outputs["second"]), [2, 3])
+		assertClose(try XCTUnwrap(outputs["third"]), [4, 5, 6])
+	}
+
+	// MARK: - Proposal selection
+
+	// `topK` picks the K best-scoring proposals and `gather` fetches the rows they name. Both are
+	// exact-ND only: the classic layer set has neither, and gather's output rank varies with its index
+	// blob (see the rejection section).
+
+	func testTopK_returnsTheLargestValuesAndTheirSourceIndices() async throws {
+		// Both outputs are asserted. A values-only emitter would satisfy everything an assertion about
+		// the values can say — and Core ML rejects such a layer anyway — but one that wrote the two output
+		// names in the wrong order compiles and hands the next operation ranks where scores belong, which
+		// only the indices assertion catches.
+		//
+		// The six values are unique on purpose: nothing in `TopKLayerParams` orders equal values, so a tie
+		// would be asserting an unspecified detail. Observed and deliberately NOT asserted: on this
+		// runtime equal values come back in ascending source-index order.
+		//
+		// Fixture: `.venv-m3a` python (numpy 2.0.2, coremltools 9.0). Expected values are
+		// `np.sort(x)[::-1][:3]` and indices `np.argsort(-x)[:3]`, confirmed identical to a compiled
+		// `NeuralNetworkBuilder.add_topk(k=3, axis=1)` probe predicted on CPU.
+		let outputs = try await topK(input: ([1, 6], [3, 9, 1, 7, 5, 2]), k: 3, axis: 1, outputShape: [1, 3])
+		assertClose(try XCTUnwrap(outputs["values"]), [9, 7, 5])
+		assertClose(try XCTUnwrap(outputs["indices"]), [1, 3, 4])
+	}
+
+	func testTopK_ranksAlongTheSelectedAxisAndNotTheDefaultZero() async throws {
+		// The same layer over a [4, 2] blob at axis 0 ranks each column independently and cuts the row
+		// count to k. A single flat sort would give [9, 8] rather than the interleaved [9, 8, 5, 6], and a
+		// dropped axis field would rank the wrong dimension at a shape the declaration does not match.
+		// Fixture: same venv — `-np.sort(-y, axis=0)[:2]` and `np.argsort(-y, axis=0)[:2]`.
+		let outputs = try await topK(
+			input: ([4, 2], [1, 8, 5, 2, 9, 4, 3, 6]), k: 2, axis: 0, outputShape: [2, 2]
+		)
+		assertClose(try XCTUnwrap(outputs["values"]), [9, 8, 5, 6])
+		assertClose(try XCTUnwrap(outputs["indices"]), [2, 0, 1, 3])
+	}
+
+	func testGather_selectsRowsByIndexAndNotByPosition() async throws {
+		// [2, 0, 3] is deliberately neither sorted nor the identity, and is one shorter than the data's row
+		// count: an emitter that ignored the indices blob would return the first three rows, which has the
+		// same shape and equally plausible values.
+		// Fixture: `.venv-m3a` python (numpy 2.0.2, coremltools 9.0),
+		// `np.take(np.arange(12).reshape(4, 3), [2, 0, 3], axis=0)`, confirmed against a compiled
+		// `NeuralNetworkBuilder.add_gather` probe.
+		let output = try await gather(
+			data: ([4, 3], Self.rowMajorRange12), indices: ([3], [2, 0, 3]),
+			axis: 0, outputShape: [3, 3]
+		)
+		assertClose(output, [6, 7, 8, 0, 1, 2, 9, 10, 11])
+	}
+
+	func testGather_appliesTheSelectedAxisAndNotTheDefaultZero() async throws {
+		// The same data along axis 1 selects columns, so both the shape and the values differ from the
+		// axis-0 case; a dropped axis field (proto3 default 0) cannot pass here.
+		let output = try await gather(
+			data: ([4, 3], Self.rowMajorRange12), indices: ([2], [2, 0]),
+			axis: 1, outputShape: [4, 2]
+		)
+		assertClose(output, [2, 0, 5, 3, 8, 6, 11, 9])
+	}
+
+	func testGather_withRankTwoIndicesRaisesTheOutputRank() async throws {
+		// The rank rule made observable rather than merely documented: `data.rank - 1 + indices.rank` is
+		// 2 − 1 + 2 = 3, so a rank-2 index blob over rank-2 data produces a rank-3 result. The shape check
+		// inside `predict` is what proves the declared [2, 2, 3] is what Core ML really returns.
+		// Fixture: `np.take(np.arange(12).reshape(4, 3), [[2, 0], [1, 3]], axis=0)`, same venv, confirmed
+		// against the compiled probe.
+		let output = try await gather(
+			data: ([4, 3], Self.rowMajorRange12), indices: ([2, 2], [2, 0, 1, 3]),
+			axis: 0, outputShape: [2, 2, 3]
+		)
+		assertClose(output, [6, 7, 8, 0, 1, 2, 3, 4, 5, 9, 10, 11])
+	}
+
+	/// Four rows of three consecutive values, so a gathered row is legible at a glance and no two rows
+	/// share a value.
+	private static let rowMajorRange12 = (0 ..< 12).map(Float.init)
+
+	/// One `topK` over a single input, returning both of its outputs by name.
+	private func topK(
+		input: ([Int], [Float]),
+		k: Int,
+		axis: Int,
+		outputShape: [Int]
+	) async throws -> [String: [Float]] {
+		let outputNames = ["values", "indices"]
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "test", version: "1"),
+			inputs: [NativeModelTensor(name: "x", dataType: .float32, shape: input.0)],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "selected", kind: .topK, inputs: ["x"],
+					outputs: outputNames.map { NativeModelTensor(name: $0, dataType: .float32, shape: outputShape) },
+					attributes: ["k": .integer(k), "axis": .integer(axis)]
+				)
+			],
+			outputs: outputNames
+		)
+		return try await predict(
+			graph: graph, weights: Data(), inputs: ["x": input],
+			outputShapes: Dictionary(uniqueKeysWithValues: outputNames.map { ($0, outputShape) })
+		)
+	}
+
+	/// One `gather` over two runtime inputs, in the layer's order: data first, indices second.
+	private func gather(
+		data: ([Int], [Float]),
+		indices: ([Int], [Float]),
+		axis: Int,
+		outputShape: [Int]
+	) async throws -> [Float] {
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "test", version: "1"),
+			inputs: [
+				NativeModelTensor(name: "data", dataType: .float32, shape: data.0),
+				NativeModelTensor(name: "indices", dataType: .float32, shape: indices.0)
+			],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "y", kind: .gather, inputs: ["data", "indices"],
+					outputs: [NativeModelTensor(name: "y", dataType: .float32, shape: outputShape)],
+					attributes: ["axis": .integer(axis)]
+				)
+			],
+			outputs: ["y"]
+		)
+		return try await predict(
+			graph: graph, weights: Data(),
+			inputs: ["data": data, "indices": indices], outputShape: outputShape
+		)
+	}
+
 	// MARK: - Rejection
 
 	func testLeakyReLU_withoutAlphaIsRejected() {
@@ -870,6 +1062,72 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		)
 	}
 
+	func testTopK_underTheLegacyFormatIsRejected() {
+		assertLegacyFormatRejects(kind: .topK, attributes: Self.topKAttributes)
+	}
+
+	func testGather_underTheLegacyFormatIsRejected() {
+		assertLegacyFormatRejects(kind: .gather, attributes: Self.gatherAttributes, inputCount: 2)
+	}
+
+	func testTopK_withASingleOutputIsRejected() {
+		// The generalised output-arity rule. One output is not "the values now, the indices later": Core
+		// ML rejects a topK layer with any count but two, so the graph contract refuses it first, naming
+		// the operation rather than surfacing a Core ML compiler message.
+		assertEmissionFails(
+			kind: .topK, attributes: Self.topKAttributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion
+		)
+	}
+
+	func testTopK_withoutAPositiveKIsRejected() {
+		var attributes = Self.topKAttributes
+		attributes["k"] = .integer(0)
+		assertEmissionFails(
+			kind: .topK, attributes: attributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, outputCount: 2
+		)
+	}
+
+	func testTopK_withoutAnAxisIsRejected() {
+		var attributes = Self.topKAttributes
+		attributes["axis"] = nil
+		assertEmissionFails(
+			kind: .topK, attributes: attributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, outputCount: 2
+		)
+	}
+
+	func testTopK_withASecondInputIsRejected() {
+		// Core ML's layer takes an optional second input carrying K. The graph contract does not, because
+		// a runtime K leaves every downstream extent undeclarable — so the arity here is exact.
+		assertEmissionFails(
+			kind: .topK, attributes: Self.topKAttributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2, outputCount: 2
+		)
+	}
+
+	func testGather_withOnlyADataInputIsRejected() {
+		assertEmissionFails(
+			kind: .gather, attributes: Self.gatherAttributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion
+		)
+	}
+
+	func testGather_withoutAnAxisIsRejected() {
+		assertEmissionFails(
+			kind: .gather, attributes: [:],
+			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2
+		)
+	}
+
+	private static let topKAttributes: [String: NativeModelAttribute] = [
+		"k": .integer(2),
+		"axis": .integer(1)
+	]
+
+	private static let gatherAttributes: [String: NativeModelAttribute] = ["axis": .integer(0)]
+
 	private static let cropResizeAttributes: [String: NativeModelAttribute] = [
 		"targetHeight": .integer(14),
 		"targetWidth": .integer(14),
@@ -925,10 +1183,14 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		attributes: [String: NativeModelAttribute],
 		formatVersion: Int = NativeModelGraph.currentFormatVersion,
 		inputCount: Int = 1,
+		outputCount: Int = 1,
 		file: StaticString = #filePath,
 		line: UInt = #line
 	) {
 		let inputNames = (0 ..< inputCount).map { "x\($0)" }
+		// A multi-output operation has to declare all of its outputs here, or the arity rule fails the
+		// graph before the attribute actually under test is ever read.
+		let outputNames = outputCount == 1 ? ["y"] : (0 ..< outputCount).map { "y\($0)" }
 		let graph = NativeModelGraph(
 			formatVersion: formatVersion,
 			producer: NativeModelGraphProducer(name: "test", version: "1"),
@@ -937,11 +1199,11 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 			operations: [
 				NativeModelOperation(
 					name: "y", kind: kind, inputs: inputNames,
-					outputs: [NativeModelTensor(name: "y", dataType: .float32, shape: [1, 4, 1, 1])],
+					outputs: outputNames.map { NativeModelTensor(name: $0, dataType: .float32, shape: [1, 4, 1, 1]) },
 					attributes: attributes
 				)
 			],
-			outputs: ["y"]
+			outputs: outputNames
 		)
 		let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
 		defer { try? FileManager.default.removeItem(at: url) }

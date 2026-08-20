@@ -208,6 +208,22 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 	/// (ROI_ALIGN_MODE, CORNERS_HEIGHT_FIRST) rather than carried as attributes that could only ever
 	/// hold one legal value.
 	case cropResize
+	/// The `k` largest values along `axis`, and the source index of each. The second operation in this
+	/// IR with more than one output, and the first whose outputs mean different things: output 0 carries
+	/// the values and output 1 the indices, each with the input's rank and `axis` reduced to `k`. Wiring
+	/// only the values does not compile — Core ML requires exactly two outputs — but swapping the two
+	/// does, and then everything downstream reads ranks where it expects scores.
+	///
+	/// `k` is an attribute rather than the second runtime input the layer also accepts: a data-dependent
+	/// K makes every downstream extent dynamic, which a fixed-shape graph has no way to declare.
+	case topK
+	/// Slices of the first input selected by index from the second — what turns `topK`'s indices back
+	/// into the rows they came from. Two runtime inputs that are not interchangeable, and the only
+	/// operation whose output rank is not simply the data input's: it is `data.rank - 1 + indices.rank`,
+	/// because the indices tensor's own shape takes the place of the gathered axis. So rank-2 indices
+	/// over rank-2 data produce a rank-3 result. Indices travel in an ordinary float blob — the
+	/// neural-network spec has no integer one — and are truncated by the layer.
+	case gather
 	case batchNormalization
 	case sigmoid
 	case tanh
@@ -252,6 +268,8 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		case .naturalLogarithm: "log"
 		case .greaterOrEqual: "greaterEqual"
 		case .cropResize: "cropResize"
+		case .topK: "topK"
+		case .gather: "gather"
 		case .batchNormalization: "batchNorm"
 		case .sigmoid: "sigmoid"
 		case .tanh: "tanh"
@@ -304,6 +322,8 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		"log": .naturalLogarithm,
 		"greaterEqual": .greaterOrEqual,
 		"cropResize": .cropResize,
+		"topK": .topK,
+		"gather": .gather,
 		"batchNorm": .batchNormalization,
 		"sigmoid": .sigmoid,
 		"tanh": .tanh,
@@ -652,6 +672,47 @@ public struct NativeModelGraphValidator {
 		}
 	}
 
+	/// How many output tensors an operation may declare.
+	private enum OutputArity {
+		case one
+		case two
+		case twoOrMore
+
+		func admits(_ outputCount: Int) -> Bool {
+			switch self {
+			case .one: outputCount == 1
+			case .two: outputCount == 2
+			case .twoOrMore: outputCount >= 2
+			}
+		}
+
+		var expectation: String {
+			switch self {
+			case .one: "exactly one output"
+			case .two: "exactly two outputs"
+			case .twoOrMore: "at least two outputs"
+			}
+		}
+	}
+
+	/// The output rule for one operation kind.
+	///
+	/// Multi-output used to be a single `splitND` branch written inline in the arity check. `topK` is the
+	/// second, and a second inline branch would spread the answer to "how many outputs" across as many
+	/// places as there are multi-output operations — each free to disagree. This is the one place that
+	/// answers it: a kind named here carries its own rule, everything else produces exactly one output,
+	/// and the next multi-output operation is a line in this switch with the check below untouched.
+	private func outputArity(of kind: NativeModelOperationKind) -> OutputArity {
+		switch kind {
+		// One blob per split size; that the count matches `splitSizes` is checked with the attributes.
+		case .splitND: .twoOrMore
+		// Values then indices. Core ML's own validator rejects a topK layer with any other output count
+		// ("has 1 outputs but expects exactly 2"), so this is the layer's rule rather than a house one.
+		case .topK: .two
+		default: .one
+		}
+	}
+
 	private func validateOperationSignature(
 		_ operation: NativeModelOperation,
 		knownTensors: [String: NativeModelTensor],
@@ -659,16 +720,12 @@ public struct NativeModelGraphValidator {
 	) {
 		guard operation.kind.isSupported else { return }
 
-		if operation.kind == .splitND {
-			guard operation.outputs.count >= 2 else {
-				issues.append(.invalidArity(operation: operation.name, expected: "at least two outputs", actual: operation.outputs.count))
-				return
-			}
-		} else {
-			guard operation.outputs.count == 1 else {
-				issues.append(.invalidArity(operation: operation.name, expected: "exactly one output", actual: operation.outputs.count))
-				return
-			}
+		let outputArity = outputArity(of: operation.kind)
+		guard outputArity.admits(operation.outputs.count) else {
+			issues.append(.invalidArity(
+				operation: operation.name, expected: outputArity.expectation, actual: operation.outputs.count
+			))
+			return
 		}
 
 		switch operation.kind {
@@ -706,6 +763,18 @@ public struct NativeModelGraphValidator {
 			requireArity(operation, exact: 1, issues: &issues)
 			requireInteger(operation, name: "axis", issues: &issues)
 			requirePositiveIntegerArray(operation, name: "splitSizes", count: operation.outputs.count, issues: &issues)
+		case .topK:
+			// One activation input. Core ML's layer accepts an optional second input carrying K, which
+			// this graph cannot use: a runtime K leaves every downstream extent undeclarable.
+			requireArity(operation, exact: 1, issues: &issues)
+			requirePositiveInteger(operation, name: "k", issues: &issues)
+			requireInteger(operation, name: "axis", issues: &issues)
+		case .gather:
+			// Data then indices. Their ranks decide the output rank — `data.rank - 1 + indices.rank`, see
+			// the operation's own documentation — which this validator deliberately does not verify: it
+			// checks declarations against the contract, never inferred shapes.
+			requireArity(operation, exact: 2, issues: &issues)
+			requireInteger(operation, name: "axis", issues: &issues)
 		case .batchNormalization:
 			requireArity(operation, exact: 5, issues: &issues)
 			requirePositiveFloatingPoint(operation, name: "epsilon", issues: &issues)
@@ -784,12 +853,16 @@ public struct NativeModelGraphValidator {
 	/// `cropResize` is exact-ND only for a third reason again: its blobs are rank 5 *as data* — the box
 	/// input is `[K, 1, 4, 1, 1]` and the output batches over K — so the legacy mapping, which reads a
 	/// declared rank-4 shape as `[1, C, H, W]`, cannot name those axes at all.
+	///
+	/// `topK` and `gather` share the first reason — the classic layer set has neither — and `gather` adds
+	/// a fourth: its output rank is `data.rank - 1 + indices.rank`, a rank that varies with the indices
+	/// blob and that the legacy mapping's fixed four-axis reading cannot express.
 	private func isValid(_ kind: NativeModelOperationKind, forFormatVersion formatVersion: Int) -> Bool {
 		let exactNDOnly: [NativeModelOperationKind] = [
 			.reshapeND, .transposeND, .concatenateND, .sliceND, .splitND,
 			.batchedMatrixMultiplicationND, .constantND,
 			.minimumND, .maximumND, .floor, .naturalLogarithm, .greaterOrEqual, .subtract,
-			.cropResize
+			.cropResize, .topK, .gather
 		]
 		let legacyLayoutOnly: [NativeModelOperationKind] = [
 			.reshape, .transpose, .concatenate, .sliceChannels, .softmaxChannel, .constant
