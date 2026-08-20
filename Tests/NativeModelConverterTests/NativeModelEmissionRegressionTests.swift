@@ -13,6 +13,7 @@
 //
 
 import CoreML
+import CryptoKit
 import XCTest
 @testable import NativeModelConverter
 
@@ -35,11 +36,18 @@ final class NativeModelEmissionRegressionTests: XCTestCase {
 
 	/// Converts a graph of the kind that already converted before this revision and asserts the
 	/// emitted model decodes to exactly the structure it did before: same specification version, same
-	/// input and output features, same layer sequence with the same Core ML layer types.
+	/// input and output features, same layer sequence with the same Core ML layer types, and the same
+	/// parameter payload behind each of those types.
 	///
-	/// The expected structure is a literal recorded from the previous revision's output. It excludes
-	/// the model description's metadata block — that is where the intentional changes live (the
-	/// revision stamp, the parity provenance) — and nothing else.
+	/// The payload digests are the difference between comparing the model and comparing its outline:
+	/// a convolution's padding, stride and kernel, a pooling layer's mode, the preprocessing constants
+	/// — every one of them changes bytes that no name, wiring or field number reports.
+	///
+	/// The expected structure is a literal recorded from the previous revision's output, the payload
+	/// digests included: they were taken by running this decoding against the emitter as it stood
+	/// before this branch, so they assert equality with that revision rather than with this one. It
+	/// excludes the model description's metadata block — that is where the intentional changes live
+	/// (the revision stamp, the parity provenance) — and nothing else.
 	func testRepresentativeConversion_decodesToTheStructureOfThePreviousRevision() throws {
 		XCTAssertEqual(try emittedStructure(), [
 			"specificationVersion=4",
@@ -51,12 +59,12 @@ final class NativeModelEmissionRegressionTests: XCTestCase {
 			"network f5=1,f6=1",
 			"network labels=[red, green, blue]",
 			"network labelProbabilityLayerName=output__classProbs",
-			"layer image_preprocessing in=[image] out=[input] type=245",
-			"layer features in=[input] out=[features] type=100",
-			"layer activation in=[features] out=[activated] type=130",
-			"layer pool in=[activated] out=[pooled] type=120",
-			"layer flatten in=[pooled] out=[output] type=1130",
-			"layer classifier_softmax in=[output] out=[output__classProbs] type=950"
+			"layer image_preprocessing in=[image] out=[input] type=245 params=c3bceef1",
+			"layer features in=[input] out=[features] type=100 params=0c210b44",
+			"layer activation in=[features] out=[activated] type=130 params=4f82d2d4",
+			"layer pool in=[activated] out=[pooled] type=120 params=e46ce086",
+			"layer flatten in=[pooled] out=[output] type=1130 params=fb8da7eb",
+			"layer classifier_softmax in=[output] out=[output__classProbs] type=950 params=fb8da7eb"
 		])
 	}
 
@@ -203,7 +211,20 @@ final class NativeModelEmissionRegressionTests: XCTestCase {
 		// The layer parameters are a union too, and its field number is the Core ML layer type — the
 		// fact that says a convolution is still a convolution and not, say, an inner product.
 		let kind = try XCTUnwrap(fields.map(\.field).first { $0 >= 100 })
-		return "\(name) in=[\(inputs.joined(separator: ", "))] out=[\(outputs.joined(separator: ", "))] type=\(kind)"
+		// The type alone is not the layer, though: padding, stride, kernel size, pooling mode and the
+		// preprocessing constants all live inside the parameter payload, where a change moves no name,
+		// no wiring and no field number. Digesting those bytes is what makes this a comparison of the
+		// emitted model rather than of its outline.
+		let parameters = try XCTUnwrap(fields.firstBytes(kind))
+		return "\(name) in=[\(inputs.joined(separator: ", "))] out=[\(outputs.joined(separator: ", "))]"
+			+ " type=\(kind) params=\(digest(parameters))"
+	}
+
+	/// A truncated SHA-256 of a parameter payload. Short because the expectation above is a literal a
+	/// person reads and re-records; four bytes still make a collision with an altered payload far less
+	/// likely than the mistake this test exists to catch.
+	private func digest(_ payload: Data) -> String {
+		SHA256.hash(data: payload).prefix(4).map { String(format: "%02x", $0) }.joined()
 	}
 
 	/// Blob names are protobuf strings; anything that does not decode as UTF-8 is a decoding mistake in

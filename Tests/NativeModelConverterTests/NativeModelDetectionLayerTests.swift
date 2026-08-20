@@ -1394,6 +1394,30 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		)
 	}
 
+	func testCropResize_withANonBooleanNormalizedROIIsRejectedByTheValidator() {
+		// Optional means "absent or a boolean", never "anything at all". `1` is the shape a hand-written
+		// or machine-generated graph most easily takes, and `booleanValue` returns nil for it — so
+		// without this rule the emitter's `?? false` would read a normalized full-image ROI as absolute
+		// feature-pixel coordinates and crop a 1x1 corner, with nothing reported.
+		var attributes = Self.cropResizeAttributes
+		attributes["normalizedROI"] = .integer(1)
+		assertEmissionFails(
+			kind: .cropResize, attributes: attributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2, rejection: .validator
+		)
+	}
+
+	func testNonMaximumSuppression_withANonBooleanPerClassSuppressionIsRejectedByTheValidator() {
+		// The same optional-attribute rule on the other operation that has one: a `"true"` string would
+		// otherwise silently select class-agnostic suppression.
+		var attributes = Self.nmsAttributes
+		attributes["perClassSuppression"] = .string("true")
+		assertEmissionFails(
+			kind: .nonMaximumSuppression, attributes: attributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2, outputCount: 4, rejection: .validator
+		)
+	}
+
 	func testTopK_underTheLegacyFormatIsRejected() {
 		assertLegacyFormatRejects(kind: .topK, attributes: Self.topKAttributes)
 	}
@@ -1406,9 +1430,13 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		// The generalised output-arity rule. One output is not "the values now, the indices later": Core
 		// ML rejects a topK layer with any count but two, so the graph contract refuses it first, naming
 		// the operation rather than surfacing a Core ML compiler message.
+		//
+		// `.validator` is what makes this test about that rule: the emitter's `topKLayer` carries its own
+		// output-count guard, so weakening the arity table to `.atLeast(1)` would still throw here — from
+		// somewhere else, with the rule under test gone.
 		assertEmissionFails(
 			kind: .topK, attributes: Self.topKAttributes,
-			formatVersion: NativeModelGraph.exactNDFormatVersion
+			formatVersion: NativeModelGraph.exactNDFormatVersion, rejection: .validator
 		)
 	}
 
@@ -1430,18 +1458,18 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		)
 	}
 
-	func testTopK_withANegativeAxisIsRejectedByTheEmitter() {
-		// The one rejection on this operation the validator does *not* own. It requires `axis` to be an
-		// integer, matching every other axis-carrying operation here, because the readers normalize a
-		// negative axis before a graph is ever built. Nothing normalizes a hand-written graph, and the
-		// wire format has no negative varint, so the emitter is the last thing standing between −1 and an
-		// axis of 18446744073709551615. Asserting `.emitter` proves this guard is reachable, unlike the
-		// ones that duplicate a validator rule.
+	func testTopK_withANegativeAxisIsRejectedByTheValidator() {
+		// The readers normalize a negative axis before a graph is ever built; nothing normalizes a
+		// hand-written one. Protobuf can encode a negative int64 perfectly well — this repository's own
+		// `appendSignedVarintField` does it, in ten bytes of two's complement — but the axis here is
+		// written through the *unsigned* `appendVarintField`, where −1 becomes 18446744073709551615. So
+		// the rule is the graph contract's, and the validator owns it; the emitter keeps a matching guard
+		// for callers that reach `topKLayer` without validating, which `emit` never does.
 		var attributes = Self.topKAttributes
 		attributes["axis"] = .integer(-1)
 		assertEmissionFails(
 			kind: .topK, attributes: attributes,
-			formatVersion: NativeModelGraph.exactNDFormatVersion, outputCount: 2, rejection: .emitter
+			formatVersion: NativeModelGraph.exactNDFormatVersion, outputCount: 2, rejection: .validator
 		)
 	}
 
@@ -1468,6 +1496,15 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		)
 	}
 
+	func testGather_withANegativeAxisIsRejectedByTheValidator() {
+		// Same rule as `topK`'s, owned in the same place: an axis that reaches `appendVarintField`
+		// negative would be emitted as a colossal unsigned one.
+		assertEmissionFails(
+			kind: .gather, attributes: ["axis": .integer(-1)],
+			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2, rejection: .validator
+		)
+	}
+
 	func testNonMaximumSuppression_underTheLegacyFormatIsRejected() {
 		assertLegacyFormatRejects(kind: .nonMaximumSuppression, attributes: Self.nmsAttributes, inputCount: 2)
 	}
@@ -1476,9 +1513,12 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		// The generalised output-arity table's four-output row. Three outputs is not "the valid count is
 		// optional": Core ML requires exactly four, and a graph that declares three would be refused by the
 		// Core ML compiler with a message naming a layer type number instead of the operation.
+		//
+		// `.validator` for the same reason as the topK arity test: the emitter's own four-output guard
+		// would keep this test green with the table's row weakened to `.atLeast(1)`.
 		assertEmissionFails(
 			kind: .nonMaximumSuppression, attributes: Self.nmsAttributes,
-			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2, outputCount: 3
+			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2, outputCount: 3, rejection: .validator
 		)
 	}
 

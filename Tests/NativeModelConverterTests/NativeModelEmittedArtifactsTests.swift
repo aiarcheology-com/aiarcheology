@@ -84,8 +84,15 @@ final class NativeModelEmittedArtifactsTests: XCTestCase {
 		// tail batch that carries the last 12 proposals.
 		XCTAssertEqual(try recordedInvocationCount(fixedBatchSize: 52, proposalCount: 1000), 20)
 		XCTAssertEqual(try recordedInvocationCount(fixedBatchSize: 52, proposalCount: 104), 2)
-		XCTAssertEqual(try recordedInvocationCount(fixedBatchSize: 52, proposalCount: 1), 1)
+		XCTAssertEqual(try recordedInvocationCount(fixedBatchSize: 52, proposalCount: 52), 1)
 		XCTAssertEqual(try recordedInvocationCount(fixedBatchSize: 1, proposalCount: 300), 300)
+	}
+
+	func testROIBoxHeadChunk_invocationCountRoundsUpWithoutOverflowing() {
+		// The obvious ceiling — `(proposalCount + fixedBatchSize - 1) / fixedBatchSize` — traps on this
+		// perfectly legal pair, and a trap is a dead process rather than a conversion error.
+		XCTAssertEqual(chunk(fixedBatchSize: 2, proposalCount: .max).invocationCount, Int.max / 2 + 1)
+		XCTAssertEqual(chunk(fixedBatchSize: 1, proposalCount: .max).invocationCount, .max)
 	}
 
 	func testEmitWithROIBoxHeadChunk_companionCarriesItsOwnMetadataNotACopyOfThePrimarys() throws {
@@ -161,7 +168,37 @@ final class NativeModelEmittedArtifactsTests: XCTestCase {
 			graph: primaryGraph(), weights: Data(), to: modelURL,
 			roiBoxHeadChunk: chunk(proposalCount: 0)
 		))
+		// A batch wider than the whole proposal set: one invocation asked for proposals that do not exist.
+		assertInvalidArtifactSet(try NativeModelCoreMLEmitter().emit(
+			graph: primaryGraph(), weights: Data(), to: modelURL,
+			roiBoxHeadChunk: chunk(fixedBatchSize: 52, proposalCount: 1)
+		))
 		XCTAssertEqual(FileManager.default.fileExists(atPath: modelURL.path), false)
+	}
+
+	func testEmitWithROIBoxHeadChunk_rejectsABatchSizeTheChunkGraphDoesNotDeclare() throws {
+		let modelURL = try temporaryDirectory().appendingPathComponent("converted.mlmodel")
+		// The manifest is an instruction — "send 91 proposals per invocation" — and nothing but this check
+		// ties it to the model it is written beside. A chunk taking [52, 4, 1, 1] would load, then reject
+		// every input the runtime bound from the manifest.
+		assertInvalidArtifactSet(try NativeModelCoreMLEmitter().emit(
+			graph: primaryGraph(), weights: Data(), to: modelURL,
+			roiBoxHeadChunk: chunk(fixedBatchSize: 91, declaredBatchExtent: 52)
+		))
+		XCTAssertEqual(FileManager.default.fileExists(atPath: modelURL.path), false)
+
+		// The failure has to name both numbers; "invalid artifact set" alone leaves the caller to guess
+		// which of the two it must change.
+		XCTAssertThrowsError(try NativeModelCoreMLEmitter().emit(
+			graph: primaryGraph(), weights: Data(), to: modelURL,
+			roiBoxHeadChunk: chunk(fixedBatchSize: 91, declaredBatchExtent: 52)
+		)) { error in
+			guard case .invalidArtifactSet(let reason) = error as? NativeModelCoreMLEmissionError else {
+				return XCTFail("expected an invalidArtifactSet failure, got \(error)")
+			}
+			XCTAssertEqual(reason.contains("91"), true, reason)
+			XCTAssertEqual(reason.contains("52"), true, reason)
+		}
 	}
 
 	func testEmitWithROIBoxHeadChunk_stampsOneParityClaimOnBothFiles() throws {
@@ -231,8 +268,16 @@ final class NativeModelEmittedArtifactsTests: XCTestCase {
 	/// A stand-in ROI box head: one fixed batch of proposals in, compact per-proposal boxes out,
 	/// through a weight-bearing 1x1 projection (an identity kernel plus a per-column bias, so the
 	/// prediction is checkable by hand).
-	private func chunk(fixedBatchSize: Int = 52, proposalCount: Int = 1000) -> NativeModelROIBoxHeadChunkEmission {
-		let shape = [max(fixedBatchSize, 1), 4, 1, 1]
+	///
+	/// `declaredBatchExtent` exists so the graph's leading extent can be set *independently* of
+	/// `fixedBatchSize`. Deriving one from the other is what a chunk should look like — and is exactly
+	/// why a helper that only derives can never produce the mismatch the emitter has to refuse.
+	private func chunk(
+		fixedBatchSize: Int = 52,
+		proposalCount: Int = 1000,
+		declaredBatchExtent: Int? = nil
+	) -> NativeModelROIBoxHeadChunkEmission {
+		let shape = [max(declaredBatchExtent ?? fixedBatchSize, 1), 4, 1, 1]
 		let identity = (0 ..< 4).flatMap { row in (0 ..< 4).map { Float($0 == row ? 1 : 0) } }
 		let graph = NativeModelGraph(
 			formatVersion: 1,

@@ -10,8 +10,9 @@ import Foundation
 /// What an emission is entitled to claim about its numerics.
 ///
 /// The two states are not interchangeable and must never be presented as one. A converter that
-/// validated a graph, lowered every operation and wrote a loadable model has proved the *structure*
-/// travelled intact; it has not compared a single number against the source model. Only a run
+/// validated a graph, lowered every operation and serialized the model successfully has proved the
+/// *structure* travelled intact — it never compiled or loaded what it wrote, and it has not compared
+/// a single number against the source model. Only a run
 /// against a reference oracle does that. Collapsing the two would let a model that has never been
 /// numerically checked be displayed as "parity verified".
 ///

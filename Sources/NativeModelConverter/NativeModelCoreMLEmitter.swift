@@ -307,6 +307,22 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				reason: "the chunk's proposal count must be positive, got \(chunk.proposalCount)"
 			)
 		}
+		// A batch larger than the whole proposal set describes a loop whose single invocation is asked for
+		// proposals that do not exist.
+		guard chunk.fixedBatchSize <= chunk.proposalCount else {
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
+				reason: "the chunk's fixed batch size \(chunk.fixedBatchSize) exceeds the \(chunk.proposalCount) proposals it batches"
+			)
+		}
+		// The manifest is an instruction to the runtime: send `fixedBatchSize` proposals per invocation.
+		// Nothing else ties that number to the model it is written beside, so a chunk graph declaring a
+		// different batch extent would ship a manifest Core ML refuses at input-binding time.
+		let declaredBatchExtents = chunk.graph.inputs.compactMap(\.shape.first)
+		guard declaredBatchExtents.contains(chunk.fixedBatchSize) else {
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
+				reason: "the manifest would ask the runtime for batches of \(chunk.fixedBatchSize), but no chunk input declares that leading extent (declared: \(declaredBatchExtents))"
+			)
+		}
 		// Resolved before anything is written: a name the runtime could not resolve beside the primary
 		// must never reach a shipped manifest.
 		let companionFilename = try Self.companionFilename(for: .roiBoxHeadChunk, besidePrimaryAt: outputURL)
@@ -1046,8 +1062,10 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				outputs: graph.outputs,
 				graph: graph
 			),
-			// Written on every path, never conditionally: a model missing the fact is indistinguishable
-			// from one whose numerics were checked, which is the confusion the fact exists to prevent.
+			// Written on every path that builds target metadata, never conditionally: a model missing the
+			// fact is indistinguishable from one whose numerics were checked, which is the confusion the
+			// fact exists to prevent. The bare `emit(graph:weights:to:)` overload builds no metadata at
+			// all, so a model written through it carries none of these keys.
 			NativeModelParityProvenance.userDefinedKey:
 				try NativeModelParityProvenance(evidence: parityEvidence).canonicalJSON()
 		]
@@ -1710,7 +1728,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			)
 		}
 		// Absent means unnormalized box coordinates — the form the box arithmetic produces, in feature
-		// pixels once `spatialScale` has been applied.
+		// pixels once `spatialScale` has been applied. The validator refuses a present non-boolean, so
+		// this coalesce covers absence only, never a wrongly typed value quietly reading as false.
 		let normalizedROI = operation.attributes["normalizedROI"]?.booleanValue ?? false
 		let samplingMode = CoreMLProtobufEncoder.message { mode in
 			CoreMLProtobufEncoder.appendVarintField(1, value: 3, to: &mode)
@@ -1847,7 +1866,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			)
 		}
 		// Absent means class-agnostic suppression, which is what ADAF's single-class detectors need and
-		// what the reference pipeline does; the flag only becomes observable with more than one class.
+		// what the reference pipeline does; the flag only becomes observable with more than one class. As
+		// with `normalizedROI`, the validator refuses a present non-boolean before this coalesce runs.
 		let perClassSuppression = operation.attributes["perClassSuppression"]?.booleanValue ?? false
 		let parameters = CoreMLProtobufEncoder.message { parameters in
 			CoreMLProtobufEncoder.appendFloatField(1, value: Float(iouThreshold), to: &parameters)

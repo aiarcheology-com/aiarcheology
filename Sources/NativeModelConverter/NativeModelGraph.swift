@@ -786,6 +786,7 @@ public struct NativeModelGraphValidator {
 			// A zero or negative scale maps every box onto the same degenerate point; the attribute is
 			// the feature map's stride reciprocal, so it is positive by construction.
 			requirePositiveFloatingPoint(operation, name: "spatialScale", issues: &issues)
+			requireOptionalBoolean(operation, name: "normalizedROI", issues: &issues)
 		case .splitND:
 			requireArity(operation, exact: 1, issues: &issues)
 			requireInteger(operation, name: "axis", issues: &issues)
@@ -795,7 +796,11 @@ public struct NativeModelGraphValidator {
 			// this graph cannot use: a runtime K leaves every downstream extent undeclarable.
 			requireArity(operation, exact: 1, issues: &issues)
 			requirePositiveInteger(operation, name: "k", issues: &issues)
-			requireInteger(operation, name: "axis", issues: &issues)
+			// Non-negative, not merely integral: the emitted axis is a plain (unsigned) varint, so a
+			// negative one has no representation the layer would read back as negative. The readers
+			// normalize before a graph exists, and the contract says so here rather than only in the
+			// emitter, where the rule was reachable solely by a caller that skipped validation.
+			requireNonNegativeInteger(operation, name: "axis", issues: &issues)
 		case .nonMaximumSuppression:
 			// Boxes then scores, and exactly those two. Core ML's layer accepts up to five inputs, the last
 			// three carrying the IoU threshold, the score threshold and `maxBoxes` at runtime; none is
@@ -811,12 +816,14 @@ public struct NativeModelGraphValidator {
 			// `perClassSuppression` stays optional and defaults to false, like `cropResize`'s `normalizedROI`:
 			// ADAF's detectors are single-class, where the flag is vacuous.
 			requirePositiveInteger(operation, name: "maxBoxes", issues: &issues)
+			requireOptionalBoolean(operation, name: "perClassSuppression", issues: &issues)
 		case .gather:
 			// Data then indices. Their ranks decide the output rank — `data.rank - 1 + indices.rank`, see
 			// the operation's own documentation — which this validator deliberately does not verify: it
 			// checks declarations against the contract, never inferred shapes.
 			requireArity(operation, exact: 2, issues: &issues)
-			requireInteger(operation, name: "axis", issues: &issues)
+			// Non-negative for the same reason as `topK`'s: the emitted axis is an unsigned varint.
+			requireNonNegativeInteger(operation, name: "axis", issues: &issues)
 		case .batchNormalization:
 			requireArity(operation, exact: 5, issues: &issues)
 			requirePositiveFloatingPoint(operation, name: "epsilon", issues: &issues)
@@ -986,6 +993,23 @@ public struct NativeModelGraphValidator {
 	) {
 		guard let value = operation.attributes[name]?.integerValue, value >= 0 else {
 			issues.append(.invalidAttribute(operation: operation.name, attribute: name, expected: "a non-negative integer"))
+			return
+		}
+	}
+
+	/// An attribute a graph may omit, but may not get wrong: absent takes the documented default, while
+	/// a present value of any other type is a mistake.
+	///
+	/// Without this the emitter's `booleanValue ?? false` cannot tell the two apart, so `"normalizedROI": 1`
+	/// reads as `false` and turns a normalized ROI into an absolute one — a wrong model, silently.
+	private func requireOptionalBoolean(
+		_ operation: NativeModelOperation,
+		name: String,
+		issues: inout [NativeModelGraphValidationIssue]
+	) {
+		guard let attribute = operation.attributes[name] else { return }
+		guard attribute.booleanValue != nil else {
+			issues.append(.invalidAttribute(operation: operation.name, attribute: name, expected: "a boolean when present"))
 			return
 		}
 	}

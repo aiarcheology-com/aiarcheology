@@ -36,8 +36,13 @@ public struct NativeModelROIBoxHeadChunkEmission: Sendable {
 	/// How many invocations cover every proposal, derived rather than stored so a manifest can never
 	/// record a loop count the batch size does not produce. Valid only for a positive
 	/// ``fixedBatchSize``, which the emitter checks before reading this.
+	///
+	/// Rounded up through the remainder rather than by the usual `+ fixedBatchSize - 1` numerator: that
+	/// addition overflows — and traps, taking the process with it — for perfectly legal inputs near
+	/// `Int.max`, which is not a failure mode a conversion may have.
 	var invocationCount: Int {
-		(proposalCount + fixedBatchSize - 1) / fixedBatchSize
+		let (fullBatches, remainder) = proposalCount.quotientAndRemainder(dividingBy: fixedBatchSize)
+		return remainder == 0 ? fullBatches : fullBatches + 1
 	}
 }
 
