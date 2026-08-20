@@ -413,7 +413,101 @@ final class PyTorchWeightExtractorTests: XCTestCase {
 		}
 	}
 
+	// MARK: - The destination must not eat the input
+
+	/// Writing the weights over the checkpoint truncates the file being read, the streaming read then
+	/// fails, and the cleanup deletes what is left — so the request destroys its own input. For the
+	/// file this exists for that is a 518 MB download gone.
+	func test_aDestinationThatIsTheCheckpoint_isRefusedAndTheCheckpointSurvives() throws {
+		let archiveBytes = archiveBytesHoldingOneTensor()
+		let checkpointURL = temporaryFileURL()
+		try Data(archiveBytes).write(to: checkpointURL)
+		defer { try? FileManager.default.removeItem(at: checkpointURL) }
+
+		XCTAssertThrowsError(
+			try PyTorchWeightExtractor.extract(
+				handMadeCheckpoint(shape: [4], elementCount: 4), from: checkpointURL, to: checkpointURL
+			)
+		) {
+			XCTAssertEqual($0 as? PyTorchWeightExtractionError, .destinationAliasesCheckpoint)
+		}
+		XCTAssertEqual(
+			[UInt8](try Data(contentsOf: checkpointURL)), archiveBytes,
+			"the checkpoint was modified by an extraction that should never have started"
+		)
+	}
+
+	/// The same file reached by a second name. A path comparison passes this; file identity does not.
+	func test_aDestinationHardLinkedToTheCheckpoint_isRefusedToo() throws {
+		let archiveBytes = archiveBytesHoldingOneTensor()
+		let checkpointURL = temporaryFileURL()
+		try Data(archiveBytes).write(to: checkpointURL)
+		let aliasURL = temporaryFileURL()
+		try FileManager.default.linkItem(at: checkpointURL, to: aliasURL)
+		defer {
+			try? FileManager.default.removeItem(at: checkpointURL)
+			try? FileManager.default.removeItem(at: aliasURL)
+		}
+
+		XCTAssertThrowsError(
+			try PyTorchWeightExtractor.extract(
+				handMadeCheckpoint(shape: [4], elementCount: 4), from: checkpointURL, to: aliasURL
+			)
+		) {
+			XCTAssertEqual($0 as? PyTorchWeightExtractionError, .destinationAliasesCheckpoint)
+		}
+		XCTAssertEqual([UInt8](try Data(contentsOf: checkpointURL)), archiveBytes)
+	}
+
+	/// A failed extraction must not destroy whatever was already at the destination. Truncating it up
+	/// front and deleting it on the way out is how a retry loses the good blob from the run before.
+	func test_aFailedExtraction_leavesAnExistingDestinationUntouched() throws {
+		let payload = littleEndianFloat32Bytes([1, 2, 3, 4])
+		var corrupt = TestZipBuilder.torchLike()
+		corrupt.entries.append(
+			TestZipBuilder.Entry(name: "checkpoint.pth/data/0", payload: payload, overrideCRC: 0xDEAD_BEEF)
+		)
+		let source = ArrayBytes(corrupt.build())
+
+		let destination = temporaryFileURL()
+		let existing = Array("a previous, perfectly good weights.bin".utf8)
+		try Data(existing).write(to: destination)
+		defer { try? FileManager.default.removeItem(at: destination) }
+
+		XCTAssertThrowsError(
+			try PyTorchWeightExtractor.extract(handMadeCheckpoint(shape: [4], elementCount: 4), from: source, to: destination)
+		)
+		XCTAssertEqual([UInt8](try Data(contentsOf: destination)), existing)
+		XCTAssertEqual(
+			try FileManager.default.contentsOfDirectory(atPath: destination.deletingLastPathComponent().path)
+				.filter { $0.contains("partial-") },
+			[],
+			"the working file was left behind"
+		)
+	}
+
+	/// A successful extraction replaces an existing destination rather than refusing it.
+	func test_aSuccessfulExtraction_replacesAnExistingDestination() throws {
+		let payload = littleEndianFloat32Bytes([1, 2, 3, 4])
+		let (checkpoint, source) = archive(holding: payload, shape: [4])
+		let destination = temporaryFileURL()
+		try Data("stale".utf8).write(to: destination)
+		defer { try? FileManager.default.removeItem(at: destination) }
+
+		let extraction = try PyTorchWeightExtractor.extract(checkpoint, from: source, to: destination)
+		XCTAssertEqual(UInt64(try Data(contentsOf: destination).count), extraction.byteCount)
+		XCTAssertEqual([UInt8](try Data(contentsOf: destination)), float16Bytes(fromLittleEndianFloat32: payload))
+	}
+
 	// MARK: - Helpers
+
+	private func archiveBytesHoldingOneTensor() -> [UInt8] {
+		var builder = TestZipBuilder.torchLike()
+		builder.entries.append(
+			TestZipBuilder.Entry(name: "checkpoint.pth/data/0", payload: littleEndianFloat32Bytes([1, 2, 3, 4]))
+		)
+		return builder.build()
+	}
 
 	private func trimmed(_ checkpoint: PyTorchCheckpoint, to storageKeys: Set<String>) -> PyTorchCheckpoint? {
 		let tensors = checkpoint.tensors.filter { storageKeys.contains($0.storageKey) }

@@ -77,6 +77,9 @@ public enum PyTorchWeightExtractionError: Error, Equatable {
 	/// offset are not the bytes that were written there.
 	case storageChecksumFailed(tensor: String)
 	case destinationNotWritable(String)
+	/// The destination is the checkpoint. Writing there truncates the file being read, and the
+	/// cleanup that follows deletes what is left of it — so the request destroys its own input.
+	case destinationAliasesCheckpoint
 	case shapeTooLarge(tensor: String)
 	/// A tensor whose element type the graph cannot express and which is not the one counter this
 	/// extractor is allowed to drop. Refused by name rather than skipped, so a checkpoint carrying a
@@ -125,16 +128,21 @@ public enum PyTorchWeightExtractor {
 	/// - Parameter checkpointURL: the file `checkpoint` was read from. Reopened here rather than
 	///   carried on ``PyTorchCheckpoint``, which is a description of a file and holds no handle to
 	///   one.
-	/// - Important: on any throw the destination is removed, on a best-effort basis — a removal that
-	///   itself fails cannot be reported without replacing the real error with a worse one. A
-	///   partially written blob whose manifest claims a length is worse than no blob at all, and the
-	///   checksum that would catch it is not computed until the whole entry has been streamed.
+	/// - Important: **nothing at `destinationURL` is touched until the extraction has succeeded.** The
+	///   bytes go to a sibling temporary file and are published over the destination at the end, so a
+	///   failure part-way through cannot destroy a file that was already there. A partially written
+	///   blob whose manifest claims a length is worse than no blob at all, and the checksum that
+	///   would catch it is not computed until the whole entry has been streamed.
+	/// - Important: the destination may not **be** the checkpoint, by any path. Truncating the file
+	///   this is reading turns a conversion into the deletion of the user's download — a 518 MB one,
+	///   in the case this exists for.
 	public static func extract(
 		_ checkpoint: PyTorchCheckpoint,
 		from checkpointURL: URL,
 		to destinationURL: URL,
 		maximumTotalByteCount: UInt64 = defaultMaximumTotalByteCount
 	) throws -> PyTorchWeightExtraction {
+		try rejectAliasedDestination(checkpoint: checkpointURL, destination: destinationURL)
 		let source: FileBytes
 		do {
 			source = try FileBytes(url: checkpointURL)
@@ -160,14 +168,18 @@ public enum PyTorchWeightExtractor {
 	) throws -> PyTorchWeightExtraction {
 		let archive = try openBinding(checkpoint, in: source)
 
-		guard FileManager.default.createFile(atPath: destinationURL.path, contents: nil) else {
+		// Written beside the destination, never to it. Truncating the destination up front is what
+		// makes a failed extraction destructive: it empties whatever was there, and the cleanup then
+		// deletes it. At its worst the destination *is* the checkpoint, and the conversion eats its
+		// own input. A sibling keeps both cases impossible rather than merely unlikely.
+		let workingURL = destinationURL
+			.deletingLastPathComponent()
+			.appendingPathComponent(".\(destinationURL.lastPathComponent).partial-\(UUID().uuidString)")
+		guard FileManager.default.createFile(atPath: workingURL.path, contents: nil) else {
 			throw PyTorchWeightExtractionError.destinationNotWritable(destinationURL.lastPathComponent)
 		}
-		guard let handle = try? FileHandle(forWritingTo: destinationURL) else {
-			// The file exists by now and this method promises to leave none behind on a throw. Folding
-			// this into the guard above leaves an empty `weights.bin` on disk, which a caller that
-			// treats the file's presence as success would read as an empty model.
-			try? FileManager.default.removeItem(at: destinationURL)
+		guard let handle = try? FileHandle(forWritingTo: workingURL) else {
+			try? FileManager.default.removeItem(at: workingURL)
 			throw PyTorchWeightExtractionError.destinationNotWritable(destinationURL.lastPathComponent)
 		}
 
@@ -178,12 +190,11 @@ public enum PyTorchWeightExtractor {
 		var skipped: [String] = []
 		var offset: UInt64 = 0
 		var sourceByteCount: UInt64 = 0
-		var completed = false
+		// No success flag: after a successful publish the working file no longer exists, so removing
+		// it is a no-op, and every failure path leaves exactly one thing to clean up.
 		defer {
 			try? handle.close()
-			if completed == false {
-				try? FileManager.default.removeItem(at: destinationURL)
-			}
+			try? FileManager.default.removeItem(at: workingURL)
 		}
 
 		for tensor in checkpoint.tensors {
@@ -247,7 +258,8 @@ public enum PyTorchWeightExtractor {
 			sourceByteCount += UInt64(expectedSourceBytes)
 		}
 
-		completed = true
+		try? handle.close()
+		try publish(workingURL, as: destinationURL)
 		return PyTorchWeightExtraction(
 			weights: weights,
 			byteCount: offset,
@@ -257,7 +269,6 @@ public enum PyTorchWeightExtractor {
 			memory: memory
 		)
 	}
-
 
 	/// Opens `source` and proves it carries the `data.pkl` that `checkpoint` was decoded from.
 	///
@@ -344,6 +355,40 @@ public enum PyTorchWeightExtractor {
 			&& tensor.name.hasSuffix(".num_batches_tracked")
 			&& tensor.shape.isEmpty
 			&& tensor.storageElementCount == 1
+	}
+
+	/// Refuses a destination that is the checkpoint, however the two paths are spelled.
+	///
+	/// Compared by **file identity**, not by string. A path comparison misses every way two names
+	/// reach one file: a hard link, a symlink, `/tmp` against `/private/tmp`, a case-different
+	/// spelling on a case-insensitive volume, a `..` component. `fileResourceIdentifier` is the
+	/// system's own answer to "are these the same file", and it resolves all of them.
+	///
+	/// A destination that does not exist yet cannot alias anything, which is the common case and
+	/// costs nothing to establish.
+	private static func rejectAliasedDestination(checkpoint: URL, destination: URL) throws {
+		guard FileManager.default.fileExists(atPath: destination.path) else { return }
+		let identity = { (url: URL) in
+			(try? url.resourceValues(forKeys: [.fileResourceIdentifierKey]))?.fileResourceIdentifier
+		}
+		guard let source = identity(checkpoint), let target = identity(destination) else { return }
+		if source.isEqual(target) {
+			throw PyTorchWeightExtractionError.destinationAliasesCheckpoint
+		}
+	}
+
+	/// Moves the finished blob into place, replacing an existing file only once there is something
+	/// to replace it with.
+	private static func publish(_ workingURL: URL, as destinationURL: URL) throws {
+		do {
+			if FileManager.default.fileExists(atPath: destinationURL.path) {
+				_ = try FileManager.default.replaceItemAt(destinationURL, withItemAt: workingURL)
+			} else {
+				try FileManager.default.moveItem(at: workingURL, to: destinationURL)
+			}
+		} catch {
+			throw PyTorchWeightExtractionError.destinationNotWritable(destinationURL.lastPathComponent)
+		}
 	}
 
 	/// Converts one chunk of little-endian fp32 to little-endian fp16.
