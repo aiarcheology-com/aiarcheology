@@ -85,6 +85,15 @@ public struct PyTorchCheckpoint: Equatable, Sendable {
 	public let tensors: [PyTorchTensorRef]
 	/// Every storage the pickle references, including the optimizer's. Counted, never located.
 	public let totalStorageCount: Int
+	/// The CRC-32 the archive records for `data.pkl` — an identifier for the exact bytes these
+	/// fields were decoded from.
+	///
+	/// This exists so a later pass over the *file* can prove it is reading the file this description
+	/// came from. Nothing else here can: the four published ADAF detectors have byte-identical tensor
+	/// tables, so names, shapes, storage keys and entry sizes all match across them. Swap one file
+	/// for another between reading and extracting and every such check still passes, while the
+	/// weights come from a different model. The `id` string differs, so the pickle's checksum does.
+	public let pickleChecksum: UInt32
 }
 
 public enum PyTorchCheckpointError: Error, Equatable {
@@ -174,7 +183,8 @@ public enum PyTorchCheckpointReader {
 			loss: top["loss"].flatMap(\.doubleValue),
 			startTimestamp: top["start"].flatMap(\.intValue),
 			tensors: tensors,
-			totalStorageCount: storageCount
+			totalStorageCount: storageCount,
+			pickleChecksum: pickleEntry.crc32
 		)
 	}
 

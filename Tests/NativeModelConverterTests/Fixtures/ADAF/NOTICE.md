@@ -33,17 +33,23 @@ zip-serialization archive, not a tar). Exact ranges and SHA-256 digests are reco
 
 | File | Range of the original | Bytes |
 |-|-|-|
-| `OD_ringfort.head.bin` | 0 – 131,071 of `OD_ringfort.tar` (517,823,445 bytes) | 131,072 |
+| `OD_ringfort.head.bin` | 0 – 163,839 of `OD_ringfort.tar` (517,823,445 bytes) | 163,840 |
 | `OD_ringfort.tail.bin` | 517,741,000 – end | 82,445 |
 | `AO_HRNet.head.bin` | 0 – 655,359 of `AO_HRNet_SLRM_512px_pretrained_train_12_val_124_with_Transformation.tar` (861,530,273 bytes) | 655,360 |
 | `AO_HRNet.tail.bin` | 861,110,000 – end | 420,273 |
 
-**They contain no model weights.** The head holds the archive's first local file header and its
-`data.pkl` — the checkpoint's object graph: tensor names, shapes, dtypes, storage keys, and the
-training scalars (`epoch`, `loss`, `start`, `id`). The tail holds the `version` entry, the central
-directory, and the ZIP64 and classic end-of-central-directory records. Every trained parameter lies
-in the region between them, which is **not** included: together the two ranges are ~0.15% of the
-original, and no `data/<n>` storage blob is reproduced in whole or in part.
+**They contain 38,664 bytes of trained parameters, and nothing more** (AIA-0675 widened
+`OD_ringfort.head.bin` from 131,072 bytes; before that they contained none). The head holds the
+archive's first local file header and its `data.pkl` — the checkpoint's object graph: tensor names,
+shapes, dtypes, storage keys, and the training scalars (`epoch`, `loss`, `start`, `id`) — followed
+by the first five storages: `data/0` (`backbone.body.conv1.weight`, 37,632 bytes), `data/1`,
+`data/10`, `data/100` and the int64 counter `data/101`. Weight extraction cannot be tested against
+real bytes without at least one complete storage, and this is the smallest cut that reaches one of
+each kind the extractor treats differently. The tail holds the `version` entry, the central
+directory, and the ZIP64 and classic end-of-central-directory records.
+
+The remaining 173.2 MB of trained parameters — 99.98% of them — lie in the region between the two
+ranges, which is **not** included. Together the committed ranges are ~0.05% of the original file.
 
 They are sufficient because the reader deliberately touches nothing else — its entire read set is
 the end-of-central-directory records, the central directory, `data.pkl`, and `version`. A decode of

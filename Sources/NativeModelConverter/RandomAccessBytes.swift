@@ -118,12 +118,20 @@ final class FileBytes: RandomAccessBytes {
 		} catch {
 			throw RandomAccessBytesError.unreadable("seek to \(offset)")
 		}
-		guard let data = try? handle.read(upToCount: count) else {
-			throw RandomAccessBytesError.unreadable("read \(count) at \(offset)")
+		// The pool is the point, not tidiness. `FileHandle.read(upToCount:)` hands back `Data` backed
+		// by an autoreleased `NSData`, and this method is called in a loop that streams a whole
+		// checkpoint. Without a pool per read, nothing drains until the caller returns, and
+		// `phys_footprint` grows one byte for every byte read — measured at 169 MiB after streaming a
+		// 165 MiB `state_dict`, which is the entire memory saving the chunked reader exists for.
+		let bytes: [UInt8] = try autoreleasepool {
+			guard let data = try? handle.read(upToCount: count) else {
+				throw RandomAccessBytesError.unreadable("read \(count) at \(offset)")
+			}
+			guard data.count == count else {
+				throw RandomAccessBytesError.shortRead(offset: offset, expected: count, got: data.count)
+			}
+			return [UInt8](data)
 		}
-		guard data.count == count else {
-			throw RandomAccessBytesError.shortRead(offset: offset, expected: count, got: data.count)
-		}
-		return [UInt8](data)
+		return bytes
 	}
 }

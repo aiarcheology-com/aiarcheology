@@ -429,7 +429,64 @@ struct PyTorchZipArchive {
 		guard entry.uncompressedSize <= maximumByteCount else {
 			throw PyTorchZipArchiveError.entryTooLarge(name: entry.name, byteCount: entry.uncompressedSize)
 		}
+		let dataOffset = try dataOffset(of: entry)
+		let payload = try source.readChecked(at: dataOffset, count: entry.uncompressedSize)
+		// The checksum binds the payload to the directory record that pointed at it. It is no defence
+		// against a hostile archive — an attacker computes a correct CRC trivially — but it is a
+		// complete defence against the failure that actually shipped once: an offset resolved to the
+		// wrong place, yielding bytes that parse far enough to be believed.
+		guard CRC32.checksum(payload) == entry.crc32 else {
+			throw PyTorchZipArchiveError.checksumMismatch(name: entry.name)
+		}
+		return payload
+	}
 
+	/// Reads one entry's bytes in bounded chunks, handing each to `receive` as it arrives.
+	///
+	/// This exists for weight extraction, where a single tensor storage runs to tens of megabytes and
+	/// ``bytes(of:maximumByteCount:)`` would materialise all of it. The validation is identical —
+	/// both go through ``dataOffset(of:)`` — and the checksum is folded chunk by chunk so it still
+	/// covers every byte handed out.
+	///
+	/// - Important: **`receive` sees bytes before the checksum is known.** The entry's CRC cannot be
+	///   verified until the last chunk has been read, so a caller that persists what it receives must
+	///   be able to discard *all* of it when this method throws. Nothing here can un-hand a chunk.
+	/// - Parameter chunkByteCount: the most bytes held in memory at once. Must be positive.
+	func streamBytes(
+		of entry: PyTorchZipEntry,
+		maximumByteCount: Int,
+		chunkByteCount: Int,
+		receive: ([UInt8]) throws -> Void
+	) throws {
+		guard entry.uncompressedSize <= maximumByteCount else {
+			throw PyTorchZipArchiveError.entryTooLarge(name: entry.name, byteCount: entry.uncompressedSize)
+		}
+		precondition(chunkByteCount > 0, "a chunk of no bytes never advances")
+
+		let dataOffset = try dataOffset(of: entry)
+		var crc = CRC32.initialValue
+		var delivered = 0
+		while delivered < entry.uncompressedSize {
+			let count = min(chunkByteCount, entry.uncompressedSize - delivered)
+			// `dataOffset + delivered` cannot overflow: `dataOffset(of:)` has already proved that
+			// `dataOffset + uncompressedSize` is inside the source, and `delivered` never exceeds it.
+			let chunk = try source.readChecked(at: dataOffset + delivered, count: count)
+			crc = CRC32.update(crc, with: chunk)
+			try receive(chunk)
+			delivered += count
+		}
+		guard CRC32.finalize(crc) == entry.crc32 else {
+			throw PyTorchZipArchiveError.checksumMismatch(name: entry.name)
+		}
+	}
+
+	/// Resolves where an entry's payload begins, validating the local header against the central
+	/// record that pointed at it.
+	///
+	/// Kept as one method rather than inlined into each reader so that both ways of reading an entry
+	/// are provably subject to the same checks: a validation added here cannot be added to one path
+	/// and forgotten on the other.
+	private func dataOffset(of entry: PyTorchZipEntry) throws -> Int {
 		let header = try source.readChecked(at: entry.localHeaderOffset, count: Self.localFileHeaderLength)
 		guard Self.readUInt32(header, 0) == Self.localFileHeaderSignature else {
 			throw PyTorchZipArchiveError.localHeaderMismatch(name: entry.name)
@@ -488,16 +545,7 @@ struct PyTorchZipArchive {
 		else {
 			throw PyTorchZipArchiveError.entryOutOfBounds(name: entry.name)
 		}
-
-		let payload = try source.readChecked(at: dataOffset, count: entry.uncompressedSize)
-		// The checksum binds the payload to the directory record that pointed at it. It is no defence
-		// against a hostile archive — an attacker computes a correct CRC trivially — but it is a
-		// complete defence against the failure that actually shipped once: an offset resolved to the
-		// wrong place, yielding bytes that parse far enough to be believed.
-		guard CRC32.checksum(payload) == entry.crc32 else {
-			throw PyTorchZipArchiveError.checksumMismatch(name: entry.name)
-		}
-		return payload
+		return dataOffset
 	}
 
 	// MARK: - The torch layout

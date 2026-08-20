@@ -1,47 +1,65 @@
 Build: TBD
 
-Test Focus 1: Sharing a finding as a link, and what it carries.
+Test Focus 1 (NEW, look hardest here): what the app says about a PyTorch model file.
 
-A link now travels beside the shared picture, and the card carries a QR. It holds the FULL address, including the part after the "?" holding a map's view, so a recipient lands on YOUR view. Use a real map portal (ags.cuzk.cz, mapy.com, openstreetmap.org) and put coordinates in one finding first (Findings, tap one, GPS, e.g. 48.8, 19.53), or the map part cannot be tested.
+This build changed how model checkpoints are read. Nothing about it is visible on screen except the
+message you get when you import one - so that message IS the test.
 
-1. Share a finding from a map portal. The box headed "This link carries at most:" shows exactly what travels. NEW: the copy button beside it puts that address on the clipboard - paste and compare.
+1. Download from URL (Model Import > Download from URL) using:
+   https://zenodo.org/records/15848663/files/OD_ringfort.tar?download=1
+   It is ~518 MB, so use Wi-Fi. When it finishes the app must refuse it, saying it "describes
+   itself as an ADAF Ringfort detection model" and that converting it is not supported yet. A
+   cryptic failure, a hang, or a message naming no model is the bug. Refusing is correct.
 
-2. Turn "Share the full web address" off: it shortens to the site alone, and copying gives the shorter one. Turn it back on: the long form returns.
+2. Try OD_barrow.tar and OD_AO.tar from the same record: they must say "Barrow" and
+   "All archaeology". A WRONG name here matters more than any other result in this build.
 
-3. Send that link to yourself and open it on another device: it must land on the SAME map view. With the switch off it lands on the site's front page - both are correct, the switch chooses.
+3. Rename OD_ringfort.tar to anything else before importing. It must still say "Ringfort" - the name
+   comes from inside the file, not from the filename.
 
-4. The QR sits flush in the bottom-right CORNER of the information block, beside the rows not under them. Check Portrait and Landscape, Light and Dark, with a finding of many rows and one of two; it must not overlap text.
+4. Try one HRNet file from that record (the long ..._with_Transformation.tar): it must say
+   "image segmentation model" and that those are not supported - a DIFFERENT message from item 1.
 
-5. Scan the QR with the Code Scanner (Control Centre), including from a photo of the card on another screen: it opens the app on the finding. The Camera app opens the web page - that is iOS, not a bug.
+5. Feed it something that is not a model - a photo renamed to .tar. It must fail the ordinary
+   import failure (NOT the messages above), promptly, with no hang and no cleanup left behind.
 
-6. Turn "Let people open this finding in the app" off and share: "Save Image" returns, no link attached.
+6. Watch memory and battery during 1-4: reading these files should be quick and must NOT feel like
+   the app is loading half a gigabyte. If the app is killed while importing, tell us at once.
 
-7. Open a link to your OWN finding: it opens read-only, saying it is yours. Nothing is added to your Findings list.
+7. Model import you already rely on must be UNCHANGED: .mlmodel and .onnx by URL, Open Catalog, and
+   Files import. A model that imported before and is refused now is the most serious thing you can
+   find. The download hint still reads ".mlmodel or .onnx" - check it in each language you read.
 
-8. Open someone else's link. It appears as a CARD over the dimmed app, not full screen, with an orange "Shared by Someone Else" warning and a "Where on the page" diagram - no picture of your page leaves your device.
+Test Focus 2: sharing a finding as a link.
 
-9. NEW, look hardest at this. On that card "Open the Original Page" is the big button under the title, with the FULL address printed beneath it, wrapping, plus a copy button. Read it before you tap: a link can no longer show a familiar site name while sending you elsewhere.
+Put coordinates in one finding first (Findings, tap one, GPS, e.g. 48.8, 19.53) and use a real map
+portal (ags.cuzk.cz, mapy.com, openstreetmap.org), or the map part cannot be tested.
 
-10. Sign out or use a fresh install so the paywall, welcome screen or analytics question is still waiting, then open a shared link. The finding must appear ON TOP of it. Then "Open the Original Page" closes the card and lands on the shared page.
+- Share a finding. The box "This link carries at most:" shows exactly what travels, with a copy
+  button - paste and compare.
+- Turn "Share the full web address" off: it shortens to the site alone. On again: the long form
+  returns.
+- Open that link on another device: same map view with the switch on, the site's front page with it
+  off. Both are correct; the switch chooses.
+- The QR sits flush in the bottom-right corner of the information block. Portrait and Landscape,
+  Light and Dark, a finding of many rows and one of two - it must not overlap text.
+- Scan the QR with the Code Scanner (Control Centre): it opens the app on the finding. The Camera
+  app opens the web page - that is iOS, not a bug.
+- Open someone else's link: a CARD over the dimmed app with an orange "Shared by Someone Else"
+  warning, "Open the Original Page" as the big button, and the FULL address printed beneath it.
+  Read it before you tap. Dismiss (top left) closes it; tapping outside must NOT.
+- Damage a link (delete a chunk from the end): the app must say it could not read it, never open to
+  nothing.
 
-11. Dismiss (top left) closes the card for good. Tapping outside must NOT close it.
+Test Focus 3: findings carry a name, and delete on a Mac.
 
-12. Damage a link (delete a chunk from the end): the app must say it could not read it, never open to nothing.
+The Save screen has an Author field between Note and GPS, prefilled from your account when signed in
+and empty otherwise. A blank author must show no row on the card, not "Unknown"; signed out it must
+never show your email. On a Mac, right-click a finding row: Delete sits beside Share, in red, and
+removes the finding and its picture just as swiping does on iPhone.
 
-13. Open a link on a device WITHOUT the app, or on a computer: a page describing the finding with a "Get ML Browser" button.
-
-Test Focus 2: Findings carry the name of whoever found them.
-
-The Save screen has an Author field between Note and GPS, prefilled from your account when signed in and empty otherwise. Save one with a name and one cleared - a blank author must show no row on the card, not "Unknown". Signed out it must never show your email. Export should include an author column.
-
-Test Focus 3: Deleting a finding on a Mac.
-
-On a Mac, right-click a finding row: Delete now sits beside Share, in red. It removes the finding and its picture just as swiping does on iPhone and iPad. Delete one, then the last one, and confirm the empty screen. Touch is unchanged: swipe left, no menu on long press.
-
-Test Focus 4: The download screen.
-
-The hint now reads ".mlmodel or .onnx", not ".mlmodel" alone - check it in each language you read, endings still in Latin letters. Downloading by address, Open Catalog and Files imports must behave as before: a model that imported before but is refused now matters most.
-
-Most important: confirm every finding you had BEFORE this build is still there, with picture, title, note and GPS intact. If anything is missing, or the app will not start, tell us at once and say which version you came from.
+Most important: confirm every finding you had BEFORE this build is still there, with picture, title,
+note and GPS intact. If anything is missing, or the app will not start, tell us at once and say
+which version you came from.
 
 Please report your device model, iOS version and the language you tested in.
