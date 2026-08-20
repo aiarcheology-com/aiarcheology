@@ -42,6 +42,8 @@ Test Focus 4: The download screen.
 
 The hint now reads ".mlmodel or .onnx", not ".mlmodel" alone - check it in each language you read, endings still in Latin letters. Downloading by address, Open Catalog and Files imports must behave as before: a model that imported before but is refused now matters most.
 
+This build also carries groundwork for converting larger detection models. It changes nothing you can see, so there is nothing new to try for it - but if anything above behaves differently than it did, say so, because it should not.
+
 Most important: confirm every finding you had BEFORE this build is still there, with picture, title, note and GPS intact. If anything is missing, or the app will not start, tell us at once and say which version you came from.
 
 Please report your device model, iOS version and the language you tested in.
