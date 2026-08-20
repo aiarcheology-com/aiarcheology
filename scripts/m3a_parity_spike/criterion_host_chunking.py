@@ -77,9 +77,12 @@ CLASS_COUNT = 5           # four ADAF classes plus background
 BOX_COORDS = CLASS_COUNT * 4
 IMAGE_SIDE = 800
 
-# The K this run is about. criterion_topk measured it; a rerun at a re-estimated K is a separate job,
-# so it is a module constant rather than a flag nobody would remember to set consistently.
-ROI_COUNT = 723
+# The K this run is about. criterion_topk's 723 rested on 14 detections; criterion_rank_margin_wide
+# widened n to 912 and watched the contributing-rank tail reach 988 against the 1000-proposal
+# ceiling, so the frozen budget is the ceiling itself — a fitted 989 would be a magic constant one
+# tile away from invalidation. A module constant rather than a flag nobody would remember to set
+# consistently.
+ROI_COUNT = 1000
 
 # Weights are random and this seed pins them, so every configuration runs the *same* model with only
 # its batch dimension changed. Comparing peaks across models that differed in their weights would be
