@@ -27,14 +27,6 @@
         "identifier" : "8AE0BC152A97B0B40086DDF9",
         "name" : "MLBrowserUnitTests"
       }
-    },
-    {
-      "parallelizable" : true,
-      "target" : {
-        "containerPath" : "container:..",
-        "identifier" : "NativeModelConverterTests",
-        "name" : "NativeModelConverterTests"
-      }
     }
   ],
   "version" : 1

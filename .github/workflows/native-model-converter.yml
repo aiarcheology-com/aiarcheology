@@ -1,11 +1,15 @@
 name: Native Model Converter
 
-# The 267 tests in the root SwiftPM package. They already run inside the simulator test plan,
-# but the seven that matter most SKIP there and everywhere else: the ONNX→CoreML numerical
-# parity checks (YOLOv5/v8/11 trunks against the ONNX Runtime oracle, converted-model probe
-# labels, metadata provenance) are gated on `NATIVE_MODEL_ONNX_DIRECTORY`, which nothing in CI
-# ever set. A skipped test reports green, so nothing would have told us if conversion started
-# producing wrong numbers.
+# The tests in the root SwiftPM package, and since AIA-0680 the ONLY place they run in CI.
+#
+# They used to run inside the simulator test plan as well, on every app unit run whatever had
+# changed — but the seven that matter most SKIPPED there and everywhere else: the ONNX→CoreML
+# numerical parity checks (YOLOv5/v8/11 trunks against the ONNX Runtime oracle, converted-model
+# probe labels, metadata provenance) are gated on `NATIVE_MODEL_ONNX_DIRECTORY`, which nothing in
+# CI ever set. A skipped test reports green, so nothing would have told us if conversion started
+# producing wrong numbers. The app plan's copy therefore cost time on every unrelated PR while
+# proving strictly less than this job, and it was removed; the `paths:` filter below is now what
+# decides whether the suite runs.
 #
 # This workflow supplies both fixture sets, so the suite runs with ZERO skips.
 #
