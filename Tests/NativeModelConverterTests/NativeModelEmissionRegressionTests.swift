@@ -27,10 +27,10 @@ final class NativeModelEmissionRegressionTests: XCTestCase {
 	/// package path; what it cannot prove — it compares against the constant itself — is that the
 	/// constant advanced.
 	func testConversionRevision_isTheCurrentValueAndIsStampedIntoTheEmittedModel() throws {
-		XCTAssertEqual(NativeModelConverterVersion.conversionRevision, 4)
+		XCTAssertEqual(NativeModelConverterVersion.conversionRevision, 5)
 
 		let userDefined = try emitAndReadUserDefined()
-		XCTAssertEqual(userDefined["com.aiarcheology.native.converter.conversion-revision"], "4")
+		XCTAssertEqual(userDefined["com.aiarcheology.native.converter.conversion-revision"], "5")
 		XCTAssertEqual(userDefined["com.aiarcheology.native.converter.package-version"], "0.1.0")
 	}
 

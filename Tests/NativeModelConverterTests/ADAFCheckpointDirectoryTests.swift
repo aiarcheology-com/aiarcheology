@@ -5,6 +5,7 @@
 //  The gated suite: every published ADAF checkpoint, fetched rather than committed (AIA-0666).
 //
 
+import CoreML
 import XCTest
 @testable import NativeModelConverter
 
@@ -199,6 +200,52 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 					   "the four detection checkpoints must digest identically")
 		XCTAssertEqual(labels, ["All archaeology", "Barrow", "Enclosure", "Ringfort"],
 					   "each one must still resolve to its own class")
+	}
+
+	/// The actual detector artifact must compile and load as the Vision-facing detector pipeline.
+	/// This is intentionally gated with the real checkpoints: the committed sparse fixture contains
+	/// the tensor table but not the 82 MiB of values the emitted model needs.
+	func test_realDetector_emitsALoadableVisionPipeline() async throws {
+		let directory = try requireDirectory()
+		let checkpointURL = directory.appendingPathComponent("OD_ringfort.tar")
+		let weightURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent("OD_ringfort-weights-\(UUID().uuidString).bin", isDirectory: false)
+		let modelURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent("OD_ringfort-\(UUID().uuidString).mlmodel", isDirectory: false)
+		defer {
+			try? FileManager.default.removeItem(at: weightURL)
+			try? FileManager.default.removeItem(at: modelURL)
+		}
+
+		let checkpoint = try PyTorchCheckpointReader.read(contentsOf: checkpointURL)
+		let extraction = try PyTorchWeightExtractor.extract(checkpoint, from: checkpointURL, to: weightURL)
+		let conversion = try NativeModelFasterRCNNRegistry.conversion(
+			checkpoint: checkpoint,
+			extraction: extraction,
+			weightData: try Data(contentsOf: weightURL)
+		)
+		try NativeModelCoreMLEmitter().emit(
+			graph: conversion.graph,
+			weights: conversion.weights,
+			to: modelURL,
+			detection: conversion.interface,
+			detectionTarget: conversion.targetInfo,
+			imagePreprocessing: .imageNetRGB,
+			targetSemanticsIntent: conversion.targetSemanticsIntent,
+			parityEvidence: .structurallyMatched
+		)
+
+		let compiledURL = try await MLModel.compileModel(at: modelURL)
+		defer { try? FileManager.default.removeItem(at: compiledURL) }
+		let model = try MLModel(contentsOf: compiledURL)
+		let image = try XCTUnwrap(model.modelDescription.inputDescriptionsByName["image_input"])
+		XCTAssertEqual(image.imageConstraint?.pixelsWide, 1_344)
+		XCTAssertEqual(image.imageConstraint?.pixelsHigh, 1_344)
+		XCTAssertNotNil(model.modelDescription.outputDescriptionsByName["coordinates"])
+		XCTAssertNotNil(model.modelDescription.outputDescriptionsByName["confidence"])
+		let metadata = model.modelDescription.metadata[.creatorDefinedKey] as? [String: String] ?? [:]
+		XCTAssertTrue(metadata[NativeModelParityProvenance.userDefinedKey]?.contains("structurally-matched") == true)
+		XCTAssertFalse(metadata[NativeModelParityProvenance.userDefinedKey]?.contains("verified") == true)
 	}
 
 	private func requireDirectory() throws -> URL {

@@ -14,9 +14,7 @@
 /// ``NativeModelProducer/name`` and ``NativeModelProducer/version`` in the graph package.
 public enum NativeModelConverterVersion {
 	public static let packageVersion = "0.1.0"
-	/// Revision 4 adds the two-stage detector operations (crop/resize, top-K, gather, non-maximum
-	/// suppression and the elementwise primitives the box arithmetic composes from), the standalone
-	/// ROI box head chunk named by an artifact manifest in the primary model's metadata, and the
-	/// parity provenance every emission now records.
-	public static let conversionRevision = 4
+	/// Revision 5 adds the pinned ADAF Faster R-CNN registry and its image-to-RPN Core ML detector
+	/// graph, including the fixed 1344-square canvas and ImageNet RGB preprocessing metadata.
+	public static let conversionRevision = 5
 }
