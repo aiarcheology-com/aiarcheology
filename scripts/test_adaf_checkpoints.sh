@@ -67,12 +67,13 @@ if [ "$skipped" != "0" ]; then
   echo "✗ $skipped test(s) skipped — the gate did not actually run" >&2
   exit 1
 fi
-# Requiring "at least one test" is not enough: if one of the two stops being discovered, the other
+# Requiring "at least one test" is not enough: if one of the named real-file checks stops being discovered, the other
 # still runs and the script reports success while a whole family of fixtures goes unopened. Name
 # them, so a disappearing test is a failure rather than a quieter pass.
 required_tests=(
   test_everyPublishedCheckpoint_isReadAndIdentified
   test_theFourDetectionCheckpoints_shareOneTensorTable
+  test_realDetector_emitsALoadableVisionPipeline
 )
 for name in "${required_tests[@]}"; do
   if ! grep -qE "Test Case '.*${name}.*' passed" "$log"; then

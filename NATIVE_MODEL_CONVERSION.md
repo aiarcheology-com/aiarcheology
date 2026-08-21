@@ -260,16 +260,16 @@ increment `conversionRevision` for every output-affecting emitter, validation, o
 change; keep the source producer version owned by the exporter. The package test checks all four
 embedded identities against the compiled Core ML model.
 
-Under that rule `conversionRevision` moves from 3 to 4 in this change, because the emitted artifact
+Under that rule `conversionRevision` moves from 4 to 5 in this change, because the emitted artifact
 contents changed again. Revision 3 was anchor-free detector emission — a Core ML network plus
 non-maximum-suppression pipeline for YOLO v8/v11 raw heads, with its task, class count, label
 provenance, and coordinate-space metadata. Revision 4 adds the two-stage detector operations
 (ROI crop/resize, top-K, gather, the in-graph non-maximum-suppression layer, and the elementwise
 primitives the box arithmetic composes from), the standalone ROI box head chunk named by an artifact
 manifest in the primary model's metadata, and the parity provenance every metadata-writing emission
-path now records. A
-revision-4 model is therefore distinguishable from a revision-3 one by its metadata alone, which is
-what the revision exists to make possible.
+path now records. Revision 5 adds the closed ADAF Faster R-CNN registry and its fixed-canvas,
+ImageNet-normalized detector graph. A revision-5 model is therefore distinguishable from its earlier
+forms by its metadata alone, which is what the revision exists to make possible.
 
 The torchvision reference exporter writes this metadata by default and accepts
 `--metadata-json SOURCE.json` to preserve a supplied metadata document byte-for-byte. A package
@@ -469,7 +469,7 @@ requires to stay green, so set them before claiming a converter change is verifi
 | --- | --- | --- |
 | `NATIVE_MODEL_ONNX_DIRECTORY` | `ONNXConversionIntegrationTests` and `YOLOv5/​v8/​11TrunkConversionTests` — top-1 and elementwise comparison against an ONNX Runtime oracle | `scripts/fetch_native_test_models.sh [TARGET_DIR]` |
 | `NATIVE_MODEL_REFERENCE_DIRECTORY` | The Apple MobileNetV2 FP16 / INT8-LUT artifact contract and its red-image probes | `scripts/test_native_model_converter.sh` sets it for you |
-| `ADAF_CHECKPOINT_DIRECTORY` | `ADAFCheckpointDirectoryTests` — every published ADAF PyTorch checkpoint, read and identified from files fetched fresh | `scripts/fetch_adaf_checkpoints.sh`, then run via `scripts/test_adaf_checkpoints.sh` |
+| `ADAF_CHECKPOINT_DIRECTORY` | `ADAFCheckpointDirectoryTests` — every published ADAF PyTorch checkpoint is read and identified, and a full detector checkpoint is emitted, compiled, and opened | `scripts/fetch_adaf_checkpoints.sh --full`, then run via `scripts/test_adaf_checkpoints.sh` |
 
 ```bash
 # 1. ONNX + YOLO oracles. Downloads 7 .onnx fixtures (~375 MB) to .native-model-fixtures/,
@@ -485,17 +485,17 @@ NATIVE_MODEL_ONNX_DIRECTORY="$PWD/.native-model-fixtures" swift test \
 ```
 
 ```bash
-# 3. ADAF PyTorch checkpoints (AIA-0666). Reconstructs all five published files sparsely from HTTP
-#    range requests into .adaf-checkpoints/, which is gitignored: 2.9 GB of logical files for about
-#    10 MB of disk. Add --full for whole files (~4.6 GB, each md5-verified).
-./scripts/fetch_adaf_checkpoints.sh
+# 3. ADAF PyTorch checkpoints (AIA-0666). Fetches all five whole files into the gitignored
+#    .adaf-checkpoints/ (~4.6 GB, each md5-verified). The detector emission test needs real weight
+#    values, not a sparse range fixture.
+./scripts/fetch_adaf_checkpoints.sh --full
 ./scripts/test_adaf_checkpoints.sh
 ```
 
 **The checkpoint gate is the one you should not run with `swift test` directly.** Its wrapper fails
 when the fixtures are missing *or when any test skips*, which a bare run cannot tell you: measured
 on this branch, `swift test --filter ADAFCheckpointDirectoryTests` with the variable unset reports
-"Executed 2 tests, with 2 tests skipped and 0 failures" and exits 0 — a green run that opened
+skipped checkpoint tests and exits 0 — a green run that opened
 nothing. `scripts/test_adaf_checkpoints.sh` exits 1 in that situation, and 1 again against an empty
 or absent directory.
 
@@ -790,13 +790,16 @@ sampling-coordinate arithmetic, amplified by the pattern's mod-256 discontinuiti
 coordinate magnitude, so the committed tolerance is **validated for canvases up to 1344** and a larger
 canvas requires re-measurement.
 
-### What this hands to the graph work (AIA-0675)
+### What this hands to the graph work (AIA-0685)
 
-- **The canvas shape is AIA-0675's decision, and it is not free.** A square canvas of side S is
-  long-side bound at `S/max(w, h)`; torchvision is also long-side bound above aspect 1.66625, so
-  `S = 1333` reproduces its scale exactly for a page-aspect tile, while below that boundary the
-  short-side rule binds and a square canvas diverges. The remaining difference is the canvas itself
-  (32-multiple, e.g. 1344×640, versus S×S), which changes the anchor grid.
+- **The pinned canvas is 1344×1344, and it is not free.** The host still applies torchvision's
+  `800/1333` content transform; this is its fixed, right/bottom-padded model canvas. The page-aspect
+  boundary remains `1333/800 = 1.66625`: above it, the long-side rule binds; below it, the short-side
+  rule does. A tempting 1333-square canvas is not graph-valid for this FPN: its `334 → 167 → 84 → 42`
+  levels cannot make the required exact ×2 top-down join at width 167. 1344 produces
+  `336 → 168 → 84 → 42 → 21`, so all joins are exact and every application tile aspect fits. Its
+  square anchor grid still differs from torchvision's variable `1344×N` grid; that is explicitly an
+  AIA-0688 numerical-parity question, not a claim that this loadable graph is verified.
 - **Pre-sizing means ADAF cannot use `VNCoreMLRequest.regionOfInterest` at all.** The request must run
   full-frame on an already-cropped buffer, so a pass goes from one reused `VNImageRequestHandler`
   across 15 regions to 15 handlers.
