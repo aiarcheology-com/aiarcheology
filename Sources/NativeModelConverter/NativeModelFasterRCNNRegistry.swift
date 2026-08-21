@@ -2,7 +2,7 @@
 //  NativeModelFasterRCNNRegistry.swift
 //  NativeModelConverter
 //
-//  The pinned ADAF Faster R-CNN architecture and its loadable Core ML graph (AIA-0685, AIA-0686).
+//  The pinned ADAF Faster R-CNN architecture and its loadable Core ML graph (AIA-0685 through AIA-0687).
 //
 
 import Foundation
@@ -90,10 +90,13 @@ public enum NativeModelFasterRCNNRegistry {
 	///
 	/// This graph deliberately remains a structural, not numerical, claim. Its RPN still selects
 	/// anchor candidates rather than consuming the regression and ROI-head paths; that replacement is
-	/// a later assembled-graph step. The terminal path is nevertheless complete: candidates are corners
-	/// in the graph IR, converted immediately before the first Core ML NMS layer, and pass through both
-	/// measured ADAF suppression passes. AIA-0687 adds the edge and empty-result corrections; AIA-0688
-	/// is where a reference oracle may change parity provenance.
+	/// a later assembled-graph step. It does emit the boundary-corrected ROI alignment construction for
+	/// one selected candidate at each pooled FPN level, so the real artifact carries the replicated ring
+	/// and feature-pixel shift without materialising the host-side ROI batch in its primary graph. The
+	/// terminal path is nevertheless complete: candidates are corners in the graph IR, converted
+	/// immediately before the first Core ML NMS layer, and pass through both measured ADAF suppression
+	/// passes. The post-suppression score mask makes Core ML's false zero-survivor slot padding again;
+	/// AIA-0688 is where a reference oracle may change parity provenance.
 	public static func template(
 		for model: ADAFObjectDetectionModel,
 		weights: [NativeModelWeight]
@@ -328,6 +331,7 @@ public enum NativeModelFasterRCNNRegistry {
 			let candidateScores = try proposalScores(from: rpnLogits)
 			let anchorCorners = try anchorCorners(for: fpn)
 			let candidates = try selectTerminalCandidates(scores: candidateScores, corners: anchorCorners)
+			emitROIEdgeAlignment(features: fpn, selectedCorners: candidates.corners)
 			let proposal = terminalSuppressions(corners: candidates.corners, scores: candidates.scores)
 
 			return NativeModelGraph(
@@ -487,14 +491,124 @@ public enum NativeModelFasterRCNNRegistry {
 			)
 		}
 
-		/// Applies both measured terminal passes. The first reproduces torchvision's 0.05 / 0.5 / top-100
-		/// postprocess; the second is ADAF's additional class-agnostic 0.2 pass. They are intentionally
-		/// separate: M3a observed different results in all 200 trials when one 0.2 pass replaced the pair.
+		/// Emits the edge-corrected `roi_align` construction at every FPN level that torchvision's
+		/// `MultiScaleRoIAlign` pools (`P2` through `P5`). `P6` feeds the RPN but is not a box-head pool
+		/// level. The primary graph carries one real selected candidate at each level: that pins the exact
+		/// operation sequence and keeps the primary's structural-loadability budget separate from the
+		/// fixed-52 host-side ROI chunk measured in AIA-0670. The future chunk replaces this bounded path
+		/// with its batch input; it must preserve this ring and shift exactly.
+		///
+		/// `CropResize` zeros samples outside its feature tensor where torchvision's `roi_align` clamps.
+		/// Prepending/appending the actual border cells makes the ring replicate instead, and adding
+		/// `1 / spatialScale` image pixels makes the original feature origin `[1, 1]` in that ring. The
+		/// candidate corners are normalized in the current structural RPN path, so they are first restored
+		/// to the 1344-image frame and reordered from `[x0, y0, x1, y1]` to CropResize's `[y0, x0, y1, x1]`.
+		mutating func emitROIEdgeAlignment(features: [Activation], selectedCorners: String) {
+			let roiFeatures = Array(features.prefix(4))
+			precondition(roiFeatures.count == 4, "Faster R-CNN pools P2 through P5 exactly.")
+			let imageScale = constant(
+				values: [
+					Float(NativeModelFasterRCNNRegistry.architecture.canvas.width),
+					Float(NativeModelFasterRCNNRegistry.architecture.canvas.height),
+					Float(NativeModelFasterRCNNRegistry.architecture.canvas.width),
+					Float(NativeModelFasterRCNNRegistry.architecture.canvas.height)
+				],
+				output: "frcnn.roi.image_scale", shape: [1, 1, 4]
+			)
+
+			for (index, feature) in roiFeatures.enumerated() {
+				let level = index + 2
+				let prefix = "frcnn.roi.p\(level)"
+				let featureRank5 = reshape(
+					feature.name, output: "\(prefix).features_rank5",
+					shape: [1, 1, feature.channels, feature.height, feature.width]
+				)
+				let left = sliceND(
+					featureRank5, output: "\(prefix).ring_left",
+					begin: [0, 0, 0, 0, 0], end: [1, 1, feature.channels, feature.height, 1],
+					shape: [1, 1, feature.channels, feature.height, 1]
+				)
+				let right = sliceND(
+					featureRank5, output: "\(prefix).ring_right",
+					begin: [0, 0, 0, 0, feature.width - 1], end: [1, 1, feature.channels, feature.height, feature.width],
+					shape: [1, 1, feature.channels, feature.height, 1]
+				)
+				let ringColumns = concatenate(
+					[left, featureRank5, right], output: "\(prefix).ring_columns",
+					shape: [1, 1, feature.channels, feature.height, feature.width + 2], axis: 4
+				)
+				let top = sliceND(
+					ringColumns, output: "\(prefix).ring_top",
+					begin: [0, 0, 0, 0, 0], end: [1, 1, feature.channels, 1, feature.width + 2],
+					shape: [1, 1, feature.channels, 1, feature.width + 2]
+				)
+				let bottom = sliceND(
+					ringColumns, output: "\(prefix).ring_bottom",
+					begin: [0, 0, 0, feature.height - 1, 0], end: [1, 1, feature.channels, feature.height, feature.width + 2],
+					shape: [1, 1, feature.channels, 1, feature.width + 2]
+				)
+				let ring = concatenate(
+					[top, ringColumns, bottom], output: "\(prefix).replicate_ring",
+					shape: [1, 1, feature.channels, feature.height + 2, feature.width + 2], axis: 3
+				)
+
+				let selected = sliceND(
+					selectedCorners, output: "\(prefix).selected_corners",
+					begin: [0, index, 0], end: [1, index + 1, 4], shape: [1, 1, 4]
+				)
+				let imageCorners = binary(
+					.multiply, selected, imageScale, output: "\(prefix).image_corners", shape: [1, 1, 4]
+				)
+				let components = ["x0", "y0", "x1", "y1"].map { "\(prefix).corner_\($0)" }
+				operations.append(NativeModelOperation(
+					name: "\(prefix).split_corners", kind: .splitND, inputs: [imageCorners],
+					outputs: components.map { NativeModelTensor(name: $0, dataType: .float32, shape: [1, 1, 1]) },
+					attributes: ["axis": .integer(2), "splitSizes": .integers([1, 1, 1, 1])]
+				))
+				let cropCorners = concatenate(
+					[components[1], components[0], components[3], components[2]], output: "\(prefix).crop_corners",
+					shape: [1, 1, 4], axis: 2
+				)
+				let boxes = reshape(cropCorners, output: "\(prefix).boxes", shape: [1, 1, 4, 1, 1])
+				let spatialScale = Double(feature.width) / Double(NativeModelFasterRCNNRegistry.architecture.canvas.width)
+				let shift = constant(
+					values: [Float](repeating: Float(1 / spatialScale), count: 4), output: "\(prefix).feature_pixel_shift",
+					shape: [1, 1, 4, 1, 1]
+				)
+				let shiftedBoxes = binary(
+					.add, boxes, shift, output: "\(prefix).shifted_boxes", shape: [1, 1, 4, 1, 1]
+				)
+				let cropped = "\(prefix).crop_resize"
+				operations.append(NativeModelOperation(
+					name: cropped, kind: .cropResize, inputs: [ring, shiftedBoxes],
+					outputs: [NativeModelTensor(name: cropped, dataType: .float32, shape: [1, 1, feature.channels, 14, 14])],
+					attributes: [
+						"targetHeight": .integer(14), "targetWidth": .integer(14),
+						"spatialScale": .floatingPoint(spatialScale)
+					]
+				))
+				let pooled = "\(prefix).roi_align"
+				operations.append(NativeModelOperation(
+					name: pooled, kind: .averagePool2D, inputs: [cropped],
+					outputs: [NativeModelTensor(name: pooled, dataType: .float32, shape: [1, 1, feature.channels, 7, 7])],
+					attributes: [
+						"kernelSize": .integers([2, 2]), "strides": .integers([2, 2]), "padding": .integers([0, 0])
+					]
+				))
+			}
+		}
+
+		/// Applies both measured terminal passes. In this structural loadability slice the first pass applies
+		/// torchvision's 0.05 / 0.5 / top-100 values to RPN objectness scores; torchvision itself applies
+		/// its score floor to ROI-head class scores. The second is ADAF's additional class-agnostic 0.2 pass.
+		/// They are intentionally separate: M3a observed different results in all 200 trials when one 0.2
+		/// pass replaced the pair.
 		mutating func terminalSuppressions(corners: String, scores: String) -> (coordinates: String, confidence: String) {
+			let scoreThreshold = 0.05
 			let firstBoxes = cornerBoxesToCentreSize(corners, count: NativeModelFasterRCNNRegistry.architecture.proposalCount)
 			let first = suppress(
 				boxes: firstBoxes, scores: scores, name: "frcnn.postprocess.torchvision_nms",
-				iouThreshold: 0.5, scoreThreshold: 0.05,
+				iouThreshold: 0.5, scoreThreshold: scoreThreshold,
 				maxBoxes: NativeModelFasterRCNNRegistry.architecture.terminalDetectionCount
 			)
 			let second = suppress(
@@ -503,10 +617,48 @@ public enum NativeModelFasterRCNNRegistry {
 				maxBoxes: NativeModelFasterRCNNRegistry.architecture.terminalDetectionCount
 			)
 			let count = NativeModelFasterRCNNRegistry.architecture.terminalDetectionCount
-			return (
-				reshape(second.boxes, output: Self.coordinatesOutput, shape: [count, 4]),
-				reshape(second.scores, output: Self.confidenceOutput, shape: [count, 1])
+			let masked = maskEmptyTile(
+				boxes: second.boxes, scores: second.scores, count: count, scoreThreshold: scoreThreshold
 			)
+			return (
+				reshape(masked.boxes, output: Self.coordinatesOutput, shape: [count, 4]),
+				reshape(masked.scores, output: Self.confidenceOutput, shape: [count, 1])
+			)
+		}
+
+		/// Core ML NMS reports one valid slot when nothing clears its score floor, carrying the highest
+		/// sub-threshold input rather than padding. Apply the real first-pass floor to the *final* score
+		/// and box blobs: the second 0.2-IoU pass may retain a valid first-pass survivor at score exactly
+		/// 0.05, but can never turn a sub-threshold score into one. The same comparison also zeroes padded
+		/// rows, so the Vision adapter's tiny positive threshold emits no phantom observation.
+		mutating func maskEmptyTile(
+			boxes: String,
+			scores: String,
+			count: Int,
+			scoreThreshold: Double
+		) -> (boxes: String, scores: String) {
+			let scoreShape = [1, count, 1]
+			let survivors = "frcnn.postprocess.survivors"
+			operations.append(NativeModelOperation(
+				name: survivors, kind: .greaterOrEqual, inputs: [scores],
+				outputs: [NativeModelTensor(name: survivors, dataType: .float32, shape: scoreShape)],
+				attributes: ["threshold": .floatingPoint(scoreThreshold)]
+			))
+			let maskedScores = "frcnn.postprocess.masked_scores"
+			operations.append(NativeModelOperation(
+				name: maskedScores, kind: .multiply, inputs: [scores, survivors],
+				outputs: [NativeModelTensor(name: maskedScores, dataType: .float32, shape: scoreShape)], attributes: [:]
+			))
+			let boxMask = concatenate(
+				[String](repeating: survivors, count: 4), output: "frcnn.postprocess.box_mask",
+				shape: [1, count, 4], axis: 2
+			)
+			let maskedBoxes = "frcnn.postprocess.masked_boxes"
+			operations.append(NativeModelOperation(
+				name: maskedBoxes, kind: .multiply, inputs: [boxes, boxMask],
+				outputs: [NativeModelTensor(name: maskedBoxes, dataType: .float32, shape: [1, count, 4])], attributes: [:]
+			))
+			return (maskedBoxes, maskedScores)
 		}
 
 		/// Converts `[x0, y0, x1, y1]` to Core ML NMS's mandatory `[cx, cy, width, height]` exactly at
@@ -731,6 +883,18 @@ public enum NativeModelFasterRCNNRegistry {
 			operations.append(NativeModelOperation(
 				name: output, kind: .concatenateND, inputs: inputs,
 				outputs: [NativeModelTensor(name: output, dataType: .float32, shape: shape)], attributes: ["axis": .integer(axis)]
+			))
+			return output
+		}
+
+		mutating func sliceND(_ input: String, output: String, begin: [Int], end: [Int], shape: [Int]) -> String {
+			operations.append(NativeModelOperation(
+				name: output, kind: .sliceND, inputs: [input],
+				outputs: [NativeModelTensor(name: output, dataType: .float32, shape: shape)],
+				attributes: [
+					"beginIds": .integers(begin), "endIds": .integers(end),
+					"strides": .integers([Int](repeating: 1, count: begin.count))
+				]
 			))
 			return output
 		}

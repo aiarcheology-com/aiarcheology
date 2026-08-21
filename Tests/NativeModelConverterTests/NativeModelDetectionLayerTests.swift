@@ -794,6 +794,28 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		])
 	}
 
+	func testReplicatedRingAndFeaturePixelShift_matchTorchvisionAtTheFeatureMapEdge() async throws {
+		// This is the assembled correction for the preceding regression: copy the four boundary edges
+		// into a one-feature-pixel ring, then add one feature pixel to *every* ROI coordinate before
+		// CropResize. `spatialScale` is deliberately 0.25, so the constant must be four image pixels;
+		// adding one in image space would move the ROI by only a quarter of a feature pixel and leave the
+		// boundary error intact. The expected values come directly from torchvision's `roi_align` for the
+		// original (unshifted) 8×8 feature map and `[3, 3, 8, 8]` edge-touching ROI.
+		let output = try await replicatedROIAlign(
+			featureShape: [1, 1, 1, 8, 8], features: Self.featureMap8x8,
+			boxes: [[12, 12, 32, 32]], outputHeight: 7, outputWidth: 7, spatialScale: 0.25
+		)
+		assertClose(output, [
+			2.62765, 2.44405, 2.84981, 2.60639, 2.24, 2.29063, 2.30021,
+			3.35901, 3.09221, 2.8306, 2.61105, 2.60239, 3.01107, 3.08839,
+			4.20815, 3.76224, 3.09379, 3.35661, 3.77466, 3.61439, 3.58407,
+			3.90329, 3.25042, 2.18425, 2.9335, 3.85429, 3.35875, 3.265,
+			3.28899, 2.80259, 1.69617, 2.39286, 3.3087, 2.90363, 2.827,
+			3.13127, 3.62169, 3.26522, 2.78863, 2.54024, 2.83583, 2.89175,
+			3.10143, 3.77666, 3.56207, 2.8635, 2.39486, 2.823, 2.904
+		])
+	}
+
 	/// The seeded 8x8 feature map shared by the interior-parity and edge-behaviour tests, so the only
 	/// thing that differs between them is where the box sits. Every value is positive by construction
 	/// (`default_rng(20260820).normal() + 3`), which is what makes a zeroed output cell legible.
@@ -860,6 +882,108 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		)
 		return try await predict(
 			graph: graph, weights: Data(),
+			inputs: ["features": (featureShape, features), "rois": (boxShape, boxes.flatMap { $0 })],
+			outputShape: outputShape
+		)
+	}
+
+	/// The M3c edge construction as graph operations: static slices select the outer rows and columns,
+	/// concatenation duplicates them into a replicate ring, and the ROI shift lands the old feature-map
+	/// origin at `[1, 1]` in that ring. CropResize then sees the same clampable values as torchvision.
+	private func replicatedROIAlign(
+		featureShape: [Int],
+		features: [Float],
+		boxes: [[Float]],
+		outputHeight: Int,
+		outputWidth: Int,
+		spatialScale: Double
+	) async throws -> [Float] {
+		let batch = featureShape[1]
+		let channels = featureShape[2]
+		let height = featureShape[3]
+		let width = featureShape[4]
+		let (cropHeight, cropWidth) = (outputHeight * 2, outputWidth * 2)
+		let boxShape = [boxes.count, 1, 4, 1, 1]
+		let outputShape = [boxes.count, batch, channels, outputHeight, outputWidth]
+		let ringWidth = width + 2
+		let horizontalShape = [1, batch, channels, height, ringWidth]
+		let paddedShape = [1, batch, channels, height + 2, ringWidth]
+		let shift = [Float](repeating: Float(1 / spatialScale), count: boxes.count * 4)
+		let shiftData = shift.withUnsafeBytes { Data($0) }
+		let shiftWeight = NativeModelWeight(
+			name: "roi_shift.values", dataType: .float32, shape: boxShape,
+			offset: 0, byteCount: UInt64(shiftData.count)
+		)
+		func slice(
+			_ name: String,
+			input: String,
+			begin: [Int],
+			end: [Int],
+			shape: [Int]
+		) -> NativeModelOperation {
+			NativeModelOperation(
+				name: name, kind: .sliceND, inputs: [input],
+				outputs: [NativeModelTensor(name: name, dataType: .float32, shape: shape)],
+				attributes: ["beginIds": .integers(begin), "endIds": .integers(end), "strides": .integers([1, 1, 1, 1, 1])]
+			)
+		}
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "test", version: "1"),
+			inputs: [
+				NativeModelTensor(name: "features", dataType: .float32, shape: featureShape),
+				NativeModelTensor(name: "rois", dataType: .float32, shape: boxShape)
+			],
+			weights: [shiftWeight],
+			operations: [
+				slice("left", input: "features", begin: [0, 0, 0, 0, 0], end: [1, batch, channels, height, 1], shape: [1, batch, channels, height, 1]),
+				slice("right", input: "features", begin: [0, 0, 0, 0, width - 1], end: [1, batch, channels, height, width], shape: [1, batch, channels, height, 1]),
+				NativeModelOperation(
+					name: "ring_columns", kind: .concatenateND, inputs: ["left", "features", "right"],
+					outputs: [NativeModelTensor(name: "ring_columns", dataType: .float32, shape: horizontalShape)],
+					attributes: ["axis": .integer(4)]
+				),
+				slice("top", input: "ring_columns", begin: [0, 0, 0, 0, 0], end: [1, batch, channels, 1, ringWidth], shape: [1, batch, channels, 1, ringWidth]),
+				slice("bottom", input: "ring_columns", begin: [0, 0, 0, height - 1, 0], end: [1, batch, channels, height, ringWidth], shape: [1, batch, channels, 1, ringWidth]),
+				NativeModelOperation(
+					name: "replicate_ring", kind: .concatenateND, inputs: ["top", "ring_columns", "bottom"],
+					outputs: [NativeModelTensor(name: "replicate_ring", dataType: .float32, shape: paddedShape)],
+					attributes: ["axis": .integer(3)]
+				),
+				NativeModelOperation(
+					name: "roi_shift", kind: .constantND, inputs: [shiftWeight.name],
+					outputs: [NativeModelTensor(name: "roi_shift", dataType: .float32, shape: boxShape)], attributes: [:]
+				),
+				NativeModelOperation(
+					name: "shifted_rois", kind: .add, inputs: ["rois", "roi_shift"],
+					outputs: [NativeModelTensor(name: "shifted_rois", dataType: .float32, shape: boxShape)], attributes: [:]
+				),
+				NativeModelOperation(
+					name: "cropped", kind: .cropResize, inputs: ["replicate_ring", "shifted_rois"],
+					outputs: [NativeModelTensor(
+						name: "cropped", dataType: .float32,
+						shape: [boxes.count, batch, channels, cropHeight, cropWidth]
+					)],
+					attributes: [
+						"targetHeight": .integer(cropHeight),
+						"targetWidth": .integer(cropWidth),
+						"spatialScale": .floatingPoint(spatialScale)
+					]
+				),
+				NativeModelOperation(
+					name: "y", kind: .averagePool2D, inputs: ["cropped"],
+					outputs: [NativeModelTensor(name: "y", dataType: .float32, shape: outputShape)],
+					attributes: [
+						"kernelSize": .integers([2, 2]),
+						"strides": .integers([2, 2]),
+						"padding": .integers([0, 0])
+					]
+				)
+			],
+			outputs: ["y"]
+		)
+		return try await predict(
+			graph: graph, weights: shiftData,
 			inputs: ["features": (featureShape, features), "rois": (boxShape, boxes.flatMap { $0 })],
 			outputShape: outputShape
 		)
@@ -1157,6 +1281,19 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 			try XCTUnwrap(outputs["kept_boxes"]),
 			[110, 110, 20, 20, 0, 0, 0, 0, 0, 0, 0, 0]
 		)
+	}
+
+	func testNonMaximumSuppression_keepsAScoreExactlyAtItsThreshold() async throws {
+		// Core ML's score threshold is inclusive. This matters to the assembled mask: it must use the
+		// same boundary as the first NMS pass, or an exact-threshold survivor becomes a phantom only
+		// after the second pass. Torchvision's ROI-head filter is strict, but that stage is deliberately
+		// not what the current RPN-objectness loadability slice claims to reproduce.
+		let outputs = try await suppress(
+			boxes: Self.spreadOutBoxes, scores: [[0.50], [0.49], [0.10]],
+			iouThreshold: 0.5, scoreThreshold: 0.5, maxBoxes: 3
+		)
+		assertClose(try XCTUnwrap(outputs["valid_count"]), [1])
+		assertClose(try XCTUnwrap(outputs["kept_scores"]), [0.5, 0, 0])
 	}
 
 	func testNonMaximumSuppressionMaskedByScore_leavesAnEmptyTileEmpty() async throws {

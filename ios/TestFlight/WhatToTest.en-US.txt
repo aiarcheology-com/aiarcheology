@@ -1,8 +1,9 @@
 Build: TBD
 
-The ADAF detector converter now carries both of its measured final box-suppression passes and still
-loads as a Core ML Vision detector. It is not wired into Import or Detector yet, so there is no new
-screen or setting to test. Continue with the existing checks below.
+The ADAF detector converter now keeps empty tiles empty: its Core ML graph masks the false NMS slot
+that otherwise looks like a low-confidence finding. Its structural graph also carries the corrected
+ROI-edge construction. It is not wired into Import or Detector yet, so there is no new screen or
+setting to test. Continue with the existing checks below.
 
 Nothing new to try in this build from the model-sizing work (AIA-0680): it adds arithmetic that is
 not wired into the app yet, so there is no new screen, setting or message, and detection is
