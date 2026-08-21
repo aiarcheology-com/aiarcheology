@@ -2,7 +2,7 @@
 //  NativeModelFasterRCNNRegistry.swift
 //  NativeModelConverter
 //
-//  The pinned ADAF Faster R-CNN architecture and its first loadable Core ML graph (AIA-0685).
+//  The pinned ADAF Faster R-CNN architecture and its loadable Core ML graph (AIA-0685, AIA-0686).
 //
 
 import Foundation
@@ -21,6 +21,7 @@ public enum NativeModelFasterRCNNRegistry {
 		public let identifier: String
 		public let canvas: NativeModelImageSize
 		public let proposalCount: Int
+		public let terminalDetectionCount: Int
 		public let predictorLogitCount: Int
 		public let fpnChannels: Int
 		public let anchorSizes: [Int]
@@ -30,6 +31,7 @@ public enum NativeModelFasterRCNNRegistry {
 			identifier: String,
 			canvas: NativeModelImageSize,
 			proposalCount: Int,
+			terminalDetectionCount: Int,
 			predictorLogitCount: Int,
 			fpnChannels: Int,
 			anchorSizes: [Int],
@@ -38,6 +40,7 @@ public enum NativeModelFasterRCNNRegistry {
 			self.identifier = identifier
 			self.canvas = canvas
 			self.proposalCount = proposalCount
+			self.terminalDetectionCount = terminalDetectionCount
 			self.predictorLogitCount = predictorLogitCount
 			self.fpnChannels = fpnChannels
 			self.anchorSizes = anchorSizes
@@ -57,6 +60,7 @@ public enum NativeModelFasterRCNNRegistry {
 		identifier: "fasterrcnn_resnet50_fpn_v2",
 		canvas: NativeModelImageSize(width: 1344, height: 1344),
 		proposalCount: 1_000,
+		terminalDetectionCount: 100,
 		predictorLogitCount: 2,
 		fpnChannels: 256,
 		anchorSizes: [32, 64, 128, 256, 512],
@@ -84,11 +88,12 @@ public enum NativeModelFasterRCNNRegistry {
 
 	/// Builds the graph skeleton from the closed architecture registry.
 	///
-	/// This slice deliberately stops after a fixed RPN proposal selection. It is enough to prove the
-	/// actual image → ResNet-50 → FPN → RPN graph, detector pipeline, and checkpoint weights compile
-	/// and load. It is not a numerical claim: AIA-0686 replaces this provisional anchor-only proposal
-	/// path with decoded boxes and both terminal suppression passes; AIA-0687 adds the edge and
-	/// empty-result corrections; AIA-0688 is where a reference oracle may change parity provenance.
+	/// This graph deliberately remains a structural, not numerical, claim. Its RPN still selects
+	/// anchor candidates rather than consuming the regression and ROI-head paths; that replacement is
+	/// a later assembled-graph step. The terminal path is nevertheless complete: candidates are corners
+	/// in the graph IR, converted immediately before the first Core ML NMS layer, and pass through both
+	/// measured ADAF suppression passes. AIA-0687 adds the edge and empty-result corrections; AIA-0688
+	/// is where a reference oracle may change parity provenance.
 	public static func template(
 		for model: ADAFObjectDetectionModel,
 		weights: [NativeModelWeight]
@@ -118,11 +123,10 @@ public enum NativeModelFasterRCNNRegistry {
 		let graph = try builder.makeGraph()
 		let interface = NativeModelDetectionInterface(
 			labels: [label],
-			boxCount: architecture.proposalCount,
+			boxCount: architecture.terminalDetectionCount,
 			coordinatesBlobName: GraphBuilder.coordinatesOutput,
 			confidenceBlobName: GraphBuilder.confidenceOutput,
-			iouThreshold: 0.5,
-			confidenceThreshold: 0.5
+			suppressionOwnership: .graph
 		)
 		return Template(
 			graph: graph,
@@ -322,8 +326,9 @@ public enum NativeModelFasterRCNNRegistry {
 			let fpn = try fpnFeatures(from: c2ToC5)
 			let rpnLogits = try rpnLogits(for: fpn)
 			let candidateScores = try proposalScores(from: rpnLogits)
-			let anchors = try anchors(for: fpn)
-			let proposal = try selectProvisionalProposals(scores: candidateScores, anchors: anchors)
+			let anchorCorners = try anchorCorners(for: fpn)
+			let candidates = try selectTerminalCandidates(scores: candidateScores, corners: anchorCorners)
+			let proposal = terminalSuppressions(corners: candidates.corners, scores: candidates.scores)
 
 			return NativeModelGraph(
 				formatVersion: NativeModelGraph.exactNDFormatVersion,
@@ -446,13 +451,18 @@ public enum NativeModelFasterRCNNRegistry {
 			return concatenate(flattened, output: "frcnn.rpn.candidate_scores", shape: [1, candidateCount], axis: 1)
 		}
 
-		mutating func anchors(for features: [Activation]) throws -> String {
-			let values = try normalizedAnchors(for: features)
+		mutating func anchorCorners(for features: [Activation]) throws -> String {
+			let values = try normalizedAnchorCorners(for: features)
 			let count = values.count / 4
-			return constant(values: values, output: "frcnn.rpn.anchors", shape: [1, count, 4])
+			return constant(values: values, output: "frcnn.rpn.anchor_corners", shape: [1, count, 4])
 		}
 
-		mutating func selectProvisionalProposals(scores: String, anchors: String) throws -> (coordinates: String, confidence: String) {
+		/// Selects the fixed terminal candidate budget while retaining the graph IR's corner convention.
+		/// The previous loadability graph exposed its synthesized anchors in NMS centre-size order, which
+		/// made it dangerously easy to hand the next operation coordinates whose convention was implicit.
+		/// This boundary now names corners until `cornerBoxesToCentreSize` immediately precedes the first
+		/// NMS layer.
+		mutating func selectTerminalCandidates(scores: String, corners: String) throws -> (corners: String, scores: String) {
 			let candidateCount = flattenedCandidateCountForCanvas()
 			let proposalCount = NativeModelFasterRCNNRegistry.architecture.proposalCount
 			precondition(candidateCount >= proposalCount, "The pinned canvas must produce at least the fixed top-K proposal budget.")
@@ -465,15 +475,89 @@ public enum NativeModelFasterRCNNRegistry {
 					NativeModelTensor(name: indices, dataType: .float32, shape: [1, proposalCount])
 				], attributes: ["k": .integer(proposalCount), "axis": .integer(1)]
 			))
-			let gathered = "frcnn.rpn.selected_anchor_rank4"
+			let gathered = "frcnn.rpn.selected_corner_rank4"
 			operations.append(NativeModelOperation(
-				name: "frcnn.rpn.gather_anchors", kind: .gather, inputs: [anchors, indices],
+				name: "frcnn.rpn.gather_corners", kind: .gather, inputs: [corners, indices],
 				outputs: [NativeModelTensor(name: gathered, dataType: .float32, shape: [1, 1, proposalCount, 4])],
 				attributes: ["axis": .integer(1)]
 			))
-			let coordinates = reshape(gathered, output: Self.coordinatesOutput, shape: [proposalCount, 4])
-			let confidence = reshape(values, output: Self.confidenceOutput, shape: [proposalCount, 1])
-			return (coordinates, confidence)
+			return (
+				reshape(gathered, output: "frcnn.rpn.selected_corners", shape: [1, proposalCount, 4]),
+				reshape(values, output: "frcnn.rpn.selected_scores", shape: [1, proposalCount, 1])
+			)
+		}
+
+		/// Applies both measured terminal passes. The first reproduces torchvision's 0.05 / 0.5 / top-100
+		/// postprocess; the second is ADAF's additional class-agnostic 0.2 pass. They are intentionally
+		/// separate: M3a observed different results in all 200 trials when one 0.2 pass replaced the pair.
+		mutating func terminalSuppressions(corners: String, scores: String) -> (coordinates: String, confidence: String) {
+			let firstBoxes = cornerBoxesToCentreSize(corners, count: NativeModelFasterRCNNRegistry.architecture.proposalCount)
+			let first = suppress(
+				boxes: firstBoxes, scores: scores, name: "frcnn.postprocess.torchvision_nms",
+				iouThreshold: 0.5, scoreThreshold: 0.05,
+				maxBoxes: NativeModelFasterRCNNRegistry.architecture.terminalDetectionCount
+			)
+			let second = suppress(
+				boxes: first.boxes, scores: first.scores, name: "frcnn.postprocess.adaf_nms",
+				iouThreshold: 0.2, scoreThreshold: 0,
+				maxBoxes: NativeModelFasterRCNNRegistry.architecture.terminalDetectionCount
+			)
+			let count = NativeModelFasterRCNNRegistry.architecture.terminalDetectionCount
+			return (
+				reshape(second.boxes, output: Self.coordinatesOutput, shape: [count, 4]),
+				reshape(second.scores, output: Self.confidenceOutput, shape: [count, 1])
+			)
+		}
+
+		/// Converts `[x0, y0, x1, y1]` to Core ML NMS's mandatory `[cx, cy, width, height]` exactly at
+		/// the operator boundary. No other graph operation after this point reads these values as corners.
+		mutating func cornerBoxesToCentreSize(_ corners: String, count: Int) -> String {
+			let componentShape = [1, count, 1]
+			let components = ["x0", "y0", "x1", "y1"].map { "frcnn.postprocess.corner_\($0)" }
+			operations.append(NativeModelOperation(
+				name: "frcnn.postprocess.split_corners", kind: .splitND, inputs: [corners],
+				outputs: components.map { NativeModelTensor(name: $0, dataType: .float32, shape: componentShape) },
+				attributes: ["axis": .integer(2), "splitSizes": .integers([1, 1, 1, 1])]
+			))
+			let half = constant(values: [Float](repeating: 0.5, count: count), output: "frcnn.postprocess.half", shape: componentShape)
+			let centerXSum = binary(.add, components[0], components[2], output: "frcnn.postprocess.center_x_sum", shape: componentShape)
+			let centerYSum = binary(.add, components[1], components[3], output: "frcnn.postprocess.center_y_sum", shape: componentShape)
+			let centerX = binary(.multiply, centerXSum, half, output: "frcnn.postprocess.center_x", shape: componentShape)
+			let centerY = binary(.multiply, centerYSum, half, output: "frcnn.postprocess.center_y", shape: componentShape)
+			let width = binary(.subtract, components[2], components[0], output: "frcnn.postprocess.width", shape: componentShape)
+			let height = binary(.subtract, components[3], components[1], output: "frcnn.postprocess.height", shape: componentShape)
+			return concatenate(
+				[centerX, centerY, width, height], output: "frcnn.postprocess.centre_size",
+				shape: [1, count, 4], axis: 2
+			)
+		}
+
+		mutating func suppress(
+			boxes: String,
+			scores: String,
+			name: String,
+			iouThreshold: Double,
+			scoreThreshold: Double,
+			maxBoxes: Int
+		) -> (boxes: String, scores: String) {
+			let boxesOutput = "\(name).boxes"
+			let scoresOutput = "\(name).scores"
+			operations.append(NativeModelOperation(
+				name: name, kind: .nonMaximumSuppression, inputs: [boxes, scores],
+				outputs: [
+					NativeModelTensor(name: boxesOutput, dataType: .float32, shape: [1, maxBoxes, 4]),
+					NativeModelTensor(name: scoresOutput, dataType: .float32, shape: [1, maxBoxes, 1]),
+					NativeModelTensor(name: "\(name).indices", dataType: .float32, shape: [1, maxBoxes]),
+					NativeModelTensor(name: "\(name).valid_count", dataType: .float32, shape: [1])
+				],
+				attributes: [
+					"iouThreshold": .floatingPoint(iouThreshold),
+					"scoreThreshold": .floatingPoint(scoreThreshold),
+					"maxBoxes": .integer(maxBoxes),
+					"perClassSuppression": .boolean(false)
+				]
+			))
+			return (boxesOutput, scoresOutput)
 		}
 
 		func flattenedCandidateCount(_ logits: [Activation]) -> Int {
@@ -486,7 +570,7 @@ public enum NativeModelFasterRCNNRegistry {
 			return sides.reduce(0) { $0 + NativeModelFasterRCNNRegistry.architecture.anchorAspectRatios.count * $1 * $1 }
 		}
 
-		func normalizedAnchors(for features: [Activation]) throws -> [Float] {
+		func normalizedAnchorCorners(for features: [Activation]) throws -> [Float] {
 			let canvas = NativeModelFasterRCNNRegistry.architecture.canvas
 			let expectedSides = [336, 168, 84, 42, 21]
 			guard features.map(\.width) == expectedSides, features.map(\.height) == expectedSides else {
@@ -505,10 +589,12 @@ public enum NativeModelFasterRCNNRegistry {
 					let height = size * sqrt(ratio) / Double(canvas.height)
 					for row in 0..<feature.height {
 						for column in 0..<feature.width {
-							values.append(Float(Double(column) * strideX / Double(canvas.width)))
-							values.append(Float(Double(row) * strideY / Double(canvas.height)))
-							values.append(Float(width))
-							values.append(Float(height))
+							let centerX = Double(column) * strideX / Double(canvas.width)
+							let centerY = Double(row) * strideY / Double(canvas.height)
+							values.append(Float(centerX - width / 2))
+							values.append(Float(centerY - height / 2))
+							values.append(Float(centerX + width / 2))
+							values.append(Float(centerY + height / 2))
 						}
 					}
 				}
@@ -645,6 +731,14 @@ public enum NativeModelFasterRCNNRegistry {
 			operations.append(NativeModelOperation(
 				name: output, kind: .concatenateND, inputs: inputs,
 				outputs: [NativeModelTensor(name: output, dataType: .float32, shape: shape)], attributes: ["axis": .integer(axis)]
+			))
+			return output
+		}
+
+		mutating func binary(_ kind: NativeModelOperationKind, _ lhs: String, _ rhs: String, output: String, shape: [Int]) -> String {
+			operations.append(NativeModelOperation(
+				name: output, kind: kind, inputs: [lhs, rhs],
+				outputs: [NativeModelTensor(name: output, dataType: .float32, shape: shape)], attributes: [:]
 			))
 			return output
 		}
