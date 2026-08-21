@@ -694,6 +694,123 @@ and JSON evidence, and then use that baseline to choose package limits or a stre
 streaming serialization path is the likely memory optimization if the measured peak is too high;
 compiler flags alone cannot remove an algorithmic duplicate of model-weight bytes.
 
+## App-side image sizing, and why normalisation stays in the graph
+
+AIA-0680. M3a measured that no NN-spec resize mode reproduces `GeneralizedRCNNTransform`'s bilinear
+(`align_corners=False`) — the closest leaves 0.1296 absolute on `[0, 1]` data — and that pinning
+`min_size` to the tile size is not a cheaper way to get the same model but a **different** model,
+moving boxes 19.43 px and dropping a detection. So the resize cannot live in the emitted graph. It
+lives in `NativeModelImageSizing`, and the boxes come back out through its inverse.
+
+### Two decisions, and the evidence for each
+
+**Vision's `.scaleFit` is an identity at matched sizes.** Measured, not assumed, by
+`VisionScaleFitProbeTests` driving a committed identity model through the exact layer `Detector`
+uses — `VNCoreMLModel` → `VNCoreMLRequest(.scaleFit)` → `VNImageRequestHandler(ciImage:)`. Three
+figures, because one number would conflate pixel-format conversion with resampling:
+
+| | measured (raw 0…255 code units) |
+|-|-|
+| (a) conversion floor: `CIContext.render` into the model's own pixel format, then `MLModel.prediction` | 0.0 |
+| (b) Vision `.scaleFit` at matched 64×64 | 0.0 |
+| (c) Vision `.scaleFit` at mismatched 65×65 — the blindness control | 250.0 |
+| **Vision against the direct prediction, elementwise** | **0.0** |
+
+(c) is not decoration: without it, a probe that reported "identity" because it was reading nothing at
+all would be indistinguishable from a real result. Taken on the iOS 26.5 simulator with an sRGB
+source and a BGRA pixel format; no physical device is currently attachable (`xcrun devicectl list
+devices` reports the only physical entry as unavailable, and AIA-0675 records Xcode 26.6 failing to
+personalise an iOS 27-generation developer disk image for a device on iOS 26.5.2). **So the app can
+pre-size and Vision will pass the buffer through untouched**, and the alternative — bypassing
+`VNCoreMLRequest`'s scaling — is not needed, which matters because it would have collided with
+AIA-0675 criterion 9. Nothing is wired yet: `Detector` is deliberately untouched by this slice and
+the component has no non-test call site, so this records a settled design question, not a shipped
+behaviour.
+
+**Normalisation stays in the graph.** `NativeModelImagePreprocessing.imageNetRGB` already performs
+exactly torchvision's arithmetic and the emitter already exercises it. The reason is not preference
+but constraint: AIA-0675 criterion 9 requires a Vision detector interface, a Vision detector
+interface requires an image input, and Core ML image inputs are 8-bit — `ColorSpace` offers
+grayscale, RGB and BGR and nothing float. There is no float buffer an app-side normalisation could
+be handed. **The app will size; the graph normalises.** ("Will": the sizing component exists and is tested,
+but nothing calls it yet — see the note above.)
+
+The elementwise row is the one the conclusion rests on. Subtracting (a) from (b) would not
+establish it: those are two independent maxima that can fall on different pixels with errors in
+opposite directions, so they could cancel a real divergence.
+
+That choice fixes the padding fill. `batch_images` pads the **normalised** tensor with zeros, and
+bilinear interpolation is a convex combination while the per-channel affine is linear, so the two
+commute exactly: filling with the ImageNet mean **in pixel space** reproduces torchvision's zero
+padding. In real arithmetic it is exact; through an 8-bit buffer it is not, because
+`255 · 0.485 = 123.675` is not a representable code value. The residual is stated rather than rounded
+away — per channel, `[+0.00127, −0.00110, +0.00184]` in `[0, 1]` units (`[+0.00557, −0.00490,
++0.00819]` normalised), blue worst.
+
+### What the rules actually are
+
+Read out of torchvision 0.23.0 rather than recalled, because the shorthand is wrong in three places:
+
+| Rule | Source | What it says |
+|-|-|-|
+| Sizing | `transform.py:60` | `min(minSize/short, maxSize/long)`. The short side reaches `minSize` only when the long side has not hit `maxSize` first — and for a page-aspect tile (≈1.87, above `1333/800 = 1.66625`) it is `maxSize` that binds |
+| Rounding | `functional.py:4717` | `_sym_int(size · scale)` — float64, truncated. The float32 branch at `:4698` is guarded by the tracing state and never runs in inference |
+| Per-axis | `recompute_scale_factor=True` | output is `floor(in·s)` per axis, then the ratios are re-derived from those integers, so the two axes differ: 769×512 → 1201×800 is 1.561769 across and 1.5625 down |
+| Padding | `transform.py:243-253` | canvas `ceil(dim/32)·32`, content copied to `[..., :H, :W]` — top-left origin, padding right and bottom. Not a centred letterbox |
+| Inverse | `transform.py:306-319` | `x·(sourceW/resizedW)`, `y·(sourceH/resizedH)`, per axis, from the integer sizes |
+
+`Geometry` therefore has no scalar `scale` field — the bug is not representable — and 646×1077 lands
+on 799×1332, one pixel short on **both** axes even though `maxSize` binds.
+
+### Evidence, and its limits
+
+Reference figures come from **calling** `GeneralizedRCNNTransform`
+(`scripts/generate_torchvision_resize_oracle.py`), not from re-deriving it. Note that
+`scripts/m3a_parity_spike/criterion_transform.py:49` derives its scale from `image.shape[-1]`, the
+width, which matches `_resize_image_and_masks` only for square inputs; it is correct for that file's
+square probe and is deliberately not reused here.
+
+Measured against that oracle over 825 samples: the resampler is within **9.34e-05** of torchvision in
+`[0, 1]` units; the whole forward pass against torchvision's padded tensor within **4.08e-04**
+normalised. Through an 8-bit buffer, which is what production can deliver, **0.00197** in `[0, 1]` —
+**65.8×** better than the 0.1296 an in-graph resize leaves. Read that ratio as conservative rather
+than exact: 0.00197 is the worst sampled value on a pattern chosen for maximal high-frequency content
+and sits within 0.5 % of the 8-bit half-step (`0.5/255 = 0.00196`), which is a rounding *upper bound*
+and suggests the resample contributes almost nothing on top of quantisation — while the 0.1296 was
+measured on a real figure at an integer scale, i.e. not worst-cased the same way. Both figures come
+from sampled comparisons, not exhaustive ones.
+
+The oracle carries cases chosen to discriminate rather than to pass, including a **trap** (768×512
+scales both axes by exactly 1.5625, so a single-scalar implementation passes it) and an
+`align_corners=True` counter-reference the implementation must **fail** — necessary because the two
+conventions agree at exactly the corners and edge midpoints a naive oracle would sample.
+
+Tolerances are set from measurement: the residual is float32 rounding in torch's own
+sampling-coordinate arithmetic, amplified by the pattern's mod-256 discontinuities. It grows with
+coordinate magnitude, so the committed tolerance is **validated for canvases up to 1344** and a larger
+canvas requires re-measurement.
+
+### What this hands to the graph work (AIA-0675)
+
+- **The canvas shape is AIA-0675's decision, and it is not free.** A square canvas of side S is
+  long-side bound at `S/max(w, h)`; torchvision is also long-side bound above aspect 1.66625, so
+  `S = 1333` reproduces its scale exactly for a page-aspect tile, while below that boundary the
+  short-side rule binds and a square canvas diverges. The remaining difference is the canvas itself
+  (32-multiple, e.g. 1344×640, versus S×S), which changes the anchor grid.
+- **Pre-sizing means ADAF cannot use `VNCoreMLRequest.regionOfInterest` at all.** The request must run
+  full-frame on an already-cropped buffer, so a pass goes from one reused `VNImageRequestHandler`
+  across 15 regions to 15 handlers.
+- **Cost is compute, not allocation — and measured Release, it is not a problem.** Sizing one
+  393×852 region onto a 640×1344 canvas takes **4.8 ms** built with `-O`, so a 15-region pass costs
+  about **0.07 s** against the detect path's roughly 3-second cadence. The scalar Swift loop is
+  therefore sufficient and neither Accelerate nor a separable two-pass is needed. The Debug figure is
+  **506 ms** per region (≈7.6 s per pass), a 105× difference, which is exactly why this file insists
+  on measuring Release: quoting the Debug number would have argued for a rewrite that the evidence
+  does not support. `testResample_reportsItsCostForTheWiringSlice` prints the Debug figure on every
+  run; the Release figure comes from compiling the same call with `swiftc -O`, because
+  `swift test -c release` currently fails on an unrelated DEBUG-only test helper
+  (`queuedJobCountForTesting`).
+
 ## Sources
 
 Apple documents the public protobuf Core ML model specification and states that it can be created

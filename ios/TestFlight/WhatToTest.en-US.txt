@@ -1,36 +1,10 @@
 Build: TBD
 
-Test Focus 1 (NEW, look hardest here): what the app says about a PyTorch model file.
+Nothing new to try in this build from the model-sizing work (AIA-0680): it adds arithmetic that is
+not wired into the app yet, so there is no new screen, setting or message, and detection is
+untouched. Test the items below as usual.
 
-This build changed how model checkpoints are read. Nothing about it is visible on screen except the
-message you get when you import one - so that message IS the test.
-
-1. Download from URL (Model Import > Download from URL) using:
-   https://zenodo.org/records/15848663/files/OD_ringfort.tar?download=1
-   It is ~518 MB, so use Wi-Fi. When it finishes the app must refuse it, saying it "describes
-   itself as an ADAF Ringfort detection model" and that converting it is not supported yet. A
-   cryptic failure, a hang, or a message naming no model is the bug. Refusing is correct.
-
-2. Try OD_barrow.tar and OD_AO.tar from the same record: they must say "Barrow" and
-   "All archaeology". A WRONG name here matters more than any other result in this build.
-
-3. Rename OD_ringfort.tar to anything else before importing. It must still say "Ringfort" - the name
-   comes from inside the file, not from the filename.
-
-4. Try one HRNet file from that record (the long ..._with_Transformation.tar): it must say
-   "image segmentation model" and that those are not supported - a DIFFERENT message from item 1.
-
-5. Feed it something that is not a model - a photo renamed to .tar. It must fail the ordinary
-   import failure (NOT the messages above), promptly, with no hang and no cleanup left behind.
-
-6. Watch memory and battery during 1-4: reading these files should be quick and must NOT feel like
-   the app is loading half a gigabyte. If the app is killed while importing, tell us at once.
-
-7. Model import you already rely on must be UNCHANGED: .mlmodel and .onnx by URL, Open Catalog, and
-   Files import. A model that imported before and is refused now is the most serious thing you can
-   find. The download hint still reads ".mlmodel or .onnx" - check it in each language you read.
-
-Test Focus 2: sharing a finding as a link.
+Test Focus 1: sharing a finding as a link.
 
 Put coordinates in one finding first (Findings, tap one, GPS, e.g. 48.8, 19.53) and use a real map
 portal (ags.cuzk.cz, mapy.com, openstreetmap.org), or the map part cannot be tested.
@@ -51,7 +25,7 @@ portal (ags.cuzk.cz, mapy.com, openstreetmap.org), or the map part cannot be tes
 - Damage a link (delete a chunk from the end): the app must say it could not read it, never open to
   nothing.
 
-Test Focus 3: findings carry a name, and delete on a Mac.
+Test Focus 2: findings carry a name, and delete on a Mac.
 
 The Save screen has an Author field between Note and GPS, prefilled from your account when signed in
 and empty otherwise. A blank author must show no row on the card, not "Unknown"; signed out it must
