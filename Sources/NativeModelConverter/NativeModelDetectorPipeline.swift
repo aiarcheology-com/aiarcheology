@@ -8,6 +8,19 @@
 
 import Foundation
 
+/// Which component owns a detector's final suppression policy.
+///
+/// A Vision detector always ends in Core ML's standalone NMS *model*. Most converted detectors use
+/// that stage for their suppression policy. Faster R-CNN instead carries its two measured terminal
+/// passes as NN layers inside the graph; the standalone model remains only as the Vision-interface
+/// adapter and must not impose another policy pass.
+public enum NativeModelDetectionSuppressionOwnership: Equatable, Sendable {
+	/// The Vision-facing standalone NMS model applies the detector's configured thresholds.
+	case pipeline
+	/// The graph already applied the detector's complete suppression policy.
+	case graph
+}
+
 /// How a converted detection graph is exposed to Vision.
 ///
 /// A detector cannot be a single neural network: Vision only produces
@@ -24,16 +37,19 @@ import Foundation
 public struct NativeModelDetectionInterface: Equatable, Sendable {
 	/// Class labels, one per column of the confidence matrix.
 	public let labels: [String]
-	/// Rows in both stage-one outputs — the number of candidate boxes before suppression.
+	/// Rows in both stage-one outputs — candidates when the pipeline owns suppression, or the fixed
+	/// post-policy extent when the graph owns it.
 	public let boxCount: Int
 	/// The graph output holding `[boxCount, 4]` box geometry.
 	public let coordinatesBlobName: String
 	/// The graph output holding `[boxCount, labels.count]` per-class confidence.
 	public let confidenceBlobName: String
-	/// Default suppression IoU; also exposed as an optional model input so the app can tune it.
+	/// Default suppression IoU when the pipeline owns suppression; otherwise ignored by its adapter.
 	public let iouThreshold: Double
-	/// Default score floor; also exposed as an optional model input.
+	/// Default score floor when the pipeline owns suppression; otherwise ignored by its adapter.
 	public let confidenceThreshold: Double
+	/// Whether terminal suppression belongs to the graph or the Vision-facing pipeline stage.
+	public let suppressionOwnership: NativeModelDetectionSuppressionOwnership
 
 	public init(
 		labels: [String],
@@ -41,7 +57,8 @@ public struct NativeModelDetectionInterface: Equatable, Sendable {
 		coordinatesBlobName: String,
 		confidenceBlobName: String,
 		iouThreshold: Double = 0.45,
-		confidenceThreshold: Double = 0.25
+		confidenceThreshold: Double = 0.25,
+		suppressionOwnership: NativeModelDetectionSuppressionOwnership = .pipeline
 	) {
 		self.labels = labels
 		self.boxCount = boxCount
@@ -49,6 +66,7 @@ public struct NativeModelDetectionInterface: Equatable, Sendable {
 		self.confidenceBlobName = confidenceBlobName
 		self.iouThreshold = iouThreshold
 		self.confidenceThreshold = confidenceThreshold
+		self.suppressionOwnership = suppressionOwnership
 	}
 
 	/// The suppressed outputs. These exact names are what makes the model read as a detector.
@@ -89,8 +107,16 @@ enum NativeModelDetectorPipelineBuilder {
 		}
 	}
 
-	/// The suppression stage: reads the network's raw boxes/scores and emits the pruned set.
+	/// The terminal Vision stage. For `.pipeline` detectors this owns suppression. For `.graph`
+	/// detectors it is deliberately a no-policy adapter: Vision requires this model type to emit
+	/// recognized-object observations, while the graph already contains the measured passes.
 	static func nonMaximumSuppressionModel(for interface: NativeModelDetectionInterface) -> Data {
+		let usesPipelineSuppression = interface.suppressionOwnership == .pipeline
+		let iouThreshold = usesPipelineSuppression ? interface.iouThreshold : 1
+		// NN-layer NMS pads its fixed result with zero scores. The adapter must discard that padding
+		// without recutting a real terminal score (the first pass already admitted only scores above
+		// 0.05), hence this is a positive representable floor rather than a third user policy.
+		let confidenceThreshold = usesPipelineSuppression ? interface.confidenceThreshold : 1e-12
 		let suppression = CoreMLProtobufEncoder.message { nms in
 			// pickTop = 1. An empty message keeps `perClass` at its proto3 default (false), which
 			// suppresses across classes — matching the reference detector.
@@ -102,14 +128,17 @@ enum NativeModelDetectorPipelineBuilder {
 				}
 			}
 			CoreMLProtobufEncoder.appendMessageField(100, value: labelVector, to: &nms)
-			CoreMLProtobufEncoder.appendDoubleField(110, value: interface.iouThreshold, to: &nms)
-			CoreMLProtobufEncoder.appendDoubleField(111, value: interface.confidenceThreshold, to: &nms)
+			CoreMLProtobufEncoder.appendDoubleField(110, value: iouThreshold, to: &nms)
+			CoreMLProtobufEncoder.appendDoubleField(111, value: confidenceThreshold, to: &nms)
 			// Feature-name wiring: 200/201 read the network's outputs, 202/203 name the optional
-			// threshold inputs, 210/211 name what the pipeline finally publishes.
+			// threshold inputs when this stage owns policy, 210/211 name what the pipeline finally
+			// publishes. A graph-owned detector deliberately exposes no tunable post-NMS policy.
 			CoreMLProtobufEncoder.appendStringField(200, value: interface.confidenceBlobName, to: &nms)
 			CoreMLProtobufEncoder.appendStringField(201, value: interface.coordinatesBlobName, to: &nms)
-			CoreMLProtobufEncoder.appendStringField(202, value: NativeModelDetectionInterface.iouThresholdInputName, to: &nms)
-			CoreMLProtobufEncoder.appendStringField(203, value: NativeModelDetectionInterface.confidenceThresholdInputName, to: &nms)
+			if usesPipelineSuppression {
+				CoreMLProtobufEncoder.appendStringField(202, value: NativeModelDetectionInterface.iouThresholdInputName, to: &nms)
+				CoreMLProtobufEncoder.appendStringField(203, value: NativeModelDetectionInterface.confidenceThresholdInputName, to: &nms)
+			}
 			CoreMLProtobufEncoder.appendStringField(210, value: NativeModelDetectionInterface.confidenceOutputName, to: &nms)
 			CoreMLProtobufEncoder.appendStringField(211, value: NativeModelDetectionInterface.coordinatesOutputName, to: &nms)
 		}
@@ -121,15 +150,17 @@ enum NativeModelDetectorPipelineBuilder {
 			CoreMLProtobufEncoder.appendMessageField(1, value: fixedDetectionFeature(
 				named: interface.coordinatesBlobName, rows: interface.boxCount, columns: 4
 			), to: &description)
-			// Required here, optional on the enclosing pipeline. Core ML rejects an optional feature
-			// on a non-neural-network sub-model ("Features cannot be optional to this type of
-			// model"); the pipeline supplies its defaults to this stage.
-			CoreMLProtobufEncoder.appendMessageField(1, value: doubleFeature(
-				named: NativeModelDetectionInterface.iouThresholdInputName, isOptional: false
-			), to: &description)
-			CoreMLProtobufEncoder.appendMessageField(1, value: doubleFeature(
-				named: NativeModelDetectionInterface.confidenceThresholdInputName, isOptional: false
-			), to: &description)
+			if usesPipelineSuppression {
+				// Required here, optional on the enclosing pipeline. Core ML rejects an optional feature
+				// on a non-neural-network sub-model ("Features cannot be optional to this type of
+				// model"); the pipeline supplies its defaults to this stage.
+				CoreMLProtobufEncoder.appendMessageField(1, value: doubleFeature(
+					named: NativeModelDetectionInterface.iouThresholdInputName, isOptional: false
+				), to: &description)
+				CoreMLProtobufEncoder.appendMessageField(1, value: doubleFeature(
+					named: NativeModelDetectionInterface.confidenceThresholdInputName, isOptional: false
+				), to: &description)
+			}
 			for output in suppressedOutputFeatures(for: interface) {
 				CoreMLProtobufEncoder.appendMessageField(10, value: output, to: &description)
 			}

@@ -1090,6 +1090,30 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		assertClose(try XCTUnwrap(strict["kept_indices"]), [0, -1])
 	}
 
+	func testNonMaximumSuppression_treatingCornersAsCentresChangesWhichBoxesSurvive() async throws {
+		// The coordinates below are corners. At IoU 0.5 the actual layer keeps both after the required
+		// conversion, but treats the same four values as center-size boxes as overlapping enough to drop
+		// the lower-scoring row. This is deliberately a compiled Core ML prediction, not a second Swift
+		// IoU implementation: the regression is about the layer's unlabelled input convention.
+		let corners: [[Float]] = [
+			[0.285_098, 0.013_272, 0.881_965, 0.610_640],
+			[0.234_736, 0.189_350, 0.828_344, 0.951_902]
+		]
+		let scores: [[Float]] = [[0.9], [0.8]]
+
+		let converted = try await suppress(
+			boxes: corners.map(Self.centreSize), scores: scores,
+			iouThreshold: 0.5, scoreThreshold: 0, maxBoxes: 2
+		)
+		let mistaken = try await suppress(
+			boxes: corners, scores: scores,
+			iouThreshold: 0.5, scoreThreshold: 0, maxBoxes: 2
+		)
+
+		assertClose(try XCTUnwrap(converted["valid_count"]), [2])
+		assertClose(try XCTUnwrap(mistaken["valid_count"]), [1])
+	}
+
 	func testNonMaximumSuppression_perClassKeepsWhatTheClassAgnosticPassSuppresses() async throws {
 		// `perClassSuppression` is the one parameter with no effect on a single-class detector, so it needs a
 		// two-class fixture to be observable at all. The boxes overlap at IoU 0.6944; box 0 wins class 0 and
@@ -1173,6 +1197,14 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 	/// Three center-size boxes far enough apart that suppression never fires, so a test using them is
 	/// measuring the score path and nothing else.
 	private static let spreadOutBoxes: [[Float]] = [[10, 10, 20, 20], [110, 110, 20, 20], [210, 210, 20, 20]]
+
+	private static func centreSize(_ corners: [Float]) -> [Float] {
+		let x0 = corners[0]
+		let y0 = corners[1]
+		let x1 = corners[2]
+		let y1 = corners[3]
+		return [(x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0]
+	}
 
 	/// One `nms` over its two runtime inputs, returning all four outputs by name. Both inputs are rank 3
 	/// exactly — `[1, N, 4]` and `[1, N, classes]` — because the kernel refuses anything else, and the

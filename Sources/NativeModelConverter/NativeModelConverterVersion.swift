@@ -14,7 +14,7 @@
 /// ``NativeModelProducer/name`` and ``NativeModelProducer/version`` in the graph package.
 public enum NativeModelConverterVersion {
 	public static let packageVersion = "0.1.0"
-	/// Revision 5 adds the pinned ADAF Faster R-CNN registry and its image-to-RPN Core ML detector
-	/// graph, including the fixed 1344-square canvas and ImageNet RGB preprocessing metadata.
-	public static let conversionRevision = 5
+	/// Revision 6 gives the pinned ADAF Faster R-CNN graph its two measured terminal suppression
+	/// passes and makes the Vision NMS stage an explicit interface adapter rather than a third policy.
+	public static let conversionRevision = 6
 }

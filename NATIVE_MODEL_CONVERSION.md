@@ -260,7 +260,7 @@ increment `conversionRevision` for every output-affecting emitter, validation, o
 change; keep the source producer version owned by the exporter. The package test checks all four
 embedded identities against the compiled Core ML model.
 
-Under that rule `conversionRevision` moves from 4 to 5 in this change, because the emitted artifact
+Under that rule `conversionRevision` moves from 5 to 6 in this change, because the emitted artifact
 contents changed again. Revision 3 was anchor-free detector emission — a Core ML network plus
 non-maximum-suppression pipeline for YOLO v8/v11 raw heads, with its task, class count, label
 provenance, and coordinate-space metadata. Revision 4 adds the two-stage detector operations
@@ -268,7 +268,9 @@ provenance, and coordinate-space metadata. Revision 4 adds the two-stage detecto
 primitives the box arithmetic composes from), the standalone ROI box head chunk named by an artifact
 manifest in the primary model's metadata, and the parity provenance every metadata-writing emission
 path now records. Revision 5 adds the closed ADAF Faster R-CNN registry and its fixed-canvas,
-ImageNet-normalized detector graph. A revision-5 model is therefore distinguishable from its earlier
+ImageNet-normalized detector graph. Revision 6 adds the two measured terminal suppression layers and
+makes the mandatory Vision NMS model an explicit no-policy interface adapter, so it cannot silently
+turn two ADAF passes into three. A revision-6 model is therefore distinguishable from its earlier
 forms by its metadata alone, which is what the revision exists to make possible.
 
 The torchvision reference exporter writes this metadata by default and accepts
@@ -790,7 +792,7 @@ sampling-coordinate arithmetic, amplified by the pattern's mod-256 discontinuiti
 coordinate magnitude, so the committed tolerance is **validated for canvases up to 1344** and a larger
 canvas requires re-measurement.
 
-### What this hands to the graph work (AIA-0685)
+### What this hands to the graph work (AIA-0685, AIA-0686)
 
 - **The pinned canvas is 1344×1344, and it is not free.** The host still applies torchvision's
   `800/1333` content transform; this is its fixed, right/bottom-padded model canvas. The page-aspect
@@ -800,6 +802,15 @@ canvas requires re-measurement.
   `336 → 168 → 84 → 42 → 21`, so all joins are exact and every application tile aspect fits. Its
   square anchor grid still differs from torchvision's variable `1344×N` grid; that is explicitly an
   AIA-0688 numerical-parity question, not a claim that this loadable graph is verified.
+- **Terminal suppression is a pair, not a tunable pipeline default.** The graph keeps its candidate
+  boxes as `[x0, y0, x1, y1]` corners and converts to Core ML NMS's mandatory
+  `[center-x, center-y, width, height]` only immediately before its first terminal layer. That layer
+  applies torchvision's strict `score > 0.05`, IoU `0.5`, and top-100 limit; the second applies
+  ADAF's class-agnostic IoU `0.2` pass. M3a measured the difference in every one of 200 trials:
+  **73.89** boxes for the pair versus **153.07** for one `0.2` pass. The final standalone NMS model
+  remains solely because Vision requires that model type for recognized-object observations. Its fixed
+  `IoU = 1` / `score = 1e-12` adapter settings and absent threshold inputs make that ownership
+  explicit: the positive score floor removes only the fixed-NMS zero padding, not a third policy pass.
 - **Pre-sizing means ADAF cannot use `VNCoreMLRequest.regionOfInterest` at all.** The request must run
   full-frame on an already-cropped buffer, so a pass goes from one reused `VNImageRequestHandler`
   across 15 regions to 15 handlers.

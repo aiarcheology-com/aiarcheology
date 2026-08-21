@@ -211,8 +211,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	}
 
 	/// Emits a graph as a Core ML detector: a two-stage pipeline whose first stage is the converted
-	/// network and whose second is Core ML's non-maximum-suppression model. The resulting model
-	/// publishes `coordinates`/`confidence`, which is what makes Vision return
+	/// network and whose second is Core ML's non-maximum-suppression model. That second stage owns the
+	/// policy for ordinary detector graphs and is a fixed interface adapter when the graph owns it. The
+	/// resulting model publishes `coordinates`/`confidence`, which is what makes Vision return
 	/// `VNRecognizedObjectObservation` and the app classify the import as a detector.
 	///
 	/// Throws rather than silently degrading to a plain network: unlike classifier labels — which are
@@ -770,17 +771,20 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		}
 		guard let detection else { return networkModel }
 
-		// The detector is the network followed by suppression. The outer description republishes the
-		// network's inputs, adds the two optional threshold inputs, and declares the suppressed
-		// outputs — whose row count is data-dependent and therefore a range, not a fixed size.
+		// The detector is the network followed by the NMS model Vision requires. Most detectors own
+		// their policy in that stage and expose its two threshold inputs. Faster R-CNN already emits
+		// its complete two-pass policy as NN layers, so its final model is an interface adapter only;
+		// publishing threshold inputs there would silently add a third policy pass.
 		let pipelineDescription = CoreMLProtobufEncoder.message { pipelineDescription in
 			pipelineDescription.append(inputFeatures)
-			CoreMLProtobufEncoder.appendMessageField(1, value: NativeModelDetectorPipelineBuilder.doubleFeature(
-				named: NativeModelDetectionInterface.iouThresholdInputName, isOptional: true
-			), to: &pipelineDescription)
-			CoreMLProtobufEncoder.appendMessageField(1, value: NativeModelDetectorPipelineBuilder.doubleFeature(
-				named: NativeModelDetectionInterface.confidenceThresholdInputName, isOptional: true
-			), to: &pipelineDescription)
+			if detection.suppressionOwnership == .pipeline {
+				CoreMLProtobufEncoder.appendMessageField(1, value: NativeModelDetectorPipelineBuilder.doubleFeature(
+					named: NativeModelDetectionInterface.iouThresholdInputName, isOptional: true
+				), to: &pipelineDescription)
+				CoreMLProtobufEncoder.appendMessageField(1, value: NativeModelDetectorPipelineBuilder.doubleFeature(
+					named: NativeModelDetectionInterface.confidenceThresholdInputName, isOptional: true
+				), to: &pipelineDescription)
+			}
 			for output in NativeModelDetectorPipelineBuilder.suppressedOutputFeatures(for: detection) {
 				CoreMLProtobufEncoder.appendMessageField(10, value: output, to: &pipelineDescription)
 			}
