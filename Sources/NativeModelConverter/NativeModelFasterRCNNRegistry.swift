@@ -525,6 +525,9 @@ public enum NativeModelFasterRCNNRegistry {
 			return result
 		}
 
+		// These parameters map one-for-one to a Core ML convolution descriptor. A configuration value
+		// would make each call site less auditable against the pinned PyTorch module and tensor shape.
+		// swiftlint:disable:next function_parameter_count
 		mutating func convolution(
 			_ input: Activation,
 			module: String,
