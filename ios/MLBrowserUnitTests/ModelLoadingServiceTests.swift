@@ -188,7 +188,7 @@ final class NativeModelImportAssumptionTests: XCTestCase {
 
     func test_fallbackImageNetContract_returnsAssumption() {
         let assumption = ModelLoadingService.nativeModelImportAssumption(
-            from: convertedMetadata(
+            from: convertedMetadata(Contract(
                 task: "classification",
                 modelFormat: "neuralNetworkClassifier",
                 classCount: "1000",
@@ -196,7 +196,7 @@ final class NativeModelImportAssumptionTests: XCTestCase {
                 labelProfile: "imagenet-1k",
                 preprocessingOrigin: "convention",
                 preprocessingProfile: "image-net-rgb"
-            )
+            ))
         )
 
         XCTAssertEqual(assumption?.labelProfile, .imageNet1K)
@@ -205,21 +205,21 @@ final class NativeModelImportAssumptionTests: XCTestCase {
 
     func test_metadataBackedLabels_returnNoAssumptionEvenWithConverterPreprocessing() {
         let assumption = ModelLoadingService.nativeModelImportAssumption(
-            from: convertedMetadata(
+            from: convertedMetadata(Contract(
                 task: "detection",
                 modelFormat: "pipeline",
                 labelProvenance: "metadata",
                 labelProfile: "source-metadata",
                 preprocessingOrigin: "convention",
                 preprocessingProfile: "rgb-0-to-1"
-            )
+            ))
         )
 
         XCTAssertNil(assumption, "Source-provided YOLO labels must not show a fallback warning.")
     }
 
     func test_incompleteOrMismatchedContract_returnsNoAssumption() {
-        var userDefined = creatorDefined(
+        var userDefined = creatorDefined(Contract(
             task: "classification",
             modelFormat: "neuralNetworkClassifier",
             classCount: "1000",
@@ -227,7 +227,7 @@ final class NativeModelImportAssumptionTests: XCTestCase {
             labelProfile: "imagenet-1k",
             preprocessingOrigin: "convention",
             preprocessingProfile: "image-net-rgb"
-        )
+        ))
         userDefined["com.aiarcheology.native.target.label-provenance"] = "metadata"
 
         XCTAssertNil(ModelLoadingService.nativeModelImportAssumption(from: [.creatorDefinedKey: userDefined]))
@@ -240,7 +240,7 @@ final class NativeModelImportAssumptionTests: XCTestCase {
 
     func test_fallbackImageNetContract_withWrongClassCount_returnsNoAssumption() {
         let assumption = ModelLoadingService.nativeModelImportAssumption(
-            from: convertedMetadata(
+            from: convertedMetadata(Contract(
                 task: "classification",
                 modelFormat: "neuralNetworkClassifier",
                 classCount: "3",
@@ -248,51 +248,42 @@ final class NativeModelImportAssumptionTests: XCTestCase {
                 labelProfile: "imagenet-1k",
                 preprocessingOrigin: "convention",
                 preprocessingProfile: "image-net-rgb"
-            )
+            ))
         )
 
         XCTAssertNil(assumption, "An imagenet-1k contract without 1000 classes is untruthful and must not parse.")
     }
 
-    private func convertedMetadata(
-        task: String,
-        modelFormat: String,
-        classCount: String = "3",
-        labelProvenance: String,
-        labelProfile: String,
-        preprocessingOrigin: String,
-        preprocessingProfile: String
-    ) -> [MLModelMetadataKey: Any] {
-        [.creatorDefinedKey: creatorDefined(
-            task: task,
-            modelFormat: modelFormat,
-            classCount: classCount,
-            labelProvenance: labelProvenance,
-            labelProfile: labelProfile,
-            preprocessingOrigin: preprocessingOrigin,
-            preprocessingProfile: preprocessingProfile
-        )]
+    /// The target-semantics contract a converted model carries.
+    ///
+    /// One value rather than seven arguments: these fields are a single contract that
+    /// `nativeModelImportAssumption` reads together, and passing them separately made both helpers
+    /// exceed the parameter-count limit while saying nothing about how they relate.
+    private struct Contract {
+        let task: String
+        let modelFormat: String
+        var classCount: String = "3"
+        let labelProvenance: String
+        let labelProfile: String
+        let preprocessingOrigin: String
+        let preprocessingProfile: String
     }
 
-    private func creatorDefined(
-        task: String,
-        modelFormat: String,
-        classCount: String = "3",
-        labelProvenance: String,
-        labelProfile: String,
-        preprocessingOrigin: String,
-        preprocessingProfile: String
-    ) -> [String: String] {
+    private func convertedMetadata(_ contract: Contract) -> [MLModelMetadataKey: Any] {
+        [.creatorDefinedKey: creatorDefined(contract)]
+    }
+
+    private func creatorDefined(_ contract: Contract) -> [String: String] {
         [
             "com.aiarcheology.native.converter.package-version": "1.0.0",
             "com.aiarcheology.native.target.semantics-version": "1",
-            "com.aiarcheology.native.target.model-format": modelFormat,
-            "com.aiarcheology.native.target.task": task,
-            "com.aiarcheology.native.target.class-count": classCount,
-            "com.aiarcheology.native.target.label-provenance": labelProvenance,
-            "com.aiarcheology.native.target.label-profile": labelProfile,
-            "com.aiarcheology.native.target.preprocessing-origin": preprocessingOrigin,
-            "com.aiarcheology.native.target.preprocessing-profile": preprocessingProfile
+            "com.aiarcheology.native.target.model-format": contract.modelFormat,
+            "com.aiarcheology.native.target.task": contract.task,
+            "com.aiarcheology.native.target.class-count": contract.classCount,
+            "com.aiarcheology.native.target.label-provenance": contract.labelProvenance,
+            "com.aiarcheology.native.target.label-profile": contract.labelProfile,
+            "com.aiarcheology.native.target.preprocessing-origin": contract.preprocessingOrigin,
+            "com.aiarcheology.native.target.preprocessing-profile": contract.preprocessingProfile
         ]
     }
 }
