@@ -153,12 +153,9 @@ public enum NativeModelImageSizing {
 		// sizes arrive from whatever wires this up.
 		let scaledWidth = (Double(source.width) * scale).rounded(.down)
 		let scaledHeight = (Double(source.height) * scale).rounded(.down)
-		guard scaledWidth.isFinite, scaledHeight.isFinite,
-			  scaledWidth >= 1, scaledHeight >= 1,
-			  scaledWidth <= Double(Int.max / 2), scaledHeight <= Double(Int.max / 2)
+		guard scaledWidth >= 1, scaledHeight >= 1,
+			  let width = checkedInt(scaledWidth), let height = checkedInt(scaledHeight)
 		else { return nil }
-		let width = Int(scaledWidth)
-		let height = Int(scaledHeight)
 		return NativeModelImageSize(width: width, height: height)
 	}
 
@@ -207,6 +204,30 @@ public enum NativeModelImageSizing {
 		return Geometry(sourceSize: source, resizedSize: resized, canvasSize: canvas)
 	}
 
+	// MARK: - Checked conversions
+
+	/// `Int(_: Double)` is a runtime **trap**, not a nil, for a non-finite or out-of-range value — and
+	/// `Double(Int.max)` rounds up to exactly 2^63, which is already out of range. Every conversion at
+	/// this type's trust boundary goes through here instead.
+	private static func checkedInt(_ value: Double) -> Int? {
+		guard value.isFinite, value.magnitude < Double(Int.max / 2) else { return nil }
+		return Int(value)
+	}
+
+	/// `channels · width · height`, or `nil` if that product overflows.
+	///
+	/// A guard written as `buffer.count == channels * width * height` traps on the multiplication
+	/// before it can compare anything, so the sizes have to be multiplied defensively rather than
+	/// checked afterwards.
+	private static func elementCount(channels: Int, size: NativeModelImageSize) -> Int? {
+		guard channels > 0, size.isEmpty == false else { return nil }
+		let (plane, planeOverflowed) = size.width.multipliedReportingOverflow(by: size.height)
+		guard planeOverflowed == false else { return nil }
+		let (total, totalOverflowed) = plane.multipliedReportingOverflow(by: channels)
+		guard totalOverflowed == false else { return nil }
+		return total
+	}
+
 	// MARK: - Cropping a region
 
 	/// A region crop, in the two forms the detect path needs it in.
@@ -247,10 +268,13 @@ public enum NativeModelImageSizing {
 		let top = ((1 - (region.y + region.height)) * height).rounded()
 		let bottom = ((1 - region.y) * height).rounded()
 
-		let x0 = max(0, min(frame.width, Int(left)))
-		let x1 = max(0, min(frame.width, Int(right)))
-		let y0 = max(0, min(frame.height, Int(top)))
-		let y1 = max(0, min(frame.height, Int(bottom)))
+		guard let leftPixel = checkedInt(left), let rightPixel = checkedInt(right),
+			  let topPixel = checkedInt(top), let bottomPixel = checkedInt(bottom)
+		else { return nil }
+		let x0 = max(0, min(frame.width, leftPixel))
+		let x1 = max(0, min(frame.width, rightPixel))
+		let y0 = max(0, min(frame.height, topPixel))
+		let y1 = max(0, min(frame.height, bottomPixel))
 		guard x1 > x0, y1 > y0 else { return nil }
 
 		let pixelRect = NativeModelPixelRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
@@ -278,8 +302,9 @@ public enum NativeModelImageSizing {
 		from sourceSize: NativeModelImageSize,
 		to targetSize: NativeModelImageSize
 	) -> [Float]? {
-		guard channels > 0, sourceSize.isEmpty == false, targetSize.isEmpty == false,
-			  source.count == channels * sourceSize.width * sourceSize.height
+		guard let sourceCount = elementCount(channels: channels, size: sourceSize),
+			  elementCount(channels: channels, size: targetSize) != nil,
+			  source.count == sourceCount
 		else { return nil }
 
 		let columns = axisMapping(from: sourceSize.width, to: targetSize.width)
@@ -360,8 +385,10 @@ public enum NativeModelImageSizing {
 	) -> [Float]? {
 		let resizedSize = geometry.resizedSize
 		let canvasSize = geometry.canvasSize
-		guard channels > 0, fill.count == channels,
-			  resized.count == channels * resizedSize.width * resizedSize.height,
+		guard fill.count == channels,
+			  let resizedCount = elementCount(channels: channels, size: resizedSize),
+			  elementCount(channels: channels, size: canvasSize) != nil,
+			  resized.count == resizedCount,
 			  canvasSize.width >= resizedSize.width, canvasSize.height >= resizedSize.height
 		else { return nil }
 
@@ -414,9 +441,12 @@ public enum NativeModelImageSizing {
 	/// `planar` is `[channel][row][column]` with `channels == 3` in **RGB** order, matching
 	/// torchvision. Alpha is written opaque.
 	public static func interleavedBGRA(from planar: [Float], size: NativeModelImageSize) -> [UInt8]? {
+		guard let planarCount = elementCount(channels: 3, size: size),
+			  let byteCount = elementCount(channels: 4, size: size),
+			  planar.count == planarCount
+		else { return nil }
 		let pixels = size.width * size.height
-		guard size.isEmpty == false, planar.count == 3 * pixels else { return nil }
-		var output = [UInt8](repeating: 255, count: pixels * 4)
+		var output = [UInt8](repeating: 255, count: byteCount)
 		for pixel in 0..<pixels {
 			output[pixel * 4] = byte(planar[2 * pixels + pixel])
 			output[pixel * 4 + 1] = byte(planar[pixels + pixel])
@@ -454,8 +484,8 @@ public enum NativeModelImageSizing {
 			  // `NativeModelImagePreprocessing` has a public memberwise initialiser, so its scale and bias
 			  // arrays are not guaranteed to match the colour space's channel count.
 			  preprocessing.scale.count == channels, preprocessing.bias.count == channels,
-			  size.isEmpty == false,
-			  buffer.count == channels * size.width * size.height
+			  let expected = elementCount(channels: channels, size: size),
+			  buffer.count == expected
 		else { return nil }
 		var output = buffer
 		let plane = size.width * size.height

@@ -714,7 +714,7 @@ figures, because one number would conflate pixel-format conversion with resampli
 | (a) conversion floor: `CIContext.render` into the model's own pixel format, then `MLModel.prediction` | 0.0 |
 | (b) Vision `.scaleFit` at matched 64×64 | 0.0 |
 | (c) Vision `.scaleFit` at mismatched 65×65 — the blindness control | 250.0 |
-| resampling attributable to Vision at matched size, (b) − (a) | **0.0** |
+| **Vision against the direct prediction, elementwise** | **0.0** |
 
 (c) is not decoration: without it, a probe that reported "identity" because it was reading nothing at
 all would be indistinguishable from a real result. Taken on the iOS 26.5 simulator with an sRGB
@@ -732,7 +732,12 @@ exactly torchvision's arithmetic and the emitter already exercises it. The reaso
 but constraint: AIA-0675 criterion 9 requires a Vision detector interface, a Vision detector
 interface requires an image input, and Core ML image inputs are 8-bit — `ColorSpace` offers
 grayscale, RGB and BGR and nothing float. There is no float buffer an app-side normalisation could
-be handed. **The app sizes; the graph normalises.**
+be handed. **The app will size; the graph normalises.** ("Will": the sizing component exists and is tested,
+but nothing calls it yet — see the note above.)
+
+The elementwise row is the one the conclusion rests on. Subtracting (a) from (b) would not
+establish it: those are two independent maxima that can fall on different pixels with errors in
+opposite directions, so they could cancel a real divergence.
 
 That choice fixes the padding fill. `batch_images` pads the **normalised** tensor with zeros, and
 bilinear interpolation is a convex combination while the per-channel affine is linear, so the two

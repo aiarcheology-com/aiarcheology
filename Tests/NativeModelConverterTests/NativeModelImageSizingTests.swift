@@ -596,6 +596,38 @@ final class NativeModelImageSizingTests: XCTestCase {
 		}
 	}
 
+	/// A frame large enough that the crop arithmetic leaves `Int`'s range.
+	///
+	/// `Double(Int.max)` rounds **up** to exactly 2^63, which is already one past `Int.max`, so
+	/// converting it back traps. Clamping with `min(frame.width, Int(value))` does not help: the
+	/// conversion happens first. This test would crash rather than fail if the conversion were not
+	/// range-checked before it happens.
+	func testCropPlan_refusesAFrameWhoseArithmeticLeavesIntRange() {
+		XCTAssertNil(NativeModelImageSizing.cropPlan(
+			frame: NativeModelImageSize(width: Int.max, height: 1), region: .unit
+		))
+		XCTAssertNil(NativeModelImageSizing.cropPlan(
+			frame: NativeModelImageSize(width: 1, height: Int.max), region: .unit
+		))
+	}
+
+	/// Buffer-length guards multiply before they compare, so the product has to be checked rather
+	/// than trusted: `channels * width * height` overflows and traps long before a count mismatch
+	/// could return nil.
+	func testBufferEntryPoints_refuseSizesWhoseElementCountOverflows() {
+		let huge = NativeModelImageSize(width: Int.max, height: Int.max)
+		let small = NativeModelImageSize(width: 2, height: 2)
+		XCTAssertNil(NativeModelImageSizing.resample([0, 0, 0, 0], channels: 1, from: huge, to: small))
+		XCTAssertNil(NativeModelImageSizing.resample([0, 0, 0, 0], channels: 1, from: small, to: huge))
+		XCTAssertNil(NativeModelImageSizing.interleavedBGRA(from: [0, 0, 0], size: huge))
+		XCTAssertNil(NativeModelImageSizing.normalized([0, 0, 0], channels: 3, size: huge, preprocessing: .imageNetRGB))
+		XCTAssertNil(NativeModelImageSizing.canvas(
+			from: [0, 0, 0, 0], channels: 1,
+			geometry: NativeModelImageSizing.Geometry(sourceSize: small, resizedSize: small, canvasSize: huge),
+			fill: [0]
+		))
+	}
+
 	/// The same boundary on the other public entry points.
 	func testPublicEntryPoints_refuseRatherThanTrapOnAbsurdInput() {
 		XCTAssertNil(NativeModelImageSizing.canvasSize(for: NativeModelImageSize(width: Int.max, height: 8), strideDivisible: 32))

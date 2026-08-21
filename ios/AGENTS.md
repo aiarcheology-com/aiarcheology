@@ -342,7 +342,8 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
   the suite runs when converter code changes and not otherwise. (It was listed as a second target in
   the app plan until AIA-0680, which meant it ran on every app unit run while its seven
   fixture-gated parity tests silently skipped there — the redundancy cost time and proved less than
-  the dedicated job, which runs with zero skips.) The converter is a separate SPM package at the
+  the dedicated job, which runs with zero skips among the suites it selects — it deliberately skips
+  `ADAFCheckpointDirectoryTests`, which belongs to `scripts/test_adaf_checkpoints.sh`.) The converter is a separate SPM package at the
   repo root with its own suite — run `swift test` for it, and see the check table in `../NATIVE_MODEL_CONVERSION.md` for the
   Apple-artifact and Python parity runs. Three of its suites are gated on fixtures the repo
   deliberately does not carry, and **each skips silently while the run still reports success**:
