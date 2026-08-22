@@ -221,7 +221,8 @@ public struct NativeModelConverter: Sendable {
 		let memoryTracker = NativeModelConversionMemoryTracker()
 		let report: NativeModelConversionProgressHandler = { update in
 			NativeModelConversionInstrumentation.event(update.phase)
-			progress?(update.withProcessMemoryUsage(memoryTracker.sample()))
+			let observedUpdate = update.withProcessMemoryUsage(memoryTracker.sample())
+			progress?(observedUpdate)
 		}
 		do {
 			report(NativeModelConversionProgress(phase: .preparing))
@@ -330,7 +331,8 @@ public struct NativeModelConverter: Sendable {
 		let memoryTracker = NativeModelConversionMemoryTracker()
 		let report: NativeModelConversionProgressHandler = { update in
 			NativeModelConversionInstrumentation.event(update.phase)
-			progress?(update.withProcessMemoryUsage(memoryTracker.sample()))
+			let observedUpdate = update.withProcessMemoryUsage(memoryTracker.sample())
+			progress?(observedUpdate)
 		}
 		let cancellationCheck: NativeModelConversionCancellationHandler = {
 			try Task.checkCancellation()
@@ -439,7 +441,8 @@ public struct NativeModelConverter: Sendable {
 		let processMemoryTracker = NativeModelConversionMemoryTracker()
 		let report: NativeModelConversionProgressHandler = { update in
 			NativeModelConversionInstrumentation.event(update.phase)
-			progress?(update.withProcessMemoryUsage(processMemoryTracker.sample()))
+			let observedUpdate = update.withProcessMemoryUsage(processMemoryTracker.sample())
+			progress?(observedUpdate)
 		}
 		report(NativeModelConversionProgress(phase: .preparing))
 		let cancellationCheck: NativeModelConversionCancellationHandler = {
