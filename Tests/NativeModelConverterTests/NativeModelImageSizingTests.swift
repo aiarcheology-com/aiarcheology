@@ -245,6 +245,24 @@ final class NativeModelImageSizingTests: XCTestCase {
 		print("[AIA-0680] sized+normalised vs torchvision, worst elementwise error: \(worst.error) (normalised units)")
 	}
 
+	/// The app receives BGRA raster bytes, but carrying a second planar Float copy of a tall page
+	/// through all regions makes that representation itself the memory peak. This pins the direct
+	/// sampler to the established planar implementation before Detector uses it to avoid that copy.
+	func testDirectBGRASizing_matchesThePlanarSizingPath() throws {
+		let sourceSize = NativeModelImageSize(width: 7, height: 5)
+		let geometry = NativeModelImageSizing.Geometry(
+			sourceSize: sourceSize,
+			resizedSize: NativeModelImageSize(width: 11, height: 8),
+			canvasSize: NativeModelImageSize(width: 16, height: 16)
+		)
+		let source = deterministicImage(width: sourceSize.width, height: sourceSize.height)
+		let bgra = try XCTUnwrap(NativeModelImageSizing.interleavedBGRA(from: source, size: sourceSize))
+
+		let expected = try XCTUnwrap(NativeModelImageSizing.size(source, channels: 3, geometry: geometry))
+		let actual = try XCTUnwrap(NativeModelImageSizing.size(interleavedBGRA: bgra, geometry: geometry))
+		XCTAssertEqual(actual, expected, "direct BGRA sampling must preserve the established resize and pad result")
+	}
+
 	/// The number production can actually deliver, as opposed to the float number above.
 	///
 	/// Core ML image inputs are 8-bit, so the resampler's fractional output is rounded on its way into

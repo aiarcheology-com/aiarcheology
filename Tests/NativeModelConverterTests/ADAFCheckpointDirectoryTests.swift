@@ -247,6 +247,7 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 				detection: conversion.interface,
 				detectionTarget: conversion.targetInfo,
 				imagePreprocessing: .imageNetRGB,
+				imageSizingContract: .adafFasterRCNN,
 				targetSemanticsIntent: conversion.targetSemanticsIntent,
 				parityEvidence: .structurallyMatched
 			)
@@ -267,6 +268,11 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 		let metadata = model.modelDescription.metadata[.creatorDefinedKey] as? [String: String] ?? [:]
 		XCTAssertTrue(metadata[NativeModelParityProvenance.userDefinedKey]?.contains("structurally-matched") == true)
 		XCTAssertFalse(metadata[NativeModelParityProvenance.userDefinedKey]?.contains("verified") == true)
+		XCTAssertEqual(
+			NativeModelImageSizingContract(userDefined: metadata),
+			.adafFasterRCNN,
+			"the emitted detector must declare the input transform its runtime requires"
+		)
 		XCTAssertEqual(
 			NativeModelRuntimePolicy.computeUnitPolicy(from: metadata),
 			.cpuOnly,
@@ -320,6 +326,7 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 			detection: conversion.interface,
 			detectionTarget: conversion.targetInfo,
 			imagePreprocessing: .imageNetRGB,
+			imageSizingContract: .adafFasterRCNN,
 			targetSemanticsIntent: conversion.targetSemanticsIntent,
 			parityEvidence: .structurallyMatched
 		)

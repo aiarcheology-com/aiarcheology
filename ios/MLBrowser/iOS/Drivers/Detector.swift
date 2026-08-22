@@ -10,6 +10,7 @@ import Vision
 import UIKit
 import SwiftUI
 import OSLog
+import NativeModelConverter
 
 enum DetectorError: Error {
 	case loadError
@@ -32,6 +33,10 @@ actor Detector: Detecting {
     private var handler: VNImageRequestHandler?
     private var ciImage: CIImage?
     private var mlModel: MLModel?
+    /// Models opt in by carrying a complete, versioned input-sizing contract. The canvas constraint
+    /// alone is deliberately insufficient: it cannot say whether Vision should crop, letterbox, or
+    /// receive a host-prepared image.
+    private var imageSizingContract: NativeModelImageSizingContract?
     
     init(params: DeepDriverParams) {
         self.id = params.entityId
@@ -46,6 +51,13 @@ actor Detector: Detecting {
     
     func metadata() -> [MLModelMetadataKey: Any]? {
         mlModel?.modelDescription.metadata
+    }
+
+    /// The converter-owned metadata is value-only, unlike Core ML's full heterogeneous metadata
+    /// dictionary. Keeping this small accessor Sendable lets diagnostics record the loaded artifact
+    /// without moving `Any` values across the detector actor boundary.
+    func creatorDefinedMetadata() -> [String: String] {
+        mlModel?.modelDescription.metadata[.creatorDefinedKey] as? [String: String] ?? [:]
     }
     
     func loadFile() async throws {
@@ -64,7 +76,9 @@ actor Detector: Detecting {
 
         LoggingPolicy.debug("Model successfully loaded from \(path.lastPathComponent)", logger: .drivers)
 
+        let sizingContract = Self.imageSizingContract(for: model)
         mlModel = model
+        imageSizingContract = sizingContract
         objectDetectionModel = try VNCoreMLModel(for: model)
 
         guard let detecionModel = objectDetectionModel else {
@@ -73,7 +87,7 @@ actor Detector: Detecting {
         }
 
         detectionRequest = VNCoreMLRequest(model: detecionModel)
-        detectionRequest?.imageCropAndScaleOption = .scaleFit
+        detectionRequest?.imageCropAndScaleOption = sizingContract == nil ? .scaleFit : .scaleFill
     }
 
     func unload() async {
@@ -82,6 +96,7 @@ actor Detector: Detecting {
         detectionRequest = nil
         objectDetectionModel = nil
         mlModel = nil
+        imageSizingContract = nil
         observations = []
         LoggingPolicy.debug("Detector unloaded", logger: .drivers)
     }
@@ -95,6 +110,24 @@ actor Detector: Detecting {
             LoggingPolicy.debug("Detection skipped: detection request not initialized", logger: .drivers)
             return []
         }
+        if let imageSizingContract {
+            return detectPreSized(
+                image: image,
+                regions: regions,
+                contract: imageSizingContract,
+                using: detectionRequest
+            )
+        }
+        return detectUsingVisionROI(image: image, regions: regions, using: detectionRequest)
+    }
+
+    /// The established path for normal detectors. Its `.scaleFit` request and Vision ROI behaviour
+    /// stay intact; a model only takes the alternative path after declaring the contract above.
+    private func detectUsingVisionROI(
+        image: UIImage,
+        regions: [CGRect],
+        using detectionRequest: VNCoreMLRequest
+    ) -> [DetectedObject] {
         guard let ciImage = CIImage(image: image) else {
             LoggingPolicy.warning("Failed to create CIImage from UIImage", logger: .drivers)
             return []
@@ -159,6 +192,220 @@ actor Detector: Detecting {
             logger: .drivers
         )
         return results
+    }
+
+    /// Runs a detector that declares the torchvision pre-sizing contract. Every tile is cropped from
+    /// the original pixel image, resized and padded to the model's *exact* canvas, then handed to
+    /// Vision as a full-frame `.scaleFill` image. Giving Vision an ROI or a non-matching input here
+    /// would introduce a second resize and invalidate the device parity evidence.
+    private func detectPreSized(
+        image: UIImage,
+        regions: [CGRect],
+        contract: NativeModelImageSizingContract,
+        using detectionRequest: VNCoreMLRequest
+    ) -> [DetectedObject] {
+        guard let source = Self.sourceImage(from: image) else {
+            LoggingPolicy.warning("Failed to prepare detector source image", logger: .drivers)
+            return []
+        }
+
+        detectionRequest.imageCropAndScaleOption = .scaleFill
+        detectionRequest.regionOfInterest = TileLayout.fullFrame
+        defer { detectionRequest.regionOfInterest = TileLayout.fullFrame }
+
+        let start = Date.now
+        var collected: [DetectedObject] = []
+        var slowestRegion: (index: Int, seconds: TimeInterval)?
+        var emptyRegionCount = 0
+        var failedRegionCount = 0
+
+        for (index, region) in regions.enumerated() {
+            let regionStart = Date.now
+            guard let prepared = Self.preparedRegion(
+                source: source,
+                region: region,
+                contract: contract
+            ) else {
+                LoggingPolicy.error("Failed to prepare pre-sized detection region \(index)", logger: .drivers)
+                failedRegionCount += 1
+                continue
+            }
+
+            let handler = VNImageRequestHandler(cgImage: prepared.image, options: [:])
+            do {
+                try handler.perform([detectionRequest])
+            } catch {
+                // VNRequest keeps earlier results after a failed perform; never reuse them.
+                LoggingPolicy.error("Failed to perform pre-sized detection for region \(index)", error: error, logger: .drivers)
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "performPreSizedDetection", "region": "\(index)"])
+                failedRegionCount += 1
+                continue
+            }
+
+            let regionObservations = (detectionRequest.results as? [VNRecognizedObjectObservation]) ?? []
+            for observation in regionObservations {
+                guard let sourceBox = prepared.geometry.sourceBox(fromCanvasBox: Self.nativeRect(observation.boundingBox)),
+                      let box = TileLayout.remap(Self.cgRect(sourceBox), into: prepared.effectiveRegion)
+                else { continue }
+                collected.append(Self.detectedObject(observation, box: box, regionIndex: index))
+            }
+            let regionSeconds = Date.now.timeIntervalSince(regionStart)
+            if regionSeconds > (slowestRegion?.seconds ?? -1) {
+                slowestRegion = (index, regionSeconds)
+            }
+            if regionObservations.isEmpty { emptyRegionCount += 1 }
+        }
+
+        let results = TileLayout.dedupAcrossRegions(collected)
+        let slowest = slowestRegion.map { "slowest region \($0.index) at \($0.seconds)s" }
+            ?? "no region completed"
+        LoggingPolicy.debug(
+            """
+            Pre-sized detection over \(regions.count) regions completed with \(results.count) objects \
+            (\(collected.count) raw) in \(Date.now.timeIntervalSince(start))s; \
+            \(slowest), \(emptyRegionCount) empty, \(failedRegionCount) failed
+            """,
+            logger: .drivers
+        )
+        return results
+    }
+
+    /// The contract is only usable when the declared canvas is also one of this concrete model's
+    /// image inputs. A stale or hand-edited metadata value therefore falls back to the generic path
+    /// instead of silently asking Vision to rescale into an unrelated shape.
+    private static func imageSizingContract(for model: MLModel) -> NativeModelImageSizingContract? {
+        let metadata = model.modelDescription.metadata[.creatorDefinedKey] as? [String: String] ?? [:]
+        guard let contract = NativeModelImageSizingContract(userDefined: metadata) else { return nil }
+        let hasMatchingCanvas = model.modelDescription.inputDescriptionsByName.values.contains {
+            $0.imageConstraint?.pixelsWide == contract.canvasWidth &&
+                $0.imageConstraint?.pixelsHigh == contract.canvasHeight
+        }
+        guard hasMatchingCanvas else {
+            LoggingPolicy.warning("Ignoring detector image-sizing contract whose canvas does not match the model input", logger: .drivers)
+            return nil
+        }
+        return contract
+    }
+
+    private struct SourceImage {
+        let image: CGImage
+        let size: NativeModelImageSize
+    }
+
+    private struct PreparedRegion {
+        let image: CGImage
+        let geometry: NativeModelImageSizing.Geometry
+        let effectiveRegion: CGRect
+    }
+
+    private static func sourceImage(from image: UIImage) -> SourceImage? {
+        guard let cgImage = image.cgImage, cgImage.width > 0, cgImage.height > 0 else { return nil }
+        return SourceImage(image: cgImage, size: NativeModelImageSize(width: cgImage.width, height: cgImage.height))
+    }
+
+    /// Rasterises only the current tile. Holding a page-wide BGRA buffer plus a page-wide planar
+    /// Float buffer would add 16 bytes per source pixel for the full pass; this keeps the temporary
+    /// source allocation bounded to one region and lets NativeModelImageSizing sample BGRA directly.
+    private static func bgraPixels(from image: CGImage) -> [UInt8]? {
+        guard image.width > 0, image.height > 0,
+              let bytesPerRow = checkedProduct(image.width, 4),
+              let byteCount = checkedProduct(bytesPerRow, image.height)
+        else { return nil }
+
+        var bgra = [UInt8](repeating: 0, count: byteCount)
+        guard let context = CGContext(
+            data: &bgra,
+            width: image.width,
+            height: image.height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else { return nil }
+        // This is intentionally the same ImageIO-to-BGRA conversion as ADAFDetectorParityRunner.
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return bgra
+    }
+
+    private static func preparedRegion(
+        source: SourceImage,
+        region: CGRect,
+        contract: NativeModelImageSizingContract
+    ) -> PreparedRegion? {
+        guard let cropPlan = NativeModelImageSizing.cropPlan(frame: source.size, region: nativeRect(region)),
+              // CGImage's origin is the first raster row, matching CropPlan's top-left pixel rect.
+              let croppedImage = source.image.cropping(to: CGRect(
+                x: cropPlan.pixelRect.x,
+                y: cropPlan.pixelRect.y,
+                width: cropPlan.pixelRect.width,
+                height: cropPlan.pixelRect.height
+              )),
+              let croppedBGRA = bgraPixels(from: croppedImage),
+              let geometry = NativeModelImageSizing.geometry(
+                source: NativeModelImageSize(width: cropPlan.pixelRect.width, height: cropPlan.pixelRect.height),
+                minSize: contract.minSize,
+                maxSize: contract.maxSize,
+                canvas: contract.canvas
+              ),
+              let canvas = NativeModelImageSizing.size(interleavedBGRA: croppedBGRA, geometry: geometry),
+              let pixels = NativeModelImageSizing.interleavedBGRA(from: canvas, size: contract.canvas),
+              let image = cgImage(fromBGRA: pixels, size: contract.canvas)
+        else { return nil }
+        return PreparedRegion(image: image, geometry: geometry, effectiveRegion: cgRect(cropPlan.effectiveRegion))
+    }
+
+    private static func cgImage(fromBGRA pixels: [UInt8], size: NativeModelImageSize) -> CGImage? {
+        guard let bytesPerRow = checkedProduct(size.width, 4),
+              pixels.count == checkedProduct(bytesPerRow, size.height),
+              let provider = CGDataProvider(data: Data(pixels) as CFData)
+        else { return nil }
+        return CGImage(
+            width: size.width,
+            height: size.height,
+            bitsPerComponent: 8,
+            bitsPerPixel: 32,
+            bytesPerRow: bytesPerRow,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(
+                rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+            ),
+            provider: provider,
+            decode: nil,
+            shouldInterpolate: false,
+            intent: .defaultIntent
+        )
+    }
+
+    private static func checkedProduct(_ lhs: Int, _ rhs: Int) -> Int? {
+        let (product, overflow) = lhs.multipliedReportingOverflow(by: rhs)
+        return overflow ? nil : product
+    }
+
+    private static func nativeRect(_ rect: CGRect) -> NativeModelNormalizedRect {
+        NativeModelNormalizedRect(
+            x: Double(rect.origin.x), y: Double(rect.origin.y),
+            width: Double(rect.width), height: Double(rect.height)
+        )
+    }
+
+    private static func cgRect(_ rect: NativeModelNormalizedRect) -> CGRect {
+        CGRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height)
+    }
+
+    private static func detectedObject(
+        _ observation: VNRecognizedObjectObservation,
+        box: CGRect,
+        regionIndex: Int
+    ) -> DetectedObject {
+        DetectedObject(
+            uuid: observation.uuid,
+            labels: observation.labels.map {
+                DetectedObject.Label(identifier: $0.identifier, confidence: $0.confidence)
+            },
+            confidence: observation.confidence,
+            boundingBox: box,
+            regionIndex: regionIndex
+        )
     }
 
     func process(image: UIImage) async {

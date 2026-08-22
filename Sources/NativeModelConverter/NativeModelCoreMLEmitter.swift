@@ -226,6 +226,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		detection: NativeModelDetectionInterface,
 		detectionTarget: NativeModelDetectionTargetInfo,
 		imagePreprocessing: NativeModelImagePreprocessing? = nil,
+		imageSizingContract: NativeModelImageSizingContract? = nil,
 		targetSemanticsIntent: NativeModelTargetSemanticsIntent? = nil,
 		sourceMetadata: NativeModelCoreMLMetadata? = nil,
 		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
@@ -257,6 +258,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			graph: graph,
 			emittedWeights: weights,
 			interface: interface,
+			imageSizingContract: imageSizingContract,
 			parityEvidence: parityEvidence
 		)
 		try emit(
@@ -1052,6 +1054,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		graph: NativeModelGraph,
 		emittedWeights: Data,
 		interface: ResolvedEmissionInterface,
+		imageSizingContract: NativeModelImageSizingContract? = nil,
 		parityEvidence: NativeModelParityEvidence = .unevidenced
 	) throws -> NativeModelCoreMLMetadata {
 		try targetMetadata(
@@ -1062,6 +1065,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			graph: graph,
 			sourceProvenance: sourceProvenance,
 			interface: interface,
+			imageSizingContract: imageSizingContract,
 			parityEvidence: parityEvidence
 		)
 	}
@@ -1074,6 +1078,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		graph: NativeModelGraph,
 		sourceProvenance: NativeModelConversionSourceProvenance?,
 		interface: ResolvedEmissionInterface,
+		imageSizingContract: NativeModelImageSizingContract? = nil,
 		parityEvidence: NativeModelParityEvidence = .unevidenced
 	) throws -> NativeModelCoreMLMetadata {
 		// A detector is emitted as a Core ML pipeline (network + NMS); a classifier interface is only
@@ -1100,6 +1105,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		]
 		if let computeUnitPolicy = NativeModelRuntimePolicy.computeUnitPolicy(forProducer: graph.producer.name) {
 			userDefined[NativeModelRuntimePolicy.computeUnitsKey] = computeUnitPolicy.rawValue
+		}
+		if let imageSizingContract {
+			userDefined[NativeModelImageSizingContract.userDefinedKey] = try imageSizingContract.canonicalJSON()
 		}
 		if let graphSHA256 = checksums.graphSHA256 {
 			userDefined["com.aiarcheology.native.conversion.graph-sha256"] = graphSHA256

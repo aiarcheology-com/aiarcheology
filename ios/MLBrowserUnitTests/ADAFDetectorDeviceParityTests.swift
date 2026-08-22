@@ -31,15 +31,18 @@ import CoreGraphics
 import CoreML
 import Foundation
 import NativeModelConverter
+import UIKit
 import Vision
 import XCTest
 @testable import ML_Browser
 
+@MainActor
 final class ADAFDetectorDeviceParityTests: XCTestCase {
 
 	private static let fixtureName = "AOBarrowOracle"
 	private static let modelName = "AOBarrowDetector"
 	private static let canvasName = "AOBarrowCanvas"
+	private static let sourceName = "AOBarrowSource"
 
 	/// The parity contract: `.cpuOnly` reproduces torchvision, and the shipping loader selects it.
 	func testDeviceComputeUnits_cpuOnlyMatchesTorchvisionThroughTheShippingLoader() async throws {
@@ -75,11 +78,35 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 			.cpuOnly,
 			"The converted ADAF detector must carry the measured CPU placement requirement."
 		)
+		XCTAssertEqual(
+			NativeModelImageSizingContract(userDefined: userDefined),
+			.adafFasterRCNN,
+			"the converted detector must declare the exact host transform the app is about to run"
+		)
 		assertOracleBudgets(
 			measure(
 				try detect(image: probe.image, model: shippingModel, geometry: probe.geometry),
 				reference: probe.fixture.reference, matchIoU: probe.fixture.rule.matchIoU
 			),
+			referenceCount: probe.fixture.reference.count,
+			rule: probe.fixture.rule,
+			computeUnits: .cpuOnly,
+			systemVersion: probe.systemVersion
+		)
+
+		// This is the app path rather than the standalone request above: an arbitrary-size source
+		// image goes through Detector's crop → torchvision resize → fixed 1344 canvas path before
+		// Vision sees it. A full-frame region corresponds exactly to the oracle fixture; the tile
+		// geometry itself is separately pinned in ADAFBoxRoundTripTests.
+		let detector = Detector(params: DeepDriverParams(
+			entityId: UUID(), modelName: "AIA-0697 device parity", file: probe.compiledModel, demo: true
+		))
+		try await detector.loadFile()
+		let appObjects = await detector.detect(image: probe.sourceImage, regions: [TileLayout.fullFrame])
+		await detector.unload()
+		let appDetections = appObjects.map { appDetection($0, sourceSize: probe.sourceSize) }
+		assertOracleBudgets(
+			measure(appDetections, reference: probe.fixture.reference, matchIoU: probe.fixture.rule.matchIoU),
 			referenceCount: probe.fixture.reference.count,
 			rule: probe.fixture.rule,
 			computeUnits: .cpuOnly,
@@ -156,12 +183,50 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 		}
 	}
 
+	/// Records the actual app path's physical footprint for a complete 15-region pass. This is opt-in
+	/// because the monolithic detector is about 191 MiB and XCTest runs each measurement repeatedly;
+	/// the retained JSON attachment says exactly which model contract, image, tiling and iteration
+	/// count produced the metric in the `.xcresult`.
+	func testPhysicalIPhoneMetrics_fullAppDetectionPass() async throws {
+		try requirePhysicalIPhoneBenchmark()
+		let probe = try makeProbe()
+		let regions = TileLayout.regions(for: [.pyramid, .grid3x3])
+		let detector = Detector(params: DeepDriverParams(
+			entityId: UUID(), modelName: "AIA-0697 memory benchmark", file: probe.compiledModel, demo: true
+		))
+		try await detector.loadFile()
+
+		let userDefined = await detector.creatorDefinedMetadata()
+		addBenchmarkAttachment(
+			probe: probe,
+			regionCount: regions.count,
+			measurementIterations: 3,
+			userDefined: userDefined
+		)
+
+		let options = XCTMeasureOptions()
+		options.iterationCount = 3
+		let input = BenchmarkImage(probe.sourceImage)
+		measure(metrics: [XCTClockMetric(), XCTMemoryMetric()], options: options) {
+			do {
+				_ = try synchronously {
+					await detector.detect(image: input.image, regions: regions)
+				}
+			} catch {
+				XCTFail("ADAF app-path detection failed during physical-memory measurement: \(error)")
+			}
+		}
+		await detector.unload()
+	}
+
 	// MARK: - Probe
 
 	private struct Probe {
 		let fixture: Fixture
 		let geometry: NativeModelImageSizing.Geometry
+		let sourceSize: NativeModelImageSize
 		let canvasSize: NativeModelImageSize
+		let sourceImage: UIImage
 		let image: CGImage
 		let compiledModel: URL
 		let systemVersion: String
@@ -183,14 +248,33 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 		let canvas = try loadPortablePixmap(named: Self.canvasName)
 		XCTAssertEqual(canvas.width, canvasSize.width)
 		XCTAssertEqual(canvas.height, canvasSize.height)
+		let source = try loadPortablePixmap(named: Self.sourceName)
+		XCTAssertEqual(source.width, sourceSize.width)
+		XCTAssertEqual(source.height, sourceSize.height)
 		return Probe(
 			fixture: fixture,
 			geometry: geometry,
+			sourceSize: sourceSize,
 			canvasSize: canvasSize,
+			sourceImage: UIImage(cgImage: try makeImage(rgb: source.rgb, width: source.width, height: source.height)),
 			image: try makeImage(rgb: canvas.rgb, width: canvas.width, height: canvas.height),
 			compiledModel: try loadCompiledModel(),
 			systemVersion: ProcessInfo.processInfo.operatingSystemVersionString
 		)
+	}
+
+	private func requirePhysicalIPhoneBenchmark() throws {
+		guard ProcessInfo.processInfo.environment["ADAF_DETECTOR_DEVICE_BENCHMARK"] == "1" else {
+			throw XCTSkip(
+				"Set ADAF_DETECTOR_DEVICE_BENCHMARK=1 in the Test action to record the opt-in physical-iPhone metric."
+			)
+		}
+		guard ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] == nil else {
+			throw XCTSkip("XCTMemoryMetric evidence for AIA-0697 must come from a physical iPhone, not a simulator.")
+		}
+		guard UIDevice.current.userInterfaceIdiom == .phone else {
+			throw XCTSkip("AIA-0697 records this benchmark on a physical iPhone; the current device is not an iPhone.")
+		}
 	}
 
 	// MARK: - Fixture
@@ -281,6 +365,61 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 		configuration.computeUnits = computeUnits
 		let model = try MLModel(contentsOf: compiledModel, configuration: configuration)
 		return try detect(image: image, model: model, geometry: geometry)
+	}
+
+	private func appDetection(_ object: DetectedObject, sourceSize: NativeModelImageSize) -> Detection {
+		let box = object.boundingBox
+		let width = Double(sourceSize.width)
+		let height = Double(sourceSize.height)
+		return Detection(
+			box: [
+				Double(box.minX) * width,
+				(1 - Double(box.minY) - Double(box.height)) * height,
+				Double(box.maxX) * width,
+				(1 - Double(box.minY)) * height
+			],
+			score: Double(object.confidence)
+		)
+	}
+
+	private func addBenchmarkAttachment(
+		probe: Probe,
+		regionCount: Int,
+		measurementIterations: Int,
+		userDefined: [String: String]
+	) {
+		let report = DeviceBenchmarkReport(
+			device: UIDevice.current.model,
+			operatingSystemVersion: UIDevice.current.systemVersion,
+			modelFilename: probe.compiledModel.lastPathComponent,
+			sourceWidth: probe.sourceSize.width,
+			sourceHeight: probe.sourceSize.height,
+			regionCount: regionCount,
+			measurementIterations: measurementIterations,
+			computeUnitPolicy: NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined)?.rawValue,
+			imageSizingContract: NativeModelImageSizingContract(userDefined: userDefined),
+			modelMetadata: userDefined
+		)
+		guard let data = try? JSONEncoder.prettySorted.encode(report) else {
+			return XCTFail("Could not encode ADAF physical-device benchmark metadata.")
+		}
+		let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+		attachment.name = "adaf-full-detection-pass-benchmark.json"
+		attachment.lifetime = .keepAlways
+		add(attachment)
+	}
+
+	private func synchronously<T: Sendable>(
+		_ operation: @escaping @Sendable () async -> T
+	) throws -> T {
+		let result = LockedResult<T>()
+		let semaphore = DispatchSemaphore(value: 0)
+		Task.detached {
+			result.store(.success(await operation()))
+			semaphore.signal()
+		}
+		semaphore.wait()
+		return try result.take().get()
 	}
 
 	private func detect(
@@ -467,6 +606,55 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 
 	private func boxShift(_ left: [Double], _ right: [Double]) -> Double {
 		zip(left, right).map { abs($0 - $1) }.max() ?? .infinity
+	}
+}
+
+private final class BenchmarkImage: @unchecked Sendable {
+	let image: UIImage
+
+	init(_ image: UIImage) {
+		self.image = image
+	}
+}
+
+private final class LockedResult<Value: Sendable>: @unchecked Sendable {
+	private let lock = NSLock()
+	private var result: Result<Value, Error>?
+
+	func store(_ result: Result<Value, Error>) {
+		lock.lock()
+		defer { lock.unlock() }
+		self.result = result
+	}
+
+	func take() -> Result<Value, Error> {
+		lock.lock()
+		defer { lock.unlock() }
+		guard let result else {
+			fatalError("ADAF device benchmark did not produce a result.")
+		}
+		return result
+	}
+}
+
+private struct DeviceBenchmarkReport: Encodable {
+	let device: String
+	let operatingSystemVersion: String
+	let modelFilename: String
+	let sourceWidth: Int
+	let sourceHeight: Int
+	let regionCount: Int
+	let measurementIterations: Int
+	let computeUnitPolicy: String?
+	let imageSizingContract: NativeModelImageSizingContract?
+	let modelMetadata: [String: String]
+}
+
+private extension JSONEncoder {
+	static var prettySorted: JSONEncoder {
+		let encoder = JSONEncoder()
+		encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+		return encoder
 	}
 }
 

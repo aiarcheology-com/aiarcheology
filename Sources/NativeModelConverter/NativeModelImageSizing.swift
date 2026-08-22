@@ -426,6 +426,65 @@ public enum NativeModelImageSizing {
 		return canvas(from: resized, channels: channels, geometry: geometry, fill: fill)
 	}
 
+	/// Resize a 32-bit BGRA source directly onto the padded RGB canvas.
+	///
+	/// The detector's host input arrives in this format. Sampling it directly avoids first expanding
+	/// every source pixel into a planar Float buffer — a full-page screenshot can be much larger than
+	/// the fixed model canvas. The arithmetic intentionally mirrors `resample` followed by `canvas`:
+	/// callers get the same torchvision-aligned output while keeping only the input bytes and one
+	/// canvas-sized Float buffer live.
+	public static func size(
+		interleavedBGRA source: [UInt8],
+		geometry: Geometry,
+		fill: [Float] = imageNetMeanPixels
+	) -> [Float]? {
+		let sourceSize = geometry.sourceSize
+		let resizedSize = geometry.resizedSize
+		let canvasSize = geometry.canvasSize
+		guard let sourceByteCount = elementCount(channels: 4, size: sourceSize),
+			let canvasElementCount = elementCount(channels: 3, size: canvasSize),
+			fill.count == 3,
+			source.count == sourceByteCount,
+			canvasSize.width >= resizedSize.width,
+			canvasSize.height >= resizedSize.height
+		else { return nil }
+
+		let columns = axisMapping(from: sourceSize.width, to: resizedSize.width)
+		let rows = axisMapping(from: sourceSize.height, to: resizedSize.height)
+		let canvasPixels = canvasSize.width * canvasSize.height
+		var output = [Float](repeating: 0, count: canvasElementCount)
+
+		for channel in 0..<3 {
+			let canvasPlane = channel * canvasPixels
+			let byteOffset = [2, 1, 0][channel]
+			for row in 0..<canvasSize.height {
+				let canvasRow = canvasPlane + row * canvasSize.width
+				guard row < resizedSize.height else {
+					for column in 0..<canvasSize.width { output[canvasRow + column] = fill[channel] }
+					continue
+				}
+				let taps = rows[row]
+				let top = taps.low * sourceSize.width
+				let bottom = taps.high * sourceSize.width
+				for column in 0..<resizedSize.width {
+					let tap = columns[column]
+					let topLeft = Double(source[(top + tap.low) * 4 + byteOffset])
+					let topRight = Double(source[(top + tap.high) * 4 + byteOffset])
+					let bottomLeft = Double(source[(bottom + tap.low) * 4 + byteOffset])
+					let bottomRight = Double(source[(bottom + tap.high) * 4 + byteOffset])
+					let upper = topLeft * tap.lowWeight + topRight * tap.highWeight
+					let lower = bottomLeft * tap.lowWeight + bottomRight * tap.highWeight
+					output[canvasRow + column] = Float(upper * taps.lowWeight + lower * taps.highWeight)
+				}
+				for column in resizedSize.width..<canvasSize.width {
+					output[canvasRow + column] = fill[channel]
+				}
+			}
+		}
+
+		return output
+	}
+
 	/// Packs a planar `[0, 255]` float buffer into the interleaved 8-bit **BGRA** bytes a
 	/// `CVPixelBuffer` of `kCVPixelFormatType_32BGRA` holds.
 	///

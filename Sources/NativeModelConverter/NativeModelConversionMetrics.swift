@@ -394,6 +394,7 @@ public struct NativeModelConverter: Sendable {
 				detection: conversion.interface,
 				detectionTarget: conversion.targetInfo,
 				imagePreprocessing: .imageNetRGB,
+				imageSizingContract: .adafFasterRCNN,
 				targetSemanticsIntent: conversion.targetSemanticsIntent,
 				parityEvidence: .structurallyMatched,
 				reporting: report,
