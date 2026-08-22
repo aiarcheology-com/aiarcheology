@@ -76,7 +76,9 @@ enum ImportedContainerRouting {
 	///
 	/// Direct downloads and Files imports both convert a recognised ADAF detector. The successful
 	/// conversion creates both the Core Data row and the durable conversion report, so it no longer
-	/// has the Files-import orphan cost that made AIA-0654 leave that path untouched. A Files import
+	/// has the Files-import orphan cost that made AIA-0654 leave that path untouched. A *real* tar is
+	/// different: it can never become a model, so reject it before Files copies it into a configuration
+	/// directory and a late validation failure leaves no row or report to clean it up. A Files import
 	/// whose checkpoint is *not* an ADAF detector still continues exactly as before; rejecting it
 	/// would reintroduce that orphan problem. Catalog installs never read the container here: they
 	/// remain on their existing trusted catalog path.
@@ -92,7 +94,7 @@ enum ImportedContainerRouting {
 		guard origin != .catalog else { return .continueImport }
 		switch format() {
 		case .tarArchive:
-			return origin == .directDownload ? .reject(.unsupportedArchive) : .continueImport
+			return .reject(.unsupportedArchive)
 		case .unrecognized:
 			return .continueImport
 		case .pyTorchZipCheckpoint:

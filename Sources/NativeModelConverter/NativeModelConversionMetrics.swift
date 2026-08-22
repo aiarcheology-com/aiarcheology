@@ -351,8 +351,10 @@ public struct NativeModelConverter: Sendable {
 			try cancellationCheck()
 			report(NativeModelConversionProgress(phase: phase, completedUnitCount: 1, totalUnitCount: 1))
 
-			let weightsURL = outputURL
-				.deletingLastPathComponent()
+			// A process termination cannot run this method's defer. Keep the extractor's disposable
+			// scratch file out of the app-owned configuration directory, whose recovery protocol knows
+			// only the durable source, report and emitted model artifacts.
+			let weightsURL = FileManager.default.temporaryDirectory
 				.appendingPathComponent(".adaf-weights-\(UUID().uuidString).bin", isDirectory: false)
 			defer { try? FileManager.default.removeItem(at: weightsURL) }
 
@@ -370,7 +372,7 @@ public struct NativeModelConverter: Sendable {
 			let conversion = try NativeModelFasterRCNNRegistry.conversion(
 				checkpoint: checkpoint,
 				extraction: extraction,
-				weightData: try Data(contentsOf: weightsURL),
+				weightData: try Data(contentsOf: weightsURL, options: .mappedIfSafe),
 				checkingCancellation: cancellationCheck
 			)
 			report(NativeModelConversionProgress(phase: phase, completedUnitCount: 1, totalUnitCount: 1))

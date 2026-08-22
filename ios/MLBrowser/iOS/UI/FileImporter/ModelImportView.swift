@@ -53,7 +53,8 @@ struct ModelImportView: View {
 			UTType("com.aiarcheology.onnx-model"),
 			UTType(filenameExtension: "onnx"),
 			// Published ADAF checkpoints use a `.tar` filename despite being PyTorch zip archives.
-			// Content sniffing below keeps a real tar archive on its existing unsupported path.
+			// Content sniffing routes those checkpoints to conversion and rejects a real tar before it
+			// can be copied into a configuration directory.
 			UTType(filenameExtension: "tar")
 		].compactMap { $0 }
 	)

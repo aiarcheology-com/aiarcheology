@@ -71,15 +71,18 @@ final class ImportedContainerRoutingTests: XCTestCase {
 		}
 	}
 
-	func test_realTarFromADirectDownload_isRejectedAsAnArchive() {
-		XCTAssertEqual(
-			ImportedContainerRouting.route(
-				for: .tarArchive,
-				origin: .directDownload,
-				analyser: .unreadable
-			),
-			.reject(.unsupportedArchive)
-		)
+	func test_realTarFromAnyUntrustedOrigin_isRejectedAsAnArchive() {
+		for origin in [ModelAcquisitionSource.directDownload, .fileImport] {
+			XCTAssertEqual(
+				ImportedContainerRouting.route(
+					for: .tarArchive,
+					origin: origin,
+					analyser: .unreadable
+				),
+				.reject(.unsupportedArchive),
+				"\(origin) must reject a real tar before staging it"
+			)
+		}
 	}
 
 	func test_catalogImportIsNotSniffedOrAnalysed() {
