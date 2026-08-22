@@ -12,79 +12,104 @@ import XCTest
 /// as hard as the ones that must reject, because a false rejection breaks an import that works.
 final class ImportedContainerRoutingTests: XCTestCase {
 
-	// MARK: - Rejections
+	// MARK: - Routing
 
-	func test_checkpointFromADirectDownload_isRejectedAsACheckpoint() {
+	func test_recognisedADAFDetectorFromADirectDownload_isRoutedToConversion() {
 		XCTAssertEqual(
-			ImportedContainerRouting.rejection(for: .pyTorchZipCheckpoint, origin: .directDownload),
-			.unsupportedCheckpoint
+			ImportedContainerRouting.route(
+				for: .pyTorchZipCheckpoint,
+				origin: .directDownload,
+				analyser: .adafDetector(className: "Ringfort")
+			),
+			.convertADAFDetector(className: "Ringfort")
 		)
 	}
 
-	func test_tarFromADirectDownload_isRejectedAsAnArchive() {
+	func test_recognisedADAFDetectorFromFiles_isRoutedToConversion() {
 		XCTAssertEqual(
-			ImportedContainerRouting.rejection(for: .tarArchive, origin: .directDownload),
-			.unsupportedArchive
+			ImportedContainerRouting.route(
+				for: .pyTorchZipCheckpoint,
+				origin: .fileImport,
+				analyser: .adafDetector(className: nil)
+			),
+			.convertADAFDetector(className: nil)
 		)
+	}
+
+	func test_nonADAFCheckpointFromFiles_continuesItsExistingPath() {
+		for verdict in [
+			ImportedCheckpointVerdict.segmentation,
+			.unrecognizedModel(tensorCount: 12),
+			.unreadable
+		] {
+			XCTAssertEqual(
+				ImportedContainerRouting.route(
+					for: .pyTorchZipCheckpoint,
+					origin: .fileImport,
+					analyser: verdict
+				),
+				.continueImport
+			)
+		}
+	}
+
+	func test_directDownloadKeepsItsExistingPermanentAndGenericRejections() {
+		let cases: [(ImportedCheckpointVerdict, ImportedContainerRoute)] = [
+			(.segmentation, .reject(.segmentationUnsupported)),
+			(.unrecognizedModel(tensorCount: 12), .reject(.unrecognizedCheckpoint(tensorCount: 12))),
+			(.unreadable, .reject(.unsupportedCheckpoint))
+		]
+		for (verdict, expected) in cases {
+			XCTAssertEqual(
+				ImportedContainerRouting.route(
+					for: .pyTorchZipCheckpoint,
+					origin: .directDownload,
+					analyser: verdict
+				),
+				expected
+			)
+		}
+	}
+
+	func test_realTarFromADirectDownload_isRejectedAsAnArchive() {
+		XCTAssertEqual(
+			ImportedContainerRouting.route(
+				for: .tarArchive,
+				origin: .directDownload,
+				analyser: .unreadable
+			),
+			.reject(.unsupportedArchive)
+		)
+	}
+
+	func test_catalogImportIsNotSniffedOrAnalysed() {
+		var sniffs = 0
+		var analyses = 0
+		let route = ImportedContainerRouting.route(
+			for: { sniffs += 1; return .pyTorchZipCheckpoint }(),
+			origin: .catalog,
+			analyser: { analyses += 1; return .adafDetector(className: "Ringfort") }()
+		)
+		XCTAssertEqual(route, .continueImport)
+		XCTAssertEqual(sniffs, 0)
+		XCTAssertEqual(analyses, 0)
+	}
+
+	func test_tarAndUnrecognisedContentAreNeverAnalysed() {
+		for format in [DownloadedContainerFormat.tarArchive, .unrecognized] {
+			var analyses = 0
+			_ = ImportedContainerRouting.route(
+				for: format,
+				origin: .directDownload,
+				analyser: { analyses += 1; return .adafDetector(className: "Ringfort") }()
+			)
+			XCTAssertEqual(analyses, 0, "\(format) must not decode a checkpoint")
+		}
 	}
 
 	func test_rejectionsCarryALocalizedMessage() {
-		XCTAssertEqual(
-			ModelContainerImportError.unsupportedCheckpoint.errorDescription,
-			L10n.Import.unsupportedCheckpoint
-		)
-		XCTAssertEqual(
-			ModelContainerImportError.unsupportedArchive.errorDescription,
-			L10n.Import.unsupportedArchive
-		)
-	}
-
-	// MARK: - Everything that must stay silent
-
-	/// A recognized container that did **not** arrive as a direct download keeps today's behaviour.
-	///
-	/// Not because other origins cannot produce one — a checkpoint renamed to `.onnx` is selectable
-	/// in the Files picker, whose allowed types match by extension — but because of the cost of
-	/// rejecting there. A Files import is *copied* into the configuration directory first, and at
-	/// the guard's seam there is no Core Data row and no conversion report, so nothing would clean
-	/// that copy up: rejecting would trade a cryptic error for a silently orphaned file.
-	func test_nonDirectDownloadOrigins_areNeverRejected() {
-		for format in [DownloadedContainerFormat.pyTorchZipCheckpoint, .tarArchive] {
-			for origin in [ModelAcquisitionSource.catalog, .fileImport] {
-				XCTAssertNil(
-					ImportedContainerRouting.rejection(for: format, origin: origin),
-					"\(format) from \(origin) must keep today's path"
-				)
-			}
-		}
-	}
-
-	/// The sniff must not even be evaluated for an import the guard cannot touch — that read is the
-	/// only trace this feature could otherwise leave on the catalog and Files paths. With no feature
-	/// flag in front of it, this is the assertion that keeps the guard off those paths entirely.
-	func test_theContainerIsNotEvenSniffedWhenTheGuardCannotFire() {
-		var sniffs = 0
-		let counting: () -> DownloadedContainerFormat = {
-			sniffs += 1
-			return .pyTorchZipCheckpoint
-		}
-
-		_ = ImportedContainerRouting.rejection(for: counting(), origin: .catalog)
-		XCTAssertEqual(sniffs, 0, "a catalog import must not read the file")
-
-		_ = ImportedContainerRouting.rejection(for: counting(), origin: .fileImport)
-		XCTAssertEqual(sniffs, 0, "a Files import must not read the file")
-
-		_ = ImportedContainerRouting.rejection(for: counting(), origin: .directDownload)
-		XCTAssertEqual(sniffs, 1, "a direct download is the one case that sniffs")
-	}
-
-	/// The lock on the ticket's non-regression promise: every format the app imports normally
-	/// classifies as `.unrecognized`, and `.unrecognized` is never rejected.
-	func test_unrecognizedContent_isNeverRejected() {
-		for origin in [ModelAcquisitionSource.directDownload, .catalog, .fileImport] {
-			XCTAssertNil(ImportedContainerRouting.rejection(for: .unrecognized, origin: origin))
-		}
+		XCTAssertEqual(ModelContainerImportError.unsupportedCheckpoint.errorDescription, L10n.Import.unsupportedCheckpoint)
+		XCTAssertEqual(ModelContainerImportError.unsupportedArchive.errorDescription, L10n.Import.unsupportedArchive)
 	}
 
 	// MARK: - Origin resolution

@@ -24632,218 +24632,218 @@
         }
       }
     },
-    "import.checkpointDetector" : {
-      "comment" : "Import rejection: a recognised ADAF detection checkpoint, naming its class (AIA-0666)",
+    "import.checkpointDetectorConverted" : {
+      "comment" : "Import confirmation: a recognised ADAF detection checkpoint was converted, naming its class (AIA-0696)",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "يصف هذا الملف نفسه بأنه نموذج كشف ADAF من نوع %@. يستطيع التطبيق قراءته، لكن تحويله غير مدعوم بعد."
+            "value" : "يصف هذا الملف نفسه بأنه نموذج كشف ADAF من نوع %@. تم تحويله على هذا الجهاز."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "এই ফাইলটি নিজেকে একটি ADAF %@ শনাক্তকরণ মডেল হিসেবে বর্ণনা করে। অ্যাপ এটি পড়তে পারে, তবে রূপান্তর এখনও সমর্থিত নয়।"
+            "value" : "এই ফাইলটি নিজেকে একটি ADAF %@ শনাক্তকরণ মডেল হিসেবে বর্ণনা করে। এটি এই ডিভাইসে রূপান্তরিত হয়েছে।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tento soubor se popisuje jako detekční model ADAF %@. Aplikace jej umí přečíst, ale převod zatím není podporován."
+            "value" : "Tento soubor se popisuje jako detekční model ADAF %@. Byl převeden na tomto zařízení."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Diese Datei bezeichnet sich selbst als ADAF-Erkennungsmodell „%@“. Die App kann sie lesen, aber die Konvertierung wird noch nicht unterstützt."
+            "value" : "Diese Datei bezeichnet sich selbst als ADAF-Erkennungsmodell „%@“. Sie wurde auf diesem Gerät konvertiert."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This file describes itself as an ADAF %@ detection model. This app can read it, but converting it is not supported yet."
+            "value" : "This file describes itself as an ADAF %@ detection model. It was converted on this device."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este archivo se describe a sí mismo como un modelo de detección ADAF %@. La app puede leerlo, pero su conversión aún no es compatible."
+            "value" : "Este archivo se describe a sí mismo como un modelo de detección ADAF %@. Se convirtió en este dispositivo."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "این فایل خود را یک مدل تشخیص ADAF از نوع %@ معرفی می‌کند. برنامه می‌تواند آن را بخواند، اما تبدیل آن هنوز پشتیبانی نمی‌شود."
+            "value" : "این فایل خود را یک مدل تشخیص ADAF از نوع %@ معرفی می‌کند. این فایل در این دستگاه تبدیل شد."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce fichier se présente comme un modèle de détection ADAF %@. L’app peut le lire, mais sa conversion n’est pas encore prise en charge."
+            "value" : "Ce fichier se présente comme un modèle de détection ADAF %@. Il a été converti sur cet appareil."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "הקובץ הזה מתאר את עצמו כמודל זיהוי ADAF מסוג %@. האפליקציה יכולה לקרוא אותו, אך המרה עדיין אינה נתמכת."
+            "value" : "הקובץ הזה מתאר את עצמו כמודל זיהוי ADAF מסוג %@. הוא הומר במכשיר זה."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "यह फ़ाइल स्वयं को ADAF %@ डिटेक्शन मॉडल बताती है। ऐप इसे पढ़ सकता है, लेकिन रूपांतरण अभी समर्थित नहीं है।"
+            "value" : "यह फ़ाइल स्वयं को ADAF %@ डिटेक्शन मॉडल बताती है। इसे इस डिवाइस पर रूपांतरित किया गया।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ez a fájl ADAF %@ felismerési modellként azonosítja magát. Az app be tudja olvasni, de az átalakítása még nem támogatott."
+            "value" : "Ez a fájl ADAF %@ felismerési modellként azonosítja magát. Ezt az eszközön konvertálták."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ten plik przedstawia się jako model detekcji ADAF %@. Aplikacja potrafi go odczytać, ale konwersja nie jest jeszcze obsługiwana."
+            "value" : "Ten plik przedstawia się jako model detekcji ADAF %@. Został przekonwertowany na tym urządzeniu."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Этот файл представляется моделью обнаружения ADAF %@. Приложение может её прочитать, но преобразование пока не поддерживается."
+            "value" : "Этот файл представляется моделью обнаружения ADAF %@. Она была преобразована на этом устройстве."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Цей файл представляється моделлю виявлення ADAF %@. Застосунок може її прочитати, але перетворення поки не підтримується."
+            "value" : "Цей файл представляється моделлю виявлення ADAF %@. Її було перетворено на цьому пристрої."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "该文件自称是 ADAF %@ 检测模型。App 可以读取它，但尚不支持转换。"
+            "value" : "该文件自称是 ADAF %@ 检测模型。它已在此设备上转换。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此檔案自稱是 ADAF %@ 偵測模型。App 可以讀取它，但尚未支援轉換。"
+            "value" : "此檔案自稱是 ADAF %@ 偵測模型。它已在此裝置上轉換。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此檔案自稱為 ADAF %@ 偵測模型。App 可以讀取它，但尚未支援轉換。"
+            "value" : "此檔案自稱為 ADAF %@ 偵測模型。它已在此裝置上轉換。"
           }
         }
       }
     },
-    "import.checkpointDetectorUnlabelled" : {
-      "comment" : "Import rejection: a recognised ADAF detection checkpoint whose class name is missing (AIA-0666)",
+    "import.checkpointDetectorConvertedUnlabelled" : {
+      "comment" : "Import confirmation: a recognised ADAF detection checkpoint was converted without a class name (AIA-0696)",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "يصف هذا الملف نفسه بأنه نموذج كشف ADAF. يستطيع التطبيق قراءته، لكن تحويله غير مدعوم بعد."
+            "value" : "يصف هذا الملف نفسه بأنه نموذج كشف ADAF. تم تحويله على هذا الجهاز."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "এই ফাইলটি নিজেকে একটি ADAF শনাক্তকরণ মডেল হিসেবে বর্ণনা করে। অ্যাপ এটি পড়তে পারে, তবে রূপান্তর এখনও সমর্থিত নয়।"
+            "value" : "এই ফাইলটি নিজেকে একটি ADAF শনাক্তকরণ মডেল হিসেবে বর্ণনা করে। এটি এই ডিভাইসে রূপান্তরিত হয়েছে।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tento soubor se popisuje jako detekční model ADAF. Aplikace jej umí přečíst, ale převod zatím není podporován."
+            "value" : "Tento soubor se popisuje jako detekční model ADAF. Byl převeden na tomto zařízení."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Diese Datei bezeichnet sich selbst als ADAF-Erkennungsmodell. Die App kann sie lesen, aber die Konvertierung wird noch nicht unterstützt."
+            "value" : "Diese Datei bezeichnet sich selbst als ADAF-Erkennungsmodell. Sie wurde auf diesem Gerät konvertiert."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This file describes itself as an ADAF detection model. This app can read it, but converting it is not supported yet."
+            "value" : "This file describes itself as an ADAF detection model. It was converted on this device."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este archivo se describe a sí mismo como un modelo de detección ADAF. La app puede leerlo, pero su conversión aún no es compatible."
+            "value" : "Este archivo se describe a sí mismo como un modelo de detección ADAF. Se convirtió en este dispositivo."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "این فایل خود را یک مدل تشخیص ADAF معرفی می‌کند. برنامه می‌تواند آن را بخواند، اما تبدیل آن هنوز پشتیبانی نمی‌شود."
+            "value" : "این فایل خود را یک مدل تشخیص ADAF معرفی می‌کند. این فایل در این دستگاه تبدیل شد."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce fichier se présente comme un modèle de détection ADAF. L’app peut le lire, mais sa conversion n’est pas encore prise en charge."
+            "value" : "Ce fichier se présente comme un modèle de détection ADAF. Il a été converti sur cet appareil."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "הקובץ הזה מתאר את עצמו כמודל זיהוי ADAF. האפליקציה יכולה לקרוא אותו, אך המרה עדיין אינה נתמכת."
+            "value" : "הקובץ הזה מתאר את עצמו כמודל זיהוי ADAF. הוא הומר במכשיר זה."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "यह फ़ाइल स्वयं को ADAF डिटेक्शन मॉडल बताती है। ऐप इसे पढ़ सकता है, लेकिन रूपांतरण अभी समर्थित नहीं है।"
+            "value" : "यह फ़ाइल स्वयं को ADAF डिटेक्शन मॉडल बताती है। इसे इस डिवाइस पर रूपांतरित किया गया।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ez a fájl ADAF felismerési modellként azonosítja magát. Az app be tudja olvasni, de az átalakítása még nem támogatott."
+            "value" : "Ez a fájl ADAF felismerési modellként azonosítja magát. Ezt az eszközön konvertálták."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ten plik przedstawia się jako model detekcji ADAF. Aplikacja potrafi go odczytać, ale konwersja nie jest jeszcze obsługiwana."
+            "value" : "Ten plik przedstawia się jako model detekcji ADAF. Został przekonwertowany na tym urządzeniu."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Этот файл представляется моделью обнаружения ADAF. Приложение может её прочитать, но преобразование пока не поддерживается."
+            "value" : "Этот файл представляется моделью обнаружения ADAF. Она была преобразована на этом устройстве."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Цей файл представляється моделлю виявлення ADAF. Застосунок може її прочитати, але перетворення поки не підтримується."
+            "value" : "Цей файл представляється моделлю виявлення ADAF. Її було перетворено на цьому пристрої."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "该文件自称是 ADAF 检测模型。App 可以读取它，但尚不支持转换。"
+            "value" : "该文件自称是 ADAF 检测模型。它已在此设备上转换。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此檔案自稱是 ADAF 偵測模型。App 可以讀取它，但尚未支援轉換。"
+            "value" : "此檔案自稱是 ADAF 偵測模型。它已在此裝置上轉換。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此檔案自稱為 ADAF 偵測模型。App 可以讀取它，但尚未支援轉換。"
+            "value" : "此檔案自稱為 ADAF 偵測模型。它已在此裝置上轉換。"
           }
         }
       }

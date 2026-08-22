@@ -1,14 +1,20 @@
 Build: TBD
 
-The ADAF detector converter now completes its RPN, ROI box-head and two-pass suppression path, matches
-the source detector on the CPU oracle, and still keeps empty tiles empty. It is not wired into Import or
-Detector yet, so there is no new screen or setting to test. Continue with the existing checks below.
+Test Focus 1: import an ADAF detector checkpoint.
 
-Nothing new to try in this build from the model-sizing work (AIA-0680): it adds arithmetic that is
-not wired into the app yet, so there is no new screen, setting or message, and detection is
-untouched. Test the items below as usual.
+Use an ADAF `OD_*.tar` checkpoint from Files, or download one through Import. It may take several
+minutes; keep the app in the foreground and leave enough free storage for the original and converted
+model.
 
-Test Focus 1: sharing a finding as a link.
+- Import must complete with a message that the recognised detector was converted on this device. It
+  must not say the checkpoint cannot be converted.
+- While conversion is running, open the conversion log: its phases and process-memory observations
+  should advance. Cancel once, then confirm the log records cancellation and no partial model imports.
+- Complete one import with “Keep Original” and one with “Convert Only”; reopen each configuration to
+  confirm the converted model is available and the chosen source-retention behaviour is respected.
+- This slice imports the model only. Live detector findings are not yet expected.
+
+Test Focus 2: sharing a finding as a link.
 
 Put coordinates in one finding first (Findings, tap one, GPS, e.g. 48.8, 19.53) and use a real map
 portal (ags.cuzk.cz, mapy.com, openstreetmap.org), or the map part cannot be tested.
@@ -29,7 +35,7 @@ portal (ags.cuzk.cz, mapy.com, openstreetmap.org), or the map part cannot be tes
 - Damage a link (delete a chunk from the end): the app must say it could not read it, never open to
   nothing.
 
-Test Focus 2: findings carry a name, and delete on a Mac.
+Test Focus 3: findings carry a name, and delete on a Mac.
 
 The Save screen has an Author field between Note and GPS, prefilled from your account when signed in
 and empty otherwise. A blank author must show no row on the card, not "Unknown"; signed out it must

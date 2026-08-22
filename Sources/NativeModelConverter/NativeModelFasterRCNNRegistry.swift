@@ -149,8 +149,10 @@ public enum NativeModelFasterRCNNRegistry {
 	public static func conversion(
 		checkpoint: PyTorchCheckpoint,
 		extraction: PyTorchWeightExtraction,
-		weightData: Data
+		weightData: Data,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws -> Conversion {
+		try cancellationCheck?()
 		guard case let .objectDetection(model) = ADAFCheckpointCatalog.identity(of: checkpoint) else {
 			throw NativeModelFasterRCNNRegistryError.checkpointIsNotPinnedDetector
 		}
@@ -165,7 +167,11 @@ public enum NativeModelFasterRCNNRegistry {
 		}
 		var combined = weightData
 		combined.append(template.synthesizedWeightData)
-		let emission = promoteWeightsForStablePrecision(template.graph, data: combined)
+		let emission = try promoteWeightsForStablePrecision(
+			template.graph,
+			data: combined,
+			checkingCancellation: cancellationCheck
+		)
 		return Conversion(
 			graph: emission.graph,
 			weights: emission.data,
@@ -186,8 +192,10 @@ public enum NativeModelFasterRCNNRegistry {
 	/// the amplifier: after the `[10, 10, 5, 5]` BoxCoder division the measured delta moves a box by
 	/// roughly 0.1 px, not the 3.9135 px observed on device.
 	private static func promoteWeightsForStablePrecision(
-		_ graph: NativeModelGraph, data: Data
-	) -> (graph: NativeModelGraph, data: Data) {
+		_ graph: NativeModelGraph,
+		data: Data,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws -> (graph: NativeModelGraph, data: Data) {
 		var promotedWeights: [NativeModelWeight] = []
 		var promotedData = Data()
 		let orderedWeights = graph.weights.sorted(by: { $0.offset < $1.offset })
@@ -196,13 +204,17 @@ public enum NativeModelFasterRCNNRegistry {
 			if weight.dataType == .float16 { total += Int(weight.byteCount) }
 		})
 		for weight in orderedWeights {
+			try cancellationCheck?()
 			let start = Int(weight.offset)
 			let end = start + Int(weight.byteCount)
 			let bytes = data[start..<end]
 			let offset = UInt64(promotedData.count)
 			switch weight.dataType {
 			case .float16:
-				for index in stride(from: bytes.startIndex, to: bytes.endIndex, by: 2) {
+				for (elementIndex, index) in stride(from: bytes.startIndex, to: bytes.endIndex, by: 2).enumerated() {
+					if elementIndex.isMultiple(of: 4_096) {
+						try cancellationCheck?()
+					}
 					let bits = UInt16(bytes[index]) | UInt16(bytes[index + 1]) << 8
 					var value = Float(Float16(bitPattern: bits)).bitPattern.littleEndian
 					withUnsafeBytes(of: &value) { promotedData.append(contentsOf: $0) }

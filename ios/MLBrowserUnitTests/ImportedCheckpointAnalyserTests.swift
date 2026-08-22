@@ -13,8 +13,8 @@ import XCTest
 /// M1's defect survived four reviews because its tests exercised the pieces and never the path: the
 /// production call could be deleted and everything stayed green. So the tests here assert two things
 /// the piece-level ones cannot — that the analyser runs **exactly once** on the one import that
-/// qualifies and **never** on any other, and that real ADAF bytes driven through `stage` with no
-/// injection at all come out as the model-specific rejection.
+/// qualifies and never runs for a real tar or unrecognised container, and that real ADAF bytes driven
+/// through `stage` with no injection at all come out on the conversion route.
 final class ImportedCheckpointAnalyserTests: XCTestCase {
 	private var documents: URL!
 	private var incoming: URL!
@@ -36,26 +36,37 @@ final class ImportedCheckpointAnalyserTests: XCTestCase {
 	// MARK: - Real ADAF bytes, all the way through the production path
 
 	/// No injected analyser, no stubbed verdict: the real committed bytes of `OD_ringfort.tar` go in
-	/// and a message naming the model comes out. This is the test that would have caught M1.
-	func test_realCheckpointBytes_reachTheModelSpecificRejection() throws {
+	/// and a conversion route naming the model comes out. This is the test that would have caught M1.
+	func test_realCheckpointBytes_reachTheADAFConversionRoute() throws {
 		let id = UUID()
 		defer { removeConfiguration(id) }
 		let source = try ADAFTestCheckpoint.materialise("OD_ringfort", in: incoming)
 
-		XCTAssertThrowsError(
-			try ImportedModelStaging.stage(
-				sourceURL: source,
-				configurationID: id,
-				downloadURL: URL(string: "https://zenodo.org/records/15848663/files/OD_ringfort.tar?download=1"),
-				origin: .directDownload
-			)
-		) { error in
-			XCTAssertEqual(
-				error as? ModelContainerImportError,
-				.adafDetectorNotConvertible(className: "Ringfort"),
-				"the production analyser must name the model, not fall back to the generic message"
-			)
-		}
+		let staged = try ImportedModelStaging.stage(
+			sourceURL: source,
+			configurationID: id,
+			downloadURL: URL(string: "https://zenodo.org/records/15848663/files/OD_ringfort.tar?download=1"),
+			origin: .directDownload
+		)
+		XCTAssertEqual(staged.storedURL.lastPathComponent, "OD_ringfort.tar")
+		XCTAssertEqual(staged.checkpointConversion, .adafDetector(className: "Ringfort"))
+	}
+
+	/// A Files import is staged before the route runs, but a positive detector verdict now has a
+	/// durable report and Core Data row to own that copy. It must therefore take the same conversion
+	/// route as a direct download instead of falling through to the ordinary Core ML loader.
+	func test_realCheckpointBytesFromFiles_reachTheADAFConversionRoute() throws {
+		let id = UUID()
+		defer { removeConfiguration(id) }
+		let source = try ADAFTestCheckpoint.materialise("OD_ringfort", in: incoming)
+
+		let staged = try ImportedModelStaging.stage(
+			sourceURL: source,
+			configurationID: id,
+			downloadURL: nil,
+			origin: .fileImport
+		)
+		XCTAssertEqual(staged.checkpointConversion, .adafDetector(className: "Ringfort"))
 	}
 
 	func test_realSegmentationBytes_reachThePermanentRefusal() throws {
@@ -90,14 +101,13 @@ final class ImportedCheckpointAnalyserTests: XCTestCase {
 		XCTAssertEqual(calls, 1)
 	}
 
-	/// Every path the guard must not touch. A count of zero is the assertion: these imports must not
-	/// even pay for opening the file, and an outcome-based test cannot tell "did not reject" from
-	/// "read the file and decided not to reject".
-	func test_theAnalyserNeverRunsForAnythingElse() throws {
+	/// Catalog inputs stay entirely untouched; real tar archives and unrecognised content never need
+	/// to decode as checkpoints. The Files path is deliberately absent: it now analyses a PyTorch zip
+	/// so that a positive ADAF verdict can convert rather than orphan the staged file.
+	func test_theAnalyserNeverRunsForUntouchedOrNonCheckpointContent() throws {
 		let cases: [(String, [UInt8], URL?, ModelAcquisitionSource)] = [
 			("catalog install", Self.torchZipBytes(),
 			 URL(string: "https://huggingface.co/x/resolve/main/m.mlmodel"), .catalog),
-			("Files import", Self.torchZipBytes(), nil, .fileImport),
 			("tar download", Self.tarBytes(), URL(string: "https://example.com/bundle.tar"), .directDownload),
 			("onnx download", Self.onnxLikeBytes(),
 			 URL(string: "https://example.com/MobileNetV2.onnx"), .directDownload)
@@ -116,33 +126,6 @@ final class ImportedCheckpointAnalyserTests: XCTestCase {
 		}
 	}
 
-	// MARK: - Verdict to message
-
-	func test_eachVerdictChoosesItsOwnRejection() {
-		let mapping: [(ImportedCheckpointVerdict, ModelContainerImportError)] = [
-			(.adafDetector(className: "Barrow"), .adafDetectorNotConvertible(className: "Barrow")),
-			(.adafDetector(className: nil), .adafDetectorNotConvertible(className: nil)),
-			(.segmentation, .segmentationUnsupported),
-			(.unrecognizedModel(tensorCount: 12), .unrecognizedCheckpoint(tensorCount: 12)),
-			// A checkpoint that could not be read keeps M1's honest generic message.
-			(.unreadable, .unsupportedCheckpoint)
-		]
-		for (verdict, expected) in mapping {
-			XCTAssertEqual(ImportedContainerRouting.refined(.unsupportedCheckpoint, by: verdict), expected)
-		}
-	}
-
-	/// A tar rejection must not be refined into a checkpoint message, and must not read the file.
-	func test_aNonCheckpointRejectionIsNeitherRefinedNorAnalysed() {
-		var calls = 0
-		let refined = ImportedContainerRouting.refined(.unsupportedArchive, by: {
-			calls += 1
-			return .segmentation
-		}())
-		XCTAssertEqual(refined, .unsupportedArchive)
-		XCTAssertEqual(calls, 0, "the verdict is autoclosed so a tar never pays for a checkpoint read")
-	}
-
 	// MARK: - What the messages may and may not say
 
 	/// Recognition is self-declaration: whoever writes the file writes its tensor table and its
@@ -150,8 +133,6 @@ final class ImportedCheckpointAnalyserTests: XCTestCase {
 	/// M3 will attach a label to something a user then acts on.
 	func test_noMessageClaimsProvenance() {
 		let messages = [
-			ModelContainerImportError.adafDetectorNotConvertible(className: "Ringfort").errorDescription,
-			ModelContainerImportError.adafDetectorNotConvertible(className: nil).errorDescription,
 			ModelContainerImportError.segmentationUnsupported.errorDescription,
 			ModelContainerImportError.unrecognizedCheckpoint(tensorCount: 7).errorDescription
 		]
@@ -176,13 +157,12 @@ final class ImportedCheckpointAnalyserTests: XCTestCase {
 		XCTAssertTrue(text.contains("not supported"))
 	}
 
-	/// The detector message is the one that *should* say "yet" — conversion is M3.
-	func test_theDetectorMessageSaysConversionIsNotSupportedYet() throws {
-		let text = try XCTUnwrap(
-			ModelContainerImportError.adafDetectorNotConvertible(className: "Ringfort").errorDescription
-		)
+	/// The detector confirmation now says it was converted, never that conversion is not supported.
+	func test_theDetectorConfirmationSaysConversionCompleted() throws {
+		let text = L10n.Import.checkpointDetectorConverted("Ringfort")
 		XCTAssertTrue(text.contains("Ringfort"))
-		XCTAssertTrue(text.lowercased().contains("yet"))
+		XCTAssertTrue(text.lowercased().contains("converted"))
+		XCTAssertFalse(text.lowercased().contains("not supported"))
 	}
 
 	/// The count is carried for diagnostics and logged, but never rendered: "%lld tensors" reads

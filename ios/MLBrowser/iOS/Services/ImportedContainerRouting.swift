@@ -20,9 +20,6 @@ enum ModelContainerImportError: LocalizedError, Equatable {
 	case unsupportedCheckpoint
 	/// A tar archive. The app has no archive extraction at all, so this one is not "yet".
 	case unsupportedArchive
-	/// The pinned ADAF object-detection table, with the class name when the checkpoint carried one.
-	/// Conversion is AIA-0654 M3.
-	case adafDetectorNotConvertible(className: String?)
 	/// A semantic-segmentation model. **Permanent, not "yet"**: the app detects and classifies objects
 	/// in a scene and has no representation for a per-pixel mask anywhere — not in the converter's
 	/// task enum, not in the drivers, not in a finding (AIA-0654 scope decision, 2026-08-19).
@@ -32,18 +29,14 @@ enum ModelContainerImportError: LocalizedError, Equatable {
 
 	/// - Note: every message describes what the file **says it is**, never what it is. A checkpoint's
 	///   tensor table and training `id` are chosen by whoever wrote the file, so recognition is
-	///   self-declaration and the copy must not launder it into a provenance claim. The only value
-	///   interpolated here is a class name from a closed four-case enum; nothing attacker-authored
-	///   reaches the alert, and the detail goes to the log instead.
+	///   self-declaration and the copy must not launder it into a provenance claim. No value from the
+	///   checkpoint reaches the alert; diagnostic detail stays in the log instead.
 	var errorDescription: String? {
 		switch self {
 		case .unsupportedCheckpoint:
 			return L10n.Import.unsupportedCheckpoint
 		case .unsupportedArchive:
 			return L10n.Import.unsupportedArchive
-		case .adafDetectorNotConvertible(let className):
-			guard let className else { return L10n.Import.checkpointDetectorUnlabelled }
-			return L10n.Import.checkpointDetector(className)
 		case .segmentationUnsupported:
 			return L10n.Import.checkpointSegmentation
 		case .unrecognizedCheckpoint:
@@ -56,9 +49,21 @@ enum ModelContainerImportError: LocalizedError, Equatable {
 	}
 }
 
-/// Whether a classified container is rejected — pure, so the gating is testable without the view.
+/// The action the app takes after screening a staged import.
+///
+/// Only a positively recognised ADAF detector diverts into native conversion. A route is separate
+/// from ``ModelContainerImportError`` because conversion is a successful import path, not a refusal
+/// phrased differently.
+enum ImportedContainerRoute: Equatable {
+	case continueImport
+	case convertADAFDetector(className: String?)
+	case reject(ModelContainerImportError)
+}
+
+/// Routes a classified container — pure, so the gating is testable without the view.
 enum ImportedContainerRouting {
-	/// The rejection for `format`, or `nil` to mean "carry on exactly as before AIA-0654".
+	/// Decides whether an import continues unchanged, is permanently refused, or becomes an ADAF
+	/// conversion (AIA-0696).
 	///
 	/// **Deliberately not behind a feature flag.** The comparable feature — on-device conversion of
 	/// `.onnx` and `.aiagraph`, which likewise parses untrusted downloaded model files — ships
@@ -69,50 +74,40 @@ enum ImportedContainerRouting {
 	/// `.unrecognized` for everything it does not positively recognise, which is the case that
 	/// preserves today's path.
 	///
-	/// `origin` must be `.directDownload`. Not because other origins cannot produce these containers
-	/// — a checkpoint renamed to `.onnx` is selectable in the Files picker, since the allowed types
-	/// are matched by extension — but because of what a rejection *costs* on each path. A direct
-	/// download is already stored under the configuration directory, so `storeModelInDocuments`
-	/// short-circuits and rejecting it leaves only the download the user made and can see. A Files
-	/// import is copied in first, and at this point in the import there is no Core Data row and no
-	/// conversion report, so nothing would ever clean that copy up: rejecting there would trade a
-	/// cryptic error for a silently orphaned file. The renamed-file case therefore keeps its
-	/// current behaviour, deliberately.
+	/// Direct downloads and Files imports both convert a recognised ADAF detector. The successful
+	/// conversion creates both the Core Data row and the durable conversion report, so it no longer
+	/// has the Files-import orphan cost that made AIA-0654 leave that path untouched. A Files import
+	/// whose checkpoint is *not* an ADAF detector still continues exactly as before; rejecting it
+	/// would reintroduce that orphan problem. Catalog installs never read the container here: they
+	/// remain on their existing trusted catalog path.
 	///
-	/// - Parameter format: evaluated **only** when `origin` already qualifies, so an import this
-	///   guard cannot touch does not even pay for the sniff's file read. Autoclosed rather than
-	///   gated at the call site, which would put the same decision in two places.
-	static func rejection(
+	/// - Parameters:
+	///   - format: evaluated only for direct-download and Files imports.
+	///   - analyser: evaluated only for a file that content-sniffs as a PyTorch zip checkpoint.
+	static func route(
 		for format: @autoclosure () -> DownloadedContainerFormat,
-		origin: ModelAcquisitionSource
-	) -> ModelContainerImportError? {
-		guard origin == .directDownload else { return nil }
+		origin: ModelAcquisitionSource,
+		analyser: @autoclosure () -> ImportedCheckpointVerdict
+	) -> ImportedContainerRoute {
+		guard origin != .catalog else { return .continueImport }
 		switch format() {
-		case .pyTorchZipCheckpoint: return .unsupportedCheckpoint
-		case .tarArchive: return .unsupportedArchive
-		case .unrecognized: return nil
-		}
-	}
-
-	/// Upgrades a generic checkpoint rejection to one that names the model, once the file has been
-	/// read (AIA-0666).
-	///
-	/// Kept separate from ``rejection(for:origin:)`` so that function stays pure and its tests stay
-	/// exactly as they were: the decision about *whether* to reject is unchanged by this milestone,
-	/// and only the wording of one of its two verdicts gets sharper.
-	///
-	/// - Parameter verdict: autoclosed, so a tar rejection — or any rejection that is not a
-	///   checkpoint — never pays for reading and decoding one.
-	static func refined(
-		_ rejection: ModelContainerImportError,
-		by verdict: @autoclosure () -> ImportedCheckpointVerdict
-	) -> ModelContainerImportError {
-		guard rejection == .unsupportedCheckpoint else { return rejection }
-		switch verdict() {
-		case .adafDetector(let className): return .adafDetectorNotConvertible(className: className)
-		case .segmentation: return .segmentationUnsupported
-		case .unrecognizedModel(let tensorCount): return .unrecognizedCheckpoint(tensorCount: tensorCount)
-		case .unreadable: return rejection
+		case .tarArchive:
+			return origin == .directDownload ? .reject(.unsupportedArchive) : .continueImport
+		case .unrecognized:
+			return .continueImport
+		case .pyTorchZipCheckpoint:
+			switch analyser() {
+			case .adafDetector(let className):
+				return .convertADAFDetector(className: className)
+			case .segmentation:
+				return origin == .directDownload ? .reject(.segmentationUnsupported) : .continueImport
+			case .unrecognizedModel(let tensorCount):
+				return origin == .directDownload
+					? .reject(.unrecognizedCheckpoint(tensorCount: tensorCount))
+					: .continueImport
+			case .unreadable:
+				return origin == .directDownload ? .reject(.unsupportedCheckpoint) : .continueImport
+			}
 		}
 	}
 }
