@@ -260,7 +260,7 @@ increment `conversionRevision` for every output-affecting emitter, validation, o
 change; keep the source producer version owned by the exporter. The package test checks all four
 embedded identities against the compiled Core ML model.
 
-Under that rule `conversionRevision` moves from 5 to 6 in this change, because the emitted artifact
+Under that rule `conversionRevision` moves from 6 to 7 in this change, because the emitted artifact
 contents changed again. Revision 3 was anchor-free detector emission — a Core ML network plus
 non-maximum-suppression pipeline for YOLO v8/v11 raw heads, with its task, class count, label
 provenance, and coordinate-space metadata. Revision 4 adds the two-stage detector operations
@@ -270,8 +270,10 @@ manifest in the primary model's metadata, and the parity provenance every metada
 path now records. Revision 5 adds the closed ADAF Faster R-CNN registry and its fixed-canvas,
 ImageNet-normalized detector graph. Revision 6 adds the two measured terminal suppression layers and
 makes the mandatory Vision NMS model an explicit no-policy interface adapter, so it cannot silently
-turn two ADAF passes into three. A revision-6 model is therefore distinguishable from its earlier
-forms by its metadata alone, which is what the revision exists to make possible.
+turn two ADAF passes into three. Revision 7 masks Core ML's false zero-survivor NMS slot before the
+adapter sees it, so an empty tile produces no phantom recognized object. A revision-7 model is
+therefore distinguishable from its earlier forms by its metadata alone, which is what the revision
+exists to make possible.
 
 The torchvision reference exporter writes this metadata by default and accepts
 `--metadata-json SOURCE.json` to preserve a supplied metadata document byte-for-byte. A package
@@ -471,7 +473,7 @@ requires to stay green, so set them before claiming a converter change is verifi
 | --- | --- | --- |
 | `NATIVE_MODEL_ONNX_DIRECTORY` | `ONNXConversionIntegrationTests` and `YOLOv5/​v8/​11TrunkConversionTests` — top-1 and elementwise comparison against an ONNX Runtime oracle | `scripts/fetch_native_test_models.sh [TARGET_DIR]` |
 | `NATIVE_MODEL_REFERENCE_DIRECTORY` | The Apple MobileNetV2 FP16 / INT8-LUT artifact contract and its red-image probes | `scripts/test_native_model_converter.sh` sets it for you |
-| `ADAF_CHECKPOINT_DIRECTORY` | `ADAFCheckpointDirectoryTests` — every published ADAF PyTorch checkpoint is read and identified, and a full detector checkpoint is emitted, compiled, and opened | `scripts/fetch_adaf_checkpoints.sh --full`, then run via `scripts/test_adaf_checkpoints.sh` |
+| `ADAF_CHECKPOINT_DIRECTORY` | `ADAFCheckpointDirectoryTests` — every published ADAF PyTorch checkpoint is read and identified, and a detector graph is emitted, compiled, and opened | `scripts/fetch_adaf_checkpoints.sh`, then run via `scripts/test_adaf_checkpoints.sh` |
 
 ```bash
 # 1. ONNX + YOLO oracles. Downloads 7 .onnx fixtures (~375 MB) to .native-model-fixtures/,
@@ -487,10 +489,11 @@ NATIVE_MODEL_ONNX_DIRECTORY="$PWD/.native-model-fixtures" swift test \
 ```
 
 ```bash
-# 3. ADAF PyTorch checkpoints (AIA-0666). Fetches all five whole files into the gitignored
-#    .adaf-checkpoints/ (~4.6 GB, each md5-verified). The detector emission test needs real weight
-#    values, not a sparse range fixture.
-./scripts/fetch_adaf_checkpoints.sh --full
+# 3. ADAF PyTorch checkpoints (AIA-0666). The default fetch reconstructs the metadata ranges the
+#    reader needs and creates sparse, zero-filled bodies. This gate proves structural loadability:
+#    extract, emit, compile and open. Use --full only for a future numerical/prediction assertion;
+#    it downloads all five files (~4.6 GB) and verifies each whole-file md5.
+./scripts/fetch_adaf_checkpoints.sh
 ./scripts/test_adaf_checkpoints.sh
 ```
 
@@ -792,7 +795,7 @@ sampling-coordinate arithmetic, amplified by the pattern's mod-256 discontinuiti
 coordinate magnitude, so the committed tolerance is **validated for canvases up to 1344** and a larger
 canvas requires re-measurement.
 
-### What this hands to the graph work (AIA-0685, AIA-0686)
+### What this hands to the graph work (AIA-0685 through AIA-0687)
 
 - **The pinned canvas is 1344×1344, and it is not free.** The host still applies torchvision's
   `800/1333` content transform; this is its fixed, right/bottom-padded model canvas. The page-aspect
@@ -804,13 +807,31 @@ canvas requires re-measurement.
   AIA-0688 numerical-parity question, not a claim that this loadable graph is verified.
 - **Terminal suppression is a pair, not a tunable pipeline default.** The graph keeps its candidate
   boxes as `[x0, y0, x1, y1]` corners and converts to Core ML NMS's mandatory
-  `[center-x, center-y, width, height]` only immediately before its first terminal layer. That layer
-  applies torchvision's strict `score > 0.05`, IoU `0.5`, and top-100 limit; the second applies
-  ADAF's class-agnostic IoU `0.2` pass. M3a measured the difference in every one of 200 trials:
-  **73.89** boxes for the pair versus **153.07** for one `0.2` pass. The final standalone NMS model
-  remains solely because Vision requires that model type for recognized-object observations. Its fixed
-  `IoU = 1` / `score = 1e-12` adapter settings and absent threshold inputs make that ownership
-  explicit: the positive score floor removes only the fixed-NMS zero padding, not a third policy pass.
+  `[center-x, center-y, width, height]` only immediately before its first terminal layer. The current
+  structural loadability slice applies the numeric settings `0.05` / `0.5` / top-100 to its **RPN
+  objectness sigmoid** candidates. In torchvision, the strict `score > 0.05` filter is applied to
+  **ROI-head class scores**; sharing the values is not yet a claim of matching that later stage. Core
+  ML's NMS threshold is inclusive, so the final mask deliberately uses `score >= 0.05`, the same
+  boundary the first pass used. The second pass applies ADAF's class-agnostic IoU `0.2`. M3a measured
+  the difference in every one of 200 trials: **73.89** boxes for the pair versus **153.07** for one
+  `0.2` pass. Core ML reports a real sub-threshold slot when its first pass has zero survivors, so the
+  final graph masks both the score and box with that eligibility predicate before the Vision adapter.
+  The standalone NMS model remains solely because Vision requires that model type for recognized-object
+  observations. Its fixed `IoU = 1` / `score = 1e-12` adapter settings and absent threshold inputs make
+  that ownership explicit: the positive score floor removes only fixed-NMS zero padding, not a third
+  policy pass.
+- **ROI edges use a replicated feature ring, not a zero ring.** `CropResize` zeroes outside a feature
+  map where torchvision `roi_align` clamps. The emitted template carries one selected candidate through
+  each ROI-pooling FPN level (`P2` through `P5`): it slices and concatenates one copy of every edge,
+  then adds one **feature-map pixel** (`1 / spatialScale` image pixels) to each `[y0, x0, y1, x1]` ROI
+  coordinate before CropResize. The bounded branch preserves the host-side chunk boundary rather than
+  materialising the later fixed-52 ROI batch in the primary model. The pinned Core ML/torchvision
+  edge probe puts the **P2 synthetic edge-touching** replicate-ring residual at `7.25e-07` relative;
+  its P2 interior control is `8.26e-07`, and both are below the probe's `1e-04` decision ceiling. The
+  unpadded and zero-ring worst boundary variants remain at `3.35e-01` and `1.67e-01` respectively.
+  The primary serializes this bounded branch but does not yet consume it in the ROI box head, so its
+  pooled values are structural until the chunked form is connected. AIA-0688 owns compiled-runtime
+  retention, consumed-path prediction, and the first detection-set parity claim.
 - **Pre-sizing means ADAF cannot use `VNCoreMLRequest.regionOfInterest` at all.** The request must run
   full-frame on an already-cropped buffer, so a pass goes from one reused `VNImageRequestHandler`
   across 15 regions to 15 handlers.

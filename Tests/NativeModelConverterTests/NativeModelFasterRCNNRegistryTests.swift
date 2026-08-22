@@ -31,14 +31,15 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 		XCTAssertEqual(template.targetInfo.coordinateMode, .normalizedByGraph)
 		XCTAssertEqual(template.targetSemanticsIntent.preprocessingProfile, .imageNetRGB)
 		XCTAssertEqual(template.sourceWeightByteCount, 86_630_834)
-		XCTAssertEqual(template.graph.weights.count, 341, "339 checkpoint weights, anchor corners, and the centre conversion constant")
-		XCTAssertEqual(template.synthesizedWeightData.count, 7_222_288)
+		XCTAssertEqual(template.graph.weights.count, 346, "339 checkpoint weights, anchors, terminal constants, and the four ROI edge shifts")
+		XCTAssertEqual(template.synthesizedWeightData.count, 7_222_368)
 		XCTAssertTrue(NativeModelGraphValidator().validate(template.graph).isConvertible)
 
 		let kinds = template.graph.operations.map(\.kind)
 		for kind in [
 			.convolution2D, .batchNormalization, .relu, .maxPool2D, .upsample2D,
-			.reshapeND, .constantND, .sigmoid, .concatenateND, .splitND, .subtract, .multiply,
+			.reshapeND, .constantND, .sigmoid, .concatenateND, .sliceND, .splitND, .subtract, .multiply,
+			.cropResize, .averagePool2D,
 			.topK, .gather, .nonMaximumSuppression
 		] as [NativeModelOperationKind] {
 			XCTAssertTrue(kinds.contains(kind), "missing \(kind.serializedValue)")
@@ -53,11 +54,81 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 		XCTAssertEqual(suppression.map { $0.attributes["scoreThreshold"] }, [.floatingPoint(0.05), .floatingPoint(0)])
 		XCTAssertEqual(suppression.map { $0.attributes["maxBoxes"] }, [.integer(100), .integer(100)])
 
+		let mask = template.graph.operations.filter { $0.name.hasPrefix("frcnn.postprocess.") }
+		XCTAssertEqual(mask.suffix(4).map(\.name), [
+			"frcnn.postprocess.survivors",
+			"frcnn.postprocess.masked_scores",
+			"frcnn.postprocess.box_mask",
+			"frcnn.postprocess.masked_boxes"
+		])
+		XCTAssertEqual(mask.suffix(4).first?.attributes["threshold"], .floatingPoint(0.05))
+		XCTAssertEqual(template.graph.outputs, ["frcnn_raw_coordinates", "frcnn_raw_confidence"])
+		let coordinates = try XCTUnwrap(template.graph.operations.last { $0.name == "frcnn_raw_coordinates" })
+		let confidence = try XCTUnwrap(template.graph.operations.last { $0.name == "frcnn_raw_confidence" })
+		XCTAssertEqual(coordinates.inputs, ["frcnn.postprocess.masked_boxes"])
+		XCTAssertEqual(confidence.inputs, ["frcnn.postprocess.masked_scores"])
+
 		let firstNMS = try XCTUnwrap(template.graph.operations.firstIndex { $0.name == "frcnn.postprocess.torchvision_nms" })
 		let conversion = template.graph.operations[firstNMS - 1]
 		XCTAssertEqual(conversion.name, "frcnn.postprocess.centre_size")
 		XCTAssertEqual(conversion.kind, .concatenateND)
 		XCTAssertEqual(suppression.first?.inputs.first, conversion.outputs.first?.name)
+
+		let edgeLevels: [(level: Int, scale: Double)] = [(2, 0.25), (3, 0.125), (4, 0.0625), (5, 0.03125)]
+		for edge in edgeLevels {
+			let prefix = "frcnn.roi.p\(edge.level)"
+			let side = Int(Double(NativeModelFasterRCNNRegistry.architecture.canvas.width) * edge.scale)
+			let channels = NativeModelFasterRCNNRegistry.architecture.fpnChannels
+			assertSlice(
+				named: "\(prefix).ring_left", in: template.graph,
+				input: "\(prefix).features_rank5",
+				begin: [0, 0, 0, 0, 0], end: [1, 1, channels, side, 1]
+			)
+			assertSlice(
+				named: "\(prefix).ring_right", in: template.graph,
+				input: "\(prefix).features_rank5",
+				begin: [0, 0, 0, 0, side - 1], end: [1, 1, channels, side, side]
+			)
+			assertSlice(
+				named: "\(prefix).ring_top", in: template.graph,
+				input: "\(prefix).ring_columns",
+				begin: [0, 0, 0, 0, 0], end: [1, 1, channels, 1, side + 2]
+			)
+			assertSlice(
+				named: "\(prefix).ring_bottom", in: template.graph,
+				input: "\(prefix).ring_columns",
+				begin: [0, 0, 0, side - 1, 0], end: [1, 1, channels, side, side + 2]
+			)
+			let columns = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).ring_columns" })
+			XCTAssertEqual(columns.kind, .concatenateND)
+			XCTAssertEqual(columns.inputs, ["\(prefix).ring_left", "\(prefix).features_rank5", "\(prefix).ring_right"])
+			let ring = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).replicate_ring" })
+			XCTAssertEqual(ring.kind, .concatenateND)
+			XCTAssertEqual(ring.inputs, ["\(prefix).ring_top", "\(prefix).ring_columns", "\(prefix).ring_bottom"])
+
+			let shift = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).feature_pixel_shift" })
+			XCTAssertEqual(shift.kind, .constantND)
+			let shiftWeight = try XCTUnwrap(template.graph.weights.first { $0.name == "\(prefix).feature_pixel_shift.values" })
+			XCTAssertEqual(
+				floatValues(for: shiftWeight, in: template),
+				[Float](repeating: Float(1 / edge.scale), count: 4)
+			)
+			let shiftedBoxes = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).shifted_boxes" })
+			XCTAssertEqual(shiftedBoxes.kind, .add)
+			XCTAssertEqual(shiftedBoxes.inputs, ["\(prefix).boxes", "\(prefix).feature_pixel_shift"])
+			let cropCorners = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).crop_corners" })
+			XCTAssertEqual(cropCorners.inputs, [
+				"\(prefix).corner_y0", "\(prefix).corner_x0", "\(prefix).corner_y1", "\(prefix).corner_x1"
+			])
+
+			let crop = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).crop_resize" })
+			XCTAssertEqual(crop.kind, .cropResize)
+			XCTAssertEqual(crop.inputs, ["\(prefix).replicate_ring", "\(prefix).shifted_boxes"])
+			XCTAssertEqual(crop.attributes["spatialScale"], .floatingPoint(edge.scale))
+			let pooled = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).roi_align" })
+			XCTAssertEqual(pooled.kind, .averagePool2D)
+			XCTAssertEqual(pooled.inputs, ["\(prefix).crop_resize"])
+		}
 	}
 
 	func test_terminalNMSDecision_matchesTheCommittedM3aMeasurement() throws {
@@ -95,6 +166,46 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 				offset: offset, byteCount: byteCount
 			)
 		}
+	}
+
+	private func floatValues(
+		for weight: NativeModelWeight,
+		in template: NativeModelFasterRCNNRegistry.Template
+	) -> [Float] {
+		guard weight.offset >= template.sourceWeightByteCount else {
+			XCTFail("weight \(weight.name) starts before synthesized weights")
+			return []
+		}
+		let sourceOffset = weight.offset - template.sourceWeightByteCount
+		let synthesizedByteCount = UInt64(template.synthesizedWeightData.count)
+		guard sourceOffset <= synthesizedByteCount,
+			weight.byteCount <= synthesizedByteCount - sourceOffset else {
+			XCTFail("weight \(weight.name) exceeds synthesized weights")
+			return []
+		}
+		let start = Int(sourceOffset)
+		let end = start + Int(weight.byteCount)
+		let bytes = template.synthesizedWeightData[start..<end]
+		return stride(from: 0, to: bytes.count, by: MemoryLayout<Float>.size).map { byteOffset in
+			bytes.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: byteOffset, as: Float.self) }
+		}
+	}
+
+	private func assertSlice(
+		named name: String,
+		in graph: NativeModelGraph,
+		input: String,
+		begin: [Int],
+		end: [Int],
+		file: StaticString = #filePath,
+		line: UInt = #line
+	) {
+		let operation = graph.operations.last { $0.name == name }
+		XCTAssertEqual(operation?.kind, .sliceND, name, file: file, line: line)
+		XCTAssertEqual(operation?.inputs, [input], name, file: file, line: line)
+		XCTAssertEqual(operation?.attributes["beginIds"], .integers(begin), name, file: file, line: line)
+		XCTAssertEqual(operation?.attributes["endIds"], .integers(end), name, file: file, line: line)
+		XCTAssertEqual(operation?.attributes["strides"], .integers([1, 1, 1, 1, 1]), name, file: file, line: line)
 	}
 
 	private struct TerminalNMSMeasurements: Decodable {
