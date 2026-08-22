@@ -903,10 +903,36 @@ Vision receives the model; models without a recognized policy retain Core ML's d
 This is not a CPU fallback: it leaves the phone's dedicated GPU available and excludes only the
 Neural Engine's reduced-precision path. The reason is now localized: #676's physical probe showed
 the ROI box-head scores and deltas changing on `.cpuAndNeuralEngine`/`.all` while `.cpuAndGPU` was
-bit-identical to `.cpuOnly`; the box decoder's exponential width/height expansion turns that small
-delta into the 3.9135 px final shift. `ADAFDetectorDeviceParityTests` exercises the production
-loader and asserts the CPU, GPU and torchvision detection-set budgets, while the original `.all`
-measurement remains recorded as the reason for excluding ANE.
+bit-identical to `.cpuOnly`.
+
+The *mechanism* of the 3.9135 px shift is a discrete selection flip, not smooth arithmetic
+amplification. An earlier note here claimed the decoder's `exp(dw/dh)` expansion amplified the
+elementwise delta into the observed shift; that does not survive arithmetic. `decodeBoxes` divides
+the ROI deltas by the BoxCoder weights `[10, 10, 5, 5]`, so the measured `2.341270e-03` becomes
+`dw' <= 4.7e-04` and `exp(4.7e-04) ~= 1.00047` — a 0.047% size change, worth roughly **0.1 px** on a
+box of this scale, not 3.9 px. Smooth amplification cannot reach the observed number without a box
+thousands of pixels wide.
+
+What fits every measured fact instead is a **near-tie flip in a greedy operation downstream of the
+ROI head** — most plausibly the terminal NMS (`terminalSuppressions`), which selects a different
+overlapping proposal from the same cluster. Two candidate triggers: a score-order swap between
+candidates whose CPU gap is below the measured `1.644224e-03` score noise, or an IoU comparison
+landing on the other side of the 0.5 threshold. Both explain the exact signature observed: an
+unchanged detection count, a score delta inside the 0.01 budget, one box displaced by the offset
+between two real candidates, and bit-stable repetition across runs (fp16 rounding is deterministic).
+An RPN-stage flip is *probably* excluded, because a changed top-1000 proposal set would make the
+row-aligned ROI-head deltas O(1) rather than 2e-03 — this rests on #676's probe having compared
+index-aligned tensors and has not been separately proven.
+
+This distinction is recorded because it changes what a fix must do: no rewrite of the decoder helps,
+and the effective remedy is to keep the *decision* operations (topK, decode, terminal NMS) in
+Float32 on CPU/GPU while any reduced-precision path is confined to the convolutional trunk. Naming
+the first flipping operation requires comparing the graph's `.indices` tensors across compute units
+on device; that probe is follow-up work, not part of this slice's evidence.
+
+`ADAFDetectorDeviceParityTests` exercises the production loader and asserts the CPU, GPU and
+torchvision detection-set budgets, while the original `.all` measurement remains recorded as the
+reason for excluding ANE.
 
 ## Sources
 
