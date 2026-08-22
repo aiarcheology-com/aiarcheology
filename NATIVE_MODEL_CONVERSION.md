@@ -274,9 +274,10 @@ turn two ADAF passes into three. Revision 7 masks Core ML's false zero-survivor 
 adapter sees it, so an empty tile produces no phantom recognized object. A revision-7 model is
 therefore distinguishable from its earlier forms by its metadata alone, which is what the revision
 exists to make possible. Revision 8 records the initial parity finding for the ADAF Faster R-CNN
-graph. Revision 9 records the hardware-preserving runtime policy derived from that finding: an
-importing runtime may use `.cpuAndGPU` (dedicated GPU, ANE excluded) without changing placement for
-unrelated models.
+graph. Revision 9 recorded a `.cpuAndGPU` runtime policy derived from that finding; revision 10
+corrects it to `.cpuOnly` after the device closeout measured the GPU path as the least accurate of
+the three. Either way the policy changes placement only for this producer, never for unrelated
+models.
 
 The torchvision reference exporter writes this metadata by default and accepts
 `--metadata-json SOURCE.json` to preserve a supplied metadata document byte-for-byte. A package
@@ -880,8 +881,11 @@ half-precision path and must be assessed with the device-level detection-set run
 The Mac M3a `.all` trunk measurement was **2.66e-02** and had collapsed the score-margin concern to
 **3.8×**. The real iPhone 16 Pro Max (iOS 26.5.2) result is materially better: over 16 deterministic
 runs, `.cpuOnly` versus `.all` measured **1.644224e-03** on scores and **2.341270e-03** on boxes;
-`.cpuAndGPU` was bit-identical to CPU while `.cpuAndNeuralEngine` equalled `.all`, proving the
-remaining difference is the ANE fp16 path and about 16× tighter than the Mac result. This local gate
+`.cpuAndGPU` was bit-identical to CPU while `.cpuAndNeuralEngine` equalled `.all`, placing the
+remaining difference on the ANE fp16 path and about 16× tighter than the Mac result. **That probe
+ran on random weights, and its `.cpuAndGPU` bit-identity did not generalise to the real converted
+detector** — see the closeout below, where the GPU path is the worst of the three. Treat the probe
+as evidence about elementwise magnitudes only, never about which placements are parity-safe. This local gate
 runs `cpuOnly`, so it proves conversion semantics but not device/ANE parity. Before a device claim,
 rerun the emitted detector and this same detection-set comparison on that iPhone across the committed
 figures; the elementwise device values alone cannot say whether a box moves or a detection appears.
@@ -897,13 +901,31 @@ in every run, breaching the 1 px box budget that the vectoriser's raster quantis
 3.8× question was therefore answered on device numbers: **the score margin survives the device; the
 box budget does not.**
 
-The fix is an explicit runtime policy in the emitted model's `creatorDefined` metadata. The pinned
-ADAF Faster R-CNN producer requests `.cpuAndGPU`, and `DeepDriver.loadModel` honors that policy before
-Vision receives the model; models without a recognized policy retain Core ML's default placement.
-This is not a CPU fallback: it leaves the phone's dedicated GPU available and excludes only the
-Neural Engine's reduced-precision path. The reason is now localized: #676's physical probe showed
-the ROI box-head scores and deltas changing on `.cpuAndNeuralEngine`/`.all` while `.cpuAndGPU` was
-bit-identical to `.cpuOnly`.
+The device closeout then measured the **GPU** path on the same fixture and phone, and it is the
+least accurate of the three:
+
+| Placement | Max box shift vs torchvision | Max score delta | 1 px budget |
+|-|-|-|-|
+| `.cpuOnly` | 0.00033092498779296875 px | 2.563e-06 | passes |
+| `.cpuAndNeuralEngine` / `.all` | 3.913543701171875 px | within 0.01 | fails |
+| `.cpuAndGPU` | 9.662333488464355 px | 0.006595253944396973 | fails |
+
+Deterministic across six physical executions in two independently launched samples, with `.cpuOnly`
+reproducing its earlier figures exactly as an internal control.
+
+The fix is therefore an explicit `.cpuOnly` runtime policy in the emitted model's `creatorDefined`
+metadata. The pinned ADAF Faster R-CNN producer requests it, and `DeepDriver.loadModel` honors it
+before Vision receives the model; models without a recognized policy retain Core ML's default
+placement.
+
+This is a **CPU requirement, not an anti-ANE one**, and the distinction matters. The GPU executes
+this graph in Float32 (`allowLowPrecisionAccumulationOnGPU` defaults to false), so its divergence
+from the CPU is reassociation alone: different reduction and tiling order inside conv/matmul, and
+different `exp`/`log` implementations, on the order of 1e-06. There is no arithmetic path from
+1e-06 to 9.66 px. Any backend whose rounding differs from the CPU's can flip a near-tie, and both
+measured accelerators do.
+
+This supersedes the earlier `.cpuAndGPU` policy, which rested on #676's probe-model bit-identity.
 
 The *mechanism* of the 3.9135 px shift is a discrete selection flip, not smooth arithmetic
 amplification. An earlier note here claimed the decoder's `exp(dw/dh)` expansion amplified the

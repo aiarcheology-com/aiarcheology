@@ -12,9 +12,10 @@ import Foundation
 /// Core ML's default `.all` placement is intentionally not represented here: absence of this
 /// metadata means that the importing app may keep its normal default. A policy is emitted only
 /// when the converter has evidence that a particular graph needs a narrower placement for its
-/// numerical contract.  The choice is deliberately expressed as a Core ML allow-list rather than
-/// as a claim about one particular accelerator: `.cpuAndGPU` keeps the phone's dedicated GPU
-/// available while excluding the Neural Engine precision path that was measured to move a box.
+/// numerical contract.  The choice is deliberately expressed as a Core ML allow-list rather than as
+/// a claim about one particular accelerator, because a measured requirement can name any of them:
+/// the ADAF detector needs `.cpuOnly` not because the Neural Engine is singled out, but because
+/// every non-CPU backend measured so far flips a near-tie in its terminal NMS.
 public enum NativeModelComputeUnitPolicy: String, Codable, Equatable, Sendable {
 	case cpuOnly
 	case cpuAndGPU
@@ -40,11 +41,22 @@ public enum NativeModelRuntimePolicy {
 	/// importing app's default placement.
 	public static func computeUnitPolicy(forProducer producerName: String) -> NativeModelComputeUnitPolicy? {
 		guard producerName == adafFasterRCNNProducerName else { return nil }
-		// AIA-0676 proved the placement boundary on an iPhone 16 Pro Max: .cpuAndGPU was
-		// bit-identical to .cpuOnly, while .cpuAndNeuralEngine and .all agreed with each other and
-		// differed in every measured ROI-head element.  AIA-0688 then showed the ANE path moving one
-		// final box by 3.9135 px.  Keep the GPU accelerator available and exclude only the ANE path;
-		// this is the measured hardware-preserving contract, not a CPU fallback.
-		return .cpuAndGPU
+		// Measured on an iPhone 16 Pro Max (iOS 26.5.2) against the torchvision oracle, maximum box
+		// shift on the AO barrow fixture: .cpuOnly 0.00033 px, .cpuAndNeuralEngine/.all 3.9135 px,
+		// .cpuAndGPU 9.6623 px.  Only the CPU path holds the 1 px budget.
+		//
+		// An earlier revision requested .cpuAndGPU on the strength of AIA-0676, which measured
+		// .cpuAndGPU bit-identical to .cpuOnly.  That probe ran on a random-weights model and did not
+		// generalise: on the real converted detector the GPU path is the *worst* of the three.  The
+		// GPU executes this graph in Float32, so its divergence is reassociation alone — different
+		// reduction order inside conv/matmul, different exp/log implementations, on the order of
+		// 1e-06.  That cannot move a box 9.66 px by arithmetic; it moves it by flipping a near-tie in
+		// the terminal NMS onto a different overlapping proposal.  Any non-CPU backend can do that,
+		// which is why this is a CPU requirement rather than an anti-ANE one.
+		//
+		// This policy is the converter's *numerical* requirement, not a user-facing performance
+		// choice.  The app may let a user override it per model; that override carries a separate,
+		// explicitly wider product budget and is not this contract.
+		return .cpuOnly
 	}
 }

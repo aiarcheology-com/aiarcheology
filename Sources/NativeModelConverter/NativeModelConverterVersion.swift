@@ -14,8 +14,9 @@
 /// ``NativeModelProducer/name`` and ``NativeModelProducer/version`` in the graph package.
 public enum NativeModelConverterVersion {
 	public static let packageVersion = "0.1.0"
-	/// Revision 9 carries the measured accelerator policy for the pinned ADAF Faster R-CNN graph:
-	/// the GPU path is parity-safe on the probe device, while the Neural Engine path moves a box
-	/// beyond the device parity budget.
-	public static let conversionRevision = 9
+	/// Revision 10 corrects the measured accelerator policy for the pinned ADAF Faster R-CNN graph.
+	/// Revision 9 requested `.cpuAndGPU` on probe-model evidence; on the real detector the GPU path
+	/// moves a box 9.6623 px, worse than the Neural Engine's 3.9135 px, so only `.cpuOnly` holds the
+	/// 1 px device parity budget.
+	public static let conversionRevision = 10
 }
