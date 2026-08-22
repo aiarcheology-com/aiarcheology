@@ -825,10 +825,13 @@ canvas requires re-measurement.
   each ROI-pooling FPN level (`P2` through `P5`): it slices and concatenates one copy of every edge,
   then adds one **feature-map pixel** (`1 / spatialScale` image pixels) to each `[y0, x0, y1, x1]` ROI
   coordinate before CropResize. The bounded branch preserves the host-side chunk boundary rather than
-  materialising the later fixed-52 ROI batch in the primary model. The committed edge regression reaches
-  the `7.25e-07` interior floor; the unpadded and zero-ring variants remain at `3.35e-01` and
-  `1.67e-01` respectively. Its pooled values are structural until the ROI box head consumes the
-  chunked form; AIA-0688 is the first detection-set parity claim, not a claim made here.
+  materialising the later fixed-52 ROI batch in the primary model. The pinned Core ML/torchvision
+  edge probe puts the **P2 synthetic edge-touching** replicate-ring residual at `7.25e-07` relative;
+  its P2 interior control is `8.26e-07`, and both are below the probe's `1e-04` decision ceiling. The
+  unpadded and zero-ring worst boundary variants remain at `3.35e-01` and `1.67e-01` respectively.
+  The primary serializes this bounded branch but does not yet consume it in the ROI box head, so its
+  pooled values are structural until the chunked form is connected. AIA-0688 owns compiled-runtime
+  retention, consumed-path prediction, and the first detection-set parity claim.
 - **Pre-sizing means ADAF cannot use `VNCoreMLRequest.regionOfInterest` at all.** The request must run
   full-frame on an already-cropped buffer, so a pass goes from one reused `VNImageRequestHandler`
   across 15 regions to 15 handlers.

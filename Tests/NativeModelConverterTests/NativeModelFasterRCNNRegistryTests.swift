@@ -77,6 +77,28 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 		let edgeLevels: [(level: Int, scale: Double)] = [(2, 0.25), (3, 0.125), (4, 0.0625), (5, 0.03125)]
 		for edge in edgeLevels {
 			let prefix = "frcnn.roi.p\(edge.level)"
+			let side = Int(Double(NativeModelFasterRCNNRegistry.architecture.canvas.width) * edge.scale)
+			let channels = NativeModelFasterRCNNRegistry.architecture.fpnChannels
+			assertSlice(
+				named: "\(prefix).ring_left", in: template.graph,
+				input: "\(prefix).features_rank5",
+				begin: [0, 0, 0, 0, 0], end: [1, 1, channels, side, 1]
+			)
+			assertSlice(
+				named: "\(prefix).ring_right", in: template.graph,
+				input: "\(prefix).features_rank5",
+				begin: [0, 0, 0, 0, side - 1], end: [1, 1, channels, side, side]
+			)
+			assertSlice(
+				named: "\(prefix).ring_top", in: template.graph,
+				input: "\(prefix).ring_columns",
+				begin: [0, 0, 0, 0, 0], end: [1, 1, channels, 1, side + 2]
+			)
+			assertSlice(
+				named: "\(prefix).ring_bottom", in: template.graph,
+				input: "\(prefix).ring_columns",
+				begin: [0, 0, 0, side - 1, 0], end: [1, 1, channels, side, side + 2]
+			)
 			let columns = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).ring_columns" })
 			XCTAssertEqual(columns.kind, .concatenateND)
 			XCTAssertEqual(columns.inputs, ["\(prefix).ring_left", "\(prefix).features_rank5", "\(prefix).ring_right"])
@@ -155,6 +177,23 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 		return stride(from: 0, to: bytes.count, by: MemoryLayout<Float>.size).map { byteOffset in
 			bytes.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: byteOffset, as: Float.self) }
 		}
+	}
+
+	private func assertSlice(
+		named name: String,
+		in graph: NativeModelGraph,
+		input: String,
+		begin: [Int],
+		end: [Int],
+		file: StaticString = #filePath,
+		line: UInt = #line
+	) {
+		let operation = graph.operations.last { $0.name == name }
+		XCTAssertEqual(operation?.kind, .sliceND, name, file: file, line: line)
+		XCTAssertEqual(operation?.inputs, [input], name, file: file, line: line)
+		XCTAssertEqual(operation?.attributes["beginIds"], .integers(begin), name, file: file, line: line)
+		XCTAssertEqual(operation?.attributes["endIds"], .integers(end), name, file: file, line: line)
+		XCTAssertEqual(operation?.attributes["strides"], .integers([1, 1, 1, 1, 1]), name, file: file, line: line)
 	}
 
 	private struct TerminalNMSMeasurements: Decodable {

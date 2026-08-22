@@ -234,6 +234,7 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 			targetSemanticsIntent: conversion.targetSemanticsIntent,
 			parityEvidence: .structurallyMatched
 		)
+		try assertSerializedROIEdgeBranch(in: modelURL)
 
 		let compiledURL = try await MLModel.compileModel(at: modelURL)
 		defer { try? FileManager.default.removeItem(at: compiledURL) }
@@ -246,6 +247,57 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 		let metadata = model.modelDescription.metadata[.creatorDefinedKey] as? [String: String] ?? [:]
 		XCTAssertTrue(metadata[NativeModelParityProvenance.userDefinedKey]?.contains("structurally-matched") == true)
 		XCTAssertFalse(metadata[NativeModelParityProvenance.userDefinedKey]?.contains("verified") == true)
+	}
+
+	/// The ROI edge branch is intentionally not a detector output until AIA-0688 connects the ROI head.
+	/// This inspection therefore proves the narrower M3c fact: the actual ADAF detector artifact serializes
+	/// every ring, shift, CropResize, and pool layer in topological order before Core ML compiles it.
+	private func assertSerializedROIEdgeBranch(in detectorURL: URL) throws {
+		let outer = try ProtobufReader.fields(in: Data(contentsOf: detectorURL, options: .mappedIfSafe))
+		let pipeline = try ProtobufReader.fields(
+			in: try XCTUnwrap(outer.firstBytes(NativeModelDetectorPipelineBuilder.pipelineModelField))
+		)
+		let stages = pipeline.allBytes(1)
+		XCTAssertEqual(stages.count, 2, "the detector must retain its network and Vision NMS adapter stages")
+		let networkModel = try ProtobufReader.fields(in: try XCTUnwrap(stages.first))
+		let network = try ProtobufReader.fields(in: try XCTUnwrap(networkModel.firstBytes(500)))
+		let layers = try network.allBytes(1).map { layer -> (name: String, inputs: [String], outputs: [String]) in
+			let fields = try ProtobufReader.fields(in: layer)
+			return (
+				try XCTUnwrap(fields.firstString(1)),
+				try fields.allBytes(2).map { try XCTUnwrap(String(data: $0, encoding: .utf8)) },
+				try fields.allBytes(3).map { try XCTUnwrap(String(data: $0, encoding: .utf8)) }
+			)
+		}
+
+		for level in 2 ... 5 {
+			let prefix = "frcnn.roi.p\(level)"
+			let expectedNames = [
+				"\(prefix).features_rank5", "\(prefix).ring_left", "\(prefix).ring_right",
+				"\(prefix).ring_columns", "\(prefix).ring_top", "\(prefix).ring_bottom",
+				"\(prefix).replicate_ring", "\(prefix).selected_corners", "\(prefix).image_corners",
+				"\(prefix).split_corners", "\(prefix).crop_corners", "\(prefix).boxes",
+				"\(prefix).feature_pixel_shift", "\(prefix).shifted_boxes", "\(prefix).crop_resize",
+				"\(prefix).roi_align"
+			]
+			let first = try XCTUnwrap(layers.firstIndex { $0.name == expectedNames[0] })
+			guard first + expectedNames.count <= layers.count else {
+				return XCTFail("\(prefix) serialized only a partial ROI edge branch")
+			}
+			XCTAssertEqual(layers[first..<(first + expectedNames.count)].map(\.name), expectedNames)
+
+			let byName = Dictionary(uniqueKeysWithValues: layers.map { ($0.name, $0) })
+			XCTAssertEqual(byName["\(prefix).ring_columns"]?.inputs, [
+				"\(prefix).ring_left", "\(prefix).features_rank5", "\(prefix).ring_right"
+			])
+			XCTAssertEqual(byName["\(prefix).replicate_ring"]?.inputs, [
+				"\(prefix).ring_top", "\(prefix).ring_columns", "\(prefix).ring_bottom"
+			])
+			XCTAssertEqual(byName["\(prefix).crop_resize"]?.inputs, [
+				"\(prefix).replicate_ring", "\(prefix).shifted_boxes"
+			])
+			XCTAssertEqual(byName["\(prefix).roi_align"]?.inputs, ["\(prefix).crop_resize"])
+		}
 	}
 
 	private func requireDirectory() throws -> URL {
