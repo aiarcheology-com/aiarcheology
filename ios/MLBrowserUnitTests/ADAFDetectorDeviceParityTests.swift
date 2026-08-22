@@ -5,14 +5,26 @@
 //  AIA-0688's physical-device closeout. This test is opt-in because the locally staged detector
 //  is roughly 191 MiB and is intentionally not a source-controlled test fixture.
 //
-//  Two contracts are checked against the torchvision-oracle fixture produced by
-//  scripts/prepare_adaf_device_parity_assets.sh. `.cpuOnly` is the numerical reference and the
-//  measured `.cpuAndGPU` accelerator path must satisfy the same detection-set budgets. Converted
-//  ADAF detectors carry an explicit GPU runtime policy because the physical-device `.all` /
-//  Neural Engine path moved one box by 3.913543701171875 px in the original closeout run, while
-//  AIA-0676 measured `.cpuAndGPU` bit-identical to `.cpuOnly` on the same phone. The production
-//  loader is exercised as well as direct CPU/GPU loads, so the device test verifies both the
-//  numerical contract and the hardware-preserving policy that selects it.
+//  Both tests run against the torchvision-oracle fixture produced by
+//  scripts/prepare_adaf_device_parity_assets.sh.
+//
+//  `.cpuOnly` is the only placement that holds the 1 px budget. Measured on an iPhone 16 Pro Max
+//  (iOS 26.5.2), maximum box shift against the oracle:
+//
+//      .cpuOnly                      0.00033092498779296875 px
+//      .cpuAndNeuralEngine / .all    3.913543701171875 px
+//      .cpuAndGPU                    9.662333488464355 px
+//
+//  An earlier revision of this file asserted that `.cpuAndGPU` met the same budgets, on the strength
+//  of AIA-0676 measuring that placement bit-identical to `.cpuOnly`. That probe ran on a
+//  random-weights model and did not generalise: on the real detector the GPU path is the *worst* of
+//  the three. The requirement is therefore CPU placement, not ANE exclusion — the GPU runs this
+//  graph in Float32, so its ~1e-06 reassociation difference is already enough to flip a near-tie in
+//  the terminal NMS onto a different overlapping proposal.
+//
+//  The contract and the characterisation are deliberately separate test methods. When they shared
+//  one method, an accelerator failure aborted the run before the blank-tile checks were reached, so
+//  the contract could never be observed passing on its own.
 //
 
 import CoreGraphics
@@ -29,14 +41,139 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 	private static let modelName = "AOBarrowDetector"
 	private static let canvasName = "AOBarrowCanvas"
 
-	func testDeviceComputeUnits_gpuAcceleratorMatchesCPUAndTorchvision() async throws {
+	/// The parity contract: `.cpuOnly` reproduces torchvision, and the shipping loader selects it.
+	func testDeviceComputeUnits_cpuOnlyMatchesTorchvisionThroughTheShippingLoader() async throws {
+		let probe = try makeProbe()
+
+		let cpuDetections = try detect(
+			image: probe.image, compiledModel: probe.compiledModel, computeUnits: .cpuOnly,
+			geometry: probe.geometry
+		)
+		assertOracleBudgets(
+			measure(cpuDetections, reference: probe.fixture.reference, matchIoU: probe.fixture.rule.matchIoU),
+			referenceCount: probe.fixture.reference.count,
+			rule: probe.fixture.rule,
+			computeUnits: .cpuOnly,
+			systemVersion: probe.systemVersion
+		)
+
+		// The converter stamps its numerical requirement into creatorDefined metadata, and the app's
+		// production loader honors it before Vision receives the model. Assert on the same path that
+		// imported ADAF models actually take.
+		let loadedShippingModel = try await Detector.loadModel(from: probe.compiledModel, demo: true)
+		let shippingModel = try XCTUnwrap(
+			loadedShippingModel,
+			"The converted detector must load through the production driver path."
+		)
+		let userDefined = try XCTUnwrap(
+			shippingModel.modelDescription.metadata[.creatorDefinedKey] as? [String: String],
+			"The converted detector must carry creatorDefined metadata. A fixture staged before the "
+				+ "runtime policy existed will fail here; regenerate it from HEAD."
+		)
+		XCTAssertEqual(
+			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
+			.cpuOnly,
+			"The converted ADAF detector must carry the measured CPU placement requirement."
+		)
+		assertOracleBudgets(
+			measure(
+				try detect(image: probe.image, model: shippingModel, geometry: probe.geometry),
+				reference: probe.fixture.reference, matchIoU: probe.fixture.rule.matchIoU
+			),
+			referenceCount: probe.fixture.reference.count,
+			rule: probe.fixture.rule,
+			computeUnits: .cpuOnly,
+			systemVersion: probe.systemVersion
+		)
+
+		let blankDetections = try detect(
+			image: try makeBlankImage(size: probe.canvasSize), compiledModel: probe.compiledModel,
+			computeUnits: .cpuOnly, geometry: probe.geometry
+		)
+		XCTAssertTrue(
+			blankDetections.isEmpty,
+			"cpuOnly produced \(blankDetections.count) phantom detections for an empty tile"
+		)
+	}
+
+	/// Characterises the placements the policy excludes, and trips if one of them starts conforming.
+	///
+	/// This is not a second parity claim. It records what each accelerator does on this hardware so a
+	/// future OS, chip, or graph change cannot quietly move the boundary in either direction: a
+	/// *worse* result still fails the structural checks below, and a *conforming* result fails the
+	/// tripwire and asks for the CPU-only requirement to be re-evaluated.
+	func testDeviceComputeUnits_acceleratorPlacementsStayOutsideTheParityBudget() throws {
+		let probe = try makeProbe()
+		let cpuDetections = try detect(
+			image: probe.image, compiledModel: probe.compiledModel, computeUnits: .cpuOnly,
+			geometry: probe.geometry
+		)
+
+		for computeUnits in [MLComputeUnits.cpuAndGPU, .cpuAndNeuralEngine, .all] {
+			let detections = try detect(
+				image: probe.image, compiledModel: probe.compiledModel, computeUnits: computeUnits,
+				geometry: probe.geometry
+			)
+			let againstOracle = measure(
+				detections, reference: probe.fixture.reference, matchIoU: probe.fixture.rule.matchIoU
+			)
+			reportDivergence(
+				againstOracle, referenceCount: probe.fixture.reference.count, reference: "torchvision",
+				computeUnits: computeUnits, systemVersion: probe.systemVersion
+			)
+			reportDivergence(
+				measure(detections, reference: cpuDetections, matchIoU: probe.fixture.rule.matchIoU),
+				referenceCount: cpuDetections.count, reference: "cpuOnly",
+				computeUnits: computeUnits, systemVersion: probe.systemVersion
+			)
+
+			// The detection *set* survives every measured placement; only the box budget breaks. A
+			// changed set would be a materially worse regression than the one this policy documents.
+			XCTAssertTrue(
+				againstOracle.disappeared.isEmpty && againstOracle.appeared.isEmpty,
+				"\(computeUnits.label) changed the torchvision detection set: "
+					+ "\(againstOracle.disappeared.count) disappeared, \(againstOracle.appeared.count) appeared"
+			)
+			XCTAssertGreaterThan(
+				againstOracle.maximumBoxShift ?? 0,
+				probe.fixture.rule.maxBoxShiftPixels,
+				"\(computeUnits.label) now holds the \(probe.fixture.rule.maxBoxShiftPixels) px budget "
+					+ "(box shift \(describe(againstOracle.maximumBoxShift)) px). This is the tripwire, not a "
+					+ "failure of the detector: re-measure this placement and re-evaluate the CPU-only "
+					+ "requirement in NativeModelRuntimePolicy before relaxing it."
+			)
+
+			// A phantom detection on an empty tile would be a correctness bug on any placement, not a
+			// precision budget question, so it is asserted rather than merely reported.
+			let blankDetections = try detect(
+				image: try makeBlankImage(size: probe.canvasSize), compiledModel: probe.compiledModel,
+				computeUnits: computeUnits, geometry: probe.geometry
+			)
+			XCTAssertTrue(
+				blankDetections.isEmpty,
+				"\(computeUnits.label) produced \(blankDetections.count) phantom detections for an empty tile"
+			)
+		}
+	}
+
+	// MARK: - Probe
+
+	private struct Probe {
+		let fixture: Fixture
+		let geometry: NativeModelImageSizing.Geometry
+		let canvasSize: NativeModelImageSize
+		let image: CGImage
+		let compiledModel: URL
+		let systemVersion: String
+	}
+
+	private func makeProbe() throws -> Probe {
 		guard Bundle(for: Self.self).url(forResource: Self.fixtureName, withExtension: "json") != nil else {
 			throw XCTSkip(
 				"Device-only parity probe. Run scripts/prepare_adaf_device_parity_assets.sh and stage "
 					+ "the assets with AIA_DEVICE_PARITY_ASSETS before building the test bundle."
 			)
 		}
-
 		let fixture = try loadFixture()
 		let sourceSize = NativeModelImageSize(width: fixture.sourceSize.width, height: fixture.sourceSize.height)
 		let canvasSize = NativeModelImageSize(width: fixture.canvasSize.width, height: fixture.canvasSize.height)
@@ -46,77 +183,14 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 		let canvas = try loadPortablePixmap(named: Self.canvasName)
 		XCTAssertEqual(canvas.width, canvasSize.width)
 		XCTAssertEqual(canvas.height, canvasSize.height)
-		let image = try makeImage(rgb: canvas.rgb, width: canvas.width, height: canvas.height)
-		let compiledModel = try loadCompiledModel()
-		let systemVersion = ProcessInfo.processInfo.operatingSystemVersionString
-
-		// The oracle-parity claim is a CPU claim: every decision-rule budget is asserted here.
-		let cpuDetections = try detect(
-			image: image, compiledModel: compiledModel, computeUnits: .cpuOnly, geometry: geometry
+		return Probe(
+			fixture: fixture,
+			geometry: geometry,
+			canvasSize: canvasSize,
+			image: try makeImage(rgb: canvas.rgb, width: canvas.width, height: canvas.height),
+			compiledModel: try loadCompiledModel(),
+			systemVersion: ProcessInfo.processInfo.operatingSystemVersionString
 		)
-		assertOracleBudgets(
-			measure(cpuDetections, reference: fixture.reference, matchIoU: fixture.rule.matchIoU),
-			referenceCount: fixture.reference.count,
-			rule: fixture.rule,
-			computeUnits: .cpuOnly,
-			systemVersion: systemVersion
-		)
-		let gpuDetections = try detect(
-			image: image, compiledModel: compiledModel, computeUnits: .cpuAndGPU, geometry: geometry
-		)
-		assertOracleBudgets(
-			measure(gpuDetections, reference: fixture.reference, matchIoU: fixture.rule.matchIoU),
-			referenceCount: fixture.reference.count,
-			rule: fixture.rule,
-			computeUnits: .cpuAndGPU,
-			systemVersion: systemVersion
-		)
-		assertAcceleratorAgreement(
-			measure(gpuDetections, reference: cpuDetections, matchIoU: fixture.rule.matchIoU),
-			referenceCount: cpuDetections.count,
-			rule: fixture.rule,
-			computeUnits: .cpuAndGPU,
-			systemVersion: systemVersion
-		)
-
-		// The converter stamps the measured device requirement into creatorDefined metadata, and the
-		// app's production loader honors it before Vision receives the model. Keep this assertion on
-		// the same path that imported ADAF models use; a direct `.all` load is retained only in the
-		// ticket evidence because it is the failing path this policy fixes.
-		let loadedShippingModel = try await Detector.loadModel(from: compiledModel, demo: true)
-		let shippingModel = try XCTUnwrap(
-			loadedShippingModel,
-			"The converted detector must load through the production driver path."
-		)
-		let userDefined = try XCTUnwrap(
-			shippingModel.modelDescription.metadata[.creatorDefinedKey] as? [String: String]
-		)
-		XCTAssertEqual(
-			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
-			.cpuAndGPU,
-			"The converted ADAF detector must carry the measured GPU accelerator policy."
-		)
-		let shippingDetections = try detect(
-			image: image, model: shippingModel, geometry: geometry
-		)
-		assertOracleBudgets(
-			measure(shippingDetections, reference: fixture.reference, matchIoU: fixture.rule.matchIoU),
-			referenceCount: fixture.reference.count,
-			rule: fixture.rule,
-			computeUnits: .cpuAndGPU,
-			systemVersion: systemVersion
-		)
-
-		for computeUnits in [MLComputeUnits.cpuOnly, .cpuAndGPU] {
-			let blank = try makeBlankImage(size: canvasSize)
-			let blankDetections = try detect(
-				image: blank, compiledModel: compiledModel, computeUnits: computeUnits, geometry: geometry
-			)
-			XCTAssertTrue(
-				blankDetections.isEmpty,
-				"\(computeUnits.label) produced \(blankDetections.count) phantom detections for an empty tile"
-			)
-		}
 	}
 
 	// MARK: - Fixture
@@ -354,35 +428,20 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 		)
 	}
 
-	/// The CPU run is the oracle-parity reference; this separate assertion makes the accelerator
-	/// claim explicit instead of letting two independent oracle comparisons hide a cross-unit drift.
-	private func assertAcceleratorAgreement(
+	/// Records what an excluded placement actually did, without asserting a budget on it.
+	///
+	/// Reporting rather than asserting is deliberate. The numbers below are hardware- and
+	/// OS-specific; pinning them as expectations would turn a phone swap into a red test that says
+	/// nothing useful. The caller asserts the structural invariants and the tripwire instead.
+	private func reportDivergence(
 		_ comparison: Comparison,
 		referenceCount: Int,
-		rule: Rule,
+		reference: String,
 		computeUnits: MLComputeUnits,
 		systemVersion: String
 	) {
-		let label = computeUnits.label
-		XCTAssertTrue(
-			comparison.disappeared.isEmpty && comparison.appeared.isEmpty,
-			"\(label) changed the CPU detection set: \(comparison.disappeared.count) disappeared, "
-				+ "\(comparison.appeared.count) appeared"
-		)
-		XCTAssertLessThanOrEqual(
-			comparison.maximumBoxShift ?? .infinity,
-			rule.maxBoxShiftPixels,
-			"\(label) vs cpuOnly box shift \(describe(comparison.maximumBoxShift)) exceeds "
-				+ "\(rule.maxBoxShiftPixels) px"
-		)
-		XCTAssertLessThanOrEqual(
-			comparison.maximumScoreDelta ?? .infinity,
-			rule.maxScoreDelta,
-			"\(label) vs cpuOnly score delta \(describe(comparison.maximumScoreDelta)) exceeds "
-				+ "\(rule.maxScoreDelta)"
-		)
 		print(
-			"[AIA-0688] \(systemVersion) \(label) vs cpuOnly: "
+			"[AIA-0688] \(systemVersion) \(computeUnits.label) vs \(reference): "
 				+ "\(comparison.matched)/\(referenceCount) detections matched, "
 				+ "max box shift \(describe(comparison.maximumBoxShift)) px, "
 				+ "max score delta \(describe(comparison.maximumScoreDelta))"
