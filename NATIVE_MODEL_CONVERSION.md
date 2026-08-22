@@ -859,11 +859,20 @@ It also runs a deterministic blank tile through both engines, so the real termin
 the zero-survivor result empty. An out-of-class archaeological figure is not substituted for this
 case because it can have real false positives in the torchvision oracle.
 
-The report is entitled to say `verified` only when every detection-set rule passes; the emitted
-artifact stays `structurally-matched` until that numerical report exists. `--all-checkpoints` expands
-the diagnostic to every detector; the all-archaeology model runs every committed figure because a
-single Ringfort result exercises only one detection. A failure or `UNDERPOWERED` result remains
-`structurally-matched` and is evidence to investigate, not a way to certify the model.
+The report is entitled to say `verified` only when no source figure has a mismatch and each checkpoint
+has enough *aggregate* matched detections to exercise the score and box budgets. `--all-checkpoints`
+expands the diagnostic to every detector; the all-archaeology model runs every committed figure
+because a single Ringfort result exercises only one detection. A one-detection AO figure remains
+explicitly `UNDERPOWERED` in the per-figure report, while the checkpoint-level coverage verdict pools
+its required, disjoint figures. A failure, an unmeasured figure, or underpowered checkpoint coverage
+leaves the artifact `structurally-matched` and is evidence to investigate, not a way to certify it.
+
+The ADAF extractor still deliberately rounds checkpoint values to Float16 for its bounded on-disk
+blob, but the detector graph widens those exact binary16 values into Float32 tensors before Core ML
+emission. On `.cpuOnly`, that preserves Float32 accumulation through the RPN and ROI head, where a
+sub-millipoint score reversal could otherwise change a greedy-NMS survivor. This is a CPU-oracle
+choice, not an ANE claim: the Neural Engine may still execute those values in its documented
+half-precision path and must be assessed with the device-level detection-set run above.
 
 The Mac M3a `.all` trunk measurement was **2.66e-02** and had collapsed the score-margin concern to
 **3.8×**. The real iPhone 16 Pro Max (iOS 26.5.2) result is materially better: over 16 deterministic

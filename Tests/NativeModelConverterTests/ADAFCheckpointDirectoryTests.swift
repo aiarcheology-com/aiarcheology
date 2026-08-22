@@ -224,6 +224,20 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 			extraction: extraction,
 			weightData: try Data(contentsOf: weightURL)
 		)
+		let convertedWeights = Dictionary(uniqueKeysWithValues: conversion.graph.weights.map { ($0.name, $0) })
+		for sourceWeight in extraction.weights {
+			let emitted = try XCTUnwrap(convertedWeights[sourceWeight.name])
+			XCTAssertEqual(emitted.dataType, .float32, "\(sourceWeight.name) must retain Float32 CPU accumulation")
+			XCTAssertEqual(emitted.byteCount, sourceWeight.byteCount * 2)
+		}
+		let firstSource = try XCTUnwrap(extraction.weights.first)
+		let firstEmitted = try XCTUnwrap(convertedWeights[firstSource.name])
+		let sourceBytes = try Data(contentsOf: weightURL)
+		let halfBits = sourceBytes.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: Int(firstSource.offset), as: UInt16.self) }
+		let emittedValue = conversion.weights.withUnsafeBytes {
+			$0.loadUnaligned(fromByteOffset: Int(firstEmitted.offset), as: Float.self)
+		}
+		XCTAssertEqual(emittedValue, Float(Float16(bitPattern: UInt16(littleEndian: halfBits))))
 		do {
 			try NativeModelCoreMLEmitter().emit(
 				graph: conversion.graph,

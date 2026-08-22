@@ -165,12 +165,63 @@ public enum NativeModelFasterRCNNRegistry {
 		}
 		var combined = weightData
 		combined.append(template.synthesizedWeightData)
+		let emission = promoteWeightsForCPUParity(template.graph, data: combined)
 		return Conversion(
-			graph: template.graph,
-			weights: combined,
+			graph: emission.graph,
+			weights: emission.data,
 			interface: template.interface,
 			targetInfo: template.targetInfo,
 			targetSemanticsIntent: template.targetSemanticsIntent
+		)
+	}
+
+	/// Core ML executes a Float16-weight neural-network layer in reduced precision even with
+	/// `.cpuOnly`. The detector's terminal NMS can make that otherwise small difference select a
+	/// different overlapping proposal. Preserve the extractor's deliberately quantised binary16
+	/// *values*, but widen their graph representation back to Float32 so the CPU oracle path retains
+	/// Float32 accumulation. ANE execution may still use its documented half-precision path.
+	private static func promoteWeightsForCPUParity(
+		_ graph: NativeModelGraph, data: Data
+	) -> (graph: NativeModelGraph, data: Data) {
+		var promotedWeights: [NativeModelWeight] = []
+		var promotedData = Data()
+		let orderedWeights = graph.weights.sorted(by: { $0.offset < $1.offset })
+		promotedWeights.reserveCapacity(orderedWeights.count)
+		promotedData.reserveCapacity(data.count + orderedWeights.reduce(into: 0) { total, weight in
+			if weight.dataType == .float16 { total += Int(weight.byteCount) }
+		})
+		for weight in orderedWeights {
+			let start = Int(weight.offset)
+			let end = start + Int(weight.byteCount)
+			let bytes = data[start..<end]
+			let offset = UInt64(promotedData.count)
+			switch weight.dataType {
+			case .float16:
+				for index in stride(from: bytes.startIndex, to: bytes.endIndex, by: 2) {
+					let bits = UInt16(bytes[index]) | UInt16(bytes[index + 1]) << 8
+					var value = Float(Float16(bitPattern: bits)).bitPattern.littleEndian
+					withUnsafeBytes(of: &value) { promotedData.append(contentsOf: $0) }
+				}
+				promotedWeights.append(NativeModelWeight(
+					name: weight.name, dataType: .float32, shape: weight.shape, offset: offset,
+					byteCount: weight.byteCount * 2
+				))
+			case .float32:
+				promotedData.append(contentsOf: bytes)
+				promotedWeights.append(NativeModelWeight(
+					name: weight.name, dataType: weight.dataType, shape: weight.shape, offset: offset,
+					byteCount: weight.byteCount
+				))
+			case .unsupported:
+				preconditionFailure("the Faster R-CNN graph contains only floating-point weights")
+			}
+		}
+		return (
+			NativeModelGraph(
+				formatVersion: graph.formatVersion, producer: graph.producer, inputs: graph.inputs,
+				weights: promotedWeights, operations: graph.operations, outputs: graph.outputs
+			),
+			promotedData
 		)
 	}
 
