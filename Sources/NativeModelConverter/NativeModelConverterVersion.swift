@@ -14,7 +14,8 @@
 /// ``NativeModelProducer/name`` and ``NativeModelProducer/version`` in the graph package.
 public enum NativeModelConverterVersion {
 	public static let packageVersion = "0.1.0"
-	/// Revision 8 carries an explicit CPU-only runtime policy for the pinned ADAF Faster R-CNN graph,
-	/// whose Neural Engine path moves a detection box beyond the device parity budget.
-	public static let conversionRevision = 8
+	/// Revision 9 carries the measured accelerator policy for the pinned ADAF Faster R-CNN graph:
+	/// the GPU path is parity-safe on the probe device, while the Neural Engine path moves a box
+	/// beyond the device parity budget.
+	public static let conversionRevision = 9
 }

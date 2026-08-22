@@ -165,7 +165,7 @@ public enum NativeModelFasterRCNNRegistry {
 		}
 		var combined = weightData
 		combined.append(template.synthesizedWeightData)
-		let emission = promoteWeightsForCPUParity(template.graph, data: combined)
+		let emission = promoteWeightsForStablePrecision(template.graph, data: combined)
 		return Conversion(
 			graph: emission.graph,
 			weights: emission.data,
@@ -178,9 +178,11 @@ public enum NativeModelFasterRCNNRegistry {
 	/// Core ML executes a Float16-weight neural-network layer in reduced precision even with
 	/// `.cpuOnly`. The detector's terminal NMS can make that otherwise small difference select a
 	/// different overlapping proposal. Preserve the extractor's deliberately quantised binary16
-	/// *values*, but widen their graph representation back to Float32 so the CPU oracle path retains
-	/// Float32 accumulation. ANE execution may still use its documented half-precision path.
-	private static func promoteWeightsForCPUParity(
+	/// *values*, but widen their graph representation back to Float32 so the CPU oracle and measured
+	/// GPU path retain the intended accumulation. The Neural Engine may still use its documented
+	/// half-precision path; the emitted runtime policy excludes that path for this graph because the
+	/// box-regression delta is amplified by the decoder into a device-visible box shift.
+	private static func promoteWeightsForStablePrecision(
 		_ graph: NativeModelGraph, data: Data
 	) -> (graph: NativeModelGraph, data: Data) {
 		var promotedWeights: [NativeModelWeight] = []

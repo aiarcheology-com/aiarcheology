@@ -333,18 +333,24 @@ final class ModelLoadingErrorTests: XCTestCase {
 
 final class NativeModelRuntimePolicyTests: XCTestCase {
 
-	func test_adafPolicy_selectsCPUOnly() {
+	func test_adafPolicy_selectsGPUAccelerator() {
 		let userDefined = [
-			NativeModelRuntimePolicy.computeUnitsKey: NativeModelComputeUnitPolicy.cpuOnly.rawValue
+			NativeModelRuntimePolicy.computeUnitsKey: NativeModelComputeUnitPolicy.cpuAndGPU.rawValue
 		]
 
 		XCTAssertEqual(
 			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
-			.cpuOnly
+			.cpuAndGPU
 		)
 		XCTAssertEqual(
 			Detector.runtimeComputeUnits(from: userDefinedMetadata(userDefined)),
-			.cpuOnly
+			.cpuAndGPU
+		)
+		XCTAssertEqual(
+			NativeModelRuntimePolicy.computeUnitPolicy(
+				forProducer: NativeModelRuntimePolicy.adafFasterRCNNProducerName
+			),
+			.cpuAndGPU
 		)
 	}
 

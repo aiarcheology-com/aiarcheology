@@ -260,7 +260,7 @@ increment `conversionRevision` for every output-affecting emitter, validation, o
 change; keep the source producer version owned by the exporter. The package test checks all four
 embedded identities against the compiled Core ML model.
 
-Under that rule `conversionRevision` moves from 7 to 8 in this change, because the emitted artifact
+Under that rule `conversionRevision` moves from 7 to 9 in this change, because the emitted artifact
 contents changed again. Revision 3 was anchor-free detector emission — a Core ML network plus
 non-maximum-suppression pipeline for YOLO v8/v11 raw heads, with its task, class count, label
 provenance, and coordinate-space metadata. Revision 4 adds the two-stage detector operations
@@ -273,9 +273,10 @@ makes the mandatory Vision NMS model an explicit no-policy interface adapter, so
 turn two ADAF passes into three. Revision 7 masks Core ML's false zero-survivor NMS slot before the
 adapter sees it, so an empty tile produces no phantom recognized object. A revision-7 model is
 therefore distinguishable from its earlier forms by its metadata alone, which is what the revision
-exists to make possible. Revision 8 records the CPU-only runtime policy required by the device
-detection-parity result for the ADAF Faster R-CNN graph; an importing runtime can honor it without
-changing placement for unrelated models.
+exists to make possible. Revision 8 records the initial parity finding for the ADAF Faster R-CNN
+graph. Revision 9 records the hardware-preserving runtime policy derived from that finding: an
+importing runtime may use `.cpuAndGPU` (dedicated GPU, ANE excluded) without changing placement for
+unrelated models.
 
 The torchvision reference exporter writes this metadata by default and accepts
 `--metadata-json SOURCE.json` to preserve a supplied metadata document byte-for-byte. A package
@@ -897,12 +898,15 @@ in every run, breaching the 1 px box budget that the vectoriser's raster quantis
 box budget does not.**
 
 The fix is an explicit runtime policy in the emitted model's `creatorDefined` metadata. The pinned
-ADAF Faster R-CNN producer requests `.cpuOnly`, and `DeepDriver.loadModel` honors that policy before
+ADAF Faster R-CNN producer requests `.cpuAndGPU`, and `DeepDriver.loadModel` honors that policy before
 Vision receives the model; models without a recognized policy retain Core ML's default placement.
-`ADAFDetectorDeviceParityTests` now exercises the production loader and asserts the full 1 px/0.01
-decision rule, while the original `.all` measurement remains recorded above as the reason for the
-policy. A future device matrix can evaluate `.cpuAndGPU` separately, but it is not used as the
-cross-device contract until that evidence exists.
+This is not a CPU fallback: it leaves the phone's dedicated GPU available and excludes only the
+Neural Engine's reduced-precision path. The reason is now localized: #676's physical probe showed
+the ROI box-head scores and deltas changing on `.cpuAndNeuralEngine`/`.all` while `.cpuAndGPU` was
+bit-identical to `.cpuOnly`; the box decoder's exponential width/height expansion turns that small
+delta into the 3.9135 px final shift. `ADAFDetectorDeviceParityTests` exercises the production
+loader and asserts the CPU, GPU and torchvision detection-set budgets, while the original `.all`
+measurement remains recorded as the reason for excluding ANE.
 
 ## Sources
 

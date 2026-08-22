@@ -6,12 +6,13 @@
 //  is roughly 191 MiB and is intentionally not a source-controlled test fixture.
 //
 //  Two contracts are checked against the torchvision-oracle fixture produced by
-//  scripts/prepare_adaf_device_parity_assets.sh. `.cpuOnly` executes the emitted Float32 graph
-//  with Float32 accumulation and must satisfy every scripts/m3a_parity_spike/decision_rule.py
-//  budget. Converted ADAF detectors carry an explicit CPU runtime policy because the physical-device
-//  `.all`/Neural Engine path moved one box by 3.913543701171875 px in the original closeout run.
-//  The production loader is exercised here as well as a direct `.cpuOnly` load, so the device test
-//  verifies both the numerical contract and the policy that selects it.
+//  scripts/prepare_adaf_device_parity_assets.sh. `.cpuOnly` is the numerical reference and the
+//  measured `.cpuAndGPU` accelerator path must satisfy the same detection-set budgets. Converted
+//  ADAF detectors carry an explicit GPU runtime policy because the physical-device `.all` /
+//  Neural Engine path moved one box by 3.913543701171875 px in the original closeout run, while
+//  AIA-0676 measured `.cpuAndGPU` bit-identical to `.cpuOnly` on the same phone. The production
+//  loader is exercised as well as direct CPU/GPU loads, so the device test verifies both the
+//  numerical contract and the hardware-preserving policy that selects it.
 //
 
 import CoreGraphics
@@ -28,7 +29,7 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 	private static let modelName = "AOBarrowDetector"
 	private static let canvasName = "AOBarrowCanvas"
 
-	func testDeviceComputeUnits_cpuMatchesTorchvisionAndConvertedRuntimePolicyMatchesOracle() async throws {
+	func testDeviceComputeUnits_gpuAcceleratorMatchesCPUAndTorchvision() async throws {
 		guard Bundle(for: Self.self).url(forResource: Self.fixtureName, withExtension: "json") != nil else {
 			throw XCTSkip(
 				"Device-only parity probe. Run scripts/prepare_adaf_device_parity_assets.sh and stage "
@@ -60,6 +61,23 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 			computeUnits: .cpuOnly,
 			systemVersion: systemVersion
 		)
+		let gpuDetections = try detect(
+			image: image, compiledModel: compiledModel, computeUnits: .cpuAndGPU, geometry: geometry
+		)
+		assertOracleBudgets(
+			measure(gpuDetections, reference: fixture.reference, matchIoU: fixture.rule.matchIoU),
+			referenceCount: fixture.reference.count,
+			rule: fixture.rule,
+			computeUnits: .cpuAndGPU,
+			systemVersion: systemVersion
+		)
+		assertAcceleratorAgreement(
+			measure(gpuDetections, reference: cpuDetections, matchIoU: fixture.rule.matchIoU),
+			referenceCount: cpuDetections.count,
+			rule: fixture.rule,
+			computeUnits: .cpuAndGPU,
+			systemVersion: systemVersion
+		)
 
 		// The converter stamps the measured device requirement into creatorDefined metadata, and the
 		// app's production loader honors it before Vision receives the model. Keep this assertion on
@@ -75,8 +93,8 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 		)
 		XCTAssertEqual(
 			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
-			.cpuOnly,
-			"The converted ADAF detector must carry the parity-safe runtime policy."
+			.cpuAndGPU,
+			"The converted ADAF detector must carry the measured GPU accelerator policy."
 		)
 		let shippingDetections = try detect(
 			image: image, model: shippingModel, geometry: geometry
@@ -85,11 +103,11 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 			measure(shippingDetections, reference: fixture.reference, matchIoU: fixture.rule.matchIoU),
 			referenceCount: fixture.reference.count,
 			rule: fixture.rule,
-			computeUnits: .cpuOnly,
+			computeUnits: .cpuAndGPU,
 			systemVersion: systemVersion
 		)
 
-		for computeUnits in [MLComputeUnits.cpuOnly] {
+		for computeUnits in [MLComputeUnits.cpuOnly, .cpuAndGPU] {
 			let blank = try makeBlankImage(size: canvasSize)
 			let blankDetections = try detect(
 				image: blank, compiledModel: compiledModel, computeUnits: computeUnits, geometry: geometry
@@ -331,6 +349,41 @@ final class ADAFDetectorDeviceParityTests: XCTestCase {
 		)
 		print(
 			"[AIA-0688] \(systemVersion) \(label): \(comparison.matched)/\(referenceCount) detections matched, "
+				+ "max box shift \(describe(comparison.maximumBoxShift)) px, "
+				+ "max score delta \(describe(comparison.maximumScoreDelta))"
+		)
+	}
+
+	/// The CPU run is the oracle-parity reference; this separate assertion makes the accelerator
+	/// claim explicit instead of letting two independent oracle comparisons hide a cross-unit drift.
+	private func assertAcceleratorAgreement(
+		_ comparison: Comparison,
+		referenceCount: Int,
+		rule: Rule,
+		computeUnits: MLComputeUnits,
+		systemVersion: String
+	) {
+		let label = computeUnits.label
+		XCTAssertTrue(
+			comparison.disappeared.isEmpty && comparison.appeared.isEmpty,
+			"\(label) changed the CPU detection set: \(comparison.disappeared.count) disappeared, "
+				+ "\(comparison.appeared.count) appeared"
+		)
+		XCTAssertLessThanOrEqual(
+			comparison.maximumBoxShift ?? .infinity,
+			rule.maxBoxShiftPixels,
+			"\(label) vs cpuOnly box shift \(describe(comparison.maximumBoxShift)) exceeds "
+				+ "\(rule.maxBoxShiftPixels) px"
+		)
+		XCTAssertLessThanOrEqual(
+			comparison.maximumScoreDelta ?? .infinity,
+			rule.maxScoreDelta,
+			"\(label) vs cpuOnly score delta \(describe(comparison.maximumScoreDelta)) exceeds "
+				+ "\(rule.maxScoreDelta)"
+		)
+		print(
+			"[AIA-0688] \(systemVersion) \(label) vs cpuOnly: "
+				+ "\(comparison.matched)/\(referenceCount) detections matched, "
 				+ "max box shift \(describe(comparison.maximumBoxShift)) px, "
 				+ "max score delta \(describe(comparison.maximumScoreDelta))"
 		)

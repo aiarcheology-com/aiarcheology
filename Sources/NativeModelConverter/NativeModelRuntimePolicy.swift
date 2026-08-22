@@ -12,7 +12,9 @@ import Foundation
 /// Core ML's default `.all` placement is intentionally not represented here: absence of this
 /// metadata means that the importing app may keep its normal default. A policy is emitted only
 /// when the converter has evidence that a particular graph needs a narrower placement for its
-/// numerical contract.
+/// numerical contract.  The choice is deliberately expressed as a Core ML allow-list rather than
+/// as a claim about one particular accelerator: `.cpuAndGPU` keeps the phone's dedicated GPU
+/// available while excluding the Neural Engine precision path that was measured to move a box.
 public enum NativeModelComputeUnitPolicy: String, Codable, Equatable, Sendable {
 	case cpuOnly
 	case cpuAndGPU
@@ -38,9 +40,11 @@ public enum NativeModelRuntimePolicy {
 	/// importing app's default placement.
 	public static func computeUnitPolicy(forProducer producerName: String) -> NativeModelComputeUnitPolicy? {
 		guard producerName == adafFasterRCNNProducerName else { return nil }
-		// AIA-0688 measured a deterministic 3.9135 px box drift on the iPhone 16 Pro Max when this
-		// graph was dispatched through `.all`/ANE. The emitted graph's CPU path satisfies the
-		// torchvision decision rule, so the model carries an explicit CPU requirement.
-		return .cpuOnly
+		// AIA-0676 proved the placement boundary on an iPhone 16 Pro Max: .cpuAndGPU was
+		// bit-identical to .cpuOnly, while .cpuAndNeuralEngine and .all agreed with each other and
+		// differed in every measured ROI-head element.  AIA-0688 then showed the ANE path moving one
+		// final box by 3.9135 px.  Keep the GPU accelerator available and exclude only the ANE path;
+		// this is the measured hardware-preserving contract, not a CPU fallback.
+		return .cpuAndGPU
 	}
 }
