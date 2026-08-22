@@ -795,7 +795,7 @@ sampling-coordinate arithmetic, amplified by the pattern's mod-256 discontinuiti
 coordinate magnitude, so the committed tolerance is **validated for canvases up to 1344** and a larger
 canvas requires re-measurement.
 
-### What this hands to the graph work (AIA-0685 through AIA-0687)
+### What this hands to the graph work (AIA-0685 through AIA-0688)
 
 - **The pinned canvas is 1344×1344, and it is not free.** The host still applies torchvision's
   `800/1333` content transform; this is its fixed, right/bottom-padded model canvas. The page-aspect
@@ -803,16 +803,15 @@ canvas requires re-measurement.
   rule does. A tempting 1333-square canvas is not graph-valid for this FPN: its `334 → 167 → 84 → 42`
   levels cannot make the required exact ×2 top-down join at width 167. 1344 produces
   `336 → 168 → 84 → 42 → 21`, so all joins are exact and every application tile aspect fits. Its
-  square anchor grid still differs from torchvision's variable `1344×N` grid; that is explicitly an
-  AIA-0688 numerical-parity question, not a claim that this loadable graph is verified.
+  square anchor grid still differs from torchvision's variable `1344×N` grid; the AIA-0688 gate below
+  treats that fixed-canvas difference as a numerical claim, not a structural equivalence claim.
 - **Terminal suppression is a pair, not a tunable pipeline default.** The graph keeps its candidate
   boxes as `[x0, y0, x1, y1]` corners and converts to Core ML NMS's mandatory
-  `[center-x, center-y, width, height]` only immediately before its first terminal layer. The current
-  structural loadability slice applies the numeric settings `0.05` / `0.5` / top-100 to its **RPN
-  objectness sigmoid** candidates. In torchvision, the strict `score > 0.05` filter is applied to
-  **ROI-head class scores**; sharing the values is not yet a claim of matching that later stage. Core
-  ML's NMS threshold is inclusive, so the final mask deliberately uses `score >= 0.05`, the same
-  boundary the first pass used. The second pass applies ADAF's class-agnostic IoU `0.2`. M3a measured
+  `[center-x, center-y, width, height]` only immediately before its first terminal layer. The complete
+  path applies the strict torchvision `score > 0.05` floor to **ROI-head foreground scores** before
+  the `0.5` / top-100 pass. Core ML's NMS threshold is inclusive, so it receives the smallest Float32
+  value above `0.05`; the final score/box mask uses that same threshold. The second pass applies ADAF's
+  class-agnostic IoU `0.2`. M3a measured
   the difference in every one of 200 trials: **73.89** boxes for the pair versus **153.07** for one
   `0.2` pass. Core ML reports a real sub-threshold slot when its first pass has zero survivors, so the
   final graph masks both the score and box with that eligibility predicate before the Vision adapter.
@@ -821,17 +820,16 @@ canvas requires re-measurement.
   that ownership explicit: the positive score floor removes only fixed-NMS zero padding, not a third
   policy pass.
 - **ROI edges use a replicated feature ring, not a zero ring.** `CropResize` zeroes outside a feature
-  map where torchvision `roi_align` clamps. The emitted template carries one selected candidate through
-  each ROI-pooling FPN level (`P2` through `P5`): it slices and concatenates one copy of every edge,
-  then adds one **feature-map pixel** (`1 / spatialScale` image pixels) to each `[y0, x0, y1, x1]` ROI
-  coordinate before CropResize. The bounded branch preserves the host-side chunk boundary rather than
-  materialising the later fixed-52 ROI batch in the primary model. The pinned Core ML/torchvision
+  map where torchvision `roi_align` clamps. The parity primary materialises every one of its fixed
+  1,000 proposals through each ROI-pooling FPN level (`P2` through `P5`), masks those pools with
+  torchvision's level mapper, and feeds their sum through the checkpoint's box head and foreground
+  predictor. It slices and concatenates one copy of every edge, then adds one **feature-map pixel**
+  (`1 / spatialScale` image pixels) to each `[y0, x0, y1, x1]` ROI coordinate before CropResize. A
+  later host-side chunk loop may reduce that working set only by preserving this sequence exactly. The
+  pinned Core ML/torchvision
   edge probe puts the **P2 synthetic edge-touching** replicate-ring residual at `7.25e-07` relative;
   its P2 interior control is `8.26e-07`, and both are below the probe's `1e-04` decision ceiling. The
   unpadded and zero-ring worst boundary variants remain at `3.35e-01` and `1.67e-01` respectively.
-  The primary serializes this bounded branch but does not yet consume it in the ROI box head, so its
-  pooled values are structural until the chunked form is connected. AIA-0688 owns compiled-runtime
-  retention, consumed-path prediction, and the first detection-set parity claim.
 - **Pre-sizing means ADAF cannot use `VNCoreMLRequest.regionOfInterest` at all.** The request must run
   full-frame on an already-cropped buffer, so a pass goes from one reused `VNImageRequestHandler`
   across 15 regions to 15 handlers.
@@ -845,6 +843,36 @@ canvas requires re-measurement.
   run; the Release figure comes from compiling the same call with `swiftc -O`, because
   `swift test -c release` currently fails on an unrelated DEBUG-only test helper
   (`queuedJobCountForTesting`).
+
+### Converted-detector parity gate (AIA-0688)
+
+Run `bash scripts/test_adaf_fasterrcnn_parity.sh` after fetching a **dense** `OD_ringfort.tar` with
+`scripts/fetch_adaf_checkpoints.sh --full`. The gate emits and compiles the detector, drives it through
+`VNCoreMLRequest` on the committed Ringfort figure, and compares its source-space detection set with
+torchvision's own transform, backbone, RPN, RoI heads, postprocess, and ADAF's final NMS. The runner
+dumps the exact post-ImageIO, 8-bit fixed canvas sent to Core ML; torchvision receives those same
+bytes after the emitted ImageNet affine. It still calls `GeneralizedRCNNTransform` to establish the
+source/content geometry and records any reconstructed-canvas byte mismatch, so an almost-identical
+resizer cannot silently become the reference input. Its JSON records matched pairs,
+appeared/disappeared detections, maximum box motion, and maximum score delta.
+It also runs a deterministic blank tile through both engines, so the real terminal NMS mask must keep
+the zero-survivor result empty. An out-of-class archaeological figure is not substituted for this
+case because it can have real false positives in the torchvision oracle.
+
+The report is entitled to say `verified` only when every detection-set rule passes; the emitted
+artifact stays `structurally-matched` until that numerical report exists. `--all-checkpoints` expands
+the diagnostic to every detector; the all-archaeology model runs every committed figure because a
+single Ringfort result exercises only one detection. A failure or `UNDERPOWERED` result remains
+`structurally-matched` and is evidence to investigate, not a way to certify the model.
+
+The Mac M3a `.all` trunk measurement was **2.66e-02** and had collapsed the score-margin concern to
+**3.8×**. The real iPhone 16 Pro Max (iOS 26.5.2) result is materially better: over 16 deterministic
+runs, `.cpuOnly` versus `.all` measured **1.644224e-03** on scores and **2.341270e-03** on boxes;
+`.cpuAndGPU` was bit-identical to CPU while `.cpuAndNeuralEngine` equalled `.all`, proving the
+remaining difference is the ANE fp16 path and about 16× tighter than the Mac result. This local gate
+runs `cpuOnly`, so it proves conversion semantics but not device/ANE parity. Before a device claim,
+rerun the emitted detector and this same detection-set comparison on that iPhone across the committed
+figures; the elementwise device values alone cannot say whether a box moves or a detection appears.
 
 ## Sources
 

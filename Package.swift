@@ -19,13 +19,17 @@ let package = Package(
 		// preference. See AIA-0643.
 		.library(name: "SupportLogFormat", targets: ["SupportLogFormat"]),
 		.executable(name: "native-model-converter", targets: ["NativeModelConverterCLI"]),
-		.executable(name: "native-model-evaluator", targets: ["NativeModelEvaluatorCLI"])
+		.executable(name: "native-model-evaluator", targets: ["NativeModelEvaluatorCLI"]),
+		// Local evidence runner for the real ADAF detector. It intentionally exercises the emitted
+		// detector pipeline but is not imported by the app's host-side chunk loop.
+		.executable(name: "adaf-detector-parity-runner", targets: ["ADAFDetectorParityRunner"])
 	],
 	targets: [
 		.target(name: "NativeModelConverter"),
 		.target(name: "SupportLogFormat"),
 		.executableTarget(name: "NativeModelConverterCLI", dependencies: ["NativeModelConverter"]),
 		.executableTarget(name: "NativeModelEvaluatorCLI"),
+		.executableTarget(name: "ADAFDetectorParityRunner", dependencies: ["NativeModelConverter"]),
 		.testTarget(
 			name: "NativeModelConverterTests",
 			dependencies: ["NativeModelConverter"],

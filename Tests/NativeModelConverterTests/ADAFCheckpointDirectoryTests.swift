@@ -224,17 +224,22 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 			extraction: extraction,
 			weightData: try Data(contentsOf: weightURL)
 		)
-		try NativeModelCoreMLEmitter().emit(
-			graph: conversion.graph,
-			weights: conversion.weights,
-			to: modelURL,
-			detection: conversion.interface,
-			detectionTarget: conversion.targetInfo,
-			imagePreprocessing: .imageNetRGB,
-			targetSemanticsIntent: conversion.targetSemanticsIntent,
-			parityEvidence: .structurallyMatched
-		)
-		try assertSerializedROIEdgeBranch(in: modelURL)
+		do {
+			try NativeModelCoreMLEmitter().emit(
+				graph: conversion.graph,
+				weights: conversion.weights,
+				to: modelURL,
+				detection: conversion.interface,
+				detectionTarget: conversion.targetInfo,
+				imagePreprocessing: .imageNetRGB,
+				targetSemanticsIntent: conversion.targetSemanticsIntent,
+				parityEvidence: .structurallyMatched
+			)
+		} catch {
+			return XCTFail("detector emission failed before Core ML compilation: \(error)")
+		}
+		XCTAssertTrue(FileManager.default.fileExists(atPath: modelURL.path), "emitter did not publish the model")
+		try assertSerializedFullPredictionPath(in: modelURL)
 
 		let compiledURL = try await MLModel.compileModel(at: modelURL)
 		defer { try? FileManager.default.removeItem(at: compiledURL) }
@@ -249,10 +254,10 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 		XCTAssertFalse(metadata[NativeModelParityProvenance.userDefinedKey]?.contains("verified") == true)
 	}
 
-	/// The ROI edge branch is intentionally not a detector output until AIA-0688 connects the ROI head.
-	/// This inspection therefore proves the narrower M3c fact: the actual ADAF detector artifact serializes
-	/// every ring, shift, CropResize, and pool layer in topological order before Core ML compiles it.
-	private func assertSerializedROIEdgeBranch(in detectorURL: URL) throws {
+	/// Inspection is deliberately against the emitted real detector, not its graph IR: an unused ROI
+	/// branch can look complete in the builder yet be pruned or disconnected by serialization. The path
+	/// asserted here reaches the checkpoint's box head and foreground predictor before terminal NMS.
+	private func assertSerializedFullPredictionPath(in detectorURL: URL) throws {
 		let outer = try ProtobufReader.fields(in: Data(contentsOf: detectorURL, options: .mappedIfSafe))
 		let pipeline = try ProtobufReader.fields(
 			in: try XCTUnwrap(outer.firstBytes(NativeModelDetectorPipelineBuilder.pipelineModelField))
@@ -275,10 +280,8 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 			let expectedNames = [
 				"\(prefix).features_rank5", "\(prefix).ring_left", "\(prefix).ring_right",
 				"\(prefix).ring_columns", "\(prefix).ring_top", "\(prefix).ring_bottom",
-				"\(prefix).replicate_ring", "\(prefix).selected_corners", "\(prefix).image_corners",
-				"\(prefix).split_corners", "\(prefix).crop_corners", "\(prefix).boxes",
-				"\(prefix).feature_pixel_shift", "\(prefix).shifted_boxes", "\(prefix).crop_resize",
-				"\(prefix).roi_align"
+				"\(prefix).replicate_ring", "\(prefix).feature_pixel_shift", "\(prefix).shifted_boxes",
+				"\(prefix).crop_resize", "\(prefix).roi_align", "\(prefix).selected_roi_align"
 			]
 			let first = try XCTUnwrap(layers.firstIndex { $0.name == expectedNames[0] })
 			guard first + expectedNames.count <= layers.count else {
@@ -297,7 +300,23 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 				"\(prefix).replicate_ring", "\(prefix).shifted_boxes"
 			])
 			XCTAssertEqual(byName["\(prefix).roi_align"]?.inputs, ["\(prefix).crop_resize"])
+			XCTAssertEqual(byName["\(prefix).selected_roi_align"]?.inputs, [
+				"\(prefix).roi_align", "\(prefix).level_weight"
+			])
 		}
+
+		let names = Set(layers.map(\.name))
+		for name in [
+			"frcnn.roi.boxes", "frcnn.roi.selected_pool_3", "frcnn.roi.box_head.fc",
+			"frcnn.roi.predictor.class_scores", "frcnn.roi.predictor.foreground_scores",
+			"frcnn.roi.decode.corners", "frcnn.postprocess.torchvision_nms"
+		] {
+			XCTAssertTrue(names.contains(name), "serialized detector omitted \(name)")
+		}
+		let boxHead = try XCTUnwrap(layers.first { $0.name == "frcnn.roi.box_head.0.conv" })
+		XCTAssertEqual(boxHead.inputs.first, "frcnn.roi.selected_pool_3")
+		let terminal = try XCTUnwrap(layers.first { $0.name == "frcnn.postprocess.torchvision_nms" })
+		XCTAssertEqual(terminal.inputs.first, "frcnn.postprocess.centre_size")
 	}
 
 	private func requireDirectory() throws -> URL {
