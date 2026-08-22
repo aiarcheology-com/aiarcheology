@@ -329,6 +329,44 @@ final class ModelLoadingErrorTests: XCTestCase {
     }
 }
 
+// MARK: - Converted-model Runtime Policy Tests (AIA-0688)
+
+final class NativeModelRuntimePolicyTests: XCTestCase {
+
+	func test_adafPolicy_selectsCPUOnly() {
+		let userDefined = [
+			NativeModelRuntimePolicy.computeUnitsKey: NativeModelComputeUnitPolicy.cpuOnly.rawValue
+		]
+
+		XCTAssertEqual(
+			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
+			.cpuOnly
+		)
+		XCTAssertEqual(
+			Detector.runtimeComputeUnits(from: userDefinedMetadata(userDefined)),
+			.cpuOnly
+		)
+	}
+
+	func test_unknownOrMissingPolicy_keepsDefaultPlacement() {
+		XCTAssertNil(NativeModelRuntimePolicy.computeUnitPolicy(from: [:]))
+		XCTAssertNil(
+			NativeModelRuntimePolicy.computeUnitPolicy(from: [
+				NativeModelRuntimePolicy.computeUnitsKey: "future-unit"
+			])
+		)
+		XCTAssertNil(Detector.runtimeComputeUnits(from: userDefinedMetadata([:])))
+	}
+
+	func test_nonADAFProducer_hasNoPolicy() {
+		XCTAssertNil(NativeModelRuntimePolicy.computeUnitPolicy(forProducer: "tests"))
+	}
+
+	private func userDefinedMetadata(_ values: [String: String]) -> [MLModelMetadataKey: Any] {
+		[.creatorDefinedKey: values]
+	}
+}
+
 // MARK: - ModelLoadingService Tests
 
 final class ModelLoadingServiceTests: XCTestCase {

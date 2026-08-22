@@ -266,6 +266,11 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 		let metadata = model.modelDescription.metadata[.creatorDefinedKey] as? [String: String] ?? [:]
 		XCTAssertTrue(metadata[NativeModelParityProvenance.userDefinedKey]?.contains("structurally-matched") == true)
 		XCTAssertFalse(metadata[NativeModelParityProvenance.userDefinedKey]?.contains("verified") == true)
+		XCTAssertEqual(
+			NativeModelRuntimePolicy.computeUnitPolicy(from: metadata),
+			.cpuOnly,
+			"The converted ADAF detector must opt out of the ANE path that moves boxes on device."
+		)
 	}
 
 	/// Inspection is deliberately against the emitted real detector, not its graph IR: an unused ROI

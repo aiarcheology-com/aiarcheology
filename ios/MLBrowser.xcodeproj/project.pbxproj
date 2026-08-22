@@ -84,6 +84,7 @@
 		D68006800000000000000002 /* VisionScaleFitProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68006800000000000000001 /* VisionScaleFitProbeTests.swift */; };
 		D68006800000000000000004 /* ADAFBoxRoundTripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68006800000000000000003 /* ADAFBoxRoundTripTests.swift */; };
 		D68006800000000000000006 /* VisionScaleFitProbe.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = D68006800000000000000005 /* VisionScaleFitProbe.mlmodel */; };
+		A68800000000000000000002 /* ADAFDetectorDeviceParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68800000000000000000001 /* ADAFDetectorDeviceParityTests.swift */; };
 		8A4F0E282F110A0500ABCDEF /* DetectionTilingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E272F110A0500ABCDEF /* DetectionTilingTests.swift */; };
 		8A4F0E362F110A0600ABCDEF /* Finding+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E302F110A0600ABCDEF /* Finding+CoreDataClass.swift */; };
 		8A4F0E372F110A0600ABCDEF /* Finding+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E312F110A0600ABCDEF /* Finding+CoreDataProperties.swift */; };
@@ -483,6 +484,7 @@
 		D68006800000000000000001 /* VisionScaleFitProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionScaleFitProbeTests.swift; sourceTree = "<group>"; };
 		D68006800000000000000003 /* ADAFBoxRoundTripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ADAFBoxRoundTripTests.swift; sourceTree = "<group>"; };
 		D68006800000000000000005 /* VisionScaleFitProbe.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = VisionScaleFitProbe.mlmodel; sourceTree = "<group>"; };
+		A68800000000000000000001 /* ADAFDetectorDeviceParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ADAFDetectorDeviceParityTests.swift; sourceTree = "<group>"; };
 		8A4F0E272F110A0500ABCDEF /* DetectionTilingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionTilingTests.swift; sourceTree = "<group>"; };
 		8A4F0E302F110A0600ABCDEF /* Finding+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Finding+CoreDataClass.swift"; sourceTree = "<group>"; };
 		8A4F0E312F110A0600ABCDEF /* Finding+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Finding+CoreDataProperties.swift"; sourceTree = "<group>"; };
@@ -1292,6 +1294,7 @@
 				8A4F0E482F110A0600ABCDEF /* FindingExporterTests.swift */,
 				D68006800000000000000001 /* VisionScaleFitProbeTests.swift */,
 				D68006800000000000000003 /* ADAFBoxRoundTripTests.swift */,
+				A68800000000000000000001 /* ADAFDetectorDeviceParityTests.swift */,
 				8A4F0E272F110A0500ABCDEF /* DetectionTilingTests.swift */,
 				8A4F0E3D2F110A0600ABCDEF /* FindingsTests.swift */,
 				94929E7A2ED63ADE001A4C63 /* GalleryModelTests.swift */,
@@ -1651,6 +1654,7 @@
 				8AE0BC122A97B0B40086DDF9 /* Sources */,
 				8AE0BC132A97B0B40086DDF9 /* Frameworks */,
 				8AE0BC142A97B0B40086DDF9 /* Resources */,
+				A68800000000000000000003 /* Stage Device Parity Assets */,
 			);
 			buildRules = (
 			);
@@ -1849,6 +1853,29 @@
 				"",
 				"  swiftlint lint \"${SRCROOT}\"",
 				"",
+			);
+		};
+		A68800000000000000000003 /* Stage Device Parity Assets */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			name = "Stage Device Parity Assets";
+			shellPath = /bin/sh;
+			shellScript = (
+				"if [ -z \"${AIA_DEVICE_PARITY_ASSETS:-}\" ]; then",
+				"    exit 0",
+				"fi",
+				"for fixture in AOBarrowDetector.mlmodelc AOBarrowCanvas.ppm AOBarrowOracle.json; do",
+				"    if [ \"${fixture}\" = \"AOBarrowDetector.mlmodelc\" ]; then fixture_test=\"-d\"; else fixture_test=\"-f\"; fi",
+				"    if [ ! \"${fixture_test}\" \"${AIA_DEVICE_PARITY_ASSETS}/${fixture}\" ]; then",
+				"        echo \"error: missing device-parity fixture ${AIA_DEVICE_PARITY_ASSETS}/${fixture}\" >&2",
+				"        exit 1",
+				"    fi",
+				"done",
+				"destination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"",
+				"mkdir -p \"${destination}\"",
+				"cp -R \"${AIA_DEVICE_PARITY_ASSETS}\"/AOBarrowDetector.mlmodelc \"${destination}/\"",
+				"cp \"${AIA_DEVICE_PARITY_ASSETS}\"/AOBarrowCanvas.ppm \"${destination}/\"",
+				"cp \"${AIA_DEVICE_PARITY_ASSETS}\"/AOBarrowOracle.json \"${destination}/\"",
 			);
 		};
 		C3216188147B480A9E50D242 /* Upload Debug Symbols to Sentry */ = {
@@ -2152,6 +2179,7 @@
 				D68006800000000000000006 /* VisionScaleFitProbe.mlmodel in Sources */,
 				D68006800000000000000002 /* VisionScaleFitProbeTests.swift in Sources */,
 				D68006800000000000000004 /* ADAFBoxRoundTripTests.swift in Sources */,
+				A68800000000000000000002 /* ADAFDetectorDeviceParityTests.swift in Sources */,
 				8A4F0E282F110A0500ABCDEF /* DetectionTilingTests.swift in Sources */,
 				8A4F0E3E2F110A0600ABCDEF /* FindingsTests.swift in Sources */,
 				8A4F0E242F110A0400ABCDEF /* VisitTrailRecorderTests.swift in Sources */,

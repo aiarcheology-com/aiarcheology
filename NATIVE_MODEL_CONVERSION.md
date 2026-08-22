@@ -260,7 +260,7 @@ increment `conversionRevision` for every output-affecting emitter, validation, o
 change; keep the source producer version owned by the exporter. The package test checks all four
 embedded identities against the compiled Core ML model.
 
-Under that rule `conversionRevision` moves from 6 to 7 in this change, because the emitted artifact
+Under that rule `conversionRevision` moves from 7 to 8 in this change, because the emitted artifact
 contents changed again. Revision 3 was anchor-free detector emission — a Core ML network plus
 non-maximum-suppression pipeline for YOLO v8/v11 raw heads, with its task, class count, label
 provenance, and coordinate-space metadata. Revision 4 adds the two-stage detector operations
@@ -273,7 +273,9 @@ makes the mandatory Vision NMS model an explicit no-policy interface adapter, so
 turn two ADAF passes into three. Revision 7 masks Core ML's false zero-survivor NMS slot before the
 adapter sees it, so an empty tile produces no phantom recognized object. A revision-7 model is
 therefore distinguishable from its earlier forms by its metadata alone, which is what the revision
-exists to make possible.
+exists to make possible. Revision 8 records the CPU-only runtime policy required by the device
+detection-parity result for the ADAF Faster R-CNN graph; an importing runtime can honor it without
+changing placement for unrelated models.
 
 The torchvision reference exporter writes this metadata by default and accepts
 `--metadata-json SOURCE.json` to preserve a supplied metadata document byte-for-byte. A package
@@ -882,6 +884,25 @@ remaining difference is the ANE fp16 path and about 16× tighter than the Mac re
 runs `cpuOnly`, so it proves conversion semantics but not device/ANE parity. Before a device claim,
 rerun the emitted detector and this same detection-set comparison on that iPhone across the committed
 figures; the elementwise device values alone cannot say whether a box moves or a detection appears.
+
+The device detection-set closeout (AIA-0688) ran the emitted detector against the torchvision oracle
+on that iPhone — OD_AO / barrows.jpg, exact 1344×1344 canvas, three `-test-iterations` runs with
+relaunch, tool versions recorded by the gate report and the device OS version printed by the test.
+`.cpuOnly` held every decision-rule budget in all three runs (the macOS runner baseline for the same
+fixture is 0.00033 px max box shift and 3e-06 max score delta). The original shipping-default `.all`
+path kept the detection set identical — nothing appeared or disappeared — stayed inside the 0.01
+score budget, and left the blank tile empty, but moved one box by **3.913543701171875 px**, identically
+in every run, breaching the 1 px box budget that the vectoriser's raster quantisation justifies. The
+3.8× question was therefore answered on device numbers: **the score margin survives the device; the
+box budget does not.**
+
+The fix is an explicit runtime policy in the emitted model's `creatorDefined` metadata. The pinned
+ADAF Faster R-CNN producer requests `.cpuOnly`, and `DeepDriver.loadModel` honors that policy before
+Vision receives the model; models without a recognized policy retain Core ML's default placement.
+`ADAFDetectorDeviceParityTests` now exercises the production loader and asserts the full 1 px/0.01
+decision rule, while the original `.all` measurement remains recorded above as the reason for the
+policy. A future device matrix can evaluate `.cpuAndGPU` separately, but it is not used as the
+cross-device contract until that evidence exists.
 
 ## Sources
 

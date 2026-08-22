@@ -120,6 +120,9 @@ ios/asc.auth/
 # always-on suite uses live in Tests/NativeModelConverterTests/Fixtures/ADAF/ and are not ignored.
 .adaf-checkpoints/
 
+# Locally generated physical-iPhone detector fixture (AIA-0688). The emitted model is roughly 191 MiB.
+.adaf-device-parity-assets/
+
 # Python oracle environment for the M3a Faster R-CNN parity spike (AIA-0670). Holds torch,
 # torchvision and coremltools — gigabytes of third-party wheels, rebuildable from the pinned
 # requirements the spike records, so it is machine-local state rather than project content.

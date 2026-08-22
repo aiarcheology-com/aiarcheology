@@ -9,6 +9,8 @@ import UIKit
 import SwiftUI
 import Vision
 import OSLog
+import CoreML
+import NativeModelConverter
 
 public enum DeepDriverType: String, Sendable {
 	case detector = "detect"
@@ -67,17 +69,57 @@ protocol DeepDriver: Driver, Sendable {
 extension DeepDriver {
 	@discardableResult
 	static func loadModel(from path: URL, demo: Bool = false) async throws -> MLModel? {
-		let modelConfiguration = MLModelConfiguration()
 		// the file is already handled by copying resources in Xcode: -> mlmodelc (compiled)
 		let compiledModelURL = demo ? path : try await MLModel.compileModel(at: path)
 
 		do {
 			LoggingPolicy.debug("Loading MLModel from \(compiledModelURL.lastPathComponent)", logger: .drivers)
-			return try await MLModel.load(contentsOf: compiledModelURL, configuration: modelConfiguration)
+			// Load once with the platform default so the model's creator metadata can select a
+			// converter-owned runtime policy. Models without a policy keep the existing default `.all`.
+			let defaultConfiguration = MLModelConfiguration()
+			let defaultModel = try await MLModel.load(contentsOf: compiledModelURL, configuration: defaultConfiguration)
+			guard let computeUnits = runtimeComputeUnits(from: defaultModel.modelDescription.metadata) else {
+				return defaultModel
+			}
+
+			let configured = MLModelConfiguration()
+			configured.computeUnits = computeUnits
+			LoggingPolicy.info(
+				"Applying converted-model compute-unit policy: \(runtimeComputeUnitsLabel(computeUnits))",
+				logger: .drivers
+			)
+			return try await MLModel.load(contentsOf: compiledModelURL, configuration: configured)
 		} catch {
 			LoggingPolicy.error("Error loading MLModel", error: error, logger: .drivers)
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "loadMLModel", "path": compiledModelURL.lastPathComponent])
 			return nil
+		}
+	}
+
+	/// Maps the converter's metadata-only policy to Core ML without treating unknown metadata as a
+	/// reason to change placement. Kept as a small pure seam so the import contract can be tested
+	/// without loading a 190 MiB detector on a simulator.
+	static func runtimeComputeUnits(
+		from metadata: [MLModelMetadataKey: Any]
+	) -> MLComputeUnits? {
+		guard let userDefined = metadata[.creatorDefinedKey] as? [String: String],
+			let policy = NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined)
+		else {
+			return nil
+		}
+		switch policy {
+		case .cpuOnly: return .cpuOnly
+		case .cpuAndGPU: return .cpuAndGPU
+		}
+	}
+
+	private static func runtimeComputeUnitsLabel(_ computeUnits: MLComputeUnits) -> String {
+		switch computeUnits {
+		case .cpuOnly: return "cpuOnly"
+		case .cpuAndGPU: return "cpuAndGPU"
+		case .cpuAndNeuralEngine: return "cpuAndNeuralEngine"
+		case .all: return "all"
+		@unknown default: return "unknown"
 		}
 	}
 
