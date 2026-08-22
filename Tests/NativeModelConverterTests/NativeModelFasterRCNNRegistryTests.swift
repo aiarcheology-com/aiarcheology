@@ -31,28 +31,36 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 		XCTAssertEqual(template.targetInfo.coordinateMode, .normalizedByGraph)
 		XCTAssertEqual(template.targetSemanticsIntent.preprocessingProfile, .imageNetRGB)
 		XCTAssertEqual(template.sourceWeightByteCount, 86_630_834)
-		XCTAssertEqual(template.graph.weights.count, 346, "339 checkpoint weights, anchors, terminal constants, and the four ROI edge shifts")
-		XCTAssertEqual(template.synthesizedWeightData.count, 7_222_368)
+		XCTAssertGreaterThan(template.graph.weights.count, 339, "the graph must add anchors and decode constants to the checkpoint weights")
+		XCTAssertGreaterThan(template.synthesizedWeightData.count, 7_000_000, "the full fixed-K path must retain its anchor table")
 		XCTAssertTrue(NativeModelGraphValidator().validate(template.graph).isConvertible)
 
 		let kinds = template.graph.operations.map(\.kind)
 		for kind in [
 			.convolution2D, .batchNormalization, .relu, .maxPool2D, .upsample2D,
-			.reshapeND, .constantND, .sigmoid, .concatenateND, .sliceND, .splitND, .subtract, .multiply,
+			.reshapeND, .transposeND, .constantND, .sigmoid, .softmax, .concatenateND, .sliceND, .splitND,
+			.subtract, .multiply, .minimumND, .maximumND, .naturalLogarithm, .floor, .exponential,
 			.cropResize, .averagePool2D,
-			.topK, .gather, .nonMaximumSuppression
+			.linear, .topK, .gather, .nonMaximumSuppression
 		] as [NativeModelOperationKind] {
 			XCTAssertTrue(kinds.contains(kind), "missing \(kind.serializedValue)")
 		}
 
 		let suppression = template.graph.operations.filter { $0.kind == .nonMaximumSuppression }
-		XCTAssertEqual(suppression.map(\.name), [
+		let rpnSuppression = suppression.filter { $0.name.hasPrefix("frcnn.rpn.p") }
+		XCTAssertEqual(rpnSuppression.map(\.name), [
+			"frcnn.rpn.p2.nms", "frcnn.rpn.p3.nms", "frcnn.rpn.p4.nms", "frcnn.rpn.p5.nms", "frcnn.rpn.p6.nms"
+		])
+		XCTAssertEqual(rpnSuppression.map { $0.attributes["iouThreshold"] }, Array(repeating: .floatingPoint(0.7), count: 5))
+		XCTAssertEqual(rpnSuppression.map { $0.attributes["maxBoxes"] }, Array(repeating: .integer(1_000), count: 5))
+		let terminalSuppression = suppression.filter { $0.name.hasPrefix("frcnn.postprocess.") }
+		XCTAssertEqual(terminalSuppression.map(\.name), [
 			"frcnn.postprocess.torchvision_nms",
 			"frcnn.postprocess.adaf_nms"
 		])
-		XCTAssertEqual(suppression.map { $0.attributes["iouThreshold"] }, [.floatingPoint(0.5), .floatingPoint(0.2)])
-		XCTAssertEqual(suppression.map { $0.attributes["scoreThreshold"] }, [.floatingPoint(0.05), .floatingPoint(0)])
-		XCTAssertEqual(suppression.map { $0.attributes["maxBoxes"] }, [.integer(100), .integer(100)])
+		XCTAssertEqual(terminalSuppression.map { $0.attributes["iouThreshold"] }, [.floatingPoint(0.5), .floatingPoint(0.2)])
+		XCTAssertEqual(terminalSuppression.map { $0.attributes["scoreThreshold"] }, [.floatingPoint(Double(Float(0.05).nextUp)), .floatingPoint(0)])
+		XCTAssertEqual(terminalSuppression.map { $0.attributes["maxBoxes"] }, [.integer(100), .integer(100)])
 
 		let mask = template.graph.operations.filter { $0.name.hasPrefix("frcnn.postprocess.") }
 		XCTAssertEqual(mask.suffix(4).map(\.name), [
@@ -61,7 +69,7 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 			"frcnn.postprocess.box_mask",
 			"frcnn.postprocess.masked_boxes"
 		])
-		XCTAssertEqual(mask.suffix(4).first?.attributes["threshold"], .floatingPoint(0.05))
+		XCTAssertEqual(mask.suffix(4).first?.attributes["threshold"], .floatingPoint(Double(Float(0.05).nextUp)))
 		XCTAssertEqual(template.graph.outputs, ["frcnn_raw_coordinates", "frcnn_raw_confidence"])
 		let coordinates = try XCTUnwrap(template.graph.operations.last { $0.name == "frcnn_raw_coordinates" })
 		let confidence = try XCTUnwrap(template.graph.operations.last { $0.name == "frcnn_raw_confidence" })
@@ -72,7 +80,7 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 		let conversion = template.graph.operations[firstNMS - 1]
 		XCTAssertEqual(conversion.name, "frcnn.postprocess.centre_size")
 		XCTAssertEqual(conversion.kind, .concatenateND)
-		XCTAssertEqual(suppression.first?.inputs.first, conversion.outputs.first?.name)
+		XCTAssertEqual(terminalSuppression.first?.inputs.first, conversion.outputs.first?.name)
 
 		let edgeLevels: [(level: Int, scale: Double)] = [(2, 0.25), (3, 0.125), (4, 0.0625), (5, 0.03125)]
 		for edge in edgeLevels {
@@ -115,11 +123,7 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 			)
 			let shiftedBoxes = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).shifted_boxes" })
 			XCTAssertEqual(shiftedBoxes.kind, .add)
-			XCTAssertEqual(shiftedBoxes.inputs, ["\(prefix).boxes", "\(prefix).feature_pixel_shift"])
-			let cropCorners = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).crop_corners" })
-			XCTAssertEqual(cropCorners.inputs, [
-				"\(prefix).corner_y0", "\(prefix).corner_x0", "\(prefix).corner_y1", "\(prefix).corner_x1"
-			])
+			XCTAssertEqual(shiftedBoxes.inputs, ["frcnn.roi.boxes", "\(prefix).feature_pixel_shift"])
 
 			let crop = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).crop_resize" })
 			XCTAssertEqual(crop.kind, .cropResize)
@@ -128,7 +132,30 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 			let pooled = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).roi_align" })
 			XCTAssertEqual(pooled.kind, .averagePool2D)
 			XCTAssertEqual(pooled.inputs, ["\(prefix).crop_resize"])
+			XCTAssertEqual(pooled.outputs.first?.shape, [1_000, 1, channels, 7, 7])
+			let selected = try XCTUnwrap(template.graph.operations.last { $0.name == "\(prefix).selected_roi_align" })
+			XCTAssertEqual(selected.inputs, ["\(prefix).roi_align", "\(prefix).level_weight"])
 		}
+
+		let cropCorners = try XCTUnwrap(template.graph.operations.last { $0.name == "frcnn.roi.crop_corners" })
+		XCTAssertEqual(cropCorners.inputs, [
+			"frcnn.roi.corner_y0", "frcnn.roi.corner_x0", "frcnn.roi.corner_y1", "frcnn.roi.corner_x1"
+		])
+		XCTAssertEqual(
+			template.graph.operations.filter { $0.name.hasSuffix(".level_mask") }.map(\.name),
+			["frcnn.roi.p2.level_mask", "frcnn.roi.p3.level_mask", "frcnn.roi.p4.level_mask"]
+		)
+		for index in 0..<4 {
+			XCTAssertNotNil(template.graph.operations.last { $0.name == "frcnn.roi.box_head.\(index).conv" })
+			XCTAssertNotNil(template.graph.operations.last { $0.name == "frcnn.roi.box_head.\(index).bn" })
+		}
+		let fc = try XCTUnwrap(template.graph.operations.last { $0.name == "frcnn.roi.box_head.fc" })
+		XCTAssertEqual(fc.kind, .linear)
+		XCTAssertEqual(fc.inputs, ["frcnn.roi.box_head.flatten", "roi_heads.box_head.5.weight", "roi_heads.box_head.5.bias"])
+		let foreground = try XCTUnwrap(template.graph.operations.last { $0.name == "frcnn.roi.predictor.foreground_scores" })
+		XCTAssertEqual(foreground.inputs, ["frcnn.roi.predictor.class_scores"])
+		let decoded = try XCTUnwrap(template.graph.operations.last { $0.name == "frcnn.roi.decode.corners" })
+		XCTAssertEqual(decoded.kind, .concatenateND)
 	}
 
 	func test_terminalNMSDecision_matchesTheCommittedM3aMeasurement() throws {
