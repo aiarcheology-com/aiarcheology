@@ -333,7 +333,31 @@ final class ModelLoadingErrorTests: XCTestCase {
 
 final class NativeModelRuntimePolicyTests: XCTestCase {
 
-	func test_adafPolicy_selectsGPUAccelerator() {
+	func test_adafPolicy_requiresCPUPlacement() {
+		let userDefined = [
+			NativeModelRuntimePolicy.computeUnitsKey: NativeModelComputeUnitPolicy.cpuOnly.rawValue
+		]
+
+		XCTAssertEqual(
+			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
+			.cpuOnly
+		)
+		XCTAssertEqual(
+			Detector.runtimeComputeUnits(from: userDefinedMetadata(userDefined)),
+			.cpuOnly
+		)
+		XCTAssertEqual(
+			NativeModelRuntimePolicy.computeUnitPolicy(
+				forProducer: NativeModelRuntimePolicy.adafFasterRCNNProducerName
+			),
+			.cpuOnly
+		)
+	}
+
+	/// `.cpuAndGPU` stays a representable policy even though no producer currently requests it. The
+	/// enum is the converter's vocabulary for a measured requirement, not a record of one graph's
+	/// answer, and a future graph may well measure GPU-safe.
+	func test_gpuPolicy_remainsRepresentable() {
 		let userDefined = [
 			NativeModelRuntimePolicy.computeUnitsKey: NativeModelComputeUnitPolicy.cpuAndGPU.rawValue
 		]
@@ -344,12 +368,6 @@ final class NativeModelRuntimePolicyTests: XCTestCase {
 		)
 		XCTAssertEqual(
 			Detector.runtimeComputeUnits(from: userDefinedMetadata(userDefined)),
-			.cpuAndGPU
-		)
-		XCTAssertEqual(
-			NativeModelRuntimePolicy.computeUnitPolicy(
-				forProducer: NativeModelRuntimePolicy.adafFasterRCNNProducerName
-			),
 			.cpuAndGPU
 		)
 	}

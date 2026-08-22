@@ -268,8 +268,9 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 		XCTAssertFalse(metadata[NativeModelParityProvenance.userDefinedKey]?.contains("verified") == true)
 		XCTAssertEqual(
 			NativeModelRuntimePolicy.computeUnitPolicy(from: metadata),
-			.cpuAndGPU,
-			"The converted ADAF detector must keep the measured GPU path and opt out of the ANE path that moves boxes on device."
+			.cpuOnly,
+			"The converted ADAF detector must require CPU placement: every accelerator measured on device "
+				+ "moves a box past the 1 px budget, the GPU furthest of all."
 		)
 	}
 
