@@ -611,12 +611,12 @@ internal enum L10n {
   internal enum Import {
     /// Apple Create ML Documentation
     internal static let appleDocumentation = L10n.tr("Localizable", "import.appleDocumentation", fallback: "Apple Create ML Documentation")
-    /// This file describes itself as an ADAF %@ detection model. This app can read it, but converting it is not supported yet.
-    internal static func checkpointDetector(_ p1: Any) -> String {
-      return L10n.tr("Localizable", "import.checkpointDetector", String(describing: p1), fallback: "This file describes itself as an ADAF %@ detection model. This app can read it, but converting it is not supported yet.")
+    /// This file describes itself as an ADAF %@ detection model. It was converted on this device.
+    internal static func checkpointDetectorConverted(_ p1: Any) -> String {
+      return L10n.tr("Localizable", "import.checkpointDetectorConverted", String(describing: p1), fallback: "This file describes itself as an ADAF %@ detection model. It was converted on this device.")
     }
-    /// This file describes itself as an ADAF detection model. This app can read it, but converting it is not supported yet.
-    internal static let checkpointDetectorUnlabelled = L10n.tr("Localizable", "import.checkpointDetectorUnlabelled", fallback: "This file describes itself as an ADAF detection model. This app can read it, but converting it is not supported yet.")
+    /// This file describes itself as an ADAF detection model. It was converted on this device.
+    internal static let checkpointDetectorConvertedUnlabelled = L10n.tr("Localizable", "import.checkpointDetectorConvertedUnlabelled", fallback: "This file describes itself as an ADAF detection model. It was converted on this device.")
     /// This file describes itself as an image segmentation model. This app finds and classifies objects in a scene, so segmentation models are not supported.
     internal static let checkpointSegmentation = L10n.tr("Localizable", "import.checkpointSegmentation", fallback: "This file describes itself as an image segmentation model. This app finds and classifies objects in a scene, so segmentation models are not supported.")
     /// This training checkpoint holds a model this app does not recognise. Only ADAF detection models can be imported.

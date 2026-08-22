@@ -409,6 +409,22 @@ final class NativeModelGraphPackageTests: XCTestCase {
 		)
 	}
 
+	func testConvert_withoutProgressHandler_stillRecordsProcessMemory() async throws {
+		let packageURL = try makePackage(graph: makeReLUGraph(), weights: Data())
+		defer { try? FileManager.default.removeItem(at: packageURL) }
+		let modelURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
+		defer { try? FileManager.default.removeItem(at: modelURL) }
+
+		let metrics = try await NativeModelConverter().convert(from: packageURL, to: modelURL)
+
+		let processMemoryUsage = try XCTUnwrap(metrics.processMemoryUsage)
+		XCTAssertGreaterThan(processMemoryUsage.baselineProcessFootprintByteCount, 0)
+		XCTAssertGreaterThanOrEqual(
+			processMemoryUsage.peakObservedProcessFootprintByteCount,
+			processMemoryUsage.baselineProcessFootprintByteCount
+		)
+	}
+
 	func testConvert_wrapsPackageFailureInStableDiagnosticAndReportsFailedProgress() async throws {
 		let packageURL = try makePackage(graph: makeReLUGraph(), weights: Data())
 		defer { try? FileManager.default.removeItem(at: packageURL) }

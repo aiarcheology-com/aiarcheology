@@ -140,8 +140,11 @@ public enum PyTorchWeightExtractor {
 		_ checkpoint: PyTorchCheckpoint,
 		from checkpointURL: URL,
 		to destinationURL: URL,
-		maximumTotalByteCount: UInt64 = defaultMaximumTotalByteCount
+		maximumTotalByteCount: UInt64 = defaultMaximumTotalByteCount,
+		reporting progress: NativeModelConversionProgressHandler? = nil,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws -> PyTorchWeightExtraction {
+		try cancellationCheck?()
 		try rejectAliasedDestination(checkpoint: checkpointURL, destination: destinationURL)
 		let source: FileBytes
 		do {
@@ -151,7 +154,9 @@ public enum PyTorchWeightExtractor {
 		}
 		return try extract(
 			checkpoint, from: source, to: destinationURL,
-			maximumTotalByteCount: maximumTotalByteCount
+			maximumTotalByteCount: maximumTotalByteCount,
+			reporting: progress,
+			checkingCancellation: cancellationCheck
 		)
 	}
 
@@ -164,8 +169,11 @@ public enum PyTorchWeightExtractor {
 		_ checkpoint: PyTorchCheckpoint,
 		from source: any RandomAccessBytes,
 		to destinationURL: URL,
-		maximumTotalByteCount: UInt64 = defaultMaximumTotalByteCount
+		maximumTotalByteCount: UInt64 = defaultMaximumTotalByteCount,
+		reporting progress: NativeModelConversionProgressHandler? = nil,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws -> PyTorchWeightExtraction {
+		try cancellationCheck?()
 		let archive = try openBinding(checkpoint, in: source)
 
 		// Written beside the destination, never to it. Truncating the destination up front is what
@@ -190,6 +198,15 @@ public enum PyTorchWeightExtractor {
 		var skipped: [String] = []
 		var offset: UInt64 = 0
 		var sourceByteCount: UInt64 = 0
+		let convertibleTensorCount = checkpoint.tensors.reduce(into: 0) { count, tensor in
+			if tensor.dataType == .float32 { count += 1 }
+		}
+		var completedTensorCount = 0
+		progress?(NativeModelConversionProgress(
+			phase: .readingWeights,
+			completedUnitCount: completedTensorCount,
+			totalUnitCount: convertibleTensorCount
+		))
 		// No success flag: after a successful publish the working file no longer exists, so removing
 		// it is a no-op, and every failure path leaves exactly one thing to clean up.
 		defer {
@@ -198,6 +215,7 @@ public enum PyTorchWeightExtractor {
 		}
 
 		for tensor in checkpoint.tensors {
+			try cancellationCheck?()
 			guard tensor.dataType == .float32 else {
 				guard isSkippableCounter(tensor) else {
 					throw PyTorchWeightExtractionError.unrepresentableTensor(
@@ -223,6 +241,7 @@ public enum PyTorchWeightExtractor {
 					maximumByteCount: maximumStorageByteCount,
 					chunkByteCount: chunkByteCount
 				) { chunk in
+					try cancellationCheck?()
 					let converted = Data(try float16Bytes(of: chunk, tensor: tensor.name))
 					digest.update(data: converted)
 					// A disk-full or permission failure here is a fact about the destination, and
@@ -256,6 +275,13 @@ public enum PyTorchWeightExtractor {
 			))
 			offset += UInt64(halfBytes)
 			sourceByteCount += UInt64(expectedSourceBytes)
+			completedTensorCount += 1
+			progress?(NativeModelConversionProgress(
+				phase: .readingWeights,
+				completedUnitCount: completedTensorCount,
+				totalUnitCount: convertibleTensorCount,
+				operationName: tensor.name
+			))
 		}
 
 		try? handle.close()

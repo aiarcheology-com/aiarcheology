@@ -32,7 +32,7 @@ private struct Report: Encodable {
 
 @main
 struct ADAFDetectorParityRunner {
-	static func main() {
+	static func main() async {
 		var arguments = Array(CommandLine.arguments.dropFirst())
 		var sourceRGBURL: URL?
 		var canvasRGBURL: URL?
@@ -64,27 +64,12 @@ struct ADAFDetectorParityRunner {
 			try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
 			defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
-			let weightsURL = temporaryDirectory.appendingPathComponent("weights.bin")
 			let modelURL = temporaryDirectory.appendingPathComponent("detector.mlmodel")
-			let checkpoint = try PyTorchCheckpointReader.read(contentsOf: checkpointURL)
-			let extraction = try PyTorchWeightExtractor.extract(checkpoint, from: checkpointURL, to: weightsURL)
-			let conversion = try NativeModelFasterRCNNRegistry.conversion(
-				checkpoint: checkpoint, extraction: extraction, weightData: try Data(contentsOf: weightsURL)
-			)
-			try NativeModelCoreMLEmitter().emit(
-				graph: conversion.graph,
-				weights: conversion.weights,
-				to: modelURL,
-				detection: conversion.interface,
-				detectionTarget: conversion.targetInfo,
-				imagePreprocessing: .imageNetRGB,
-				targetSemanticsIntent: conversion.targetSemanticsIntent,
-				parityEvidence: .structurallyMatched
-			)
+			_ = try await NativeModelConverter().convert(adafDetector: checkpointURL, to: modelURL)
 			if let modelOutputURL {
 				try FileManager.default.copyItem(at: modelURL, to: modelOutputURL)
 			}
-			let compiledURL = try MLModel.compileModel(at: modelURL)
+			let compiledURL = try await MLModel.compileModel(at: modelURL)
 			if let compiledModelOutputURL {
 				try FileManager.default.copyItem(at: compiledURL, to: compiledModelOutputURL)
 			}

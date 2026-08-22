@@ -83,7 +83,7 @@ final class ImportedModelStagingTests: XCTestCase {
 			downloadURL: URL(string: "https://huggingface.co/x/resolve/main/model.mlmodel"),
 			origin: .catalog
 		)
-		XCTAssertTrue(FileManager.default.fileExists(atPath: staged.path))
+		XCTAssertTrue(FileManager.default.fileExists(atPath: staged.storedURL.path))
 	}
 
 	func test_theSameCheckpointFromFiles_stagesWithoutComplaint() throws {
@@ -94,7 +94,7 @@ final class ImportedModelStagingTests: XCTestCase {
 		let staged = try ImportedModelStaging.stage(
 			sourceURL: source, configurationID: id, downloadURL: nil, origin: .fileImport
 		)
-		XCTAssertTrue(FileManager.default.fileExists(atPath: staged.path))
+		XCTAssertTrue(FileManager.default.fileExists(atPath: staged.storedURL.path))
 	}
 
 	// MARK: - Formats the app imports today are untouched
@@ -111,8 +111,8 @@ final class ImportedModelStagingTests: XCTestCase {
 			downloadURL: URL(string: "https://example.com/MobileNetV2.onnx"),
 			origin: .directDownload
 		)
-		XCTAssertEqual(staged.lastPathComponent, "MobileNetV2.onnx", "the download's filename must be restored")
-		XCTAssertTrue(FileManager.default.fileExists(atPath: staged.path))
+		XCTAssertEqual(staged.storedURL.lastPathComponent, "MobileNetV2.onnx", "the download's filename must be restored")
+		XCTAssertTrue(FileManager.default.fileExists(atPath: staged.storedURL.path))
 	}
 
 	/// A resumed conversion hands staging an `.aiagraph` **directory**. It must survive that.
@@ -129,7 +129,7 @@ final class ImportedModelStagingTests: XCTestCase {
 			downloadURL: URL(string: "https://example.com/Graph.aiagraph"),
 			origin: .directDownload
 		)
-		XCTAssertEqual(staged.lastPathComponent, "Graph.aiagraph")
+		XCTAssertEqual(staged.storedURL.lastPathComponent, "Graph.aiagraph")
 	}
 
 	// MARK: - Naming, through the real path
@@ -155,7 +155,7 @@ final class ImportedModelStagingTests: XCTestCase {
 		)
 
 		XCTAssertEqual(
-			staged.deletingLastPathComponent().standardizedFileURL.path,
+			staged.storedURL.deletingLastPathComponent().standardizedFileURL.path,
 			configuration.standardizedFileURL.path,
 			"the staged file must stay inside its own configuration directory"
 		)

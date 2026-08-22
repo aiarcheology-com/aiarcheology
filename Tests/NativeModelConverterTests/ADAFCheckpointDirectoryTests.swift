@@ -6,6 +6,7 @@
 //
 
 import CoreML
+import CryptoKit
 import XCTest
 @testable import NativeModelConverter
 
@@ -274,6 +275,67 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 		)
 	}
 
+	/// The app imports through `NativeModelConverter.convert(adafDetector:to:)`; the parity runner's
+	/// former explicit registry/emitter sequence is retained below as the CLI reference. Comparing the
+	/// written bytes (not just a loadable model) locks the interface, parity provenance and stamped
+	/// CPU runtime policy together.
+	func test_appADAFConversion_matchesTheCLIReferenceArtifactAndReportsProgress() async throws {
+		let directory = try requireDirectory()
+		let checkpointURL = directory.appendingPathComponent("OD_ringfort.tar")
+		let sparseMarker = directory.appendingPathComponent(".OD_ringfort.tar.sparse")
+		try XCTSkipIf(
+			FileManager.default.fileExists(atPath: sparseMarker.path),
+			"OD_ringfort is sparse; fetch with scripts/fetch_adaf_checkpoints.sh --full."
+		)
+		let appModelURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent("OD_ringfort-app-\(UUID().uuidString).mlmodel", isDirectory: false)
+		let cliModelURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent("OD_ringfort-cli-\(UUID().uuidString).mlmodel", isDirectory: false)
+		let weightURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent("OD_ringfort-cli-weights-\(UUID().uuidString).bin", isDirectory: false)
+		defer {
+			try? FileManager.default.removeItem(at: appModelURL)
+			try? FileManager.default.removeItem(at: cliModelURL)
+			try? FileManager.default.removeItem(at: weightURL)
+		}
+
+		let progress = ADAFProgressCollector()
+		let appMetrics = try await NativeModelConverter().convert(
+			adafDetector: checkpointURL,
+			to: appModelURL,
+			reporting: progress.append
+		)
+
+		let checkpoint = try PyTorchCheckpointReader.read(contentsOf: checkpointURL)
+		let extraction = try PyTorchWeightExtractor.extract(checkpoint, from: checkpointURL, to: weightURL)
+		let conversion = try NativeModelFasterRCNNRegistry.conversion(
+			checkpoint: checkpoint,
+			extraction: extraction,
+			weightData: try Data(contentsOf: weightURL)
+		)
+		try NativeModelCoreMLEmitter().emit(
+			graph: conversion.graph,
+			weights: conversion.weights,
+			to: cliModelURL,
+			detection: conversion.interface,
+			detectionTarget: conversion.targetInfo,
+			imagePreprocessing: .imageNetRGB,
+			targetSemanticsIntent: conversion.targetSemanticsIntent,
+			parityEvidence: .structurallyMatched
+		)
+
+		XCTAssertEqual(
+			SHA256.hash(data: try Data(contentsOf: appModelURL, options: .mappedIfSafe)),
+			SHA256.hash(data: try Data(contentsOf: cliModelURL, options: .mappedIfSafe)),
+			"the app route must emit the exact artifact already checked through the CLI"
+		)
+		XCTAssertEqual(appMetrics.sourceFootprint.weightsByteCount, extraction.sourceByteCount)
+		let phases = progress.values.map(\.phase)
+		XCTAssertTrue(phases.contains(.readingWeights), "ADAF extraction must report progress to the import UI")
+		XCTAssertTrue(phases.contains(.emittingModel), "ADAF emission must report progress to the import UI")
+		XCTAssertEqual(phases.last, .completed)
+	}
+
 	/// Inspection is deliberately against the emitted real detector, not its graph IR: an unused ROI
 	/// branch can look complete in the builder yet be pruned or disconnected by serialization. The path
 	/// asserted here reaches the checkpoint's box head and foreground predictor before terminal NMS.
@@ -348,5 +410,22 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 			"""
 		)
 		return try XCTUnwrap(ADAFFixtures.gatedDirectory)
+	}
+}
+
+private final class ADAFProgressCollector: @unchecked Sendable {
+	private let lock = NSLock()
+	private var storage: [NativeModelConversionProgress] = []
+
+	func append(_ update: NativeModelConversionProgress) {
+		lock.lock()
+		defer { lock.unlock() }
+		storage.append(update)
+	}
+
+	var values: [NativeModelConversionProgress] {
+		lock.lock()
+		defer { lock.unlock() }
+		return storage
 	}
 }

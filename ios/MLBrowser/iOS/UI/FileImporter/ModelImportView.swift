@@ -51,7 +51,11 @@ struct ModelImportView: View {
 			// (declared in Info.plist) makes the Files picker surface `.onnx` reliably; the
 			// extension-derived type is a fallback if the declaration is unavailable.
 			UTType("com.aiarcheology.onnx-model"),
-			UTType(filenameExtension: "onnx")
+			UTType(filenameExtension: "onnx"),
+			// Published ADAF checkpoints use a `.tar` filename despite being PyTorch zip archives.
+			// Content sniffing routes those checkpoints to conversion and rejects a real tar before it
+			// can be copied into a configuration directory.
+			UTType(filenameExtension: "tar")
 		].compactMap { $0 }
 	)
 	
@@ -60,7 +64,7 @@ struct ModelImportView: View {
 	
 	/// Loading state during model validation
 	@State private var isLoading = false
-	/// Phase-local progress from a native `.aiagraph` conversion, if this import needs one.
+	/// Phase-local progress from a native source conversion, if this import needs one.
 	@State private var nativeConversionProgress: NativeModelConversionProgress?
 	/// The app-owned report is retained beside a converted or staged native package.
 	@State private var nativeConversionReport: NativeModelConversionImportReport?
@@ -186,8 +190,22 @@ struct ModelImportView: View {
 
 	private func importSuccessMessage(for info: ImportedModelInfo?) -> String {
 		let base = info?.needsReview == true ? L10n.Import.typeConfirmation : L10n.Import.success
-		guard let assumption = info?.nativeModelImportAssumption else { return base }
-		return "\(base)\n\n\(inferredSemanticsMessage(for: assumption))"
+		var messages = [base]
+		if let checkpointConversion = info?.checkpointConversion {
+			messages.append(checkpointConversionMessage(for: checkpointConversion))
+		}
+		if let assumption = info?.nativeModelImportAssumption {
+			messages.append(inferredSemanticsMessage(for: assumption))
+		}
+		return messages.joined(separator: "\n\n")
+	}
+
+	private func checkpointConversionMessage(for conversion: ImportedCheckpointConversion) -> String {
+		switch conversion {
+		case .adafDetector(let className):
+			guard let className else { return L10n.Import.checkpointDetectorConvertedUnlabelled }
+			return L10n.Import.checkpointDetectorConverted(className)
+		}
 	}
 
 	private func inferredSemanticsMessage(for assumption: NativeModelImportAssumption) -> String {
@@ -699,14 +717,7 @@ struct ModelImportView: View {
 		do {
 			try Task.checkCancellation()
 			let info = try await MainActor.run {
-				try createAndSaveConfiguration(
-					modelURL: work.modelURL,
-					preferredModelName: work.preferredModelName,
-					downloadUrl: request.downloadURL,
-					id: request.configurationID,
-					extractedInfo: work.extractedInfo,
-					provider: request.provider
-				)
+				try createAndSaveConfiguration(work: work, request: request)
 			}
 			if let reportStore = work.reportStore {
 				// The Core Data row is already committed and points at the converted model. Persisting
@@ -755,7 +766,7 @@ struct ModelImportView: View {
 		// put disk work on the main thread (AGENTS.md §9). `ImportedModelStaging` owns the order
 		// these steps run in and is tested through this same entry point (AIA-0654).
 		let origin = request.origin
-		let storedURL = try await Task.detached(priority: .userInitiated) {
+		let stagingResult = try await Task.detached(priority: .userInitiated) {
 			try ImportedModelStaging.stage(
 				sourceURL: sourceURL,
 				configurationID: configurationID,
@@ -763,10 +774,12 @@ struct ModelImportView: View {
 				origin: origin
 			)
 		}.value
+		let storedURL = stagingResult.storedURL
 		let configurationDirectory = storedURL.deletingLastPathComponent()
+		let conversionInput = nativeConversionInput(for: stagingResult)
 
 		let reportStore: NativeModelConversionImportReportStore?
-		if ImportedModelStaging.nativeConvertibleExtensions.contains(storedURL.pathExtension.lowercased()) {
+		if conversionInput != nil {
 			let report: NativeModelConversionImportReport
 			if let existingNativeReport = request.existingNativeReport {
 				guard existingNativeReport.configurationID == configurationID,
@@ -807,18 +820,19 @@ struct ModelImportView: View {
 		}
 
 		let modelURL: URL
-		if let reportStore {
-				modelURL = try await convertNativeGraphPackageIfNeeded(
-					NativeGraphConversionRequest(
-						storedURL: storedURL,
-						importSessionID: request.importSessionID,
-						originalModelFilename: sourceURL.lastPathComponent,
-						originalModelURL: request.downloadURL?.absoluteString,
-						reportStore: reportStore,
-						configurationDirectory: configurationDirectory,
-						reportObserver: request.reportObserver
-					)
+		if let reportStore, let conversionInput {
+			modelURL = try await convertNativeModelIfNeeded(
+				NativeModelConversionRequest(
+					storedURL: storedURL,
+					conversionInput: conversionInput,
+					importSessionID: request.importSessionID,
+					originalModelFilename: sourceURL.lastPathComponent,
+					originalModelURL: request.downloadURL?.absoluteString,
+					reportStore: reportStore,
+					configurationDirectory: configurationDirectory,
+					reportObserver: request.reportObserver
 				)
+			)
 		} else {
 			modelURL = storedURL
 		}
@@ -850,25 +864,36 @@ struct ModelImportView: View {
 			modelURL: modelURL,
 			preferredModelName: preferredModelName,
 			extractedInfo: extractedInfo,
+			checkpointConversion: stagingResult.checkpointConversion,
 			configurationDirectory: configurationDirectory,
 			reportStore: reportStore
 		)
 	}
 
-	/// Converts a verified native source (`.aiagraph` package or `.onnx` file) to a Core ML model
-	/// beside the copied original.
+	/// Chooses a converter from the staged file's verified route rather than from a checkpoint's
+	/// filename. ADAF archives are named `.tar`, but are content-sniffed as PyTorch zip checkpoints.
+	private func nativeConversionInput(
+		for stagingResult: ImportedModelStagingResult
+	) -> NativeModelConversionInput? {
+		if case .adafDetector(let className) = stagingResult.checkpointConversion {
+			return .adafDetector(className: className)
+		}
+		switch stagingResult.storedURL.pathExtension.lowercased() {
+		case "onnx": return .onnx
+		case "aiagraph": return .nativeGraphPackage
+		default: return nil
+		}
+	}
+
+	/// Converts a verified native source to a Core ML model beside the copied original.
 	///
 	/// The source and report are never removed while conversion is active. A process interruption
 	/// therefore leaves a recoverable report and the source in the app sandbox. After Core Data
 	/// registration succeeds, the original is removed only when the user chose Convert Only.
-	private func convertNativeGraphPackageIfNeeded(
-		_ request: NativeGraphConversionRequest
+	private func convertNativeModelIfNeeded(
+		_ request: NativeModelConversionRequest
 	) async throws -> URL {
 		let storedURL = request.storedURL
-		let sourceExtension = storedURL.pathExtension.lowercased()
-		guard ImportedModelStaging.nativeConvertibleExtensions.contains(sourceExtension) else {
-			return storedURL
-		}
 
 		let report = await request.reportStore.snapshot()
 		let generatedModelURL = report.convertedModelURL(in: request.configurationDirectory)
@@ -890,22 +915,30 @@ struct ModelImportView: View {
 				}
 			}
 			let conversionTask = Task.detached(priority: .userInitiated) {
-				if sourceExtension == "onnx" {
+				switch request.conversionInput {
+				case .onnx:
 					return try await converter.convert(
 						onnx: storedURL,
 						to: generatedModelURL,
 						reporting: reportProgress
 					)
+				case .nativeGraphPackage:
+					return try await converter.convert(
+						from: storedURL,
+						to: generatedModelURL,
+						sourceProvenance: NativeModelConversionSourceProvenance(
+							originalModelFilename: request.originalModelFilename,
+							originalModelURL: request.originalModelURL
+						),
+						reporting: reportProgress
+					)
+				case .adafDetector:
+					return try await converter.convert(
+						adafDetector: storedURL,
+						to: generatedModelURL,
+						reporting: reportProgress
+					)
 				}
-				return try await converter.convert(
-					from: storedURL,
-					to: generatedModelURL,
-					sourceProvenance: NativeModelConversionSourceProvenance(
-						originalModelFilename: request.originalModelFilename,
-						originalModelURL: request.originalModelURL
-					),
-					reporting: reportProgress
-				)
 			}
 			let metrics = try await withTaskCancellationHandler(
 				operation: { try await conversionTask.value },
@@ -983,13 +1016,16 @@ struct ModelImportView: View {
 	/// Must be called on MainActor.
 	@MainActor
 	private func createAndSaveConfiguration(
-		modelURL: URL,
-		preferredModelName: String? = nil,
-		downloadUrl: URL?,
-		id: UUID,
-		extractedInfo: ExtractedModelInfo,
-		provider: ModelProvider
+		work: NativeModelImportWork,
+		request: NativeModelImportRequest
 	) throws -> ImportedModelInfo {
+		let modelURL = work.modelURL
+		let preferredModelName = work.preferredModelName
+		let checkpointConversion = work.checkpointConversion
+		let downloadURL = request.downloadURL
+		let id = request.configurationID
+		let extractedInfo = work.extractedInfo
+		let provider = request.provider
 		// A process can terminate after Core Data saves but before the report's final `registered`
 		// checkpoint is written. Recovery must recognize the durable row and finalize the report,
 		// rather than creating a second configuration with the same UUID.
@@ -998,7 +1034,8 @@ struct ModelImportView: View {
 			return ImportedModelInfo(
 				id: id,
 				needsReview: !existing.modelTypeParsed,
-				nativeModelImportAssumption: extractedInfo.nativeModelImportAssumption
+				nativeModelImportAssumption: extractedInfo.nativeModelImportAssumption,
+				checkpointConversion: checkpointConversion
 			)
 		}
 
@@ -1029,7 +1066,7 @@ struct ModelImportView: View {
 		}
 
 		configuration.file_ = relativePath
-		configuration.downloadURL = downloadUrl
+		configuration.downloadURL = downloadURL
 		configuration.catalogSource = DownloadItem.select(id, in: moc)?.catalogSource
 		configuration.enabled = false
 		configuration.transition(to: .draft)
@@ -1047,7 +1084,7 @@ struct ModelImportView: View {
 			deep.saveConfigurations()
 			provider.result(.importSucceeded, id: id)
 			let source = ModelAcquisitionSource.resolve(
-				downloadURL: downloadUrl,
+				downloadURL: downloadURL,
 				catalogSource: configuration.catalogSource
 			)
 			analytics.track(.modelImported(source: source))
@@ -1055,7 +1092,8 @@ struct ModelImportView: View {
 			return ImportedModelInfo(
 				id: id,
 				needsReview: !extractedInfo.typeWasParsed,
-				nativeModelImportAssumption: extractedInfo.nativeModelImportAssumption
+				nativeModelImportAssumption: extractedInfo.nativeModelImportAssumption,
+				checkpointConversion: checkpointConversion
 			)
 		} else {
 			moc.delete(configuration)
@@ -1076,6 +1114,9 @@ private struct NativeModelImportWork {
 	/// native package, `nil` for a direct model import whose own filename is already meaningful).
 	let preferredModelName: String?
 	let extractedInfo: ExtractedModelInfo
+	/// Retained only through the success alert, where the user is told that a recognised checkpoint
+	/// was converted rather than rejected.
+	let checkpointConversion: ImportedCheckpointConversion?
 	let configurationDirectory: URL
 	let reportStore: NativeModelConversionImportReportStore?
 }
@@ -1097,8 +1138,9 @@ private struct NativeModelImportRequest {
 }
 
 /// The native-only portion of an import after the source has been staged into app-owned storage.
-private struct NativeGraphConversionRequest {
+private struct NativeModelConversionRequest {
 	let storedURL: URL
+	let conversionInput: NativeModelConversionInput
 	let importSessionID: UUID
 	let originalModelFilename: String
 	let originalModelURL: String?
@@ -1107,12 +1149,20 @@ private struct NativeGraphConversionRequest {
 	let reportObserver: @Sendable (NativeModelConversionImportReport) -> Void
 }
 
+/// The supported source families after staging has proved what the input contains.
+private enum NativeModelConversionInput: Sendable {
+	case nativeGraphPackage
+	case onnx
+	case adafDetector(className: String?)
+}
+
 /// Identifies a just-imported model. `needsReview` is `true` when the parser couldn't determine the
 /// type, so the presenter opens the model's settings for the user to pick one (AIA-0402).
 private struct ImportedModelInfo {
 	let id: UUID
 	let needsReview: Bool
 	let nativeModelImportAssumption: NativeModelImportAssumption?
+	let checkpointConversion: ImportedCheckpointConversion?
 }
 
 // MARK: - Supporting Types

@@ -7,9 +7,20 @@
 
 import Foundation
 
+/// A checkpoint conversion identified while the staged file was screened.
+enum ImportedCheckpointConversion: Equatable, Sendable {
+	case adafDetector(className: String?)
+}
+
+/// The file now owned by the app and any conversion route discovered while staging it.
+struct ImportedModelStagingResult: Equatable {
+	let storedURL: URL
+	let checkpointConversion: ImportedCheckpointConversion?
+}
+
 /// Everything that happens to an imported file between "the user chose it" and "the app owns it":
 /// it is placed in the configuration directory, named after the download it came from, and screened
-/// for containers the app recognises but cannot import.
+/// for containers the app recognises, including an ADAF detector conversion when supported.
 ///
 /// This exists as a service rather than as private methods on the import view for one reason: the
 /// view's copy could not be tested. Its pieces were individually covered while the **order** they
@@ -21,9 +32,14 @@ enum ImportedModelStaging {
 	/// auditable native package (`.aiagraph`) and self-contained ONNX (`.onnx`). Both share the same
 	/// conversion report machinery (progress, cancellation, log sheet, export).
 	static let nativeConvertibleExtensions: Set<String> = ["aiagraph", "onnx"]
+	/// ADAF distributes PyTorch zip checkpoints with a `.tar` name. Restoring that filename preserves
+	/// the model's meaningful source name in its conversion report and configuration title; the
+	/// content sniffer, not this extension list, decides whether it is actually convertible.
+	private static let filenameRestorableExtensions = nativeConvertibleExtensions.union(["tar"])
 
 	/// Places `sourceURL` under the configuration directory, restores the download's filename where
-	/// that matters, and rejects a container the app recognises but cannot import.
+	/// that matters, then either identifies a supported checkpoint conversion or rejects a container
+	/// the app recognises but cannot import.
 	///
 	/// The screening happens **here**, at the first moment the bytes are app-owned and *before* the
 	/// caller creates a conversion report, so a rejected container never leaves a report or an
@@ -34,7 +50,7 @@ enum ImportedModelStaging {
 	/// ``DownloadedContainerFormat``: a file crafted to look like both a supported model and a
 	/// recognised container is rejected rather than imported.
 	///
-	/// - Returns: the URL the model now lives at, which the caller treats as the stored source.
+	/// - Returns: the app-owned source URL and any checkpoint conversion the caller must perform.
 	/// - Throws: ``ModelContainerImportError`` for a recognised-but-unsupported container, or any
 	///   file-system error from staging.
 	/// - Parameter analyser: reads a recognised checkpoint to decide which model it describes.
@@ -47,30 +63,36 @@ enum ImportedModelStaging {
 		downloadURL: URL?,
 		origin: ModelAcquisitionSource,
 		analyser: (URL) -> ImportedCheckpointVerdict = ImportedCheckpointAnalyser.verdict
-	) throws -> URL {
+	) throws -> ImportedModelStagingResult {
 		let stored = try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationID)
-		let named = restoringNativeConvertibleExtension(of: stored, from: downloadURL)
-		if let rejection = ImportedContainerRouting.rejection(
+		let named = restoringKnownSourceFilename(of: stored, from: downloadURL)
+		switch ImportedContainerRouting.route(
 			for: DownloadedContainerFormat.classify(fileAt: named),
-			origin: origin
+			origin: origin,
+			analyser: analyser(named)
 		) {
-			// Only now is the file read: the origin gate and the content sniff have already agreed
-			// that this import is being refused, so the analysis only decides what to *say*.
-			throw ImportedContainerRouting.refined(rejection, by: analyser(named))
+		case .continueImport:
+			return ImportedModelStagingResult(storedURL: named, checkpointConversion: nil)
+		case .convertADAFDetector(let className):
+			return ImportedModelStagingResult(
+				storedURL: named,
+				checkpointConversion: .adafDetector(className: className)
+			)
+		case .reject(let error):
+			throw error
 		}
-		return named
 	}
 
 	/// A model downloaded from a URL is stored under the URLSession temporary name, which drops the
-	/// original extension. When the download URL names a native-convertible format but the stored
-	/// file no longer carries that extension, restore the original filename so the on-device
-	/// converter is selected. Core ML files (`.mlmodel`/`.mlpackage`) and files that already carry a
-	/// convertible extension (Files/catalog imports) are returned untouched.
-	static func restoringNativeConvertibleExtension(of storedURL: URL, from downloadURL: URL?) -> URL {
+	/// original extension. Restore the URL's name for a native graph, ONNX model, or an ADAF-named
+	/// `.tar` checkpoint so the conversion report and imported configuration remain meaningful. The
+	/// content route still decides whether a `.tar` is a PyTorch checkpoint or a real archive; this is
+	/// naming only. Core ML files and Files/catalog imports are returned untouched.
+	static func restoringKnownSourceFilename(of storedURL: URL, from downloadURL: URL?) -> URL {
 		let storedExtension = storedURL.pathExtension.lowercased()
-		guard !nativeConvertibleExtensions.contains(storedExtension),
+		guard !filenameRestorableExtensions.contains(storedExtension),
 			let downloadURL,
-			nativeConvertibleExtensions.contains(downloadURL.pathExtension.lowercased())
+			filenameRestorableExtensions.contains(downloadURL.pathExtension.lowercased())
 		else {
 			return storedURL
 		}
