@@ -172,8 +172,20 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 		for weight: NativeModelWeight,
 		in template: NativeModelFasterRCNNRegistry.Template
 	) -> [Float] {
-		let offset = Int(weight.offset - template.sourceWeightByteCount)
-		let bytes = template.synthesizedWeightData[offset..<(offset + Int(weight.byteCount))]
+		guard weight.offset >= template.sourceWeightByteCount else {
+			XCTFail("weight \(weight.name) starts before synthesized weights")
+			return []
+		}
+		let sourceOffset = weight.offset - template.sourceWeightByteCount
+		let synthesizedByteCount = UInt64(template.synthesizedWeightData.count)
+		guard sourceOffset <= synthesizedByteCount,
+			weight.byteCount <= synthesizedByteCount - sourceOffset else {
+			XCTFail("weight \(weight.name) exceeds synthesized weights")
+			return []
+		}
+		let start = Int(sourceOffset)
+		let end = start + Int(weight.byteCount)
+		let bytes = template.synthesizedWeightData[start..<end]
 		return stride(from: 0, to: bytes.count, by: MemoryLayout<Float>.size).map { byteOffset in
 			bytes.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: byteOffset, as: Float.self) }
 		}
