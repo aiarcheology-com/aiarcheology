@@ -266,6 +266,12 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 		let metadata = model.modelDescription.metadata[.creatorDefinedKey] as? [String: String] ?? [:]
 		XCTAssertTrue(metadata[NativeModelParityProvenance.userDefinedKey]?.contains("structurally-matched") == true)
 		XCTAssertFalse(metadata[NativeModelParityProvenance.userDefinedKey]?.contains("verified") == true)
+		XCTAssertEqual(
+			NativeModelRuntimePolicy.computeUnitPolicy(from: metadata),
+			.cpuOnly,
+			"The converted ADAF detector must require CPU placement: every accelerator measured on device "
+				+ "moves a box past the 1 px budget, the GPU furthest of all."
+		)
 	}
 
 	/// Inspection is deliberately against the emitted real detector, not its graph IR: an unused ROI

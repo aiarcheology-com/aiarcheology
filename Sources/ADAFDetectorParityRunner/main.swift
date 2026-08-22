@@ -36,13 +36,17 @@ struct ADAFDetectorParityRunner {
 		var arguments = Array(CommandLine.arguments.dropFirst())
 		var sourceRGBURL: URL?
 		var canvasRGBURL: URL?
+		var modelOutputURL: URL?
+		var compiledModelOutputURL: URL?
 		while let option = arguments.first, option.hasPrefix("--") {
 			guard arguments.count >= 2 else {
-				fail("usage: adaf-detector-parity-runner [--source-rgb SOURCE.ppm] CHECKPOINT OUTPUT.json IMAGE [IMAGE ...]")
+				fail("usage: adaf-detector-parity-runner [--source-rgb SOURCE.ppm] [--canvas-rgb CANVAS.ppm] [--model-output DETECTOR.mlmodel] CHECKPOINT OUTPUT.json IMAGE [IMAGE ...]")
 			}
 			switch option {
 			case "--source-rgb": sourceRGBURL = URL(fileURLWithPath: arguments[1])
 			case "--canvas-rgb": canvasRGBURL = URL(fileURLWithPath: arguments[1])
+			case "--model-output": modelOutputURL = URL(fileURLWithPath: arguments[1])
+			case "--compiled-model-output": compiledModelOutputURL = URL(fileURLWithPath: arguments[1])
 			default: fail("unknown option: \(option)")
 			}
 			arguments.removeFirst(2)
@@ -77,7 +81,13 @@ struct ADAFDetectorParityRunner {
 				targetSemanticsIntent: conversion.targetSemanticsIntent,
 				parityEvidence: .structurallyMatched
 			)
+			if let modelOutputURL {
+				try FileManager.default.copyItem(at: modelURL, to: modelOutputURL)
+			}
 			let compiledURL = try MLModel.compileModel(at: modelURL)
+			if let compiledModelOutputURL {
+				try FileManager.default.copyItem(at: compiledURL, to: compiledModelOutputURL)
+			}
 			defer { try? FileManager.default.removeItem(at: compiledURL) }
 			let configuration = MLModelConfiguration()
 			configuration.computeUnits = .cpuOnly

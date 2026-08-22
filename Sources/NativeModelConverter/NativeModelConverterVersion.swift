@@ -14,7 +14,9 @@
 /// ``NativeModelProducer/name`` and ``NativeModelProducer/version`` in the graph package.
 public enum NativeModelConverterVersion {
 	public static let packageVersion = "0.1.0"
-	/// Revision 7 masks Core ML NMS's false zero-survivor slot in the pinned ADAF Faster R-CNN graph,
-	/// so the Vision adapter receives no phantom detection for an empty tile.
-	public static let conversionRevision = 7
+	/// Revision 10 corrects the measured accelerator policy for the pinned ADAF Faster R-CNN graph.
+	/// Revision 9 requested `.cpuAndGPU` on probe-model evidence; on the real detector the GPU path
+	/// moves a box 9.6623 px, worse than the Neural Engine's 3.9135 px, so only `.cpuOnly` holds the
+	/// 1 px device parity budget.
+	public static let conversionRevision = 10
 }

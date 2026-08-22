@@ -260,7 +260,7 @@ increment `conversionRevision` for every output-affecting emitter, validation, o
 change; keep the source producer version owned by the exporter. The package test checks all four
 embedded identities against the compiled Core ML model.
 
-Under that rule `conversionRevision` moves from 6 to 7 in this change, because the emitted artifact
+Under that rule `conversionRevision` moves from 7 to 9 in this change, because the emitted artifact
 contents changed again. Revision 3 was anchor-free detector emission — a Core ML network plus
 non-maximum-suppression pipeline for YOLO v8/v11 raw heads, with its task, class count, label
 provenance, and coordinate-space metadata. Revision 4 adds the two-stage detector operations
@@ -273,7 +273,11 @@ makes the mandatory Vision NMS model an explicit no-policy interface adapter, so
 turn two ADAF passes into three. Revision 7 masks Core ML's false zero-survivor NMS slot before the
 adapter sees it, so an empty tile produces no phantom recognized object. A revision-7 model is
 therefore distinguishable from its earlier forms by its metadata alone, which is what the revision
-exists to make possible.
+exists to make possible. Revision 8 records the initial parity finding for the ADAF Faster R-CNN
+graph. Revision 9 recorded a `.cpuAndGPU` runtime policy derived from that finding; revision 10
+corrects it to `.cpuOnly` after the device closeout measured the GPU path as the least accurate of
+the three. Either way the policy changes placement only for this producer, never for unrelated
+models.
 
 The torchvision reference exporter writes this metadata by default and accepts
 `--metadata-json SOURCE.json` to preserve a supplied metadata document byte-for-byte. A package
@@ -877,11 +881,80 @@ half-precision path and must be assessed with the device-level detection-set run
 The Mac M3a `.all` trunk measurement was **2.66e-02** and had collapsed the score-margin concern to
 **3.8×**. The real iPhone 16 Pro Max (iOS 26.5.2) result is materially better: over 16 deterministic
 runs, `.cpuOnly` versus `.all` measured **1.644224e-03** on scores and **2.341270e-03** on boxes;
-`.cpuAndGPU` was bit-identical to CPU while `.cpuAndNeuralEngine` equalled `.all`, proving the
-remaining difference is the ANE fp16 path and about 16× tighter than the Mac result. This local gate
+`.cpuAndGPU` was bit-identical to CPU while `.cpuAndNeuralEngine` equalled `.all`, placing the
+remaining difference on the ANE fp16 path and about 16× tighter than the Mac result. **That probe
+ran on random weights, and its `.cpuAndGPU` bit-identity did not generalise to the real converted
+detector** — see the closeout below, where the GPU path is the worst of the three. Treat the probe
+as evidence about elementwise magnitudes only, never about which placements are parity-safe. This local gate
 runs `cpuOnly`, so it proves conversion semantics but not device/ANE parity. Before a device claim,
 rerun the emitted detector and this same detection-set comparison on that iPhone across the committed
 figures; the elementwise device values alone cannot say whether a box moves or a detection appears.
+
+The device detection-set closeout (AIA-0688) ran the emitted detector against the torchvision oracle
+on that iPhone — OD_AO / barrows.jpg, exact 1344×1344 canvas, three `-test-iterations` runs with
+relaunch, tool versions recorded by the gate report and the device OS version printed by the test.
+`.cpuOnly` held every decision-rule budget in all three runs (the macOS runner baseline for the same
+fixture is 0.00033 px max box shift and 3e-06 max score delta). The original shipping-default `.all`
+path kept the detection set identical — nothing appeared or disappeared — stayed inside the 0.01
+score budget, and left the blank tile empty, but moved one box by **3.913543701171875 px**, identically
+in every run, breaching the 1 px box budget that the vectoriser's raster quantisation justifies. The
+3.8× question was therefore answered on device numbers: **the score margin survives the device; the
+box budget does not.**
+
+The device closeout then measured the **GPU** path on the same fixture and phone, and it is the
+least accurate of the three:
+
+| Placement | Max box shift vs torchvision | Max score delta | 1 px budget |
+|-|-|-|-|
+| `.cpuOnly` | 0.00033092498779296875 px | 2.563e-06 | passes |
+| `.cpuAndNeuralEngine` / `.all` | 3.913543701171875 px | within 0.01 | fails |
+| `.cpuAndGPU` | 9.662333488464355 px | 0.006595253944396973 | fails |
+
+Deterministic across six physical executions in two independently launched samples, with `.cpuOnly`
+reproducing its earlier figures exactly as an internal control.
+
+The fix is therefore an explicit `.cpuOnly` runtime policy in the emitted model's `creatorDefined`
+metadata. The pinned ADAF Faster R-CNN producer requests it, and `DeepDriver.loadModel` honors it
+before Vision receives the model; models without a recognized policy retain Core ML's default
+placement.
+
+This is a **CPU requirement, not an anti-ANE one**, and the distinction matters. The GPU executes
+this graph in Float32 (`allowLowPrecisionAccumulationOnGPU` defaults to false), so its divergence
+from the CPU is reassociation alone: different reduction and tiling order inside conv/matmul, and
+different `exp`/`log` implementations, on the order of 1e-06. There is no arithmetic path from
+1e-06 to 9.66 px. Any backend whose rounding differs from the CPU's can flip a near-tie, and both
+measured accelerators do.
+
+This supersedes the earlier `.cpuAndGPU` policy, which rested on #676's probe-model bit-identity.
+
+The *mechanism* of the 3.9135 px shift is a discrete selection flip, not smooth arithmetic
+amplification. An earlier note here claimed the decoder's `exp(dw/dh)` expansion amplified the
+elementwise delta into the observed shift; that does not survive arithmetic. `decodeBoxes` divides
+the ROI deltas by the BoxCoder weights `[10, 10, 5, 5]`, so the measured `2.341270e-03` becomes
+`dw' <= 4.7e-04` and `exp(4.7e-04) ~= 1.00047` — a 0.047% size change, worth roughly **0.1 px** on a
+box of this scale, not 3.9 px. Smooth amplification cannot reach the observed number without a box
+thousands of pixels wide.
+
+What fits every measured fact instead is a **near-tie flip in a greedy operation downstream of the
+ROI head** — most plausibly the terminal NMS (`terminalSuppressions`), which selects a different
+overlapping proposal from the same cluster. Two candidate triggers: a score-order swap between
+candidates whose CPU gap is below the measured `1.644224e-03` score noise, or an IoU comparison
+landing on the other side of the 0.5 threshold. Both explain the exact signature observed: an
+unchanged detection count, a score delta inside the 0.01 budget, one box displaced by the offset
+between two real candidates, and bit-stable repetition across runs (fp16 rounding is deterministic).
+An RPN-stage flip is *probably* excluded, because a changed top-1000 proposal set would make the
+row-aligned ROI-head deltas O(1) rather than 2e-03 — this rests on #676's probe having compared
+index-aligned tensors and has not been separately proven.
+
+This distinction is recorded because it changes what a fix must do: no rewrite of the decoder helps,
+and the effective remedy is to keep the *decision* operations (topK, decode, terminal NMS) in
+Float32 on CPU/GPU while any reduced-precision path is confined to the convolutional trunk. Naming
+the first flipping operation requires comparing the graph's `.indices` tensors across compute units
+on device; that probe is follow-up work, not part of this slice's evidence.
+
+`ADAFDetectorDeviceParityTests` exercises the production loader and asserts the CPU, GPU and
+torchvision detection-set budgets, while the original `.all` measurement remains recorded as the
+reason for excluding ANE.
 
 ## Sources
 

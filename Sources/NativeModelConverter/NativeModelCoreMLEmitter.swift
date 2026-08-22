@@ -1098,6 +1098,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			NativeModelParityProvenance.userDefinedKey:
 				try NativeModelParityProvenance(evidence: parityEvidence).canonicalJSON()
 		]
+		if let computeUnitPolicy = NativeModelRuntimePolicy.computeUnitPolicy(forProducer: graph.producer.name) {
+			userDefined[NativeModelRuntimePolicy.computeUnitsKey] = computeUnitPolicy.rawValue
+		}
 		if let graphSHA256 = checksums.graphSHA256 {
 			userDefined["com.aiarcheology.native.conversion.graph-sha256"] = graphSHA256
 		}
