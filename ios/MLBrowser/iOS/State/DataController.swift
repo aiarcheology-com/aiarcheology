@@ -263,10 +263,6 @@ final class DataController: ObservableObject {
 					name: DataController.containerName,
 					managedObjectModel: Self.sharedModel
 				)
-				LoggingPolicy.debug(
-					"[AIA-0702 TRACE] Persistent container replaced after migration recovery; context observers must rebind.",
-					logger: .persistence
-				)
 
 				// Reapply the same configuration. Under UI tests, pin the dedicated UI-test store
 				// again so the retry never falls back to the default (production) store location —

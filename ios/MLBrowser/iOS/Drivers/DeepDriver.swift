@@ -214,7 +214,6 @@ class DeepDrivers: ObservableObject {
 
 	func detectionPresentationDidChange() {
 		detectionPresentationRevision &+= 1
-		LoggingPolicy.debug("[AIA-0702 TRACE] Detection presentation revision=\(detectionPresentationRevision)", logger: .drivers)
 	}
 
     func unregister(driverId: UUID) async {
@@ -279,11 +278,7 @@ class DeepDrivers: ObservableObject {
 		// Snapshot the driver list on the main actor, then run the serial loop off it in
 		// the engine actor (AIA-0387).
 		let snapshot = detectors
-		LoggingPolicy.debug("[AIA-0702 TRACE] Detection dispatched detectors=\(snapshot.count)", logger: .drivers)
-		let results = await engine.detect(on: image, in: snapshot, tiling: tiling)
-		let observationCount = results.reduce(0) { $0 + $1.observations.count }
-		LoggingPolicy.debug("[AIA-0702 TRACE] Detection completed groups=\(results.count) observations=\(observationCount)", logger: .drivers)
-		return results
+		return await engine.detect(on: image, in: snapshot, tiling: tiling)
 	}
 
 	// Classification counterpart of detect(): each registered classificator runs one
