@@ -20,6 +20,7 @@ import UIKit
 import Vision
 @testable import ML_Browser
 
+@MainActor
 final class DetectionEngineTests: XCTestCase {
 
     /// Bundled demo models, by resource name (compiled to `.mlmodelc` in the app bundle).
@@ -68,7 +69,18 @@ final class DetectionEngineTests: XCTestCase {
             let detector = try await makeDetector(modelResource: resource)
             var perFixture: [Int] = []
             for image in images {
-                perFixture.append(await detector.detect(image: image, regions: regions).count)
+                var incrementalUpdates = 0
+                let objects = await detector.detect(
+                    image: image,
+                    regions: regions,
+                    onPartialResult: { _ in incrementalUpdates += 1 }
+                )
+                XCTAssertEqual(
+                    incrementalUpdates,
+                    regions.count,
+                    "Demo model \(resource) did not publish every completed pyramid tile"
+                )
+                perFixture.append(objects.count)
             }
             await detector.unload()
 

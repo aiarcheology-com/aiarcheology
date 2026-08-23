@@ -24,7 +24,18 @@ protocol Detecting: DeepDriver {
 	func detect(image: UIImage, regions: [CGRect]) async -> [DetectedObject]
 }
 
-actor Detector: Detecting {
+/// Optional refinement for production detectors that can surface a stable, deduplicated result
+/// after each tile. Keeping this separate from `Detecting` leaves simple test doubles and future
+/// non-Vision drivers on the one-shot contract while the UI can progressively present real tiles.
+protocol IncrementalDetecting: Detecting {
+	func detect(
+		image: UIImage,
+		regions: [CGRect],
+		onPartialResult: @escaping @MainActor @Sendable ([DetectedObject]) -> Void
+	) async -> [DetectedObject]
+}
+
+actor Detector: IncrementalDetecting {
     let id: UUID
     var params: DeepDriverParams
     private var objectDetectionModel: VNCoreMLModel?
@@ -101,24 +112,41 @@ actor Detector: Detecting {
         LoggingPolicy.debug("Detector unloaded", logger: .drivers)
     }
 
-    /// The detect path's only entry point: image conversion, the region loop, coordinate
-    /// remap, and cross-region dedup happen inside one actor-isolated call, so a concurrent
-    /// frame can never swap the handler between processing and detection (the old
-    /// `process`/`detect` pair raced exactly that way — magnified 6× by tiling).
+    /// One-shot compatibility entry point. Production calls the incremental overload through
+    /// `IncrementalDetecting`; direct callers such as device-parity tests retain this exact API.
     func detect(image: UIImage, regions: [CGRect]) async -> [DetectedObject] {
+        await detect(image: image, regions: regions, onPartialResult: { _ in })
+    }
+
+    /// Image conversion, the region loop, coordinate remap, and cross-region dedup happen in one
+    /// actor-isolated call, so a concurrent frame can never swap the handler between processing
+    /// and detection (the old `process`/`detect` pair raced exactly that way — magnified 6× by
+    /// tiling). Each successfully completed tile publishes the deduplicated aggregate observed so
+    /// far; the final return remains the exact all-tile aggregate for one-shot callers.
+    func detect(
+        image: UIImage,
+        regions: [CGRect],
+        onPartialResult: @escaping @MainActor @Sendable ([DetectedObject]) -> Void
+    ) async -> [DetectedObject] {
         guard let detectionRequest else {
             LoggingPolicy.debug("Detection skipped: detection request not initialized", logger: .drivers)
             return []
         }
         if let imageSizingContract {
-            return detectPreSized(
+            return await detectPreSized(
                 image: image,
                 regions: regions,
                 contract: imageSizingContract,
-                using: detectionRequest
+                using: detectionRequest,
+                onPartialResult: onPartialResult
             )
         }
-        return detectUsingVisionROI(image: image, regions: regions, using: detectionRequest)
+        return await detectUsingVisionROI(
+            image: image,
+            regions: regions,
+            using: detectionRequest,
+            onPartialResult: onPartialResult
+        )
     }
 
     /// The established path for normal detectors. Its `.scaleFit` request and Vision ROI behaviour
@@ -126,8 +154,9 @@ actor Detector: Detecting {
     private func detectUsingVisionROI(
         image: UIImage,
         regions: [CGRect],
-        using detectionRequest: VNCoreMLRequest
-    ) -> [DetectedObject] {
+        using detectionRequest: VNCoreMLRequest,
+        onPartialResult: @escaping @MainActor @Sendable ([DetectedObject]) -> Void
+    ) async -> [DetectedObject] {
         guard let ciImage = CIImage(image: image) else {
             LoggingPolicy.warning("Failed to create CIImage from UIImage", logger: .drivers)
             return []
@@ -179,6 +208,10 @@ actor Detector: Detecting {
                 slowestRegion = (index, regionSeconds)
             }
             if regionObservations.isEmpty { emptyRegionCount += 1 }
+
+            // The UI receives full-image coordinates only after cross-tile deduplication. A later
+            // overlapping tile can refine a box, but cannot add a duplicate rectangle meanwhile.
+            await onPartialResult(TileLayout.dedupAcrossRegions(collected, regions: regions))
         }
         // Vision boxes above were remapped through these nominal ROI rects, so the containment
         // stage must use the same rects when deciding whether a box reaches a tile edge.
@@ -204,8 +237,9 @@ actor Detector: Detecting {
         image: UIImage,
         regions: [CGRect],
         contract: NativeModelImageSizingContract,
-        using detectionRequest: VNCoreMLRequest
-    ) -> [DetectedObject] {
+        using detectionRequest: VNCoreMLRequest,
+        onPartialResult: @escaping @MainActor @Sendable ([DetectedObject]) -> Void
+    ) async -> [DetectedObject] {
         guard let source = Self.sourceImage(from: image) else {
             LoggingPolicy.warning("Failed to prepare detector source image", logger: .drivers)
             return []
@@ -261,6 +295,10 @@ actor Detector: Detecting {
                 slowestRegion = (index, regionSeconds)
             }
             if regionObservations.isEmpty { emptyRegionCount += 1 }
+
+            // `mappedRegions` contains the effective crop geometry for every completed tile,
+            // which is the geometry the final deduplication uses as well.
+            await onPartialResult(TileLayout.dedupAcrossRegions(collected, regions: mappedRegions))
         }
 
         let results = TileLayout.dedupAcrossRegions(collected, regions: mappedRegions)

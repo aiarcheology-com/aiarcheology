@@ -110,7 +110,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // (.onAppear → bindGuards) — a view's own @State isn't wired to storage at init time.
         self._coordinator = StateObject(wrappedValue: DetectionCoordinator(
             tiling: tiling,
-            detect: { image, tiling in await drivers.detect(on: image, tiling: tiling) },
+			detect: { image, tiling, onPartialResults in
+				await drivers.detect(on: image, tiling: tiling, onPartialResults: onPartialResults)
+			},
 			onFrameChanged: { frame in
 				let displayedFrame = DetectionPresentation.filteredFrame(frame)
 				let rawGroupCount = frame?.results.count ?? 0
