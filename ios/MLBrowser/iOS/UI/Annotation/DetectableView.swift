@@ -112,7 +112,19 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             tiling: tiling,
             detect: { image, tiling in await drivers.detect(on: image, tiling: tiling) },
 			onFrameChanged: { frame in
-				onFrameChanged?(DetectionPresentation.filteredFrame(frame))
+				let displayedFrame = DetectionPresentation.filteredFrame(frame)
+				let rawGroupCount = frame?.results.count ?? 0
+				let rawObservationCount = frame?.results.reduce(0) { $0 + $1.observations.count } ?? 0
+				let displayedGroupCount = displayedFrame?.results.count ?? 0
+				let displayedObservationCount = displayedFrame?.results.reduce(0) { $0 + $1.observations.count } ?? 0
+				let thresholds = frame?.results.map {
+					DeepConfiguration.detectionConfidenceThreshold(for: $0.params.entityId)
+				} ?? []
+				LoggingPolicy.debug(
+					"[AIA-0702 TRACE] Detection presentation rawGroups=\(rawGroupCount) rawObservations=\(rawObservationCount) displayedGroups=\(displayedGroupCount) displayedObservations=\(displayedObservationCount) thresholds=\(thresholds)",
+					logger: .ui
+				)
+				onFrameChanged?(displayedFrame)
 			}
         ))
     }
@@ -218,7 +230,12 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             }
         }
 		.onSnapshot { image, _, request in
-			guard acceptsSnapshot(request) else { return }
+			let accepted = acceptsSnapshot(request)
+			LoggingPolicy.debug(
+				"[AIA-0702 TRACE] Snapshot delivered run=\(request.runID) sequence=\(request.sequence) accepted=\(accepted) detectors=\(drivers.detectors.count) interacting=\(isInteracting) capturing=\(isCapturingFinding.wrappedValue)",
+				logger: .ui
+			)
+			guard accepted else { return }
             // Skip detection while content is being manipulated - geometry is changing
             guard !isInteracting else {
                 LoggingPolicy.debug("Detection snapshot skipped during content interaction", logger: .ui)
@@ -226,7 +243,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             }
             // The frozen frame must outlive the save dialog; new passes resume with
             // the timer once the capture ends.
-            guard isCapturingFinding.wrappedValue.not else { return }
+			guard isCapturingFinding.wrappedValue.not else {
+				LoggingPolicy.debug("[AIA-0702 TRACE] Detection snapshot skipped while capturing finding", logger: .ui)
+				return
+			}
             if AppEnvironment.isRunningUITests {
                 deliveredSnapshotCount += 1
             }
@@ -240,6 +260,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             coordinator.ingest(snapshot: image)
         }
         .onChange(of: isCapturingFinding.wrappedValue) { _, capturing in
+			LoggingPolicy.debug("[AIA-0702 TRACE] Finding capture changed capturing=\(capturing)", logger: .ui)
             // Entering a capture must also invalidate work already in flight:
             // the freeze gate alone only discards results WHILE it is set — a
             // pre-freeze pass (or its coalesced successor) finishing after the
@@ -252,6 +273,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             }
         }
         .onChange(of: interactionState) { _, state in
+			LoggingPolicy.debug("[AIA-0702 TRACE] Content interaction changed interacting=\(state.isInteracting)", logger: .ui)
             // While the save dialog is up the frame stays frozen (interaction events
             // can still arrive from the web view as the sheet animates in).
             // The coordinator invalidates in-flight detection + clears the frame when
@@ -267,6 +289,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             onInteractionStateChanged?(state)
         }
         .onAppear {
+			LoggingPolicy.debug("[AIA-0702 TRACE] DetectableView appeared detectors=\(drivers.detectors.count)", logger: .ui)
             // Bind the coordinator's live apply-time guards from the installed view's CONNECTED
             // state (AIA-0386). Not done at init: the view's own @State isn't wired to persistent
             // storage yet at init time, so a closure captured there reads a dead initial value.
@@ -279,7 +302,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // Keep the coordinator's live tiling scheme current (read at each pass start).
             coordinator.tiling = value
         }
-		.onReceive(drivers.$detectionPresentationRevision.dropFirst()) { _ in
+		.onReceive(drivers.$detectionPresentationRevision.dropFirst()) { revision in
+			LoggingPolicy.debug("[AIA-0702 TRACE] Presentation revision received revision=\(revision)", logger: .ui)
 			// The callback re-filters the retained raw frame, keeping the parent pick state in
 			// lockstep with the annotations without an inference pass or model reload.
 			coordinator.refreshPresentation()

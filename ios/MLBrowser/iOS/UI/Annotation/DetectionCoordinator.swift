@@ -37,6 +37,8 @@ final class DetectionCoordinator: ObservableObject {
 	/// Invalidation token: a pass that started before an interaction/capture/geometry change must
 	/// not apply. Bumped on every active invalidation; re-checked at apply.
 	private var generation: UInt64 = 0
+	/// Temporary correlation token for AIA-0702 pipeline diagnostics.
+	private var tracePassSequence: UInt64 = 0
 	/// Live-mirrored from the view (the tiling-scheme settings can change mid-session); read at
 	/// pass start. A mid-burst toggle self-heals on the next snapshot.
 	var tiling: TilingScheme
@@ -101,17 +103,43 @@ final class DetectionCoordinator: ObservableObject {
 	/// and overlapping passes would apply out of order). Applies results only if still valid at
 	/// completion.
 	func ingest(snapshot image: UIImage) {
+		LoggingPolicy.debug(
+			"[AIA-0702 TRACE] Detection ingest generation=\(generation) queueInFlight=\(queue.inFlight)",
+			logger: .ui
+		)
 		queue.enqueue(image) { image, done in
 			let startGeneration = self.generation
+			self.tracePassSequence &+= 1
+			let passSequence = self.tracePassSequence
+			let passTiling = self.tiling
+			let regionCount = TileLayout.regions(for: passTiling).count
+			LoggingPolicy.debug(
+				"[AIA-0702 TRACE] Detection pass started sequence=\(passSequence) generation=\(startGeneration) regions=\(regionCount)",
+				logger: .ui
+			)
 			Task {
-				let observations = await self.detect(image, self.tiling)
+				let observations = await self.detect(image, passTiling)
+				let observationCount = observations.reduce(0) { $0 + $1.observations.count }
+				LoggingPolicy.debug(
+					"[AIA-0702 TRACE] Detection pass completed sequence=\(passSequence) groups=\(observations.count) observations=\(observationCount)",
+					logger: .ui
+				)
 				done()
 				// Discard if invalidated since this pass began (stale geometry/interaction/capture).
-				guard self.generation == startGeneration else { return }
+				guard self.generation == startGeneration else {
+					LoggingPolicy.debug("[AIA-0702 TRACE] Detection pass dropped sequence=\(passSequence) reason=staleGeneration", logger: .ui)
+					return
+				}
 				// Live re-checks: interaction or a capture may have begun after the generation was
 				// snapshotted but before SwiftUI delivered the matching `.onChange`.
-				guard self.isInteracting() == false else { return }
-				guard self.isCapturing() == false else { return }
+				guard self.isInteracting() == false else {
+					LoggingPolicy.debug("[AIA-0702 TRACE] Detection pass dropped sequence=\(passSequence) reason=interacting", logger: .ui)
+					return
+				}
+				guard self.isCapturing() == false else {
+					LoggingPolicy.debug("[AIA-0702 TRACE] Detection pass dropped sequence=\(passSequence) reason=capturing", logger: .ui)
+					return
+				}
 				// Image and results are applied as ONE value: the cached snapshot is always the exact
 				// frame the displayed boxes came from.
 				self.setApplied(AppliedDetectionFrame(image: image, results: observations))
@@ -123,6 +151,12 @@ final class DetectionCoordinator: ObservableObject {
 	/// transforming it for presentation, so this deliberately neither reloads a detector nor starts
 	/// a new detection pass.
 	func refreshPresentation() {
+		let rawGroupCount = appliedFrame?.results.count ?? 0
+		let rawObservationCount = appliedFrame?.results.reduce(0) { $0 + $1.observations.count } ?? 0
+		LoggingPolicy.debug(
+			"[AIA-0702 TRACE] Presentation refresh rawGroups=\(rawGroupCount) rawObservations=\(rawObservationCount)",
+			logger: .ui
+		)
 		onFrameChanged?(appliedFrame)
 	}
 
@@ -130,6 +164,7 @@ final class DetectionCoordinator: ObservableObject {
 
 	private func invalidate(clearFrame: Bool) {
 		generation &+= 1
+		LoggingPolicy.debug("[AIA-0702 TRACE] Detection invalidated generation=\(generation) clearFrame=\(clearFrame)", logger: .ui)
 		if clearFrame { setApplied(nil) }
 		// A coalesced snapshot captured against the now-stale state must not start.
 		queue.cancelPending()
@@ -139,6 +174,12 @@ final class DetectionCoordinator: ObservableObject {
 	/// so the two can never diverge.
 	private func setApplied(_ frame: AppliedDetectionFrame?) {
 		appliedFrame = frame
+		let rawGroupCount = frame?.results.count ?? 0
+		let rawObservationCount = frame?.results.reduce(0) { $0 + $1.observations.count } ?? 0
+		LoggingPolicy.debug(
+			"[AIA-0702 TRACE] Detection frame applied rawGroups=\(rawGroupCount) rawObservations=\(rawObservationCount)",
+			logger: .ui
+		)
 		onFrameChanged?(frame)
 	}
 }

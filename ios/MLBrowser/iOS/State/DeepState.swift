@@ -40,6 +40,11 @@ final class DeepState: ObservableObject {
 		observeDeepConfigurationChanges()
 
 		let configurations = repository.selectAll()
+		let enabledConfigurationCount = configurations.filter { $0.enabled }.count
+		LoggingPolicy.debug(
+			"[AIA-0702 TRACE] DeepState initialized configurations=\(configurations.count) enabled=\(enabledConfigurationCount)",
+			logger: .drivers
+		)
 		do {
 			try configurations.forEach { config in
 				guard config.enabled == true else { return }
@@ -122,6 +127,7 @@ final class DeepState: ObservableObject {
 	/// or a disable during the load must not register a now-stale driver.
 	private func loadAndRegisterDriver(entityId: UUID, expectedType: DeepDriverType) throws {
 		guard let config = selectConfiguration(entityId) else {
+			LoggingPolicy.debug("[AIA-0702 TRACE] Driver load skipped: configuration no longer exists", logger: .drivers)
 			LoggingPolicy.error("Could not fetch updated configuration \(entityId.uuidString)", logger: .drivers)
 			return
 		}
@@ -131,7 +137,15 @@ final class DeepState: ObservableObject {
 		// register `along: expectedType`, so only proceed when they still agree — otherwise a driver
 		// of one type could be registered into the other type's bucket. A follow-up notification for
 		// the newer state will build the right driver.
-		guard config.enabled, config.modelType == expectedType else { return }
+		guard config.enabled, config.modelType == expectedType else {
+			LoggingPolicy.debug(
+				"[AIA-0702 TRACE] Driver load skipped: enabled=\(config.enabled) expectedTypeMatches=\(config.modelType == expectedType)",
+				logger: .drivers
+			)
+			return
+		}
+
+		LoggingPolicy.debug("[AIA-0702 TRACE] Driver load started type=\(expectedType.rawValue)", logger: .drivers)
 
 		guard let driver = try createDriver(from: config) else {
 			LoggingPolicy.error("Driver initialization failed after configuration update for config \(entityId.uuidString)", logger: .drivers)
@@ -150,10 +164,12 @@ final class DeepState: ObservableObject {
 				// registering; a superseded load unloads its driver so it can't leak past the dedup.
 				guard driverLoadGenerations[entityId] == loadGeneration,
 					  let current = selectConfiguration(entityId), current.enabled, current.modelType == expectedType else {
+					LoggingPolicy.debug("[AIA-0702 TRACE] Driver load completed stale; unloading before registration", logger: .drivers)
 					await driver.unload()
 					return
 				}
 				self.register(driver: driver, along: expectedType)
+				LoggingPolicy.debug("[AIA-0702 TRACE] Driver registered type=\(expectedType.rawValue) detectors=\(drivers.detectors.count)", logger: .drivers)
 				LoggingPolicy.info("Driver loaded and registered after configuration update", logger: .drivers)
 			} catch {
 				LoggingPolicy.error("Failed to load driver after configuration update", error: error, logger: .drivers)
@@ -233,7 +249,9 @@ final class DeepState: ObservableObject {
 	private var deepConfigurationsChanges: AnyCancellable?
 	
 	private func observeDeepConfigurationChanges() {
-		deepConfigurationsChanges = NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange, object: context)
+		let observedContext = context
+		LoggingPolicy.debug("[AIA-0702 TRACE] DeepConfiguration observer bound to current persistent context", logger: .drivers)
+		deepConfigurationsChanges = NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange, object: observedContext)
 			.sink { [weak self] notification in
 				guard let self = self else { return }
 				
@@ -270,6 +288,13 @@ final class DeepState: ObservableObject {
 						return (config.objectID, entityId, demo)
 					}
 				}()
+
+				if insertedConfigs.isEmpty.not || updatedConfigs.isEmpty.not || deletedConfigs.isEmpty.not {
+					LoggingPolicy.debug(
+						"[AIA-0702 TRACE] DeepConfiguration context change inserted=\(insertedConfigs.count) updated=\(updatedConfigs.count) deleted=\(deletedConfigs.count)",
+						logger: .drivers
+					)
+				}
 				
 				// NOW cross the async boundary with extracted data
 				Task { @MainActor in
@@ -282,6 +307,7 @@ final class DeepState: ObservableObject {
 	
 	private func handleInsertedConfigurations(_ inserted: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)]) {
 		for (_, entityId, enabled, modelType) in inserted {
+			LoggingPolicy.debug("[AIA-0702 TRACE] Configuration inserted enabled=\(enabled) type=\(modelType.rawValue)", logger: .drivers)
 			do {
 				if enabled {
 					guard let config = selectConfiguration(entityId) else {
@@ -344,6 +370,10 @@ final class DeepState: ObservableObject {
 				let loadedType: DeepDriverType? =
 					drivers.detectors.contains(where: { $0.id == entityId }) ? .detector :
 					drivers.classificators.contains(where: { $0.id == entityId }) ? .classificator : nil
+				LoggingPolicy.debug(
+					"[AIA-0702 TRACE] Configuration update enabled=\(enabled) type=\(modelType.rawValue) loadedType=\(loadedType?.rawValue ?? "none") computeUnitChanged=\(computeUnitChanged)",
+					logger: .drivers
+				)
 
 				if loadedType == nil {
 					// No driver loaded yet: build one only if the model is enabled AND has a runnable
