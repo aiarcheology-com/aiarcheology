@@ -203,7 +203,7 @@ actor Detector: IncrementalDetecting {
 
             // The UI receives full-image coordinates only after cross-tile deduplication. A later
             // overlapping tile can refine a box, but cannot add a duplicate rectangle meanwhile.
-            await onPartialResult(TileLayout.dedupAcrossRegions(collected, regions: regions))
+            await onPartialResult(TileLayout.dedupAcrossRegions(collected))
         }
         let results = TileLayout.dedupAcrossRegions(collected)
         let slowest = slowestRegion.map { "slowest region \($0.index) at \($0.seconds)s" }
