@@ -90,6 +90,7 @@ final class DeepState: ObservableObject {
 		
 		if config.shouldDeleteOnAbandon {
 			// Only delete if it's still temporary (not imported/finalized)
+			config.removePresentationDefaults()
 			DeepConfiguration.delete(config, in: context)
 		}
 		

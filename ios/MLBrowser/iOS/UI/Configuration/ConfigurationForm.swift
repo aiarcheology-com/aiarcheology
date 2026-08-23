@@ -452,6 +452,12 @@ struct ConfigurationForm: View {
 		}
 	}
 
+	private func updateDetectionPresentation() {
+		// This preference only filters already-returned observations. Publishing a presentation
+		// revision redraws the retained frame immediately without touching the model or Vision.
+		deep.drivers.detectionPresentationDidChange()
+	}
+
 	private var annotationSection: some View {
 		Section(header: Text(L10n.Configuration.Section.annotation)) {
 			// Shared by both model families: detection styles its boxes with these;
@@ -469,6 +475,29 @@ struct ConfigurationForm: View {
 					}
 				}
 				.testability(Testability.Picker.configurationFormSymbol)
+			}
+			if configuration.modelType == .detector {
+				VStack(alignment: .leading) {
+					HStack {
+						Text(L10n.Configuration.detectionConfidence)
+						Spacer()
+						Text(configuration.detectionConfidenceThreshold, format: .percent.precision(.fractionLength(0)))
+							.foregroundStyle(.secondary)
+					}
+					Slider(
+						value: Binding(
+							get: { configuration.detectionConfidenceThreshold },
+							set: { newValue in
+								configuration.detectionConfidenceThreshold = newValue
+								updateDetectionPresentation()
+							}
+						),
+						in: DeepConfiguration.detectionConfidenceThresholdRange, step: 0.01
+					)
+					.testability(Testability.Slider.configurationFormDetectionConfidence)
+					.accessibilityLabel(Text(L10n.Configuration.detectionConfidence))
+					.accessibilityValue(Text(configuration.detectionConfidenceThreshold, format: .percent.precision(.fractionLength(0))))
+				}
 			}
 			// Classification presents via the pulsing frame flash: its per-model
 			// options live here beside Color/Fade Out Time (owner decision, AIA-0374).

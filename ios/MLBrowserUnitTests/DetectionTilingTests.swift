@@ -201,14 +201,85 @@ final class TileLayoutDedupTests: XCTestCase {
 	}
 
 	func testDedup_ClippedHigherConfidenceBox_LosesToContainingFullBox() {
-		// The Codex round-1 failure case: a quadrant clips the artifact to a partial box
+		// A quadrant clips the artifact to a partial box
 		// with HIGHER confidence; the center region sees the full box. Geometry must win.
-		let clipped = object(confidence: 0.95, box: CGRect(x: 0.45, y: 0.45, width: 0.05, height: 0.1), region: 0)
-		let full = object(confidence: 0.6, box: CGRect(x: 0.42, y: 0.42, width: 0.16, height: 0.16), region: 4)
+		let regions = TileLayout.pyramidRegions
+		let clipped = object(confidence: 0.95, box: CGRect(x: 0.45, y: 0.4, width: 0.05, height: 0.1), region: 0)
+		let full = object(confidence: 0.6, box: CGRect(x: 0.4, y: 0.35, width: 0.2, height: 0.2), region: 5)
 
 		for input in [[clipped, full], [full, clipped]] {
-			let result = TileLayout.dedupAcrossRegions(input)
+			let result = TileLayout.dedupAcrossRegions(input, regions: regions)
 			XCTAssertEqual(result.map(\.uuid), [full.uuid])
+		}
+	}
+
+	func testDedup_NestedInteriorBoxInDifferentRegion_IsKept() {
+		// Regression for AIA-0702: the zoomed tile found a genuinely smaller feature
+		// inside a larger full-frame detection. It is not a tile-boundary partial.
+		let nested = object(confidence: 0.95, box: CGRect(x: 0.2, y: 0.2, width: 0.1, height: 0.1), region: 0)
+		let enclosing = object(confidence: 0.6, box: CGRect(x: 0.1, y: 0.1, width: 0.3, height: 0.3), region: 1)
+
+		let regions = [CGRect(x: 0, y: 0, width: 0.5, height: 0.5), TileLayout.fullFrame]
+		let result = TileLayout.dedupAcrossRegions([nested, enclosing], regions: regions)
+
+		XCTAssertEqual(Set(result.map(\.uuid)), Set([nested.uuid, enclosing.uuid]))
+	}
+
+	func testDedup_NestedBoxAgainstOwnRegionEdge_IsDropped() {
+		let regions = [CGRect(x: 0, y: 0, width: 0.5, height: 0.5), TileLayout.fullFrame]
+		let clipped = object(confidence: 0.95, box: CGRect(x: 0.45, y: 0.2, width: 0.05, height: 0.1), region: 0)
+		let enclosing = object(confidence: 0.6, box: CGRect(x: 0.35, y: 0.1, width: 0.3, height: 0.3), region: 1)
+
+		let result = TileLayout.dedupAcrossRegions([clipped, enclosing], regions: regions)
+
+		XCTAssertEqual(result.map(\.uuid), [enclosing.uuid])
+	}
+
+	func testDedup_BoxAtImageEdgeInFullFrame_IsKept() {
+		let regions = [TileLayout.fullFrame, CGRect(x: 0, y: 0, width: 0.5, height: 0.5)]
+		let imageEdgeBox = object(confidence: 0.95, box: CGRect(x: 0, y: 0.2, width: 0.05, height: 0.1), region: 0)
+		let enclosing = object(confidence: 0.6, box: CGRect(x: 0, y: 0.1, width: 0.3, height: 0.3), region: 1)
+
+		let result = TileLayout.dedupAcrossRegions([imageEdgeBox, enclosing], regions: regions)
+
+		XCTAssertEqual(Set(result.map(\.uuid)), Set([imageEdgeBox.uuid, enclosing.uuid]))
+	}
+
+	func testDedup_SeveralNestedInteriorBoxes_AreAllKept() {
+		let regions = [CGRect(x: 0, y: 0, width: 0.5, height: 0.5), TileLayout.fullFrame]
+		let enclosing = object(confidence: 0.6, box: CGRect(x: 0.05, y: 0.05, width: 0.4, height: 0.4), region: 1)
+		let first = object(confidence: 0.9, box: CGRect(x: 0.1, y: 0.1, width: 0.05, height: 0.05), region: 0)
+		let second = object(confidence: 0.8, box: CGRect(x: 0.2, y: 0.2, width: 0.05, height: 0.05), region: 0)
+		let third = object(confidence: 0.7, box: CGRect(x: 0.3, y: 0.3, width: 0.05, height: 0.05), region: 0)
+
+		let result = TileLayout.dedupAcrossRegions([enclosing, first, second, third], regions: regions)
+
+		XCTAssertEqual(Set(result.map(\.uuid)), Set([enclosing.uuid, first.uuid, second.uuid, third.uuid]))
+	}
+
+	func testDedup_SingleClassMultiTileNestedDetections_AllSurvive() {
+		let regions = TileLayout.pyramidRegions
+		let fullFrame = object(confidence: 0.6, box: CGRect(x: 0.05, y: 0.05, width: 0.9, height: 0.9), region: 5)
+		let bottomLeft = object(confidence: 0.9, box: CGRect(x: 0.15, y: 0.15, width: 0.05, height: 0.05), region: 0)
+		let bottomRight = object(confidence: 0.8, box: CGRect(x: 0.65, y: 0.15, width: 0.05, height: 0.05), region: 1)
+		let topLeft = object(confidence: 0.7, box: CGRect(x: 0.15, y: 0.65, width: 0.05, height: 0.05), region: 2)
+		let topRight = object(confidence: 0.65, box: CGRect(x: 0.65, y: 0.65, width: 0.05, height: 0.05), region: 3)
+		let input = [fullFrame, bottomLeft, bottomRight, topLeft, topRight]
+
+		let result = TileLayout.dedupAcrossRegions(input, regions: regions)
+
+		XCTAssertEqual(Set(result.map(\.uuid)), Set(input.map(\.uuid)))
+	}
+
+	func testDedup_ClippedAndNestedInputOrder_DoesNotChangeSurvivors() {
+		let regions = [CGRect(x: 0, y: 0, width: 0.5, height: 0.5), TileLayout.fullFrame]
+		let enclosing = object(confidence: 0.6, box: CGRect(x: 0.1, y: 0.1, width: 0.4, height: 0.4), region: 1)
+		let clipped = object(confidence: 0.95, box: CGRect(x: 0.45, y: 0.2, width: 0.05, height: 0.1), region: 0)
+		let nested = object(confidence: 0.8, box: CGRect(x: 0.25, y: 0.25, width: 0.05, height: 0.05), region: 0)
+		let expected = Set([enclosing.uuid, nested.uuid])
+
+		for input in [[enclosing, clipped, nested], [nested, enclosing, clipped], [clipped, nested, enclosing]] {
+			XCTAssertEqual(Set(TileLayout.dedupAcrossRegions(input, regions: regions).map(\.uuid)), expected)
 		}
 	}
 

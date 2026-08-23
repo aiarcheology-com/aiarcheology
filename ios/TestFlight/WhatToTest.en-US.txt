@@ -1,18 +1,16 @@
 Build: TBD
 
-Test Focus: choose hardware acceleration for one model.
+Test Focus: nested detection results and per-model confidence display.
 
-Open a model’s configuration, then open Hardware Acceleration. Automatic is the normal setting and
-should be selected by default. Choose each available option one at a time, close and reopen the
-configuration, and confirm the choice is kept for that model only.
+- Run a tiled detection model over an area with small features inside larger features. Small,
+  distinct detections inside a larger outline should remain visible; duplicate partial outlines at
+  a tile boundary should still collapse to one result.
+- Open a detection model’s configuration and change Detection Confidence. The percentage should
+  update the existing annotations immediately: results below it disappear, and a result exactly at
+  the selected percentage remains visible. No model-loading indicator should appear.
+- Open a classification model’s configuration and confirm Detection Confidence is not shown.
+- With two detection models, change one threshold, close and reopen both configurations, and
+  confirm each model retains its own value.
 
-- On an iPhone, Neural Engine, Graphics Processor, and Processor Only should be available. On a
-  device where an accelerator is unavailable, its option remains visible but is disabled and says
-  it is not available on that device.
-- Run a detector after selecting each available option. Detections should remain plausible;
-  Processor Only can take much longer. Automatic, Neural Engine, and Graphics Processor make no
-  promised speed ordering.
-- If you have two configured models, change one and confirm the other still has its own setting.
-
-Please report your device model, iOS version, selected hardware option, and language if anything
-looks wrong.
+Please report your device model, iOS version, model, tiling mode, selected percentage, and language
+if anything looks wrong.

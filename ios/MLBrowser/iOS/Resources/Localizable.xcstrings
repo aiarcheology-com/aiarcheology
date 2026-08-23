@@ -14156,6 +14156,18 @@
         }
       }
     },
+    "configuration.detectionConfidence" : {
+      "comment" : "Per-model display confidence threshold slider label (AIA-0702)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detection Confidence"
+          }
+        }
+      }
+    },
     "configuration.fadeOutTime" : {
       "comment" : "Fade out time slider label",
       "extractionState" : "manual",

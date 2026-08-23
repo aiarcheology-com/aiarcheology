@@ -180,7 +180,9 @@ actor Detector: Detecting {
             }
             if regionObservations.isEmpty { emptyRegionCount += 1 }
         }
-        let results = TileLayout.dedupAcrossRegions(collected)
+        // Vision boxes above were remapped through these nominal ROI rects, so the containment
+        // stage must use the same rects when deciding whether a box reaches a tile edge.
+        let results = TileLayout.dedupAcrossRegions(collected, regions: regions)
         let slowest = slowestRegion.map { "slowest region \($0.index) at \($0.seconds)s" }
             ?? "no region completed"
         LoggingPolicy.debug(
@@ -215,6 +217,10 @@ actor Detector: Detecting {
 
         let start = Date.now
         var collected: [DetectedObject] = []
+		// The pre-sized path remaps each observation through cropPlan.effectiveRegion, which can
+		// differ from the nominal tile. Keep those exact rectangles by their original region index:
+		// using nominal tiles here would make the edge discriminator wrong at the crop boundary.
+		var mappedRegions = regions
         var slowestRegion: (index: Int, seconds: TimeInterval)?
         var emptyRegionCount = 0
         var failedRegionCount = 0
@@ -230,6 +236,7 @@ actor Detector: Detecting {
                 failedRegionCount += 1
                 continue
             }
+			mappedRegions[index] = prepared.effectiveRegion
 
             let handler = VNImageRequestHandler(cgImage: prepared.image, options: [:])
             do {
@@ -256,7 +263,7 @@ actor Detector: Detecting {
             if regionObservations.isEmpty { emptyRegionCount += 1 }
         }
 
-        let results = TileLayout.dedupAcrossRegions(collected)
+        let results = TileLayout.dedupAcrossRegions(collected, regions: mappedRegions)
         let slowest = slowestRegion.map { "slowest region \($0.index) at \($0.seconds)s" }
             ?? "no region completed"
         LoggingPolicy.debug(
