@@ -203,9 +203,11 @@ actor Detector: IncrementalDetecting {
 
             // The UI receives full-image coordinates only after cross-tile deduplication. A later
             // overlapping tile can refine a box, but cannot add a duplicate rectangle meanwhile.
-            await onPartialResult(TileLayout.dedupAcrossRegions(collected))
+            await onPartialResult(TileLayout.dedupAcrossRegions(collected, regions: regions))
         }
-        let results = TileLayout.dedupAcrossRegions(collected)
+        // Vision boxes above were remapped through these nominal ROI rects, so the containment
+        // stage must use the same rects when deciding whether a box reaches a tile edge.
+        let results = TileLayout.dedupAcrossRegions(collected, regions: regions)
         let slowest = slowestRegion.map { "slowest region \($0.index) at \($0.seconds)s" }
             ?? "no region completed"
         LoggingPolicy.debug(
@@ -241,6 +243,10 @@ actor Detector: IncrementalDetecting {
 
         let start = Date.now
         var collected: [DetectedObject] = []
+		// The pre-sized path remaps each observation through cropPlan.effectiveRegion, which can
+		// differ from the nominal tile. Keep those exact rectangles by their original region index:
+		// using nominal tiles here would make the edge discriminator wrong at the crop boundary.
+		var mappedRegions = regions
         var slowestRegion: (index: Int, seconds: TimeInterval)?
         var emptyRegionCount = 0
         var failedRegionCount = 0
@@ -256,6 +262,7 @@ actor Detector: IncrementalDetecting {
                 failedRegionCount += 1
                 continue
             }
+			mappedRegions[index] = prepared.effectiveRegion
 
             let handler = VNImageRequestHandler(cgImage: prepared.image, options: [:])
             do {
@@ -282,10 +289,10 @@ actor Detector: IncrementalDetecting {
             if regionObservations.isEmpty { emptyRegionCount += 1 }
 
             // Apply the same cross-tile suppression as the final result before each UI update.
-            await onPartialResult(TileLayout.dedupAcrossRegions(collected))
+            await onPartialResult(TileLayout.dedupAcrossRegions(collected, regions: mappedRegions))
         }
 
-        let results = TileLayout.dedupAcrossRegions(collected)
+        let results = TileLayout.dedupAcrossRegions(collected, regions: mappedRegions)
         let slowest = slowestRegion.map { "slowest region \($0.index) at \($0.seconds)s" }
             ?? "no region completed"
         LoggingPolicy.debug(

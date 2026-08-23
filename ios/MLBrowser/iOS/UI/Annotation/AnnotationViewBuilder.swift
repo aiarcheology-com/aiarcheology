@@ -7,6 +7,24 @@
 
 import SwiftUI
 
+/// Produces the detection results that may be shown or picked. The confidence filter lives before
+/// the symbol switch, so rectangle, circle and point presentation share exactly the same set.
+enum DetectionPresentation {
+	static func filteredFrame(_ frame: AppliedDetectionFrame?) -> AppliedDetectionFrame? {
+		guard let frame else { return nil }
+		return AppliedDetectionFrame(image: frame.image, results: filteredResults(frame.results))
+	}
+
+	static func filteredResults(_ results: [DetectionResult]) -> [DetectionResult] {
+		results.compactMap { group in
+			let threshold = Float(DeepConfiguration.detectionConfidenceThreshold(for: group.params.entityId))
+			let observations = group.observations.filter { $0.confidence >= threshold }
+			guard observations.isEmpty.not else { return nil }
+			return (observations: observations, params: group.params)
+		}
+	}
+}
+
 struct AnnotationViewBuilder: View {
 	var observation: DetectedObject
 	var geometry: GeometryProxy

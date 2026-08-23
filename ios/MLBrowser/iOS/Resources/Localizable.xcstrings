@@ -14156,6 +14156,114 @@
         }
       }
     },
+    "configuration.detectionConfidence" : {
+      "comment" : "Per-model display confidence threshold slider label (AIA-0702)",
+      "extractionState" : "manual",
+      "localizations" : {
+		"ar" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "ثقة الكشف"
+		  }
+		},
+		"bn" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "শনাক্তকরণের নির্ভরযোগ্যতা"
+		  }
+		},
+		"cs" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "Spolehlivost detekce"
+		  }
+		},
+		"de" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "Erkennungszuverlässigkeit"
+		  }
+		},
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detection Confidence"
+          }
+		},
+		"es" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "Confianza de detección"
+		  }
+		},
+		"fa" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "اطمینان تشخیص"
+		  }
+		},
+		"fr" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "Niveau de confiance de la détection"
+		  }
+		},
+		"he" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "ביטחון בזיהוי"
+		  }
+		},
+		"hi" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "विश्वास के साथ पहचान"
+		  }
+		},
+		"hu" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "Észlelési megbízhatóság"
+		  }
+		},
+		"pl" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "Pewność wykrywania"
+		  }
+		},
+		"ru" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "Достоверность обнаружения"
+		  }
+		},
+		"uk" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "Достовірність виявлення"
+		  }
+		},
+		"zh-HK" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "偵測信心度"
+		  }
+		},
+		"zh-Hans" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "检测置信度"
+		  }
+		},
+		"zh-Hant" : {
+		  "stringUnit" : {
+			"state" : "translated",
+			"value" : "偵測信心度"
+		  }
+        }
+      }
+    },
     "configuration.fadeOutTime" : {
       "comment" : "Fade out time slider label",
       "extractionState" : "manual",

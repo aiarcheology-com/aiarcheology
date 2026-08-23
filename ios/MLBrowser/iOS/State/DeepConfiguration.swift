@@ -164,7 +164,7 @@ extension DeepConfiguration {
 		)
 	}
 
-	// MARK: - Per-model finding flash (AIA-0374)
+	// MARK: - Per-model presentation preferences (AIA-0374, AIA-0702)
 	//
 	// Stored in UserDefaults keyed by entityId, NOT Core Data: the public schema is still 0.0.0
 	// and 0.0.1 must retain its tested migration from it. Promotion to real attributes is tracked
@@ -173,6 +173,8 @@ extension DeepConfiguration {
 	static let flashSizeRange: ClosedRange<Double> = 2.0...24.0
 	static let flashEnabledDefault = true
 	static let flashSizeDefault = 8.0
+	static let detectionConfidenceThresholdRange: ClosedRange<Double> = 0...1
+	static let detectionConfidenceThresholdDefault = 0.0
 
 	/// Whether this classify model's findings pulse the frame. Defaults on.
 	public var flashOnFindingEnabled: Bool {
@@ -198,11 +200,33 @@ extension DeepConfiguration {
 		}
 	}
 
-	/// Removes the per-model flash defaults (call when the configuration is deleted,
-	/// so orphaned keys don't accumulate).
-	public func removeFlashDefaults() {
+	/// The display-only post-Vision confidence floor for this detection configuration. A missing
+	/// value is deliberately 0% so existing models keep rendering every observation they receive.
+	public var detectionConfidenceThreshold: Double {
+		get { Self.detectionConfidenceThreshold(for: entityId) }
+		set {
+			objectWillChange.send()
+			let clamped = min(max(newValue, Self.detectionConfidenceThresholdRange.lowerBound), Self.detectionConfidenceThresholdRange.upperBound)
+			UserDefaults.standard.set(clamped, forKey: Self.detectionConfidenceKey(entityId))
+		}
+	}
+
+	/// Reads the presentation threshold by identity so a retained detection frame can be filtered
+	/// again immediately when the setting changes, without reloading the model or rerunning Vision.
+	static func detectionConfidenceThreshold(for entityId: UUID) -> Double {
+		let stored = UserDefaults.standard.object(forKey: detectionConfidenceKey(entityId)) as? Double
+		return min(
+			max(stored ?? detectionConfidenceThresholdDefault, detectionConfidenceThresholdRange.lowerBound),
+			detectionConfidenceThresholdRange.upperBound
+		)
+	}
+
+	/// Removes per-model presentation preferences when the configuration is deleted, so orphaned
+	/// UserDefaults keys do not accumulate. These remain outside Core Data by design.
+	public func removePresentationDefaults() {
 		UserDefaults.standard.removeObject(forKey: Self.flashKey(.enabled, entityId))
 		UserDefaults.standard.removeObject(forKey: Self.flashKey(.size, entityId))
+		UserDefaults.standard.removeObject(forKey: Self.detectionConfidenceKey(entityId))
 	}
 
 	private enum FlashDefaultKey: String {
@@ -211,5 +235,9 @@ extension DeepConfiguration {
 
 	private static func flashKey(_ suffix: FlashDefaultKey, _ id: UUID) -> String {
 		"deepConfiguration.flash.\(suffix.rawValue).\(id.uuidString)"
+	}
+
+	private static func detectionConfidenceKey(_ id: UUID) -> String {
+		"deepConfiguration.detection.confidence.\(id.uuidString)"
 	}
 }

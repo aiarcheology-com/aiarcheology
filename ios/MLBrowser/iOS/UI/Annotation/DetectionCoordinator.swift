@@ -131,6 +131,13 @@ final class DetectionCoordinator: ObservableObject {
 		}
 	}
 
+	/// Re-delivers the retained raw frame after a display-side preference changes. The view owns
+	/// transforming it for presentation, so this deliberately neither reloads a detector nor starts
+	/// a new detection pass.
+	func refreshPresentation() {
+		onFrameChanged?(appliedFrame)
+	}
+
 	// MARK: - Internals
 
 	private func invalidate(clearFrame: Bool) {

@@ -40,6 +40,16 @@ final class DeepConfigurationTests: XCTestCase {
         config.lifeCycle = .draft
         return config
     }
+
+	private func detectedObject(confidence: Float) -> DetectedObject {
+		DetectedObject(
+			uuid: UUID(),
+			labels: [DetectedObject.Label(identifier: "artifact", confidence: confidence)],
+			confidence: confidence,
+			boundingBox: CGRect(x: 0.1, y: 0.1, width: 0.2, height: 0.2),
+			regionIndex: 0
+		)
+	}
     
     // MARK: - Initialization Tests
     
@@ -116,6 +126,97 @@ final class DeepConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.computeUnitString, ModelComputeUnit.graphicsProcessor.rawValue)
         XCTAssertEqual(configuration.computeUnit, .graphicsProcessor)
     }
+
+	func testDetectionConfidenceThreshold_DefaultsToZeroAndClampsItsStoredValue() {
+		let configuration = createValidConfiguration()
+		defer { configuration.removePresentationDefaults() }
+
+		XCTAssertEqual(configuration.detectionConfidenceThreshold, 0)
+
+		configuration.detectionConfidenceThreshold = 0.57
+		XCTAssertEqual(configuration.detectionConfidenceThreshold, 0.57, accuracy: 0.0001)
+
+		configuration.detectionConfidenceThreshold = 2
+		XCTAssertEqual(configuration.detectionConfidenceThreshold, 1)
+	}
+
+	func testDetectionConfidenceThreshold_IsIsolatedPerConfiguration() {
+		let first = createValidConfiguration()
+		let second = createValidConfiguration()
+		defer {
+			first.removePresentationDefaults()
+			second.removePresentationDefaults()
+		}
+
+		first.detectionConfidenceThreshold = 0.6
+
+		XCTAssertEqual(first.detectionConfidenceThreshold, 0.6, accuracy: 0.0001)
+		XCTAssertEqual(second.detectionConfidenceThreshold, 0)
+	}
+
+	func testDetectionPresentation_DefaultShowsEveryObservation() {
+		let configuration = createValidConfiguration()
+		defer { configuration.removePresentationDefaults() }
+		let low = detectedObject(confidence: 0.01)
+		let high = detectedObject(confidence: 0.99)
+
+		let displayed = DetectionPresentation.filteredResults([
+			(observations: [low, high], params: configuration.toDriverParams())
+		])
+
+		XCTAssertEqual(displayed.flatMap(\.observations).map(\.uuid), [low.uuid, high.uuid])
+	}
+
+	func testDetectionPresentation_BelowThresholdIsAbsentAndCannotBePicked() {
+		let configuration = createValidConfiguration()
+		defer { configuration.removePresentationDefaults() }
+		configuration.detectionConfidenceThreshold = 0.6
+		let low = detectedObject(confidence: 0.59)
+		let raw: [DetectionResult] = [(observations: [low], params: configuration.toDriverParams())]
+
+		let displayed = DetectionPresentation.filteredResults(raw)
+
+		XCTAssertTrue(displayed.isEmpty, "The shared pre-presentation filter covers every annotation symbol.")
+		XCTAssertNil(FindingCapture.detection(at: CGPoint(x: 20, y: 80), in: CGSize(width: 100, height: 100), results: displayed))
+	}
+
+	func testDetectionPresentation_ConfidenceAtThresholdRemainsVisible() {
+		let configuration = createValidConfiguration()
+		defer { configuration.removePresentationDefaults() }
+		configuration.detectionConfidenceThreshold = 0.6
+		let exact = detectedObject(confidence: 0.6)
+
+		let displayed = DetectionPresentation.filteredResults([
+			(observations: [exact], params: configuration.toDriverParams())
+		])
+
+		XCTAssertEqual(displayed.flatMap(\.observations).map(\.uuid), [exact.uuid])
+	}
+
+	func testDetectionPresentation_ExistingFrameReevaluatesPerModelThresholdsImmediately() {
+		let first = createValidConfiguration()
+		let second = createValidConfiguration()
+		defer {
+			first.removePresentationDefaults()
+			second.removePresentationDefaults()
+		}
+		let firstObject = detectedObject(confidence: 0.5)
+		let secondObject = detectedObject(confidence: 0.5)
+		let raw: [DetectionResult] = [
+			(observations: [firstObject], params: first.toDriverParams()),
+			(observations: [secondObject], params: second.toDriverParams())
+		]
+		first.detectionConfidenceThreshold = 0.6
+
+		XCTAssertEqual(DetectionPresentation.filteredResults(raw).flatMap(\.observations).map(\.uuid), [secondObject.uuid])
+
+		first.detectionConfidenceThreshold = 0.4
+		XCTAssertEqual(
+			DetectionPresentation.filteredResults(raw).flatMap(\.observations).map(\.uuid),
+			[firstObject.uuid, secondObject.uuid],
+			"The same retained frame must be re-filtered; a model reload would lose the hidden observation."
+		)
+	}
 
     func testCatalogSource_IsSharedWithCatalogDownloadByConfigurationID() {
         let id = UUID()

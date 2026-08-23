@@ -27,7 +27,7 @@ public enum ContentInteractionState {
 /// - For image viewers: called from MagnificationGesture/DragGesture handlers
 struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == Never, P.Output == SnapshotRequest {
 	let snapshotWorkCoordinator: SnapshotWorkCoordinator
-    let drivers: DeepDrivers
+    @ObservedObject private var drivers: DeepDrivers
     let trigger: P
     let showIdentifiers: Bool
     /// Whether detection overlays animate on appear. `false` (settings.disableDetectionAnimations
@@ -49,6 +49,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 	/// Asks the session to queue a current-run snapshot after this view invalidates an old frame for
 	/// a layout change. The session owns the request so a paused run cannot restart itself here.
 	let contentGeometryDidChange: () -> Void
+	/// Receives the exact presentation-filtered frame that this view overlays, so finding capture
+	/// cannot select an observation hidden by the per-model confidence setting.
+	private let onFrameChanged: ((AppliedDetectionFrame?) -> Void)?
 
     /// Callback to receive interaction state changes. DetectableView manages state internally.
     private let onInteractionStateChanged: ((ContentInteractionState) -> Void)?
@@ -89,7 +92,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         @ViewBuilder content: @escaping (Binding<ContentInteractionState>) -> Content
     ) {
 		self.snapshotWorkCoordinator = snapshotWorkCoordinator
-        self.drivers = drivers
+		self._drivers = ObservedObject(wrappedValue: drivers)
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
         self.animateDetections = animateDetections
@@ -99,6 +102,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 		self.acceptsSnapshot = acceptsSnapshot
 		self.contentGeometryDidChange = contentGeometryDidChange
         self.isCapturingFinding = isCapturingFinding
+		self.onFrameChanged = onFrameChanged
         self.onInteractionStateChanged = onInteractionStateChanged
         self.content = content
         // The detect seam is @MainActor (DeepDrivers is); the heavy work hops to the engine actor
@@ -109,7 +113,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             detect: { image, tiling, onPartialResults in
                 await drivers.detect(on: image, tiling: tiling, onPartialResults: onPartialResults)
             },
-            onFrameChanged: onFrameChanged
+            onFrameChanged: { frame in
+                onFrameChanged?(DetectionPresentation.filteredFrame(frame))
+            }
         ))
     }
     
@@ -117,11 +123,11 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         interactionState.isInteracting
     }
 
-    /// Total rendered detection annotations across all result groups — the same `appliedFrame`
+    /// Total rendered detection annotations across all result groups — the same filtered frame
     /// results `AnnotationOverlay` draws. Extracted from `body` so the checkpoint expression stays
     /// within the type-checker budget (AIA-0317).
     private var renderedDetectionCount: Int {
-        (coordinator.appliedFrame?.results ?? []).reduce(0) { $0 + $1.observations.count }
+        DetectionPresentation.filteredResults(coordinator.appliedFrame?.results ?? []).reduce(0) { $0 + $1.observations.count }
     }
 
     // Checkpoint values extracted from the `body` chain for the same type-checker-budget
@@ -167,7 +173,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 
                 // Annotation overlay - SAME geometry scope guarantees coordinate alignment
                 AnnotationOverlay(
-                    observations: coordinator.appliedFrame?.results ?? [],
+					observations: DetectionPresentation.filteredResults(coordinator.appliedFrame?.results ?? []),
                     geometry: geometry,
                     showIdentifiers: showIdentifiers,
                     animateDetections: animateDetections
@@ -275,9 +281,14 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // Keep the coordinator's live tiling scheme current (read at each pass start).
             coordinator.tiling = value
         }
+		.onReceive(drivers.$detectionPresentationRevision.dropFirst()) { _ in
+			// The callback re-filters the retained raw frame, keeping the parent pick state in
+			// lockstep with the annotations without an inference pass or model reload.
+			coordinator.refreshPresentation()
+		}
         // AIA-0317: publish the live rendered-annotation count for UI tests. Attached at the body
         // root (outside the ZStack's SnapableGroup), so the 1pt marker is never in the detection
-        // snapshot. Reads the same `appliedFrame.results` that feeds AnnotationOverlay, so the
+        // snapshot. Reads the same filtered results that feed AnnotationOverlay, so the
         // count equals the visible annotation total (0 when none).
         // Gate the O(n) reduce on `isRunningUITests` so production view updates don't pay for a
         // value only the UI-test checkpoint marker reads (the marker itself already renders only

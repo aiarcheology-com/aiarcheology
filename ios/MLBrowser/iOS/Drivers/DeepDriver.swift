@@ -175,6 +175,9 @@ extension DeepDriver {
 class DeepDrivers: ObservableObject {
 	@Published var detectors: [DeepDriver] = []
 	@Published var classificators: [DeepDriver] = []
+	/// Bumped when a display-only detection preference changes. Observing views re-filter their
+	/// retained frames; no driver is reloaded and no inference is restarted.
+	@Published private(set) var detectionPresentationRevision = 0
 
 	/// Runs the detect/classify orchestration loops off the main actor (AIA-0387).
 	private let engine = DetectionEngine()
@@ -207,6 +210,10 @@ class DeepDrivers: ObservableObject {
 		// ordered — the old fire-and-forget Task could apply an older config last.
 		let params = configuration.toDriverParams()
 		await drivers.first?.updateConfiguration(params)
+	}
+
+	func detectionPresentationDidChange() {
+		detectionPresentationRevision &+= 1
 	}
 
     func unregister(driverId: UUID) async {
