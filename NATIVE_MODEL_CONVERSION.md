@@ -913,10 +913,24 @@ least accurate of the three:
 Deterministic across six physical executions in two independently launched samples, with `.cpuOnly`
 reproducing its earlier figures exactly as an internal control.
 
-The fix is therefore an explicit `.cpuOnly` runtime policy in the emitted model's `creatorDefined`
-metadata. The pinned ADAF Faster R-CNN producer requests it, and `DeepDriver.loadModel` honors it
-before Vision receives the model; models without a recognized policy retain Core ML's default
-placement.
+The converted artifact retains an explicit `.cpuOnly` value in its `creatorDefined` metadata as a
+**parity-placement contract**. That metadata documents how the converter's strict reference result
+was measured; it is not a runtime policy for the app.
+
+### Separate parity and product-runtime contracts (AIA-0695)
+
+| Contract | Placement | Purpose and budget |
+|-|-|-|
+| Converter parity | Explicit `.cpuOnly` | `ADAFDetectorDeviceParityTests` selects CPU-only explicitly and compares the production loader with torchvision under the strict 1 px box budget. The test also verifies the emitted metadata remains `.cpuOnly`. |
+| Product runtime | Per-model user setting | `DeepConfiguration.computeUnitString` defaults to `nil`, which resolves to Core ML `.all`. The picker may request Neural Engine, Graphics Processor, or Processor Only; `DeepDriver.loadModel` makes one load using that resolved setting and never reads converter placement metadata. Non-default accelerator runs have a separate product budget (10 px boxes, 0.01 scores), because they are expected to be close rather than parity-identical. |
+
+Unavailable accelerators remain visible but disabled in the picker. A selection saved on a more
+capable device is retained, while the loader safely resolves it to Automatic on hardware where that
+accelerator is unavailable.
+
+There is no feature flag: Automatic (`.all`) is the default for every model, including converted
+ADAF models, so the default product behavior is unchanged. The feature is inert until a user makes
+a non-default selection for an individual model.
 
 This is a **CPU requirement, not an anti-ANE one**, and the distinction matters. The GPU executes
 this graph in Float32 (`allowLowPrecisionAccumulationOnGPU` defaults to false), so its divergence
@@ -952,9 +966,10 @@ Float32 on CPU/GPU while any reduced-precision path is confined to the convoluti
 the first flipping operation requires comparing the graph's `.indices` tensors across compute units
 on device; that probe is follow-up work, not part of this slice's evidence.
 
-`ADAFDetectorDeviceParityTests` exercises the production loader and asserts the CPU, GPU and
-torchvision detection-set budgets, while the original `.all` measurement remains recorded as the
-reason for excluding ANE.
+`ADAFDetectorDeviceParityTests` keeps the strict CPU-only torchvision contract separate from
+`ADAFDetectorDeviceRuntimePlacementTests`, which exercises the available non-default accelerators
+under the wider product budget. The original `.all` measurement remains recorded as evidence for
+why exact parity is not a suitable accelerator promise.
 
 ## Sources
 

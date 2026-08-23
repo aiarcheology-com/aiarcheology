@@ -221,6 +221,14 @@ final class DeepState: ObservableObject {
 	private var context: NSManagedObjectContext {
 		dataController.container.viewContext
 	}
+
+	private struct UpdatedConfiguration {
+		let entityId: UUID
+		let enabled: Bool
+		let modelType: DeepDriverType
+		let computeUnitChanged: Bool
+	}
+
 	private var deepConfigurationsChanges: AnyCancellable?
 	
 	private func observeDeepConfigurationChanges() {
@@ -237,11 +245,16 @@ final class DeepState: ObservableObject {
 					}
 				}()
 				
-				let updatedConfigs: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)] = {
+				let updatedConfigs: [UpdatedConfiguration] = {
 					guard let updated = notification.userInfo?[NSUpdatedObjectsKey] as? Set<NSManagedObject> else { return [] }
 					return updated.compactMap { obj in
 						guard let config = obj as? DeepConfiguration else { return nil }
-						return (config.objectID, config.entityId, config.enabled, config.modelType)
+						return UpdatedConfiguration(
+							entityId: config.entityId,
+							enabled: config.enabled,
+							modelType: config.modelType,
+							computeUnitChanged: config.changedValues().keys.contains("computeUnitString")
+						)
 					}
 				}()
 				
@@ -317,8 +330,12 @@ final class DeepState: ObservableObject {
 		}
 	}
 	
-	private func handleUpdatedConfigurations(_ updated: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)]) async {
-		for (_, entityId, enabled, modelType) in updated {
+	private func handleUpdatedConfigurations(_ updated: [UpdatedConfiguration]) async {
+		for update in updated {
+			let entityId = update.entityId
+			let enabled = update.enabled
+			let modelType = update.modelType
+			let computeUnitChanged = update.computeUnitChanged
 			do {
 				// Which bucket, if any, currently holds this configuration's driver. A live type
 				// change moves it between buckets (or out of both), which the params-only update
@@ -339,6 +356,13 @@ final class DeepState: ObservableObject {
 					// pushes params and never swaps the driver, so tear the old one down and rebuild
 					// as the new type. Covers detect↔classify and any→Disabled (`.invalid` doesn't
 					// rebuild, so the model stops running).
+					await drivers.unregister(driverId: entityId)
+					if enabled, modelType != .invalid {
+						try loadAndRegisterDriver(entityId: entityId, expectedType: modelType)
+					}
+				} else if computeUnitChanged {
+					// Compute units are fixed when Core ML creates the model. Updating params alone
+					// cannot change a live Vision request, so reload the same driver type.
 					await drivers.unregister(driverId: entityId)
 					if enabled, modelType != .invalid {
 						try loadAndRegisterDriver(entityId: entityId, expectedType: modelType)

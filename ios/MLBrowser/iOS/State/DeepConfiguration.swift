@@ -86,6 +86,14 @@ extension DeepConfiguration {
 		}
 	}
 
+	/// No stored value means Automatic, preserving Core ML's `.all` default for existing models.
+	/// An unavailable stored selection is not rewritten: the runtime falls back for that load while
+	/// the preference remains available if the configuration returns to a capable device.
+	var computeUnit: ModelComputeUnit {
+		get { computeUnitString.flatMap(ModelComputeUnit.init(rawValue:)) ?? .automatic }
+		set { computeUnitString = newValue == .automatic ? nil : newValue.rawValue }
+	}
+
 	/// The catalog provider from which this model was acquired, when it originated in Open Catalog.
 	/// Manual file and URL imports have no catalog source and therefore leave the configuration row
 	/// absent.
@@ -99,6 +107,7 @@ extension DeepConfiguration {
 		guard lhs.file == rhs.file else { return false }
 		guard lhs.modelDescription == rhs.modelDescription else { return false }
 		guard lhs.modelTypeString == rhs.modelTypeString else { return false }
+		guard lhs.computeUnit == rhs.computeUnit else { return false }
 		guard lhs.author == rhs.author else { return false }
 		guard lhs.license == rhs.license else { return false }
 		guard lhs.creationDate == rhs.creationDate else { return false }
@@ -139,6 +148,7 @@ extension DeepConfiguration {
 	func toDriverParams() -> DeepDriverParams {
 		DeepDriverParams(
 			annotationColor: annotationColor,
+			computeUnit: computeUnit,
 			entityId: entityId,
 			// Same fallback the drawer uses for a nameless model (modelDescription is optional in the
 			// schema and not required by validation, so this is a normal path, not an edge case).

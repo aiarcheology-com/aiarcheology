@@ -62,6 +62,7 @@ final class DeepConfigurationTests: XCTestCase {
         config.demo = false
         config.enabled = true
         config.phaseOutTime = 1.5
+        config.computeUnit = .processorOnly
 
         try DeepConfiguration.save(in: context)
         context.refresh(config, mergeChanges: false)
@@ -74,6 +75,7 @@ final class DeepConfigurationTests: XCTestCase {
         XCTAssertFalse(config.demo)
         XCTAssertTrue(config.enabled)
         XCTAssertEqual(config.phaseOutTime, 1.5)
+        XCTAssertEqual(config.computeUnit, .processorOnly)
     }
 
     func testDeepConfiguration_EqualityTreatsLicenseAsConfigurationState() {
@@ -98,6 +100,21 @@ final class DeepConfigurationTests: XCTestCase {
         second.license = "Apache-2.0"
 
         XCTAssertFalse(first == second)
+    }
+
+    func testComputeUnit_DefaultsToAutomaticWithoutPersistingANewValue() {
+        let configuration = DeepConfiguration(context: context)
+        configuration.entityId = UUID()
+
+        XCTAssertNil(configuration.computeUnitString)
+        XCTAssertEqual(configuration.computeUnit, .automatic)
+
+        configuration.computeUnit = .automatic
+        XCTAssertNil(configuration.computeUnitString)
+
+        configuration.computeUnit = .graphicsProcessor
+        XCTAssertEqual(configuration.computeUnitString, ModelComputeUnit.graphicsProcessor.rawValue)
+        XCTAssertEqual(configuration.computeUnit, .graphicsProcessor)
     }
 
     func testCatalogSource_IsSharedWithCatalogDownloadByConfigurationID() {
@@ -660,6 +677,7 @@ final class DeepConfigurationTests: XCTestCase {
         XCTAssertEqual(params.entityId, config.entityId)
         XCTAssertEqual(params.phaseOutTime, 1.0)
         XCTAssertEqual(params.selectedSymbol, .square)
+        XCTAssertEqual(params.computeUnit, .automatic)
         XCTAssertTrue(params.demo)
     }
 

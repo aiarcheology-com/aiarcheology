@@ -151,6 +151,78 @@ struct LabeledSlider: View {
 	}
 }
 
+/// Per-model placement control. It intentionally presents separate requests rather than a
+/// speed-to-accuracy scale: different model graphs can make the trade-offs non-monotonic.
+private struct HardwareAccelerationPicker: View {
+	@Binding var selection: ModelComputeUnit
+
+	private let availableAccelerators = ModelComputeUnit.availableAccelerators
+
+	var body: some View {
+		List {
+			ForEach(ModelComputeUnit.allCases) { option in
+				let isAvailable = option.isAvailable(in: availableAccelerators)
+				Button {
+					selection = option
+				} label: {
+					HStack(alignment: .top, spacing: 12) {
+						VStack(alignment: .leading, spacing: 4) {
+							Text(option.localizedName)
+								.foregroundStyle(.primary)
+							Text(option.localizedDescription)
+								.font(.caption)
+								.foregroundStyle(.secondary)
+								.fixedSize(horizontal: false, vertical: true)
+							if isAvailable.not {
+								Text(L10n.Configuration.hardwareAccelerationUnavailable)
+									.font(.caption)
+									.foregroundStyle(.secondary)
+							}
+						}
+						Spacer(minLength: 0)
+						if selection == option {
+							Image(systemName: "checkmark")
+								.foregroundStyle(.tint)
+								.accessibilityHidden(true)
+						}
+					}
+					.contentShape(Rectangle())
+				}
+				.disabled(isAvailable.not)
+				.accessibilityLabel(option.localizedName)
+				.accessibilityHint(
+					isAvailable
+						? option.localizedDescription
+						: "\(option.localizedDescription) \(L10n.Configuration.hardwareAccelerationUnavailable)"
+				)
+			}
+		}
+		.navigationTitle(L10n.Configuration.hardwareAcceleration)
+		.navigationBarTitleDisplayMode(.inline)
+		.testability(Testability.Picker.configurationFormComputeUnits)
+	}
+}
+
+private extension ModelComputeUnit {
+	var localizedName: String {
+		switch self {
+		case .automatic: L10n.Configuration.hardwareAccelerationAutomatic
+		case .neuralEngine: L10n.Configuration.hardwareAccelerationNeuralEngine
+		case .graphicsProcessor: L10n.Configuration.hardwareAccelerationGraphicsProcessor
+		case .processorOnly: L10n.Configuration.hardwareAccelerationProcessorOnly
+		}
+	}
+
+	var localizedDescription: String {
+		switch self {
+		case .automatic: L10n.Configuration.hardwareAccelerationAutomaticDescription
+		case .neuralEngine: L10n.Configuration.hardwareAccelerationNeuralEngineDescription
+		case .graphicsProcessor: L10n.Configuration.hardwareAccelerationGraphicsProcessorDescription
+		case .processorOnly: L10n.Configuration.hardwareAccelerationProcessorOnlyDescription
+		}
+	}
+}
+
 // MARK: - Configuration Form
 
 /// Form for viewing and editing an existing ML model configuration.
@@ -296,6 +368,20 @@ struct ConfigurationForm: View {
 				}
 			}
 			ConfigurationDetailRow(label: L10n.Configuration.version, value: " \(configuration.modelVersion ?? "")")
+
+			NavigationLink {
+				HardwareAccelerationPicker(selection: Binding(
+					get: { configuration.computeUnit },
+					set: { configuration.computeUnit = $0 }
+				))
+			} label: {
+				ConfigurationDetailRow(
+					label: L10n.Configuration.hardwareAcceleration,
+					value: configuration.computeUnit.localizedName
+				)
+			}
+			.accessibilityLabel(L10n.Configuration.hardwareAcceleration)
+			.accessibilityHint(L10n.Configuration.hardwareAccelerationPickerHint)
 
 			if let catalogSource = configuration.catalogSource {
 				ConfigurationDetailRow(label: L10n.Configuration.catalog, value: catalogSource)

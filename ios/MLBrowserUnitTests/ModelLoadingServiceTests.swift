@@ -329,21 +329,17 @@ final class ModelLoadingErrorTests: XCTestCase {
     }
 }
 
-// MARK: - Converted-model Runtime Policy Tests (AIA-0688)
+// MARK: - Converted-model Parity Metadata Tests (AIA-0688)
 
 final class NativeModelRuntimePolicyTests: XCTestCase {
 
-	func test_adafPolicy_requiresCPUPlacement() {
+	func test_adafPolicy_declaresCPUParityPlacement() {
 		let userDefined = [
 			NativeModelRuntimePolicy.computeUnitsKey: NativeModelComputeUnitPolicy.cpuOnly.rawValue
 		]
 
 		XCTAssertEqual(
 			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
-			.cpuOnly
-		)
-		XCTAssertEqual(
-			Detector.runtimeComputeUnits(from: userDefinedMetadata(userDefined)),
 			.cpuOnly
 		)
 		XCTAssertEqual(
@@ -366,29 +362,21 @@ final class NativeModelRuntimePolicyTests: XCTestCase {
 			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
 			.cpuAndGPU
 		)
-		XCTAssertEqual(
-			Detector.runtimeComputeUnits(from: userDefinedMetadata(userDefined)),
-			.cpuAndGPU
-		)
 	}
 
-	func test_unknownOrMissingPolicy_keepsDefaultPlacement() {
+	func test_unknownOrMissingPolicy_isNotAParityRequirement() {
 		XCTAssertNil(NativeModelRuntimePolicy.computeUnitPolicy(from: [:]))
 		XCTAssertNil(
 			NativeModelRuntimePolicy.computeUnitPolicy(from: [
 				NativeModelRuntimePolicy.computeUnitsKey: "future-unit"
 			])
 		)
-		XCTAssertNil(Detector.runtimeComputeUnits(from: userDefinedMetadata([:])))
 	}
 
 	func test_nonADAFProducer_hasNoPolicy() {
 		XCTAssertNil(NativeModelRuntimePolicy.computeUnitPolicy(forProducer: "tests"))
 	}
 
-	private func userDefinedMetadata(_ values: [String: String]) -> [MLModelMetadataKey: Any] {
-		[.creatorDefinedKey: values]
-	}
 }
 
 // MARK: - ModelLoadingService Tests

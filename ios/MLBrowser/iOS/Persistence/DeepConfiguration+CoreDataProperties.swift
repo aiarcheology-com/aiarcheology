@@ -17,6 +17,7 @@ extension DeepConfiguration {
     
     @NSManaged public var annotationColor_: Data?
     @NSManaged public var author: String?
+    @NSManaged public var computeUnitString: String?
     @NSManaged public var creationDate_: Date?
     @NSManaged public var demo: Bool
     @NSManaged public var enabled: Bool

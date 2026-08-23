@@ -122,6 +122,35 @@ final class DeepStateTests: XCTestCase {
                       "A classifier driver must be registered after the type change")
     }
 
+    func testDriverReloadsWhenComputeUnitChanges() async throws {
+        guard Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") != nil else {
+            throw XCTSkip("Demo model not available in test bundle")
+        }
+
+        let config = deepState.createConfiguration()
+        config.demo = true
+        config.file_ = URL(string: "AIArcheology.mlmodelc")
+        config.modelType = .detector
+        config.enabled = true
+        try DeepConfiguration.save(in: dataController.container.viewContext)
+        let id = config.entityId
+
+        try await pollUntil { self.deepState.drivers.detectors.contains { $0.id == id } }
+        let originalDriver = try XCTUnwrap(deepState.drivers.detectors.first { $0.id == id })
+        let originalIdentity = ObjectIdentifier(originalDriver as AnyObject)
+
+        deepState.updateConfiguration(id) { configuration in
+            configuration.computeUnit = .processorOnly
+        }
+
+        try await pollUntilAsync {
+            guard let reloadedDriver = self.deepState.drivers.detectors.first(where: { $0.id == id }),
+                  ObjectIdentifier(reloadedDriver as AnyObject) != originalIdentity
+            else { return false }
+            return await reloadedDriver.params.computeUnit == .processorOnly
+        }
+    }
+
     /// Polls `condition` on the MainActor until it holds or the timeout elapses.
     private func pollUntil(timeout: TimeInterval = 5, _ condition: @MainActor () -> Bool) async throws {
         let deadline = Date().addingTimeInterval(timeout)
@@ -131,6 +160,18 @@ final class DeepStateTests: XCTestCase {
         }
         // Surface the timeout here rather than letting a later, less-specific assertion fail.
         XCTFail("pollUntil timed out after \(timeout)s waiting for condition")
+    }
+
+    private func pollUntilAsync(
+        timeout: TimeInterval = 5,
+        _ condition: @escaping @MainActor () async -> Bool
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if await condition() { return }
+            try await Task.sleep(nanoseconds: 40_000_000)
+        }
+        XCTFail("pollUntilAsync timed out after \(timeout)s waiting for condition")
     }
 
     func testTemporaryConfigurationCleanup() {

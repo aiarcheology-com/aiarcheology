@@ -10,7 +10,6 @@ import SwiftUI
 import Vision
 import OSLog
 import CoreML
-import NativeModelConverter
 
 public enum DeepDriverType: String, Sendable {
 	case detector = "detect"
@@ -28,8 +27,64 @@ public enum DeepDriverType: String, Sendable {
 	}
 }
 
+/// A per-model request for Core ML placement. It deliberately describes the product choice rather
+/// than a converted artifact's numerical-parity metadata: all models default to Core ML's `.all`.
+enum ModelComputeUnit: String, CaseIterable, Identifiable, Sendable {
+	case automatic
+	case neuralEngine
+	case graphicsProcessor
+	case processorOnly
+
+	enum Accelerator: Hashable, Sendable {
+		case graphicsProcessor
+		case neuralEngine
+	}
+
+	var id: String { rawValue }
+
+	var requestedComputeUnits: MLComputeUnits {
+		switch self {
+		case .automatic: .all
+		case .neuralEngine: .cpuAndNeuralEngine
+		case .graphicsProcessor: .cpuAndGPU
+		case .processorOnly: .cpuOnly
+		}
+	}
+
+	var requiredAccelerator: Accelerator? {
+		switch self {
+		case .automatic, .processorOnly: nil
+		case .neuralEngine: .neuralEngine
+		case .graphicsProcessor: .graphicsProcessor
+		}
+	}
+
+	static var availableAccelerators: Set<Accelerator> {
+		Set(MLModel.availableComputeDevices.compactMap { device in
+			switch device {
+			case .gpu: .graphicsProcessor
+			case .neuralEngine: .neuralEngine
+			case .cpu: nil
+			@unknown default: nil
+			}
+		})
+	}
+
+	func isAvailable(in availableAccelerators: Set<Accelerator> = Self.availableAccelerators) -> Bool {
+		guard let requiredAccelerator else { return true }
+		return availableAccelerators.contains(requiredAccelerator)
+	}
+
+	/// A request for unavailable hardware falls back only for this load. The stored choice remains
+	/// intact so a configuration moved back to a capable device regains the user's intent.
+	func resolvedComputeUnits(in availableAccelerators: Set<Accelerator> = Self.availableAccelerators) -> MLComputeUnits {
+		isAvailable(in: availableAccelerators) ? requestedComputeUnits : .all
+	}
+}
+
 struct DeepDriverParams: Sendable {
 	var annotationColor: Color = .yellow
+	var computeUnit: ModelComputeUnit = .automatic
 	var entityId: UUID
 	/// The model's display name, for per-model attribution in the classification label bubble
 	/// (AIA-0472). Deliberately NO default: every construction site must decide what to call the
@@ -68,26 +123,25 @@ protocol DeepDriver: Driver, Sendable {
 
 extension DeepDriver {
 	@discardableResult
-	static func loadModel(from path: URL, demo: Bool = false) async throws -> MLModel? {
+	static func loadModel(
+		from path: URL,
+		demo: Bool = false,
+		computeUnit: ModelComputeUnit = .automatic
+	) async throws -> MLModel? {
 		// the file is already handled by copying resources in Xcode: -> mlmodelc (compiled)
 		let compiledModelURL = demo ? path : try await MLModel.compileModel(at: path)
 
 		do {
 			LoggingPolicy.debug("Loading MLModel from \(compiledModelURL.lastPathComponent)", logger: .drivers)
-			// Load once with the platform default so the model's creator metadata can select a
-			// converter-owned runtime policy. Models without a policy keep the existing default `.all`.
-			let defaultConfiguration = MLModelConfiguration()
-			let defaultModel = try await MLModel.load(contentsOf: compiledModelURL, configuration: defaultConfiguration)
-			guard let computeUnits = runtimeComputeUnits(from: defaultModel.modelDescription.metadata) else {
-				return defaultModel
-			}
-
+			let availableAccelerators = ModelComputeUnit.availableAccelerators
 			let configured = MLModelConfiguration()
-			configured.computeUnits = computeUnits
-			LoggingPolicy.info(
-				"Applying converted-model compute-unit policy: \(runtimeComputeUnitsLabel(computeUnits))",
-				logger: .drivers
-			)
+			configured.computeUnits = computeUnit.resolvedComputeUnits(in: availableAccelerators)
+			if computeUnit.isAvailable(in: availableAccelerators).not {
+				LoggingPolicy.info(
+					"Requested model hardware is unavailable; loading with Automatic placement instead.",
+					logger: .drivers
+				)
+			}
 			return try await MLModel.load(contentsOf: compiledModelURL, configuration: configured)
 		} catch {
 			LoggingPolicy.error("Error loading MLModel", error: error, logger: .drivers)
@@ -95,34 +149,6 @@ extension DeepDriver {
 			return nil
 		}
 	}
-
-	/// Maps the converter's metadata-only policy to Core ML without treating unknown metadata as a
-	/// reason to change placement. Kept as a small pure seam so the import contract can be tested
-	/// without loading a 190 MiB detector on a simulator.
-	static func runtimeComputeUnits(
-		from metadata: [MLModelMetadataKey: Any]
-	) -> MLComputeUnits? {
-		guard let userDefined = metadata[.creatorDefinedKey] as? [String: String],
-			let policy = NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined)
-		else {
-			return nil
-		}
-		switch policy {
-		case .cpuOnly: return .cpuOnly
-		case .cpuAndGPU: return .cpuAndGPU
-		}
-	}
-
-	private static func runtimeComputeUnitsLabel(_ computeUnits: MLComputeUnits) -> String {
-		switch computeUnits {
-		case .cpuOnly: return "cpuOnly"
-		case .cpuAndGPU: return "cpuAndGPU"
-		case .cpuAndNeuralEngine: return "cpuAndNeuralEngine"
-		case .all: return "all"
-		@unknown default: return "unknown"
-		}
-	}
-
 }
 
 // Drivers factory
