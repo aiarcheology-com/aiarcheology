@@ -1,6 +1,10 @@
 Build: TBD
 
-Test Focus: nested detection results and per-model confidence display.
+Test Focus: progressive tiled detection, nested detection results, and per-model confidence display.
+
+- Enable Pyramid or 3×3 tiling and leave detection running on a static page. Rectangles should
+  begin appearing as individual tiles finish, rather than waiting for the entire tiled pass. They
+  should remain aligned with the page and not pulse as duplicate rectangles at the same location.
 
 - Run a tiled detection model over an area with small features inside larger features. Small,
   distinct detections inside a larger outline should remain visible; duplicate partial outlines at
