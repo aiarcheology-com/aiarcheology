@@ -14,9 +14,11 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 		// A 3-channel image classifier: global-average-pool + flatten yields one value per channel, so
 		// a uniform image reduces to the three preprocessed channel values, which softmax turns into
 		// class probabilities. This isolates the image input + per-channel normalization + labels.
+		// Use the ADAF producer name because the former runtime policy was keyed solely by this field;
+		// a converted model must no longer receive a compute-unit metadata entry from its producer.
 		let graph = NativeModelGraph(
 			formatVersion: 1,
-			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			producer: NativeModelGraphProducer(name: "aiarcheology-adaf-fasterrcnn", version: "1.0.0"),
 			inputs: [NativeModelTensor(name: "input", dataType: .float32, shape: [1, 3, 2, 2])],
 			weights: [],
 			operations: [
@@ -52,6 +54,10 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 		XCTAssertNil(
 			NativeModelTargetSemantics(userDefined: userDefined),
 			"The generic public emitter must not guess provenance from arbitrary labels or affine preprocessing."
+		)
+		XCTAssertNil(
+			userDefined["com.aiarcheology.native.runtime.compute-units"],
+			"The converter must not encode the ADAF test placement as Core ML metadata."
 		)
 
 		// The input must be an image feature, not a multi-array.

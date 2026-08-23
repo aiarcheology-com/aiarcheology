@@ -275,9 +275,9 @@ adapter sees it, so an empty tile produces no phantom recognized object. A revis
 therefore distinguishable from its earlier forms by its metadata alone, which is what the revision
 exists to make possible. Revision 8 records the initial parity finding for the ADAF Faster R-CNN
 graph. Revision 9 recorded a `.cpuAndGPU` runtime policy derived from that finding; revision 10
-corrects it to `.cpuOnly` after the device closeout measured the GPU path as the least accurate of
-the three. Either way the policy changes placement only for this producer, never for unrelated
-models.
+corrected it to `.cpuOnly` after the device closeout measured the GPU path as the least accurate of
+the three. Revision 11 removes compute-unit metadata entirely: CPU-only is retained only as the
+explicit strict-parity test placement, while product runtime placement is chosen by the app.
 
 The torchvision reference exporter writes this metadata by default and accepts
 `--metadata-json SOURCE.json` to preserve a supplied metadata document byte-for-byte. A package
@@ -913,16 +913,15 @@ least accurate of the three:
 Deterministic across six physical executions in two independently launched samples, with `.cpuOnly`
 reproducing its earlier figures exactly as an internal control.
 
-The converted artifact retains an explicit `.cpuOnly` value in its `creatorDefined` metadata as a
-**parity-placement contract**. That metadata documents how the converter's strict reference result
-was measured; it is not a runtime policy for the app.
+The converter does **not** emit `com.aiarcheology.native.runtime.compute-units`, including for the
+ADAF detector. Compute-unit placement is a loading choice, not converted-model metadata.
 
 ### Separate parity and product-runtime contracts (AIA-0695)
 
 | Contract | Placement | Purpose and budget |
 |-|-|-|
-| Converter parity | Explicit `.cpuOnly` | `ADAFDetectorDeviceParityTests` selects CPU-only explicitly and compares the production loader with torchvision under the strict 1 px box budget. The test also verifies the emitted metadata remains `.cpuOnly`. |
-| Product runtime | Per-model user setting | `DeepConfiguration.computeUnitString` defaults to `nil`, which resolves to Core ML `.all`. The picker may request Neural Engine, Graphics Processor, or Processor Only; `DeepDriver.loadModel` makes one load using that resolved setting and never reads converter placement metadata. Non-default accelerator runs have a separate product budget (10 px boxes, 0.01 scores), because they are expected to be close rather than parity-identical. |
+| Converter parity | Explicit `.cpuOnly` | `ADAFDetectorDeviceParityTests` selects CPU-only explicitly and compares the production loader with torchvision under the strict 1 px box budget. That test-only placement is never written into the converted model. |
+| Product runtime | Per-model user setting | `DeepConfiguration.computeUnitString` defaults to `nil`, which resolves to Core ML `.all`. The picker may request Neural Engine, Graphics Processor, or Processor Only; `DeepDriver.loadModel` makes one load using that resolved setting. Non-default accelerator runs have a separate product budget (10 px boxes, 0.01 scores), because they are expected to be close rather than parity-identical. |
 
 Unavailable accelerators remain visible but disabled in the picker. A selection saved on a more
 capable device is retained, while the loader safely resolves it to Automatic on hardware where that
@@ -932,14 +931,16 @@ There is no feature flag: Automatic (`.all`) is the default for every model, inc
 ADAF models, so the default product behavior is unchanged. The feature is inert until a user makes
 a non-default selection for an individual model.
 
-This is a **CPU requirement, not an anti-ANE one**, and the distinction matters. The GPU executes
+CPU is the **strict parity reference placement, not an anti-ANE product requirement**, and the
+distinction matters. The GPU executes
 this graph in Float32 (`allowLowPrecisionAccumulationOnGPU` defaults to false), so its divergence
 from the CPU is reassociation alone: different reduction and tiling order inside conv/matmul, and
 different `exp`/`log` implementations, on the order of 1e-06. There is no arithmetic path from
 1e-06 to 9.66 px. Any backend whose rounding differs from the CPU's can flip a near-tie, and both
 measured accelerators do.
 
-This supersedes the earlier `.cpuAndGPU` policy, which rested on #676's probe-model bit-identity.
+This supersedes the earlier artifact policies (`.cpuAndGPU`, then `.cpuOnly`), which rested on
+#676's probe-model bit-identity and the subsequent detector closeout.
 
 The *mechanism* of the 3.9135 px shift is a discrete selection flip, not smooth arithmetic
 amplification. An earlier note here claimed the decoder's `exp(dw/dh)` expansion amplified the

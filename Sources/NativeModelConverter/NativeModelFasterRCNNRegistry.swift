@@ -186,9 +186,10 @@ public enum NativeModelFasterRCNNRegistry {
 	/// different overlapping proposal. Preserve the extractor's deliberately quantised binary16
 	/// *values*, but widen their graph representation back to Float32 so the CPU oracle and measured
 	/// GPU path retain the intended accumulation. The Neural Engine may still use its documented
-	/// half-precision path; the emitted runtime policy excludes that path for this graph because a
-	/// sub-millipoint ROI-head difference is enough to flip a greedy terminal-NMS choice onto a
-	/// different overlapping proposal, which is a device-visible box shift. The decoder itself is not
+	/// half-precision path. Strict device-parity tests load this graph on CPU because a sub-millipoint
+	/// ROI-head difference can flip a greedy terminal-NMS choice onto a different overlapping
+	/// proposal, which is a device-visible box shift; product runtime placement remains an app choice.
+	/// The decoder itself is not
 	/// the amplifier: after the `[10, 10, 5, 5]` BoxCoder division the measured delta moves a box by
 	/// roughly 0.1 px, not the 3.9135 px observed on device.
 	private static func promoteWeightsForStablePrecision(

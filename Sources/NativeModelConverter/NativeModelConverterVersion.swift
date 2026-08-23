@@ -14,9 +14,8 @@
 /// ``NativeModelProducer/name`` and ``NativeModelProducer/version`` in the graph package.
 public enum NativeModelConverterVersion {
 	public static let packageVersion = "0.1.0"
-	/// Revision 10 corrects the measured accelerator policy for the pinned ADAF Faster R-CNN graph.
-	/// Revision 9 requested `.cpuAndGPU` on probe-model evidence; on the real detector the GPU path
-	/// moves a box 9.6623 px, worse than the Neural Engine's 3.9135 px, so only `.cpuOnly` holds the
-	/// 1 px device parity budget.
-	public static let conversionRevision = 10
+	/// Revision 11 removes the ADAF compute-unit metadata. CPU-only remains the explicit placement
+	/// for strict parity measurements, while product loading uses its own per-model setting and
+	/// Automatic defaults to Core ML `.all`.
+	public static let conversionRevision = 11
 }

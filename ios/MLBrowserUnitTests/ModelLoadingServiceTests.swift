@@ -329,56 +329,6 @@ final class ModelLoadingErrorTests: XCTestCase {
     }
 }
 
-// MARK: - Converted-model Parity Metadata Tests (AIA-0688)
-
-final class NativeModelRuntimePolicyTests: XCTestCase {
-
-	func test_adafPolicy_declaresCPUParityPlacement() {
-		let userDefined = [
-			NativeModelRuntimePolicy.computeUnitsKey: NativeModelComputeUnitPolicy.cpuOnly.rawValue
-		]
-
-		XCTAssertEqual(
-			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
-			.cpuOnly
-		)
-		XCTAssertEqual(
-			NativeModelRuntimePolicy.computeUnitPolicy(
-				forProducer: NativeModelRuntimePolicy.adafFasterRCNNProducerName
-			),
-			.cpuOnly
-		)
-	}
-
-	/// `.cpuAndGPU` stays a representable policy even though no producer currently requests it. The
-	/// enum is the converter's vocabulary for a measured requirement, not a record of one graph's
-	/// answer, and a future graph may well measure GPU-safe.
-	func test_gpuPolicy_remainsRepresentable() {
-		let userDefined = [
-			NativeModelRuntimePolicy.computeUnitsKey: NativeModelComputeUnitPolicy.cpuAndGPU.rawValue
-		]
-
-		XCTAssertEqual(
-			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
-			.cpuAndGPU
-		)
-	}
-
-	func test_unknownOrMissingPolicy_isNotAParityRequirement() {
-		XCTAssertNil(NativeModelRuntimePolicy.computeUnitPolicy(from: [:]))
-		XCTAssertNil(
-			NativeModelRuntimePolicy.computeUnitPolicy(from: [
-				NativeModelRuntimePolicy.computeUnitsKey: "future-unit"
-			])
-		)
-	}
-
-	func test_nonADAFProducer_hasNoPolicy() {
-		XCTAssertNil(NativeModelRuntimePolicy.computeUnitPolicy(forProducer: "tests"))
-	}
-
-}
-
 // MARK: - ModelLoadingService Tests
 
 final class ModelLoadingServiceTests: XCTestCase {

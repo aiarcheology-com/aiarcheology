@@ -60,9 +60,8 @@ class ADAFDetectorDeviceTestSupport: XCTestCase {
 			systemVersion: probe.systemVersion
 		)
 
-		// The converter stamps the measured parity placement into creatorDefined metadata. It remains
-		// artifact evidence only: the product runtime choice comes from DeepConfiguration, so load
-		// CPU explicitly here rather than accidentally asserting the Automatic production default.
+		// CPU is selected explicitly for the strict parity measurement. Product placement comes from
+		// DeepConfiguration, whose Automatic value resolves to Core ML `.all`.
 		let loadedCPUModel = try await Detector.loadModel(
 			from: probe.compiledModel, demo: true, computeUnit: .processorOnly
 		)
@@ -72,13 +71,7 @@ class ADAFDetectorDeviceTestSupport: XCTestCase {
 		)
 		let userDefined = try XCTUnwrap(
 			cpuModel.modelDescription.metadata[.creatorDefinedKey] as? [String: String],
-			"The converted detector must carry creatorDefined metadata. A fixture staged before the "
-				+ "parity policy existed will fail here; regenerate it from HEAD."
-		)
-		XCTAssertEqual(
-			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
-			.cpuOnly,
-			"The converted ADAF detector must carry the measured CPU placement requirement."
+			"The converted detector must carry creatorDefined metadata for its input sizing contract."
 		)
 		XCTAssertEqual(
 			NativeModelImageSizingContract(userDefined: userDefined),
@@ -381,7 +374,6 @@ class ADAFDetectorDeviceTestSupport: XCTestCase {
 			sourceHeight: probe.sourceSize.height,
 			regionCount: regionCount,
 			measurementIterations: measurementIterations,
-			computeUnitPolicy: NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined)?.rawValue,
 			imageSizingContract: NativeModelImageSizingContract(userDefined: userDefined),
 			modelMetadata: userDefined
 		)
@@ -652,7 +644,6 @@ private struct DeviceBenchmarkReport: Encodable {
 	let sourceHeight: Int
 	let regionCount: Int
 	let measurementIterations: Int
-	let computeUnitPolicy: String?
 	let imageSizingContract: NativeModelImageSizingContract?
 	let modelMetadata: [String: String]
 }
