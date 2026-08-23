@@ -371,6 +371,28 @@ internal enum L10n {
     internal static let flashOnFinding = L10n.tr("Localizable", "configuration.flashOnFinding", fallback: "Flash when object found")
     /// Flash border size
     internal static let flashSize = L10n.tr("Localizable", "configuration.flashSize", fallback: "Flash border size")
+    /// Hardware Acceleration
+    internal static let hardwareAcceleration = L10n.tr("Localizable", "configuration.hardwareAcceleration", fallback: "Hardware Acceleration")
+    /// Automatic
+    internal static let hardwareAccelerationAutomatic = L10n.tr("Localizable", "configuration.hardwareAccelerationAutomatic", fallback: "Automatic")
+    /// Lets the system pick the best available hardware for each part of the model. The right choice for almost everyone. Which hardware is used can vary by device, so results may differ very slightly between devices.
+    internal static let hardwareAccelerationAutomaticDescription = L10n.tr("Localizable", "configuration.hardwareAccelerationAutomaticDescription", fallback: "Lets the system pick the best available hardware for each part of the model. The right choice for almost everyone. Which hardware is used can vary by device, so results may differ very slightly between devices.")
+    /// Graphics Processor
+    internal static let hardwareAccelerationGraphicsProcessor = L10n.tr("Localizable", "configuration.hardwareAccelerationGraphicsProcessor", fallback: "Graphics Processor")
+    /// Uses the graphics processor alongside the main processor and never the Neural Engine. Mainly useful for comparison when a model behaves unexpectedly; it is not automatically faster.
+    internal static let hardwareAccelerationGraphicsProcessorDescription = L10n.tr("Localizable", "configuration.hardwareAccelerationGraphicsProcessorDescription", fallback: "Uses the graphics processor alongside the main processor and never the Neural Engine. Mainly useful for comparison when a model behaves unexpectedly; it is not automatically faster.")
+    /// Neural Engine
+    internal static let hardwareAccelerationNeuralEngine = L10n.tr("Localizable", "configuration.hardwareAccelerationNeuralEngine", fallback: "Neural Engine")
+    /// Prefers Apple's Neural Engine, built for machine-learning work and typically the most power-efficient. It calculates in reduced precision, so detections can shift very slightly compared with the processor.
+    internal static let hardwareAccelerationNeuralEngineDescription = L10n.tr("Localizable", "configuration.hardwareAccelerationNeuralEngineDescription", fallback: "Prefers Apple's Neural Engine, built for machine-learning work and typically the most power-efficient. It calculates in reduced precision, so detections can shift very slightly compared with the processor.")
+    /// Choose the hardware Core ML requests for this model.
+    internal static let hardwareAccelerationPickerHint = L10n.tr("Localizable", "configuration.hardwareAccelerationPickerHint", fallback: "Choose the hardware Core ML requests for this model.")
+    /// Processor Only
+    internal static let hardwareAccelerationProcessorOnly = L10n.tr("Localizable", "configuration.hardwareAccelerationProcessorOnly", fallback: "Processor Only")
+    /// Uses only the main processor. Much slower — several seconds per image tile — but the most exact, and identical on every device. Choose this when detections must match a reference result precisely.
+    internal static let hardwareAccelerationProcessorOnlyDescription = L10n.tr("Localizable", "configuration.hardwareAccelerationProcessorOnlyDescription", fallback: "Uses only the main processor. Much slower — several seconds per image tile — but the most exact, and identical on every device. Choose this when detections must match a reference result precisely.")
+    /// Not available on this device
+    internal static let hardwareAccelerationUnavailable = L10n.tr("Localizable", "configuration.hardwareAccelerationUnavailable", fallback: "Not available on this device")
     /// License
     internal static let license = L10n.tr("Localizable", "configuration.license", fallback: "License")
     /// Link

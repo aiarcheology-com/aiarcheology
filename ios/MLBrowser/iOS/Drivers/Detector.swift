@@ -69,7 +69,7 @@ actor Detector: Detecting {
         // Log file name only: container paths can embed user data (see LOGGING_GUIDE.md).
         LoggingPolicy.debug("Loading detector model from \(path.lastPathComponent)", logger: .drivers)
 
-        guard let model = try await Self.loadModel(from: path, demo: params.demo) else {
+        guard let model = try await Self.loadModel(from: path, demo: params.demo, computeUnit: params.computeUnit) else {
             LoggingPolicy.error("Failed to load ML model from \(path.lastPathComponent)", logger: .drivers)
             throw DetectorError.loadError
         }

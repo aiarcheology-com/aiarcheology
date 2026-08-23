@@ -329,68 +329,6 @@ final class ModelLoadingErrorTests: XCTestCase {
     }
 }
 
-// MARK: - Converted-model Runtime Policy Tests (AIA-0688)
-
-final class NativeModelRuntimePolicyTests: XCTestCase {
-
-	func test_adafPolicy_requiresCPUPlacement() {
-		let userDefined = [
-			NativeModelRuntimePolicy.computeUnitsKey: NativeModelComputeUnitPolicy.cpuOnly.rawValue
-		]
-
-		XCTAssertEqual(
-			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
-			.cpuOnly
-		)
-		XCTAssertEqual(
-			Detector.runtimeComputeUnits(from: userDefinedMetadata(userDefined)),
-			.cpuOnly
-		)
-		XCTAssertEqual(
-			NativeModelRuntimePolicy.computeUnitPolicy(
-				forProducer: NativeModelRuntimePolicy.adafFasterRCNNProducerName
-			),
-			.cpuOnly
-		)
-	}
-
-	/// `.cpuAndGPU` stays a representable policy even though no producer currently requests it. The
-	/// enum is the converter's vocabulary for a measured requirement, not a record of one graph's
-	/// answer, and a future graph may well measure GPU-safe.
-	func test_gpuPolicy_remainsRepresentable() {
-		let userDefined = [
-			NativeModelRuntimePolicy.computeUnitsKey: NativeModelComputeUnitPolicy.cpuAndGPU.rawValue
-		]
-
-		XCTAssertEqual(
-			NativeModelRuntimePolicy.computeUnitPolicy(from: userDefined),
-			.cpuAndGPU
-		)
-		XCTAssertEqual(
-			Detector.runtimeComputeUnits(from: userDefinedMetadata(userDefined)),
-			.cpuAndGPU
-		)
-	}
-
-	func test_unknownOrMissingPolicy_keepsDefaultPlacement() {
-		XCTAssertNil(NativeModelRuntimePolicy.computeUnitPolicy(from: [:]))
-		XCTAssertNil(
-			NativeModelRuntimePolicy.computeUnitPolicy(from: [
-				NativeModelRuntimePolicy.computeUnitsKey: "future-unit"
-			])
-		)
-		XCTAssertNil(Detector.runtimeComputeUnits(from: userDefinedMetadata([:])))
-	}
-
-	func test_nonADAFProducer_hasNoPolicy() {
-		XCTAssertNil(NativeModelRuntimePolicy.computeUnitPolicy(forProducer: "tests"))
-	}
-
-	private func userDefinedMetadata(_ values: [String: String]) -> [MLModelMetadataKey: Any] {
-		[.creatorDefinedKey: values]
-	}
-}
-
 // MARK: - ModelLoadingService Tests
 
 final class ModelLoadingServiceTests: XCTestCase {

@@ -3,6 +3,7 @@
     <entity name="DeepConfiguration" representedClassName="DeepConfiguration" syncable="YES">
         <attribute name="annotationColor_" optional="YES" attributeType="Binary"/>
         <attribute name="author" optional="YES" attributeType="String"/>
+        <attribute name="computeUnitString" optional="YES" attributeType="String"/>
         <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="demo" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="downloadURL" optional="YES" attributeType="URI"/>

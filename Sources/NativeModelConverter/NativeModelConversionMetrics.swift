@@ -185,8 +185,8 @@ public struct NativeModelConverter: Sendable {
 	/// This is deliberately a separate high-level entry point rather than treating the checkpoint
 	/// as a graph package: a PyTorch checkpoint carries tensor storage, not an `.aiagraph` manifest
 	/// and graph. The exact registry and emitter contract matches `adaf-detector-parity-runner`, so
-	/// an app-imported artifact carries the same detector interface, parity provenance, and runtime
-	/// compute-unit policy as the CLI artifact.
+	/// an app-imported artifact carries the same detector interface and parity provenance as the CLI
+	/// artifact. Compute-unit selection belongs to the loading app, not the converted artifact.
 	public func convert(
 		adafDetector checkpointURL: URL,
 		to outputURL: URL,

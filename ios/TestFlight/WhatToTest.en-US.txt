@@ -1,49 +1,18 @@
 Build: TBD
 
-Test Focus 1: import an ADAF detector checkpoint.
+Test Focus: choose hardware acceleration for one model.
 
-Use an ADAF `OD_*.tar` checkpoint from Files, or download one through Import. It may take several
-minutes; keep the app in the foreground and leave enough free storage for the original and converted
-model.
+Open a model’s configuration, then open Hardware Acceleration. Automatic is the normal setting and
+should be selected by default. Choose each available option one at a time, close and reopen the
+configuration, and confirm the choice is kept for that model only.
 
-- Import must complete with a message that the recognised detector was converted on this device. It
-  must not say the checkpoint cannot be converted.
-- While conversion is running, open the conversion log: its phases and process-memory observations
-  should advance. Cancel once, then confirm the log records cancellation and no partial model imports.
-- Complete one import with “Keep Original” and one with “Convert Only”; reopen each configuration to
-  confirm the converted model is available and the chosen source-retention behaviour is respected.
-- This slice imports the model only. Live detector findings are not yet expected.
+- On an iPhone, Neural Engine, Graphics Processor, and Processor Only should be available. On a
+  device where an accelerator is unavailable, its option remains visible but is disabled and says
+  it is not available on that device.
+- Run a detector after selecting each available option. Detections should remain plausible;
+  Processor Only can take much longer. Automatic, Neural Engine, and Graphics Processor make no
+  promised speed ordering.
+- If you have two configured models, change one and confirm the other still has its own setting.
 
-Test Focus 2: sharing a finding as a link.
-
-Put coordinates in one finding first (Findings, tap one, GPS, e.g. 48.8, 19.53) and use a real map
-portal (ags.cuzk.cz, mapy.com, openstreetmap.org), or the map part cannot be tested.
-
-- Share a finding. The box "This link carries at most:" shows exactly what travels, with a copy
-  button - paste and compare.
-- Turn "Share the full web address" off: it shortens to the site alone. On again: the long form
-  returns.
-- Open that link on another device: same map view with the switch on, the site's front page with it
-  off. Both are correct; the switch chooses.
-- The QR sits flush in the bottom-right corner of the information block. Portrait and Landscape,
-  Light and Dark, a finding of many rows and one of two - it must not overlap text.
-- Scan the QR with the Code Scanner (Control Centre): it opens the app on the finding. The Camera
-  app opens the web page - that is iOS, not a bug.
-- Open someone else's link: a CARD over the dimmed app with an orange "Shared by Someone Else"
-  warning, "Open the Original Page" as the big button, and the FULL address printed beneath it.
-  Read it before you tap. Dismiss (top left) closes it; tapping outside must NOT.
-- Damage a link (delete a chunk from the end): the app must say it could not read it, never open to
-  nothing.
-
-Test Focus 3: findings carry a name, and delete on a Mac.
-
-The Save screen has an Author field between Note and GPS, prefilled from your account when signed in
-and empty otherwise. A blank author must show no row on the card, not "Unknown"; signed out it must
-never show your email. On a Mac, right-click a finding row: Delete sits beside Share, in red, and
-removes the finding and its picture just as swiping does on iPhone.
-
-Most important: confirm every finding you had BEFORE this build is still there, with picture, title,
-note and GPS intact. If anything is missing, or the app will not start, tell us at once and say
-which version you came from.
-
-Please report your device model, iOS version and the language you tested in.
+Please report your device model, iOS version, selected hardware option, and language if anything
+looks wrong.

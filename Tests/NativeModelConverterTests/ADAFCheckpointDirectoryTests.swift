@@ -273,18 +273,16 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 			.adafFasterRCNN,
 			"the emitted detector must declare the input transform its runtime requires"
 		)
-		XCTAssertEqual(
-			NativeModelRuntimePolicy.computeUnitPolicy(from: metadata),
-			.cpuOnly,
-			"The converted ADAF detector must require CPU placement: every accelerator measured on device "
-				+ "moves a box past the 1 px budget, the GPU furthest of all."
+		XCTAssertNil(
+			metadata["com.aiarcheology.native.runtime.compute-units"],
+			"Compute-unit selection belongs to the loading app; conversion must not constrain it in metadata."
 		)
 	}
 
 	/// The app imports through `NativeModelConverter.convert(adafDetector:to:)`; the parity runner's
 	/// former explicit registry/emitter sequence is retained below as the CLI reference. Comparing the
-	/// written bytes (not just a loadable model) locks the interface, parity provenance and stamped
-	/// CPU runtime policy together.
+	/// written bytes (not just a loadable model) locks the interface, parity provenance, and sizing
+	/// metadata together.
 	func test_appADAFConversion_matchesTheCLIReferenceArtifactAndReportsProgress() async throws {
 		let directory = try requireDirectory()
 		let checkpointURL = directory.appendingPathComponent("OD_ringfort.tar")

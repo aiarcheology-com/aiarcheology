@@ -1103,9 +1103,6 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			NativeModelParityProvenance.userDefinedKey:
 				try NativeModelParityProvenance(evidence: parityEvidence).canonicalJSON()
 		]
-		if let computeUnitPolicy = NativeModelRuntimePolicy.computeUnitPolicy(forProducer: graph.producer.name) {
-			userDefined[NativeModelRuntimePolicy.computeUnitsKey] = computeUnitPolicy.rawValue
-		}
 		if let imageSizingContract {
 			userDefined[NativeModelImageSizingContract.userDefinedKey] = try imageSizingContract.canonicalJSON()
 		}

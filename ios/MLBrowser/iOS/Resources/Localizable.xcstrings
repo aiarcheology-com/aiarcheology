@@ -14588,6 +14588,138 @@
         }
       }
     },
+    "configuration.hardwareAcceleration" : {
+      "comment" : "Per-model Core ML compute-unit placement row and destination title (AIA-0695)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hardware Acceleration"
+          }
+        }
+      }
+    },
+    "configuration.hardwareAccelerationAutomatic" : {
+      "comment" : "Automatic hardware-acceleration option (AIA-0695)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic"
+          }
+        }
+      }
+    },
+    "configuration.hardwareAccelerationAutomaticDescription" : {
+      "comment" : "Description of Automatic Core ML compute-unit placement (AIA-0695)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lets the system pick the best available hardware for each part of the model. The right choice for almost everyone. Which hardware is used can vary by device, so results may differ very slightly between devices."
+          }
+        }
+      }
+    },
+    "configuration.hardwareAccelerationGraphicsProcessor" : {
+      "comment" : "Graphics-processor hardware-acceleration option (AIA-0695)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Graphics Processor"
+          }
+        }
+      }
+    },
+    "configuration.hardwareAccelerationGraphicsProcessorDescription" : {
+      "comment" : "Description of Graphics Processor Core ML compute-unit placement (AIA-0695)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uses the graphics processor alongside the main processor and never the Neural Engine. Mainly useful for comparison when a model behaves unexpectedly; it is not automatically faster."
+          }
+        }
+      }
+    },
+    "configuration.hardwareAccelerationNeuralEngine" : {
+      "comment" : "Neural Engine hardware-acceleration option (AIA-0695)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neural Engine"
+          }
+        }
+      }
+    },
+    "configuration.hardwareAccelerationNeuralEngineDescription" : {
+      "comment" : "Description of Neural Engine Core ML compute-unit placement (AIA-0695)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prefers Apple's Neural Engine, built for machine-learning work and typically the most power-efficient. It calculates in reduced precision, so detections can shift very slightly compared with the processor."
+          }
+        }
+      }
+    },
+    "configuration.hardwareAccelerationPickerHint" : {
+      "comment" : "Accessibility hint for the hardware-acceleration picker row (AIA-0695)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the hardware Core ML requests for this model."
+          }
+        }
+      }
+    },
+    "configuration.hardwareAccelerationProcessorOnly" : {
+      "comment" : "Processor-only hardware-acceleration option (AIA-0695)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Processor Only"
+          }
+        }
+      }
+    },
+    "configuration.hardwareAccelerationProcessorOnlyDescription" : {
+      "comment" : "Description of Processor Only Core ML compute-unit placement (AIA-0695)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uses only the main processor. Much slower — several seconds per image tile — but the most exact, and identical on every device. Choose this when detections must match a reference result precisely."
+          }
+        }
+      }
+    },
+    "configuration.hardwareAccelerationUnavailable" : {
+      "comment" : "Reason shown below an unavailable hardware-acceleration option (AIA-0695)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not available on this device"
+          }
+        }
+      }
+    },
     "configuration.license" : {
       "comment" : "License label in configuration",
       "extractionState" : "manual",

@@ -294,6 +294,7 @@ extension TestabilityIdentification {
 		// Configuration Form
 		case configurationFormSymbol
 		case configurationFormModelType
+		case configurationFormComputeUnits
 		// Finding Share Composer
 		case findingShareTheme
 		case findingShareLayout
