@@ -18,7 +18,7 @@ import SwiftUI
 /// user scrolled / a capture began" and SwiftUI delivering the corresponding `.onChange`. A cached
 /// mirror updates only on that `.onChange`, so it would miss the window and paint a stale frame.
 /// `detect` is injected (the view wires it to `DeepDrivers.detect`, the AIA-0387 engine-actor
-/// facade) so tests can drive completion deterministically.
+/// facade) so tests can drive final completion and incremental tile publication deterministically.
 @MainActor
 final class DetectionCoordinator: ObservableObject {
 	/// The one displayed detection frame: the snapshot and the results detected ON it, applied
@@ -28,7 +28,11 @@ final class DetectionCoordinator: ObservableObject {
 
 	/// Off-main detection, injected for testability. `@MainActor` because `DeepDrivers` is — the
 	/// heavy work hops to the engine actor inside `detect`; this coordinator only awaits it.
-	private let detect: @MainActor (UIImage, TilingScheme) async -> [DetectionResult]
+	private let detect: @MainActor (
+		UIImage,
+		TilingScheme,
+		@escaping @MainActor @Sendable ([DetectionResult]) -> Void
+	) async -> [DetectionResult]
 	/// Mirrors every displayed-frame write to the presenting screen (the find-pick flow hit-tests
 	/// the frozen frame's boxes and reuses its snapshot, so the mirror can never diverge).
 	private let onFrameChanged: ((AppliedDetectionFrame?) -> Void)?
@@ -48,7 +52,11 @@ final class DetectionCoordinator: ObservableObject {
 
 	init(
 		tiling: TilingScheme = [],
-		detect: @escaping @MainActor (UIImage, TilingScheme) async -> [DetectionResult],
+		detect: @escaping @MainActor (
+			UIImage,
+			TilingScheme,
+			@escaping @MainActor @Sendable ([DetectionResult]) -> Void
+		) async -> [DetectionResult],
 		onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil
 	) {
 		self.tiling = tiling
@@ -98,23 +106,27 @@ final class DetectionCoordinator: ObservableObject {
 
 	/// The single entry into detection. Serializes passes and coalesces snapshots arriving mid-pass
 	/// to the newest (a tiled pass — 6 inferences × N detectors — can outlast the snapshot cadence,
-	/// and overlapping passes would apply out of order). Applies results only if still valid at
-	/// completion.
+	/// and overlapping passes would apply out of order). Each completed tile can update the current
+	/// snapshot's overlay; every partial and final result receives the same live validity guards.
 	func ingest(snapshot image: UIImage) {
 		queue.enqueue(image) { image, done in
 			let startGeneration = self.generation
+			let passTiling = self.tiling
 			Task {
-				let observations = await self.detect(image, self.tiling)
+				let applyIfCurrent: @MainActor @Sendable ([DetectionResult]) -> Void = { [weak self] observations in
+					guard let self else { return }
+					// Discard if invalidated since this pass began (stale geometry/interaction/capture).
+					guard self.generation == startGeneration else { return }
+					// Live re-checks: interaction or a capture may have begun after the generation was
+					// snapshotted but before SwiftUI delivered the matching `.onChange`.
+					guard self.isInteracting() == false, self.isCapturing() == false else { return }
+					// Image and results are applied as ONE value: the cached snapshot is always the exact
+					// frame the displayed boxes came from.
+					self.setApplied(AppliedDetectionFrame(image: image, results: observations))
+				}
+				let observations = await self.detect(image, passTiling, applyIfCurrent)
 				done()
-				// Discard if invalidated since this pass began (stale geometry/interaction/capture).
-				guard self.generation == startGeneration else { return }
-				// Live re-checks: interaction or a capture may have begun after the generation was
-				// snapshotted but before SwiftUI delivered the matching `.onChange`.
-				guard self.isInteracting() == false else { return }
-				guard self.isCapturing() == false else { return }
-				// Image and results are applied as ONE value: the cached snapshot is always the exact
-				// frame the displayed boxes came from.
-				self.setApplied(AppliedDetectionFrame(image: image, results: observations))
+				applyIfCurrent(observations)
 			}
 		}
 	}

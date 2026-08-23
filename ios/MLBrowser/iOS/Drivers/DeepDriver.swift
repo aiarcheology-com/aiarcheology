@@ -268,10 +268,26 @@ class DeepDrivers: ObservableObject {
 	// For that functionality, the driver should be already registered and loaded. That is
 	// controlled by the driver's related DeepConfiguation instance in CoreData.
 	func detect(on image: UIImage, tiling: TilingScheme) async -> [DetectionResult] {
+		await detect(on: image, tiling: tiling, onPartialResults: { _ in })
+	}
+
+	/// Runs detection and forwards each production detector's deduplicated per-tile aggregate.
+	/// The final return remains the complete pass so non-progressive drivers and one-shot callers
+	/// retain their existing semantics.
+	func detect(
+		on image: UIImage,
+		tiling: TilingScheme,
+		onPartialResults: @escaping @MainActor @Sendable ([DetectionResult]) -> Void
+	) async -> [DetectionResult] {
 		// Snapshot the driver list on the main actor, then run the serial loop off it in
 		// the engine actor (AIA-0387).
 		let snapshot = detectors
-		return await engine.detect(on: image, in: snapshot, tiling: tiling)
+		return await engine.detect(
+			on: image,
+			in: snapshot,
+			tiling: tiling,
+			onPartialResults: onPartialResults
+		)
 	}
 
 	// Classification counterpart of detect(): each registered classificator runs one
@@ -292,16 +308,37 @@ class DeepDrivers: ObservableObject {
 actor DetectionEngine {
 	// The image is detected over the regions of the enabled tiling scheme(s) (AIA-0217, AIA-0426):
 	// pyramid = 6, 3x3 = 10, both = their 15-region union; empty = full frame only.
-	func detect(on image: UIImage, in detectors: [DeepDriver], tiling: TilingScheme) async -> [DetectionResult] {
+	func detect(
+		on image: UIImage,
+		in detectors: [DeepDriver],
+		tiling: TilingScheme,
+		onPartialResults: @escaping @MainActor @Sendable ([DetectionResult]) -> Void = { _ in }
+	) async -> [DetectionResult] {
 		let regions = TileLayout.regions(for: tiling)
 		// The loop is serial — a plain array suffices.
 		var results: [DetectionResult] = []
 		for detector in detectors {
 			if Task.isCancelled { break }
 			guard let detector = detector as? Detecting else { continue }
-			let observations = await detector.detect(image: image, regions: regions)
-			guard observations.isEmpty.not else { continue }
 			let params = await detector.params
+			let completedResults = results
+			let observations: [DetectedObject]
+			if let incrementalDetector = detector as? IncrementalDetecting {
+				observations = await incrementalDetector.detect(
+					image: image,
+					regions: regions,
+					onPartialResult: { partialObservations in
+						var partialResults = completedResults
+						if partialObservations.isEmpty.not {
+							partialResults.append((observations: partialObservations, params: params))
+						}
+						onPartialResults(partialResults)
+					}
+				)
+			} else {
+				observations = await detector.detect(image: image, regions: regions)
+			}
+			guard observations.isEmpty.not else { continue }
 			results.append((observations: observations, params: params))
 		}
 		return results
