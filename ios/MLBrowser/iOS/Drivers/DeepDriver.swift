@@ -82,6 +82,18 @@ enum ModelComputeUnit: String, CaseIterable, Identifiable, Sendable {
 	}
 }
 
+private extension MLComputeUnits {
+	var traceLabel: String {
+		switch self {
+		case .all: "all"
+		case .cpuOnly: "cpuOnly"
+		case .cpuAndGPU: "cpuAndGPU"
+		case .cpuAndNeuralEngine: "cpuAndNeuralEngine"
+		@unknown default: "unknown"
+		}
+	}
+}
+
 struct DeepDriverParams: Sendable {
 	var annotationColor: Color = .yellow
 	var computeUnit: ModelComputeUnit = .automatic
@@ -134,9 +146,16 @@ extension DeepDriver {
 		do {
 			LoggingPolicy.debug("Loading MLModel from \(compiledModelURL.lastPathComponent)", logger: .drivers)
 			let availableAccelerators = ModelComputeUnit.availableAccelerators
+			let requestedComputeUnits = computeUnit.requestedComputeUnits
+			let requestedHardwareIsAvailable = computeUnit.isAvailable(in: availableAccelerators)
+			let resolvedComputeUnits = computeUnit.resolvedComputeUnits(in: availableAccelerators)
 			let configured = MLModelConfiguration()
-			configured.computeUnits = computeUnit.resolvedComputeUnits(in: availableAccelerators)
-			if computeUnit.isAvailable(in: availableAccelerators).not {
+			configured.computeUnits = resolvedComputeUnits
+			LoggingPolicy.debug(
+				"[AIA-0695 TRACE] Core ML placement: requested=\(computeUnit.rawValue) (\(requestedComputeUnits.traceLabel)), resolved=\(resolvedComputeUnits.traceLabel), requestedHardwareAvailable=\(requestedHardwareIsAvailable)",
+				logger: .drivers
+			)
+			if requestedHardwareIsAvailable.not {
 				LoggingPolicy.info(
 					"Requested model hardware is unavailable; loading with Automatic placement instead.",
 					logger: .drivers
