@@ -14160,107 +14160,107 @@
       "comment" : "Per-model display confidence threshold slider label (AIA-0702)",
       "extractionState" : "manual",
       "localizations" : {
-		"ar" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "ثقة الكشف"
-		  }
-		},
-		"bn" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "শনাক্তকরণের নির্ভরযোগ্যতা"
-		  }
-		},
-		"cs" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "Spolehlivost detekce"
-		  }
-		},
-		"de" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "Erkennungszuverlässigkeit"
-		  }
-		},
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ثقة الكشف"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "শনাক্তকরণের নির্ভরযোগ্যতা"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spolehlivost detekce"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erkennungszuverlässigkeit"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Detection Confidence"
           }
-		},
-		"es" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "Confianza de detección"
-		  }
-		},
-		"fa" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "اطمینان تشخیص"
-		  }
-		},
-		"fr" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "Niveau de confiance de la détection"
-		  }
-		},
-		"he" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "ביטחון בזיהוי"
-		  }
-		},
-		"hi" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "विश्वास के साथ पहचान"
-		  }
-		},
-		"hu" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "Észlelési megbízhatóság"
-		  }
-		},
-		"pl" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "Pewność wykrywania"
-		  }
-		},
-		"ru" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "Достоверность обнаружения"
-		  }
-		},
-		"uk" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "Достовірність виявлення"
-		  }
-		},
-		"zh-HK" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "偵測信心度"
-		  }
-		},
-		"zh-Hans" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "检测置信度"
-		  }
-		},
-		"zh-Hant" : {
-		  "stringUnit" : {
-			"state" : "translated",
-			"value" : "偵測信心度"
-		  }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confianza de detección"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اطمینان تشخیص"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niveau de confiance de la détection"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטחון בזיהוי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "विश्वास के साथ पहचान"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Észlelési megbízhatóság"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pewność wykrywania"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Достоверность обнаружения"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Достовірність виявлення"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检测置信度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "偵測信心度"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "偵測信心度"
+          }
         }
       }
     },
@@ -14700,10 +14700,106 @@
       "comment" : "Per-model Core ML compute-unit placement row and destination title (AIA-0695)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تسريع الأجهزة"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "হার্ডওয়্যার অ্যাক্সিলারেশন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Hardwarová akcelerace"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Hardwarebeschleunigung"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hardware Acceleration"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aceleración de hardware"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "شتاب‌دهی سخت‌افزاری"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Accélération matérielle"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "האצת חומרה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "हार्डवेयर त्वरण"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Hardveres gyorsítás"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Akceleracja sprzętowa"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Аппаратное ускорение"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Апаратне прискорення"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "硬件加速"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "硬體加速"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "硬件加速"
           }
         }
       }
@@ -14712,10 +14808,106 @@
       "comment" : "Automatic hardware-acceleration option (AIA-0695)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تلقائي"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "স্বয়ংক্রিয়"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Automaticky"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Automatisch"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Automatic"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Automático"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "خودکار"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Automatique"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "אוטומטי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "स्वचालित"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Automatikus"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Automatycznie"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Автоматически"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Автоматично"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "自动"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "自動"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "自動"
           }
         }
       }
@@ -14724,10 +14916,106 @@
       "comment" : "Description of Automatic Core ML compute-unit placement (AIA-0695)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يدع النظام يختار أفضل أجهزة متاحة لكل جزء من النموذج. وهو الخيار المناسب لمعظم المستخدمين. قد تختلف الأجهزة المستخدمة باختلاف الجهاز، ولذلك قد تختلف النتائج بدرجة طفيفة جدًا بين الأجهزة."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "মডেলের প্রতিটি অংশের জন্য সেরা উপলভ্য হার্ডওয়্যার বেছে নিতে সিস্টেমকে দেয়। প্রায় সবার জন্য এটাই সঠিক পছন্দ। ব্যবহৃত হার্ডওয়্যার ডিভাইসভেদে বদলাতে পারে, তাই ডিভাইসগুলোর মধ্যে ফলাফল খুব সামান্য ভিন্ন হতে পারে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nechá systém vybrat nejlepší dostupný hardware pro každou část modelu. Pro téměř všechny je to správná volba. Použitý hardware se může podle zařízení lišit, takže se výsledky mezi zařízeními mohou velmi nepatrně lišit."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lässt das System für jeden Teil des Modells die beste verfügbare Hardware wählen. Für fast alle ist das die richtige Wahl. Die verwendete Hardware kann je nach Gerät variieren, daher können die Ergebnisse zwischen Geräten sehr leicht abweichen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lets the system pick the best available hardware for each part of the model. The right choice for almost everyone. Which hardware is used can vary by device, so results may differ very slightly between devices."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Permite que el sistema elija el mejor hardware disponible para cada parte del modelo. Es la elección correcta para casi todo el mundo. El hardware usado puede variar según el dispositivo, por lo que los resultados pueden diferir muy ligeramente entre dispositivos."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "به سیستم اجازه می‌دهد برای هر بخش مدل بهترین سخت‌افزار موجود را انتخاب کند. این انتخاب مناسب تقریباً همه است. سخت‌افزار استفاده‌شده ممکن است بسته به دستگاه متفاوت باشد، بنابراین نتایج می‌توانند بین دستگاه‌ها بسیار اندکی فرق کنند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Laisse le système choisir le meilleur matériel disponible pour chaque partie du modèle. C’est le bon choix pour presque tout le monde. Le matériel utilisé peut varier selon l’appareil, et les résultats peuvent donc différer très légèrement d’un appareil à l’autre."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מאפשר למערכת לבחור את החומרה הזמינה הטובה ביותר לכל חלק של המודל. זו הבחירה הנכונה כמעט לכולם. החומרה שבה נעשה שימוש עשויה להשתנות בין מכשירים, ולכן התוצאות עשויות להיות מעט שונות בין מכשירים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "सिस्टम को मॉडल के प्रत्येक भाग के लिए उपलब्ध सर्वोत्तम हार्डवेयर चुनने देता है। लगभग सभी के लिए यही सही विकल्प है। उपयोग किया गया हार्डवेयर डिवाइस के अनुसार बदल सकता है, इसलिए अलग-अलग डिवाइस पर परिणाम बहुत थोड़ा भिन्न हो सकते हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Engedi, hogy a rendszer a modell minden részéhez a legjobb elérhető hardvert válassza. Szinte mindenki számára ez a megfelelő választás. A használt hardver eszközönként eltérhet, ezért az eredmények nagyon kis mértékben különbözhetnek az eszközök között."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pozwala systemowi wybrać najlepszy dostępny sprzęt dla każdej części modelu. To właściwy wybór dla prawie wszystkich. Używany sprzęt może się różnić zależnie od urządzenia, dlatego wyniki mogą się bardzo nieznacznie różnić między urządzeniami."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Позволяет системе выбрать лучшее доступное оборудование для каждой части модели. Это правильный выбор почти для всех. Используемое оборудование может различаться в зависимости от устройства, поэтому результаты могут очень незначительно отличаться между устройствами."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Дозволяє системі вибрати найкраще доступне обладнання для кожної частини моделі. Це правильний вибір майже для всіх. Використовуване обладнання може відрізнятися залежно від пристрою, тому результати можуть дуже незначно відрізнятися між пристроями."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "让系统为模型的每个部分选择最佳可用硬件。这是几乎所有人的正确选择。所用硬件可能因设备而异，因此不同设备之间的结果可能会有非常细微的差异。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "讓系統為模型的每個部分選擇最佳可用硬體。這是大多數人的正確選擇。使用的硬體可能因裝置而異，因此不同裝置的結果可能會有極微小差異。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "讓系統為模型的每個部分選擇最佳可用硬件。這是大多數人的正確選擇。使用的硬件可能因裝置而異，因此不同裝置的結果可能會有極微小差異。"
           }
         }
       }
@@ -14736,10 +15024,106 @@
       "comment" : "Graphics-processor hardware-acceleration option (AIA-0695)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "معالج الرسومات"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "গ্রাফিক্স প্রসেসর"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Grafický procesor"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Grafikprozessor"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Graphics Processor"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Procesador gráfico"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "پردازندهٔ گرافیکی"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Processeur graphique"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מעבד גרפי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ग्राफ़िक्स प्रोसेसर"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Grafikus processzor"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Procesor graficzny"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Графический процессор"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Графічний процесор"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "图形处理器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "圖形處理器"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "圖形處理器"
           }
         }
       }
@@ -14748,10 +15132,106 @@
       "comment" : "Description of Graphics Processor Core ML compute-unit placement (AIA-0695)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يستخدم معالج الرسومات إلى جانب المعالج الرئيسي ولا يستخدم Neural Engine مطلقًا. يفيد أساسًا للمقارنة عندما يتصرف النموذج بشكل غير متوقع؛ وليس أسرع تلقائيًا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "মূল প্রসেসরের সঙ্গে গ্রাফিক্স প্রসেসর ব্যবহার করে এবং কখনও Neural Engine ব্যবহার করে না। মডেল অপ্রত্যাশিতভাবে আচরণ করলে তুলনার জন্য প্রধানত উপকারী; এটি স্বয়ংক্রিয়ভাবে দ্রুত নয়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Používá grafický procesor vedle hlavního procesoru a nikdy Neural Engine. Hodí se hlavně k porovnání, když se model chová nečekaně; automaticky není rychlejší."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Verwendet den Grafikprozessor zusammen mit dem Hauptprozessor und niemals die Neural Engine. Hauptsächlich zum Vergleich nützlich, wenn sich ein Modell unerwartet verhält; automatisch schneller ist es nicht."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uses the graphics processor alongside the main processor and never the Neural Engine. Mainly useful for comparison when a model behaves unexpectedly; it is not automatically faster."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Usa el procesador gráfico junto al procesador principal y nunca el Neural Engine. Es útil sobre todo para comparar cuando un modelo se comporta de forma inesperada; no es automáticamente más rápido."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "از پردازندهٔ گرافیکی در کنار پردازندهٔ اصلی استفاده می‌کند و هرگز از Neural Engine استفاده نمی‌کند. عمدتاً برای مقایسه هنگام رفتار غیرمنتظرهٔ مدل مفید است؛ خودبه‌خود سریع‌تر نیست."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Utilise le processeur graphique avec le processeur principal, et jamais le Neural Engine. Principalement utile pour comparer lorsqu’un modèle se comporte de façon inattendue ; ce n’est pas automatiquement plus rapide."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "משתמש במעבד הגרפי לצד המעבד הראשי ולעולם לא ב‑Neural Engine. שימושי בעיקר להשוואה כאשר מודל מתנהג באופן בלתי צפוי; הוא אינו מהיר יותר באופן אוטומטי."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मुख्य प्रोसेसर के साथ ग्राफ़िक्स प्रोसेसर का उपयोग करता है और कभी Neural Engine का उपयोग नहीं करता। मॉडल के अनपेक्षित व्यवहार पर तुलना के लिए मुख्यतः उपयोगी है; यह अपने-आप तेज़ नहीं होता।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A grafikus processzort a főprocesszor mellett használja, a Neural Engine-t pedig soha. Főleg összehasonlításra hasznos, ha egy modell váratlanul viselkedik; nem lesz automatikusan gyorsabb."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Używa procesora graficznego obok głównego procesora i nigdy Neural Engine. Jest przydatny głównie do porównań, gdy model zachowuje się nieoczekiwanie; nie jest automatycznie szybszy."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Использует графический процессор вместе с основным процессором и никогда не использует Neural Engine. Полезно главным образом для сравнения, когда модель ведёт себя неожиданно; автоматически быстрее не становится."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Використовує графічний процесор разом з основним процесором і ніколи не використовує Neural Engine. Корисно передусім для порівняння, коли модель поводиться неочікувано; автоматично швидшим не стає."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "使用图形处理器和主处理器，绝不使用 Neural Engine。主要用于模型行为异常时的比较；并不一定更快。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "將圖形處理器與主處理器搭配使用，絕不使用 Neural Engine。主要用於模型行為異常時的比較；不一定會更快。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "將圖形處理器與主處理器搭配使用，絕不使用 Neural Engine。主要用於模型行為異常時的比較；不一定會更快。"
           }
         }
       }
@@ -14760,9 +15240,105 @@
       "comment" : "Neural Engine hardware-acceleration option (AIA-0695)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
+            "value" : "Neural Engine"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
             "value" : "Neural Engine"
           }
         }
@@ -14772,10 +15348,106 @@
       "comment" : "Description of Neural Engine Core ML compute-unit placement (AIA-0695)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يفضّل Neural Engine من Apple، المصمم لمهام التعلّم الآلي وعادةً ما يكون الأكثر كفاءة في استهلاك الطاقة. يجري الحساب بدقة مخفضة، لذا قد تتحرك مواضع الاكتشاف بشكل طفيف جدًا مقارنةً بالمعالج."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Apple-এর Neural Engine-কে অগ্রাধিকার দেয়, যা মেশিন-লার্নিং কাজের জন্য তৈরি এবং সাধারণত সবচেয়ে শক্তি-সাশ্রয়ী। এটি কম নির্ভুলতায় হিসাব করে, তাই প্রসেসরের তুলনায় শনাক্তকরণ খুব সামান্য সরে যেতে পারে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Upřednostňuje Neural Engine od Applu, který je určený pro strojové učení a obvykle má nejnižší spotřebu. Počítá se sníženou přesností, takže se detekce mohou oproti procesoru velmi nepatrně posunout."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bevorzugt Apples Neural Engine, die für maschinelles Lernen entwickelt wurde und meist besonders energieeffizient ist. Sie rechnet mit reduzierter Genauigkeit, sodass sich Erkennungen gegenüber dem Prozessor sehr leicht verschieben können."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Prefers Apple's Neural Engine, built for machine-learning work and typically the most power-efficient. It calculates in reduced precision, so detections can shift very slightly compared with the processor."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Prioriza el Neural Engine de Apple, creado para tareas de aprendizaje automático y normalmente el más eficiente en consumo de energía. Calcula con precisión reducida, por lo que las detecciones pueden desplazarse muy ligeramente respecto al procesador."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neural Engine اپل را ترجیح می‌دهد که برای کارهای یادگیری ماشین ساخته شده و معمولاً کم‌مصرف‌ترین است. با دقت کاهش‌یافته محاسبه می‌کند، بنابراین تشخیص‌ها ممکن است در مقایسه با پردازنده بسیار اندکی جابه‌جا شوند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Privilégie le Neural Engine d’Apple, conçu pour les tâches d’apprentissage automatique et généralement le plus économe en énergie. Il calcule avec une précision réduite, de sorte que les détections peuvent très légèrement se décaler par rapport au processeur."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מעדיף את Neural Engine של Apple, שנבנה עבור עבודות למידת מכונה ולרוב הוא החסכוני ביותר בחשמל. הוא מחשב ברמת דיוק מופחתת, לכן זיהויים עשויים לזוז מעט מאוד בהשוואה למעבד."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Apple के Neural Engine को प्राथमिकता देता है, जो मशीन लर्निंग कार्य के लिए बनाया गया है और सामान्यतः सबसे ऊर्जा-कुशल होता है। यह कम परिशुद्धता में गणना करता है, इसलिए प्रोसेसर की तुलना में डिटेक्शन बहुत थोड़ा खिसक सकते हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az Apple Neural Engine-jét részesíti előnyben, amely gépi tanulási feladatokra készült, és általában ez a legtakarékosabb. Csökkentett pontossággal számol, ezért az észlelések a processzorhoz képest nagyon kis mértékben eltolódhatnak."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Preferuje Neural Engine firmy Apple, zbudowany do zadań uczenia maszynowego i zwykle najbardziej energooszczędny. Oblicza ze zmniejszoną precyzją, więc wykrycia mogą się bardzo nieznacznie przesunąć w porównaniu z procesorem."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Отдаёт предпочтение Neural Engine от Apple, созданному для задач машинного обучения и обычно наиболее энергоэффективному. Он вычисляет с пониженной точностью, поэтому обнаружения могут очень незначительно смещаться по сравнению с процессором."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Надає перевагу Neural Engine від Apple, створеному для завдань машинного навчання та зазвичай найенергоефективнішому. Він обчислює зі зниженою точністю, тому виявлення можуть дуже незначно зміщуватися порівняно з процесором."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "优先使用 Apple 的 Neural Engine，它专为机器学习工作而打造，通常最省电。它以较低精度计算，因此与处理器相比，检测结果可能会有极细微的偏移。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "優先使用 Apple 的 Neural Engine，它專為機器學習工作而打造，通常最省電。它以較低精度計算，因此與處理器相比，偵測結果可能會有極微小的偏移。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "優先使用 Apple 的 Neural Engine，它專為機器學習工作而打造，通常最省電。它以較低精度計算，因此與處理器相比，偵測結果可能會有極微小的偏移。"
           }
         }
       }
@@ -14784,10 +15456,106 @@
       "comment" : "Accessibility hint for the hardware-acceleration picker row (AIA-0695)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "اختر الأجهزة التي يطلبها Core ML لهذا النموذج."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই মডেলের জন্য Core ML যে হার্ডওয়্যার অনুরোধ করে, তা বেছে নিন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vyberte hardware, který Core ML požaduje pro tento model."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wähle die Hardware, die Core ML für dieses Modell anfordert."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choose the hardware Core ML requests for this model."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Elige el hardware que Core ML solicita para este modelo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "سخت‌افزاری را انتخاب کنید که Core ML برای این مدل درخواست می‌کند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Choisissez le matériel que Core ML demande pour ce modèle."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "בחרו את החומרה ש‑Core ML מבקש עבור מודל זה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "इस मॉडल के लिए Core ML जिस हार्डवेयर का अनुरोध करता है, उसे चुनें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Válassza ki a hardvert, amelyet a Core ML ehhez a modellhez kér."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wybierz sprzęt, o który Core ML prosi dla tego modelu."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Выберите оборудование, которое Core ML запрашивает для этой модели."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Виберіть обладнання, яке Core ML запитує для цієї моделі."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "选择 Core ML 为此模型请求的硬件。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "選擇 Core ML 為此模型要求的硬體。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "選擇 Core ML 為此模型要求的硬件。"
           }
         }
       }
@@ -14796,10 +15564,106 @@
       "comment" : "Processor-only hardware-acceleration option (AIA-0695)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "المعالج فقط"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "শুধু প্রসেসর"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pouze procesor"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nur Prozessor"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Processor Only"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Solo procesador"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "فقط پردازنده"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Processeur uniquement"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מעבד בלבד"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "केवल प्रोसेसर"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Csak processzor"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tylko procesor"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Только процессор"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Лише процесор"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "仅处理器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "僅處理器"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "僅處理器"
           }
         }
       }
@@ -14808,10 +15672,106 @@
       "comment" : "Description of Processor Only Core ML compute-unit placement (AIA-0695)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يستخدم المعالج الرئيسي فقط. أبطأ بكثير — عدة ثوانٍ لكل جزء من الصورة — لكنه الأكثر دقة والنتيجة متطابقة على كل جهاز. اختره عندما يجب أن تطابق الاكتشافات نتيجة مرجعية بدقة."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "শুধু মূল প্রসেসর ব্যবহার করে। অনেক ধীর — প্রতিটি ছবির টাইলের জন্য কয়েক সেকেন্ড — তবে সবচেয়ে নির্ভুল এবং প্রতিটি ডিভাইসে একই। শনাক্তকরণকে কোনো রেফারেন্স ফলাফলের সঙ্গে নির্ভুলভাবে মিলতে হলে এটি বেছে নিন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Používá pouze hlavní procesor. Je mnohem pomalejší — několik sekund na každý dlaždicový výřez obrázku — ale nejpřesnější a stejný na každém zařízení. Zvolte jej, když se detekce musí přesně shodovat s referenčním výsledkem."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Verwendet nur den Hauptprozessor. Deutlich langsamer — mehrere Sekunden pro Bildkachel — aber am genauesten und auf jedem Gerät identisch. Wähle dies, wenn Erkennungen exakt einem Referenzergebnis entsprechen müssen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uses only the main processor. Much slower — several seconds per image tile — but the most exact, and identical on every device. Choose this when detections must match a reference result precisely."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Usa solo el procesador principal. Es mucho más lento — varios segundos por cada mosaico de imagen —, pero es el más exacto e idéntico en todos los dispositivos. Elígelo cuando las detecciones deban coincidir exactamente con un resultado de referencia."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "فقط از پردازندهٔ اصلی استفاده می‌کند. بسیار کندتر است — چند ثانیه برای هر کاشی تصویر — اما دقیق‌ترین است و روی هر دستگاه یکسان عمل می‌کند. وقتی تشخیص‌ها باید دقیقاً با نتیجهٔ مرجع مطابقت داشته باشند، این گزینه را انتخاب کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Utilise uniquement le processeur principal. Bien plus lent — plusieurs secondes par tuile d’image — mais le plus précis, avec un résultat identique sur chaque appareil. Choisissez cette option lorsque les détections doivent correspondre exactement à un résultat de référence."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "משתמש רק במעבד הראשי. איטי בהרבה — כמה שניות לכל אריח תמונה — אך המדויק ביותר וזהה בכל מכשיר. בחרו באפשרות זו כאשר הזיהויים חייבים להתאים בדיוק לתוצאת ייחוס."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "केवल मुख्य प्रोसेसर का उपयोग करता है। बहुत धीमा — हर इमेज टाइल के लिए कई सेकंड — लेकिन सबसे सटीक और हर डिवाइस पर समान। जब डिटेक्शन को किसी संदर्भ परिणाम से ठीक-ठीक मिलना हो, तब इसे चुनें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Csak a főprocesszort használja. Sokkal lassabb — képcsempénként több másodperc —, de a legpontosabb, és minden eszközön azonos. Akkor válassza, ha az észleléseknek pontosan egyezniük kell egy referenciaeredménnyel."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Używa tylko głównego procesora. Jest znacznie wolniejszy — kilka sekund na każdy kafelek obrazu — ale najdokładniejszy i identyczny na każdym urządzeniu. Wybierz go, gdy wykrycia muszą dokładnie odpowiadać wynikowi referencyjnemu."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Использует только основной процессор. Значительно медленнее — несколько секунд на каждый фрагмент изображения, — но точнее всего и одинаково на каждом устройстве. Выберите этот вариант, когда обнаружения должны точно соответствовать эталонному результату."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Використовує лише основний процесор. Значно повільніше — кілька секунд на кожну плитку зображення — але найточніше й однаково працює на кожному пристрої. Виберіть цей варіант, коли виявлення мають точно відповідати еталонному результату."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "仅使用主处理器。速度慢得多——每个图像块需要数秒——但最精确，且在所有设备上结果一致。当检测必须与参考结果精确匹配时选择此项。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "僅使用主處理器。速度慢得多——每個影像拼貼需要數秒——但最準確，且每部裝置上都相同。當偵測結果必須精確符合參考結果時選擇此項。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "僅使用主處理器。速度慢得多——每個影像拼貼需要數秒——但最準確，且每部裝置上都相同。當偵測結果必須精確符合參考結果時選擇此項。"
           }
         }
       }
@@ -14820,10 +15780,106 @@
       "comment" : "Reason shown below an unavailable hardware-acceleration option (AIA-0695)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "غير متاح على هذا الجهاز"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই ডিভাইসে উপলব্ধ নয়"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Na tomto zařízení není k dispozici"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Auf diesem Gerät nicht verfügbar"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not available on this device"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No disponible en este dispositivo"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "در این دستگاه در دسترس نیست"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Non disponible sur cet appareil"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לא זמין במכשיר זה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "इस डिवाइस पर उपलब्ध नहीं है"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nem érhető el ezen az eszközön"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Niedostępne na tym urządzeniu"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Недоступно на этом устройстве"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Недоступно на цьому пристрої"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此设备上不可用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此裝置無法使用"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此裝置無法使用"
           }
         }
       }
