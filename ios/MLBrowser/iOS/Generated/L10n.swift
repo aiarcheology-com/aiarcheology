@@ -361,6 +361,8 @@ internal enum L10n {
     internal static let created = L10n.tr("Localizable", "configuration.created", fallback: "Created")
     /// Description
     internal static let description = L10n.tr("Localizable", "configuration.description", fallback: "Description")
+    /// Detection Confidence
+    internal static let detectionConfidence = L10n.tr("Localizable", "configuration.detectionConfidence", fallback: "Detection Confidence")
     /// Export
     internal static let export = L10n.tr("Localizable", "configuration.export", fallback: "Export")
     /// Fade Out Time

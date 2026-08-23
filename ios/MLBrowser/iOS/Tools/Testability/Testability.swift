@@ -304,6 +304,7 @@ extension TestabilityIdentification {
 		// Configuration Form
 		case configurationFormFadeOutTime
 		case configurationFormFlashSize
+		case configurationFormDetectionConfidence
 		// Snap Adjustment
 		case snapAdjustmentBrightness
 		case snapAdjustmentContrast
