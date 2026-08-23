@@ -288,7 +288,7 @@ final class TileLayoutDedupTests: XCTestCase {
 		let stronger = object(confidence: 0.9, box: CGRect(x: 0.41, y: 0.41, width: 0.2, height: 0.2), region: 4)
 
 		for input in [[weaker, stronger], [stronger, weaker]] {
-			let result = TileLayout.dedupAcrossRegions(input)
+			let result = TileLayout.dedupAcrossRegions(input, regions: TileLayout.pyramidRegions)
 			XCTAssertEqual(result.map(\.uuid), [stronger.uuid])
 		}
 	}
@@ -298,7 +298,7 @@ final class TileLayoutDedupTests: XCTestCase {
 		let first = object(confidence: 0.9, box: CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2), region: 0)
 		let second = object(confidence: 0.5, box: CGRect(x: 0.41, y: 0.41, width: 0.18, height: 0.18), region: 0)
 
-		let result = TileLayout.dedupAcrossRegions([first, second])
+		let result = TileLayout.dedupAcrossRegions([first, second], regions: [TileLayout.fullFrame])
 		XCTAssertEqual(Set(result.map(\.uuid)), Set([first.uuid, second.uuid]))
 	}
 
@@ -306,7 +306,7 @@ final class TileLayoutDedupTests: XCTestCase {
 		let lidar = object(label: "lidar", confidence: 0.9, box: CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2), region: 0)
 		let mound = object(label: "mound", confidence: 0.5, box: CGRect(x: 0.41, y: 0.41, width: 0.2, height: 0.2), region: 4)
 
-		let result = TileLayout.dedupAcrossRegions([lidar, mound])
+		let result = TileLayout.dedupAcrossRegions([lidar, mound], regions: TileLayout.pyramidRegions)
 		XCTAssertEqual(Set(result.map(\.uuid)), Set([lidar.uuid, mound.uuid]))
 	}
 
@@ -315,7 +315,7 @@ final class TileLayoutDedupTests: XCTestCase {
 		let left = object(confidence: 0.8, box: CGRect(x: 0.05, y: 0.05, width: 0.1, height: 0.1), region: 0)
 		let right = object(confidence: 0.7, box: CGRect(x: 0.8, y: 0.8, width: 0.1, height: 0.1), region: 3)
 
-		let result = TileLayout.dedupAcrossRegions([left, right])
+		let result = TileLayout.dedupAcrossRegions([left, right], regions: TileLayout.pyramidRegions)
 		XCTAssertEqual(Set(result.map(\.uuid)), Set([left.uuid, right.uuid]))
 	}
 
@@ -330,13 +330,13 @@ final class TileLayoutDedupTests: XCTestCase {
 			boundingBox: CGRect(x: 0.41, y: 0.41, width: 0.2, height: 0.2), regionIndex: 4
 		)
 
-		let result = TileLayout.dedupAcrossRegions([first, second])
+		let result = TileLayout.dedupAcrossRegions([first, second], regions: TileLayout.pyramidRegions)
 		XCTAssertEqual(Set(result.map(\.uuid)), Set([first.uuid, second.uuid]))
 	}
 
 	func testDedup_SingleObject_PassesThrough() {
 		let only = object(confidence: 0.4, box: CGRect(x: 0.1, y: 0.1, width: 0.2, height: 0.2), region: 5)
-		XCTAssertEqual(TileLayout.dedupAcrossRegions([only]).map(\.uuid), [only.uuid])
+		XCTAssertEqual(TileLayout.dedupAcrossRegions([only], regions: TileLayout.pyramidRegions).map(\.uuid), [only.uuid])
 	}
 }
 

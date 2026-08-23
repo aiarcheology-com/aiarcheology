@@ -12,5 +12,12 @@ Test Focus: nested detection results and per-model confidence display.
 - With two detection models, change one threshold, close and reopen both configurations, and
   confirm each model retains its own value.
 
-Please report your device model, iOS version, model, tiling mode, selected percentage, and language
-if anything looks wrong.
+Also verify hardware acceleration for one model.
+
+- Automatic should be selected by default. Choose each available option one at a time, close and
+  reopen the configuration, and confirm the choice is retained for that model only.
+- Run a detector after selecting each option. Detections should remain plausible; Processor Only
+  can take much longer. Available accelerators differ by device.
+
+Please report your device model, iOS version, model, tiling mode, selected percentage, hardware
+option, and language if anything looks wrong.

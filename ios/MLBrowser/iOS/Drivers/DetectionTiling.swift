@@ -140,12 +140,15 @@ enum TileLayout {
 	/// 2. Greedy IoU suppression by confidence for the near-identical survivors.
 	static func dedupAcrossRegions(
 		_ objects: [DetectedObject],
-		regions: [CGRect] = [fullFrame],
+		regions: [CGRect],
 		containmentThreshold: CGFloat = 0.7,
 		iouThreshold: CGFloat = 0.45,
 		clippedAreaRatio: CGFloat = 0.8,
+		// This is deliberately measured in full-image normalized space: both boxes and tile
+		// boundaries arrive here after remapping, so it must not vary with a tile's dimensions.
 		edgeTolerance: CGFloat = 0.01
 	) -> [DetectedObject] {
+		precondition(edgeTolerance >= 0, "edgeTolerance must not be negative")
 		guard objects.count > 1 else { return objects }
 
 		var survivors = [DetectedObject]()
@@ -216,7 +219,7 @@ enum TileLayout {
 		regions: [CGRect],
 		tolerance: CGFloat
 	) -> Bool {
-		guard tolerance >= 0, regions.indices.contains(candidate.regionIndex) else { return false }
+		guard regions.indices.contains(candidate.regionIndex) else { return false }
 		let region = regions[candidate.regionIndex]
 		let box = candidate.boundingBox
 
