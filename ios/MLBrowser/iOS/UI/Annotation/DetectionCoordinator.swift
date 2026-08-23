@@ -18,7 +18,7 @@ import SwiftUI
 /// user scrolled / a capture began" and SwiftUI delivering the corresponding `.onChange`. A cached
 /// mirror updates only on that `.onChange`, so it would miss the window and paint a stale frame.
 /// `detect` is injected (the view wires it to `DeepDrivers.detect`, the AIA-0387 engine-actor
-/// facade) so tests can drive final completion and incremental tile publication deterministically.
+/// facade) so tests can drive completion deterministically.
 @MainActor
 final class DetectionCoordinator: ObservableObject {
 	/// The one displayed detection frame: the snapshot and the results detected ON it, applied
@@ -28,11 +28,7 @@ final class DetectionCoordinator: ObservableObject {
 
 	/// Off-main detection, injected for testability. `@MainActor` because `DeepDrivers` is — the
 	/// heavy work hops to the engine actor inside `detect`; this coordinator only awaits it.
-	private let detect: @MainActor (
-		UIImage,
-		TilingScheme,
-		@escaping @MainActor @Sendable ([DetectionResult]) -> Void
-	) async -> [DetectionResult]
+	private let detect: @MainActor (UIImage, TilingScheme) async -> [DetectionResult]
 	/// Mirrors every displayed-frame write to the presenting screen (the find-pick flow hit-tests
 	/// the frozen frame's boxes and reuses its snapshot, so the mirror can never diverge).
 	private let onFrameChanged: ((AppliedDetectionFrame?) -> Void)?
@@ -54,11 +50,7 @@ final class DetectionCoordinator: ObservableObject {
 
 	init(
 		tiling: TilingScheme = [],
-		detect: @escaping @MainActor (
-			UIImage,
-			TilingScheme,
-			@escaping @MainActor @Sendable ([DetectionResult]) -> Void
-		) async -> [DetectionResult],
+		detect: @escaping @MainActor (UIImage, TilingScheme) async -> [DetectionResult],
 		onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil
 	) {
 		self.tiling = tiling
@@ -108,8 +100,8 @@ final class DetectionCoordinator: ObservableObject {
 
 	/// The single entry into detection. Serializes passes and coalesces snapshots arriving mid-pass
 	/// to the newest (a tiled pass — 6 inferences × N detectors — can outlast the snapshot cadence,
-	/// and overlapping passes would apply out of order). Each completed tile can update the current
-	/// snapshot's overlay; every partial and final result receives the same live validity guards.
+	/// and overlapping passes would apply out of order). Applies results only if still valid at
+	/// completion.
 	func ingest(snapshot image: UIImage) {
 		LoggingPolicy.debug(
 			"[AIA-0702 TRACE] Detection ingest generation=\(generation) queueInFlight=\(queue.inFlight)",
@@ -126,28 +118,20 @@ final class DetectionCoordinator: ObservableObject {
 				logger: .ui
 			)
 			Task {
-				let applyIfCurrent: @MainActor @Sendable ([DetectionResult]) -> Void = { [weak self] observations in
-					guard let self else { return }
-					// Discard if invalidated since this pass began (stale geometry/interaction/capture).
-					guard self.generation == startGeneration else { return }
-					// Live re-checks: interaction or a capture may have begun after the generation was
-					// snapshotted but before SwiftUI delivered the matching `.onChange`.
-					guard self.isInteracting() == false, self.isCapturing() == false else { return }
-					// Image and results are applied as ONE value: the cached snapshot is always the exact
-					// frame the displayed boxes came from.
-					self.setApplied(AppliedDetectionFrame(image: image, results: observations))
-				}
-				let observations = await self.detect(image, passTiling, applyIfCurrent)
+				let observations = await self.detect(image, passTiling)
 				let observationCount = observations.reduce(0) { $0 + $1.observations.count }
 				LoggingPolicy.debug(
 					"[AIA-0702 TRACE] Detection pass completed sequence=\(passSequence) groups=\(observations.count) observations=\(observationCount)",
 					logger: .ui
 				)
 				done()
+				// Discard if invalidated since this pass began (stale geometry/interaction/capture).
 				guard self.generation == startGeneration else {
 					LoggingPolicy.debug("[AIA-0702 TRACE] Detection pass dropped sequence=\(passSequence) reason=staleGeneration", logger: .ui)
 					return
 				}
+				// Live re-checks: interaction or a capture may have begun after the generation was
+				// snapshotted but before SwiftUI delivered the matching `.onChange`.
 				guard self.isInteracting() == false else {
 					LoggingPolicy.debug("[AIA-0702 TRACE] Detection pass dropped sequence=\(passSequence) reason=interacting", logger: .ui)
 					return
@@ -156,7 +140,9 @@ final class DetectionCoordinator: ObservableObject {
 					LoggingPolicy.debug("[AIA-0702 TRACE] Detection pass dropped sequence=\(passSequence) reason=capturing", logger: .ui)
 					return
 				}
-				applyIfCurrent(observations)
+				// Image and results are applied as ONE value: the cached snapshot is always the exact
+				// frame the displayed boxes came from.
+				self.setApplied(AppliedDetectionFrame(image: image, results: observations))
 			}
 		}
 	}

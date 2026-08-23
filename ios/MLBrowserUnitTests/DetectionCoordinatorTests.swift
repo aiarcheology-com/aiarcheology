@@ -30,7 +30,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 
 	private func makeCoordinator() -> DetectionCoordinator {
 		let coordinator = DetectionCoordinator(
-			detect: { [weak self] _, _, _ in
+			detect: { [weak self] _, _ in
 				await withCheckedContinuation { cont in
 					self?.continuation = cont
 				}
@@ -137,40 +137,6 @@ final class DetectionCoordinatorTests: XCTestCase {
 		XCTAssertEqual(frameChanges.count, 1)
 		XCTAssertTrue(frameChanges.first??.image === snapshot)
 		XCTAssertEqual(frameChanges.first??.results.count, 1)
-	}
-
-	func testIncrementalResult_appliesBeforePassCompletesAndFinalResultReplacesIt() async {
-		let partial = cannedResult()
-		let final = cannedResult()
-		let coordinator = DetectionCoordinator(
-			detect: { [weak self] _, _, publish in
-				publish([partial])
-				return await withCheckedContinuation { cont in
-					self?.continuation = cont
-				}
-			},
-			onFrameChanged: { [weak self] frame in
-				self?.frameChanges.append(frame)
-			}
-		)
-		coordinator.bindGuards(
-			isInteracting: { [weak self] in self?.interacting ?? false },
-			isCapturing: { [weak self] in self?.capturing ?? false }
-		)
-
-		coordinator.ingest(snapshot: UIImage())
-		await settle(
-			until: { coordinator.appliedFrame?.results.first?.params.entityId == partial.params.entityId },
-			"the incremental result was not applied before detection completed"
-		)
-		XCTAssertNotNil(continuation, "the pass should remain in flight after its incremental result")
-
-		resumeDetect(with: [final])
-		await settle(
-			until: { coordinator.appliedFrame?.results.first?.params.entityId == final.params.entityId },
-			"the final result did not replace the incremental result"
-		)
-		XCTAssertEqual(frameChanges.count, 2)
 	}
 
 	func testLiveInteractionGuard_discards() async {
