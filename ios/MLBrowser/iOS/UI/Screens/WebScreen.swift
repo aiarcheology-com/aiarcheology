@@ -214,6 +214,7 @@ struct WebScreenView: View {
         DetectableView(
 			snapshotWorkCoordinator: appState.snapshotWorkCoordinator,
             drivers: appState.deep.drivers,
+			soundPlayer: appState.annotationSoundPlayer,
             trigger: appState.snap.combinedPublishers,
             showIdentifiers: showIdentifiers,
             animateDetections: animateDetections,

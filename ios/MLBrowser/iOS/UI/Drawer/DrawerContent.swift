@@ -123,6 +123,9 @@ struct DrawerContent: View {
         }) { configId in
             if let config = deep.selectConfiguration(configId) {
                 ConfigurationForm(pendingTypeReview: configId == typeReviewConfigId)
+					// ConfigurationForm previews app-provided sounds through AppState; sheets need
+					// explicit reinjection on Mac (Designed for iPad).
+					.environmentObject(appState)
                     .environmentObject(deep)
                     .environmentObject(config)
             }

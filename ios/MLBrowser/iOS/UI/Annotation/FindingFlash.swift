@@ -82,11 +82,19 @@ final class ClassificationFlashController: ObservableObject {
 	/// this is the same guard for the parallel branch).
 	private var generation = 0
 	private var isBusy = false
+	/// The model IDs currently contributing a visible classifier presentation. A sound is emitted
+	/// only as a model moves from absent to visible, not for every repeated classification pass.
+	private var visiblePresentationModelIDs: Set<UUID> = []
 
 	/// Runs one classification pass if idle. Skip-if-busy: at the 3–10 s snapshot
 	/// cadence against a sub-second classify, a dropped frame is near-impossible;
 	/// revisit with `SnapshotDetectionQueue`'s one-slot coalesce if this ever flakes.
-	func classifyPass(drivers: DeepDrivers, image: UIImage) {
+	func classifyPass(
+		drivers: DeepDrivers,
+		image: UIImage,
+		showIdentifiers: Bool = false,
+		onResultsBecameVisible: @escaping @MainActor ([ClassificationResult]) -> Void = { _ in }
+	) {
 		guard isBusy.not else { return }
 		isBusy = true
 		let startedGeneration = generation
@@ -97,14 +105,22 @@ final class ClassificationFlashController: ObservableObject {
 			// The frame this pass classified was invalidated mid-flight
 			// (scroll/capture/rotation) — its results must not drive the flash.
 			guard startedGeneration == self.generation else { return }
-			self.ingest(results)
+			self.ingest(
+				results,
+				showIdentifiers: showIdentifiers,
+				onResultsBecameVisible: onResultsBecameVisible
+			)
 		}
 	}
 
 	/// Applies one pass's results: updates the qualifying state and the active
 	/// per-model flash style (publish only on change, so no-op passes don't
 	/// re-evaluate observing bodies).
-	func ingest(_ results: [ClassificationResult]) {
+	func ingest(
+		_ results: [ClassificationResult],
+		showIdentifiers: Bool = false,
+		onResultsBecameVisible: @escaping @MainActor ([ClassificationResult]) -> Void = { _ in }
+	) {
 		// One group per model (registration order), the floor/sort/cap applied PER MODEL, models
 		// with nothing above the floor dropped. Every model the user enabled — and paid an
 		// inference for — is represented, each attributed to its own name and color (AIA-0472).
@@ -141,6 +157,22 @@ final class ClassificationFlashController: ObservableObject {
 		if qualifyingCount != qualifying.count {
 			qualifyingCount = qualifying.count
 		}
+
+		// Classifications have no rectangle/point/circle overlay. Their equivalent visual event is a
+		// model beginning to contribute either the flash or a label bubble. A continuously visible
+		// model remains silent on repeated passes; clearing it during interaction/pause lets a later
+		// false→true transition sound again once fresh results are visible.
+		let labelVisibleIDs = Set(groups.map(\.id))
+		let qualifyingIDs = Set(qualifying.map { $0.params.entityId })
+		let visible = results.filter { result in
+			qualifyingIDs.contains(result.params.entityId)
+				|| (showIdentifiers && labelVisibleIDs.contains(result.params.entityId))
+		}
+		let newlyVisible = visible.filter { visiblePresentationModelIDs.contains($0.params.entityId).not }
+		visiblePresentationModelIDs = Set(visible.map { $0.params.entityId })
+		if newlyVisible.isEmpty.not {
+			onResultsBecameVisible(newlyVisible)
+		}
 	}
 
 	/// Interaction (scroll/zoom) invalidates what's on screen — mirror detection's
@@ -156,6 +188,7 @@ final class ClassificationFlashController: ObservableObject {
 	/// classificator unregistered (owner-reported bug, AIA-0374).
 	func clearPresentation() {
 		invalidateInFlight()
+		visiblePresentationModelIDs = []
 		if qualifyingCount != 0 {
 			qualifyingCount = 0
 		}

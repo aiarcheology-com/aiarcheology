@@ -8,14 +8,14 @@
 import CoreData
 import OSLog
 
-// The custom policy for every migration whose SOURCE is 0.0.0 — currently both `0.0.0→0.0.1` and
-// `0.0.0→0.0.2` (AIA-0651). It lives beside those folders rather than inside one of them because it
-// is shared; the mapping models resolve it by the `@objc` name below, never by path.
+// The custom policy for migrations that must preserve (or repair) legacy entity ids. It lives beside
+// the mapping-model folders because both direct paths to the current schema resolve it by the
+// `@objc` name below, never by path.
 //
 // Migrations are single-hop: Core Data matches one mapping to the (store version, current model)
 // pair and never composes two. So a new model version needs a mapping from every still-live source
-// model, and each of those whose source is 0.0.0 needs this policy — it IS the migration for
-// WebHistoryEntry, DeepConfiguration and DownloadItem, replacing the whole per-row copy below.
+// model, and each direct path assigns this policy to WebHistoryEntry, DeepConfiguration and
+// DownloadItem, replacing the whole per-row copy below.
 
 private struct MigrationKeys {
     struct Source {
@@ -73,20 +73,21 @@ final class FillEntityIdIfNilPolicy: NSEntityMigrationPolicy {
             destination.setValue(model, forKey: MigrationKeys.Destination.modelTypeString)
         }
         
-        // Lifecycle: legacy rows may be incomplete (nil file, missing model type, ...).
-        // Setting .ready unconditionally makes validateForInsert() throw at migration save,
-        // which fails the WHOLE migration — in App Store builds that is an unrecoverable
-        // crash loop. Only promote rows that actually pass validation; park the rest in .draft.
-        let legacyReadyToValidate = source.value(forKey: MigrationKeys.Source.readyToValidate) as? Bool
-
-        if legacyReadyToValidate == false {
-            destination.setValue(CoreDataManageableState.draft.rawValue, forKey: MigrationKeys.Destination.lifeCycleString)
-        } else {
-            destination.setValue(CoreDataManageableState.ready.rawValue, forKey: MigrationKeys.Destination.lifeCycleString)
-            if let stateful = destination as? any CoreDataManagableWithState,
-               stateful.validationReport().isValid.not {
-                LoggingPolicy.warning("Migrated \(destName) row would fail .ready validation; downgrading to .draft", logger: .storage)
+        // 0.0.0 had `readyToValidate` but no persisted lifecycle, so derive a safe lifecycle from
+        // that field. 0.0.1 already has `lifeCycleString`; it was copied above and must be left
+        // intact. Reading a key which its source model does not contain throws an Objective-C KVC
+        // exception, so the schema check is essential for the direct 0.0.1→0.0.2 migration.
+        if source.entity.attributesByName[MigrationKeys.Source.readyToValidate] != nil {
+            let legacyReadyToValidate = source.value(forKey: MigrationKeys.Source.readyToValidate) as? Bool
+            if legacyReadyToValidate == false {
                 destination.setValue(CoreDataManageableState.draft.rawValue, forKey: MigrationKeys.Destination.lifeCycleString)
+            } else {
+                destination.setValue(CoreDataManageableState.ready.rawValue, forKey: MigrationKeys.Destination.lifeCycleString)
+                if let stateful = destination as? any CoreDataManagableWithState,
+                   stateful.validationReport().isValid.not {
+                    LoggingPolicy.warning("Migrated \(destName) row would fail .ready validation; downgrading to .draft", logger: .storage)
+                    destination.setValue(CoreDataManageableState.draft.rawValue, forKey: MigrationKeys.Destination.lifeCycleString)
+                }
             }
         }
 

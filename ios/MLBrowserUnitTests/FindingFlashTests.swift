@@ -142,6 +142,69 @@ final class ClassificationFlashControllerTests: XCTestCase {
         XCTAssertFalse(sut.displayLabels.isEmpty)
     }
 
+	func testIngest_SoundEventRequiresAVisibleClassifierPresentation() {
+		var events: [[ClassificationResult]] = []
+		let invisible = result(topConfidence: 0.9, flashEnabled: false)
+		sut.ingest(
+			[invisible],
+			showIdentifiers: false,
+			onResultsBecameVisible: { events.append($0) }
+		)
+		XCTAssertTrue(events.isEmpty, "Flash off and labels hidden means classification paints nothing")
+
+		let flashOnly = result(topConfidence: 0.9, flashEnabled: true)
+		sut.ingest(
+			[flashOnly],
+			showIdentifiers: false,
+			onResultsBecameVisible: { events.append($0) }
+		)
+		XCTAssertEqual(events.last?.map { $0.params.entityId }, [flashOnly.params.entityId])
+	}
+
+	func testIngest_SoundEventSupportsLabelsOnlyAndDeduplicatesVisibleModels() {
+		var events: [[ClassificationResult]] = []
+		let id = UUID()
+		let labelsOnly = (
+			labels: [ClassifiedLabel(identifier: "object", confidence: 0.9)],
+			params: DeepDriverParams(entityId: id, modelName: "Labels", flashEnabled: false)
+		)
+		let consume: @MainActor ([ClassificationResult]) -> Void = { events.append($0) }
+
+		sut.ingest(
+			[labelsOnly],
+			showIdentifiers: true,
+			onResultsBecameVisible: consume
+		)
+		sut.ingest(
+			[labelsOnly],
+			showIdentifiers: true,
+			onResultsBecameVisible: consume
+		)
+		XCTAssertEqual(events.count, 1, "Repeated passes leave an already-visible label silent")
+
+		sut.ingest([], showIdentifiers: true, onResultsBecameVisible: consume)
+		sut.ingest(
+			[labelsOnly],
+			showIdentifiers: true,
+			onResultsBecameVisible: consume
+		)
+		XCTAssertEqual(events.count, 2, "A false→true visible transition is audible again")
+	}
+
+	func testIngest_SoundEventDeliversMultipleNewModelsInRegistrationOrder() {
+		var events: [[ClassificationResult]] = []
+		let first = result(topConfidence: 0.9, modelName: "First")
+		let second = result(topConfidence: 0.8, modelName: "Second")
+		sut.ingest(
+			[first, second],
+			showIdentifiers: true,
+			onResultsBecameVisible: { events.append($0) }
+		)
+
+		XCTAssertEqual(events.count, 1)
+		XCTAssertEqual(events.first?.map { $0.params.modelName }, ["First", "Second"])
+	}
+
     func testIngest_QualifyingPassesAccumulateCount() {
         sut.ingest([result(topConfidence: 0.9)])
         sut.ingest([result(topConfidence: 0.9)])

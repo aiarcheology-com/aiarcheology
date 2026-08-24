@@ -25,6 +25,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 	private var capturing = false
 	/// Every write mirrored to `onFrameChanged`, in order (nil applies included).
 	private var frameChanges: [AppliedDetectionFrame?] = []
+	private var appliedResultEvents: [(UInt64, [DetectionResult])] = []
 
 	// MARK: Helpers
 
@@ -37,6 +38,9 @@ final class DetectionCoordinatorTests: XCTestCase {
 			},
 			onFrameChanged: { [weak self] frame in
 				self?.frameChanges.append(frame)
+			},
+			onAppliedResults: { [weak self] passID, results in
+				self?.appliedResultEvents.append((passID, results))
 			}
 		)
 		coordinator.bindGuards(
@@ -173,6 +177,31 @@ final class DetectionCoordinatorTests: XCTestCase {
 		XCTAssertEqual(frameChanges.count, 2)
 	}
 
+	func testAppliedResults_UsesOnePassIDForPartialAndFinalButRefreshNeverReplays() async {
+		let partial = cannedResult()
+		let final = cannedResult()
+		let coordinator = DetectionCoordinator(
+			detect: { [weak self] _, _, publish in
+				publish([partial])
+				return await withCheckedContinuation { cont in self?.continuation = cont }
+			},
+			onAppliedResults: { [weak self] passID, results in
+				self?.appliedResultEvents.append((passID, results))
+			}
+		)
+		coordinator.bindGuards(isInteracting: { false }, isCapturing: { false })
+
+		coordinator.ingest(snapshot: UIImage())
+		await settle(until: { self.appliedResultEvents.count == 1 }, "partial result did not apply")
+		resumeDetect(with: [final])
+		await settle(until: { self.appliedResultEvents.count == 2 }, "final result did not apply")
+		let idsBeforeRefresh = appliedResultEvents.map(\.0)
+
+		coordinator.refreshPresentation()
+		XCTAssertEqual(appliedResultEvents.map(\.0), idsBeforeRefresh)
+		XCTAssertEqual(Set(idsBeforeRefresh).count, 1, "partial/final writes identify one snapshot pass")
+	}
+
 	func testLiveInteractionGuard_discards() async {
 		let coordinator = makeCoordinator()
 		coordinator.ingest(snapshot: UIImage())
@@ -227,5 +256,126 @@ final class DetectionCoordinatorTests: XCTestCase {
 		// Capture freezes the displayed frame — it must NOT be cleared.
 		XCTAssertNotNil(coordinator.appliedFrame)
 		XCTAssertTrue(coordinator.appliedFrame?.image === snapshot)
+	}
+}
+
+// MARK: - Annotation sound event tests (AIA-0716)
+
+@MainActor
+final class AnnotationSoundEventCoordinatorTests: XCTestCase {
+	private actor RecordingPlayer: AnnotationSoundPlaying {
+		private var requests: [AnnotationSoundPlaybackRequest] = []
+
+		func play(_ request: AnnotationSoundPlaybackRequest) async {
+			requests.append(request)
+		}
+
+		func recordedRequests() -> [AnnotationSoundPlaybackRequest] { requests }
+	}
+
+	private func detection(
+		id: UUID = UUID(),
+		sound: AnnotationSound = .chime,
+		enabled: Bool = true,
+		observationIDs: [UUID] = [UUID()]
+	) -> DetectionResult {
+		let observations = observationIDs.map { observationID in
+			DetectedObject(
+				uuid: observationID,
+				labels: [DetectedObject.Label(identifier: "artifact", confidence: 0.9)],
+				confidence: 0.9,
+				boundingBox: .zero,
+				regionIndex: 0
+			)
+		}
+		return (
+			observations: observations,
+			params: DeepDriverParams(
+				entityId: id,
+				modelName: "Model",
+				annotationSound: .init(isEnabled: enabled, sound: sound, volume: 0.4)
+			)
+		)
+	}
+
+	private func classification(
+		id: UUID = UUID(),
+		sound: AnnotationSound = .chime,
+		enabled: Bool = true
+	) -> ClassificationResult {
+		(
+			labels: [ClassifiedLabel(identifier: "artifact", confidence: 0.9)],
+			params: DeepDriverParams(
+				entityId: id,
+				modelName: "Model",
+				annotationSound: .init(isEnabled: enabled, sound: sound, volume: 0.4)
+			)
+		)
+	}
+
+	private func settle(_ player: RecordingPlayer, count: Int) async {
+		for _ in 0..<50 {
+			if await player.recordedRequests().count == count { return }
+			await Task.yield()
+		}
+	}
+
+	func testDetectionResults_PartialAndFinalPlayEachPaintedObservationOnlyOnce() async {
+		let player = RecordingPlayer()
+		let sut = AnnotationSoundEventCoordinator(player: player)
+		let modelID = UUID()
+		let paintedID = UUID()
+		let laterID = UUID()
+		sut.detectionResultsApplied(
+			passID: 4,
+			results: [detection(id: modelID, sound: .croak, observationIDs: [paintedID])]
+		)
+		sut.detectionResultsApplied(
+			passID: 4,
+			results: [detection(id: modelID, sound: .croak, observationIDs: [paintedID, laterID])]
+		)
+		await settle(player, count: 2)
+
+		let requests = await player.recordedRequests()
+		XCTAssertEqual(requests.map(\.sound), [.croak, .croak])
+	}
+
+	func testDetectionResults_PlaysEveryAnnotationFromEveryEnabledModelInRegistrationOrder() async {
+		let player = RecordingPlayer()
+		let sut = AnnotationSoundEventCoordinator(player: player)
+		sut.detectionResultsApplied(
+			passID: 7,
+			results: [
+				detection(sound: .pulse, observationIDs: [UUID(), UUID()]),
+				detection(sound: .croak, observationIDs: [UUID()])
+			]
+		)
+		await settle(player, count: 3)
+
+		let requests = await player.recordedRequests()
+		XCTAssertEqual(requests.map(\.sound), [.pulse, .pulse, .croak])
+	}
+
+	func testAutomaticPlayback_IsSilentWhenModelsHaveSoundDisabled() async {
+		let player = RecordingPlayer()
+		let sut = AnnotationSoundEventCoordinator(player: player)
+		sut.detectionResultsApplied(passID: 1, results: [detection(enabled: false)])
+		sut.classificationResultsBecameVisible([classification(enabled: false)])
+		for _ in 0..<10 { await Task.yield() }
+
+		let requests = await player.recordedRequests()
+		XCTAssertTrue(requests.isEmpty)
+	}
+
+	func testClassificationResults_PlaysEveryNewlyVisibleEnabledModelInBatchOrder() async {
+		let player = RecordingPlayer()
+		let sut = AnnotationSoundEventCoordinator(player: player)
+		sut.classificationResultsBecameVisible(
+			[classification(sound: .chime), classification(sound: .pulse)]
+		)
+		await settle(player, count: 2)
+
+		let requests = await player.recordedRequests()
+		XCTAssertEqual(requests.map(\.sound), [.chime, .pulse])
 	}
 }

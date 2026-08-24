@@ -36,11 +36,17 @@ final class DetectionCoordinator: ObservableObject {
 	/// Mirrors every displayed-frame write to the presenting screen (the find-pick flow hit-tests
 	/// the frozen frame's boxes and reuses its snapshot, so the mirror can never diverge).
 	private let onFrameChanged: ((AppliedDetectionFrame?) -> Void)?
+	/// Called only from the real apply path. Presentation-only refreshes deliberately do not reach
+	/// this callback, so changing a display preference cannot replay an annotation sound (AIA-0716).
+	private var onAppliedResults: ((UInt64, [DetectionResult]) -> Void)?
 
 	private let queue = SnapshotDetectionQueue()
 	/// Invalidation token: a pass that started before an interaction/capture/geometry change must
 	/// not apply. Bumped on every active invalidation; re-checked at apply.
 	private var generation: UInt64 = 0
+	/// Monotonic identity for actual snapshot passes. A partial and its final result intentionally
+	/// share one id, letting the sound coordinator suppress a second playback for the same pass.
+	private var nextPassID: UInt64 = 0
 	/// Live-mirrored from the view (the tiling-scheme settings can change mid-session); read at
 	/// pass start. A mid-burst toggle self-heals on the next snapshot.
 	var tiling: TilingScheme
@@ -57,11 +63,13 @@ final class DetectionCoordinator: ObservableObject {
 			TilingScheme,
 			@escaping @MainActor @Sendable ([DetectionResult]) -> Void
 		) async -> [DetectionResult],
-		onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil
+		onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
+		onAppliedResults: ((UInt64, [DetectionResult]) -> Void)? = nil
 	) {
 		self.tiling = tiling
 		self.detect = detect
 		self.onFrameChanged = onFrameChanged
+		self.onAppliedResults = onAppliedResults
 	}
 
 	/// Bind the live apply-time guards from the view's CONNECTED state. Call from `.onAppear`, NOT
@@ -71,6 +79,13 @@ final class DetectionCoordinator: ObservableObject {
 	func bindGuards(isInteracting: @escaping () -> Bool, isCapturing: @escaping () -> Bool) {
 		self.isInteracting = isInteracting
 		self.isCapturing = isCapturing
+	}
+
+	/// Binds the automatic-sound receiver after the view's environment is connected. As with the
+	/// live capture/interaction guards, binding from `.onAppear` avoids capturing an uninstalled
+	/// SwiftUI environment object during view initialization.
+	func bindSoundEvents(_ receiver: @escaping (UInt64, [DetectionResult]) -> Void) {
+		onAppliedResults = receiver
 	}
 
 	// MARK: - Active invalidation (driven from the view's lifecycle events)
@@ -110,6 +125,8 @@ final class DetectionCoordinator: ObservableObject {
 	/// snapshot's overlay; every partial and final result receives the same live validity guards.
 	func ingest(snapshot image: UIImage) {
 		queue.enqueue(image) { image, done in
+			let passID = self.nextPassID
+			self.nextPassID &+= 1
 			let startGeneration = self.generation
 			let passTiling = self.tiling
 			Task {
@@ -122,7 +139,7 @@ final class DetectionCoordinator: ObservableObject {
 					guard self.isInteracting() == false, self.isCapturing() == false else { return }
 					// Image and results are applied as ONE value: the cached snapshot is always the exact
 					// frame the displayed boxes came from.
-					self.setApplied(AppliedDetectionFrame(image: image, results: observations))
+					self.setApplied(AppliedDetectionFrame(image: image, results: observations), passID: passID)
 				}
 				let observations = await self.detect(image, passTiling, applyIfCurrent)
 				done()
@@ -149,9 +166,68 @@ final class DetectionCoordinator: ObservableObject {
 
 	/// Single write path for the displayed frame: the screen's mirror updates in the same statement,
 	/// so the two can never diverge.
-	private func setApplied(_ frame: AppliedDetectionFrame?) {
+	private func setApplied(_ frame: AppliedDetectionFrame?, passID: UInt64? = nil) {
 		appliedFrame = frame
 		onFrameChanged?(frame)
+		if let passID, let frame {
+			onAppliedResults?(passID, frame.results)
+		}
+	}
+}
+
+/// Converts newly painted annotations into their individual annotation-sound requests.
+///
+/// The caller hands it detection/classification results in the drivers' registration order. Every
+/// visible detector observation emits its model's selected sound. A detector pass's partial/final
+/// writes share an id, so observations already painted by an earlier partial do not play again;
+/// observations introduced by a later partial/final do.
+@MainActor
+final class AnnotationSoundEventCoordinator {
+	private let player: any AnnotationSoundPlaying
+	private var activeDetectionPassID: UInt64?
+	private var paintedObservationIDs: Set<PaintedObservationID> = []
+
+	private struct PaintedObservationID: Hashable {
+		let modelID: UUID
+		let observationID: UUID
+	}
+
+	init(player: any AnnotationSoundPlaying) {
+		self.player = player
+	}
+
+	func detectionResultsApplied(
+		passID: UInt64,
+		results: [DetectionResult]
+	) {
+		if activeDetectionPassID != passID {
+			activeDetectionPassID = passID
+			paintedObservationIDs = []
+		}
+		let requests = results.flatMap { result -> [AnnotationSoundPlaybackRequest] in
+			guard let request = AnnotationSoundPlaybackRequest(configuration: result.params.annotationSound) else {
+				return []
+			}
+			return result.observations.compactMap { observation in
+				paintedObservationIDs.insert(
+					PaintedObservationID(modelID: result.params.entityId, observationID: observation.uuid)
+				).inserted ? request : nil
+			}
+		}
+		play(requests)
+	}
+
+	func classificationResultsBecameVisible(
+		_ results: [ClassificationResult]
+	) {
+		play(results.compactMap { AnnotationSoundPlaybackRequest(configuration: $0.params.annotationSound) })
+	}
+
+	private func play(_ requests: [AnnotationSoundPlaybackRequest]) {
+		guard requests.isEmpty.not else { return }
+		Task { [player] in
+			await player.play(requests)
+		}
 	}
 }
 

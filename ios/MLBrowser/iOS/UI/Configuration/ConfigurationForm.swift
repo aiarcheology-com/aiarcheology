@@ -235,6 +235,9 @@ struct ConfigurationForm: View {
 	var pendingTypeReview: Bool = false
 
 	@EnvironmentObject var deep: DeepState
+	/// Explicitly re-injected at the configuration sheet boundary so sound previews use the shared
+	/// composition-root player rather than a view reaching for `DependencyContainer.shared`.
+	@EnvironmentObject private var appState: AppState
 	/// The on-device conversion log for this configuration, when one exists (AIA-0459). Loaded once
 	/// on appear — only natively converted imports write `native-conversion-report.json`.
 	@State private var conversionReport: NativeModelConversionImportReport?
@@ -253,6 +256,9 @@ struct ConfigurationForm: View {
 		configuration.annotationColor.description,
 		configuration.phaseOutTime.description,
 		configuration.selectedSymbol.rawValue,
+		configuration.annotationSoundEnabled.description,
+		configuration.annotationSoundIdentifier ?? "",
+		configuration.annotationSoundVolume.description,
 		// Included so a type change autosaves via `.onChange` (AIA-0402) — otherwise it only
 		// persists on the dismiss button and is lost on a swipe-to-dismiss.
 		configuration.modelType.rawValue
@@ -458,6 +464,12 @@ struct ConfigurationForm: View {
 		deep.drivers.detectionPresentationDidChange()
 	}
 
+	private var annotationSoundStatus: String {
+		configuration.annotationSoundEnabled
+			? configuration.annotationSound.localizedName
+			: L10n.Configuration.modelTypeDisabled
+	}
+
 	private var annotationSection: some View {
 		Section(header: Text(L10n.Configuration.Section.annotation)) {
 			// Shared by both model families: detection styles its boxes with these;
@@ -476,6 +488,19 @@ struct ConfigurationForm: View {
 				}
 				.testability(Testability.Picker.configurationFormSymbol)
 			}
+			NavigationLink {
+				AnnotationSoundConfigurationView(
+					configuration: configuration,
+					onPreview: { await appState.annotationSoundPlayer.play($0) }
+				)
+			} label: {
+				ConfigurationDetailRow(
+					label: L10n.Configuration.sound,
+					value: annotationSoundStatus
+				)
+			}
+			.accessibilityValue(annotationSoundStatus)
+			.testability(Testability.NavigationLink.configurationFormSound)
 			if configuration.modelType == .detector {
 				VStack(alignment: .leading) {
 					HStack {
@@ -588,6 +613,69 @@ struct ConfigurationForm: View {
 				conversionExportError = error.localizedDescription
 			}
 		}
+	}
+}
+
+/// Per-model app-provided annotation-sound preferences (AIA-0716).
+///
+/// Selecting a sound previews it at the same player-local volume used by automatic annotation
+/// events. Preview is intentionally available while the model toggle is off, so a newly imported
+/// model can choose a sound before it becomes audible during detection/classification.
+private struct AnnotationSoundConfigurationView: View {
+	@ObservedObject var configuration: DeepConfiguration
+	let onPreview: @Sendable (AnnotationSoundPlaybackRequest) async -> Void
+
+	private var volumeBinding: Binding<Double> {
+		Binding(
+			get: { configuration.annotationSoundConfiguration.volume },
+			set: { configuration.annotationSoundVolume = $0 }
+		)
+	}
+
+	var body: some View {
+		Form {
+			Toggle(L10n.Configuration.soundEnabled, isOn: $configuration.annotationSoundEnabled)
+				.testability(Testability.Toggle.configurationFormSoundEnabled)
+
+			VStack(alignment: .leading) {
+				HStack {
+					Text(L10n.Configuration.soundVolume)
+					Spacer()
+					Text(volumeBinding.wrappedValue, format: .percent.precision(.fractionLength(0)))
+						.foregroundStyle(.secondary)
+				}
+				Slider(value: volumeBinding, in: AnnotationSoundConfiguration.volumeRange, step: 0.01)
+					.testability(Testability.Slider.configurationFormSoundVolume)
+					.accessibilityLabel(Text(L10n.Configuration.soundVolume))
+					.accessibilityValue(Text(volumeBinding.wrappedValue, format: .percent.precision(.fractionLength(0))))
+			}
+
+			ForEach(AnnotationSound.allCases) { sound in
+				Button {
+					configuration.annotationSound = sound
+					Task { await onPreview(previewRequest(for: sound)) }
+				} label: {
+					HStack {
+						Text(sound.localizedName)
+						Spacer()
+						if configuration.annotationSound == sound {
+							Image(systemName: "checkmark")
+								.foregroundStyle(.tint)
+								.accessibilityHidden(true)
+						}
+					}
+				}
+				.accessibilityLabel(sound.localizedName)
+				.accessibilityValue(configuration.annotationSound == sound ? Testability.valueTrue : Testability.valueFalse)
+				.testability(Testability.Button.configurationFormSoundChoice, label: sound.rawValue)
+			}
+		}
+		.navigationTitle(L10n.Configuration.sound)
+		.navigationBarTitleDisplayMode(.inline)
+	}
+
+	private func previewRequest(for sound: AnnotationSound) -> AnnotationSoundPlaybackRequest {
+		AnnotationSoundPlaybackRequest(sound: sound, volume: configuration.annotationSoundConfiguration.volume)
 	}
 }
 

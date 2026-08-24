@@ -1,27 +1,22 @@
 Build: TBD
 
-Test Focus: progressive tiled detection, nested detection results, and per-model confidence display.
+Test Focus: configurable annotation sounds.
 
-- Enable Pyramid or 3×3 tiling and leave detection running on a static page. Rectangles should
-  begin appearing as individual tiles finish, rather than waiting for the entire tiled pass. They
-  should remain aligned with the page and not pulse as duplicate rectangles at the same location.
+- Open a detection model’s configuration, then Annotation > Sound. With the setting off, the
+  Annotation row must say Disabled. Turn it on, select and preview several of the eleven sounds
+  (including Sonar), adjust the volume, then close and reopen the configuration to confirm the
+  choices persist for that model.
 
-- Run a tiled detection model over an area with small features inside larger features. Small,
-  distinct detections inside a larger outline should remain visible; duplicate partial outlines at
-  a tile boundary should still collapse to one result.
-- Open a detection model’s configuration and change Detection Confidence. The percentage should
-  update the existing annotations immediately: results below it disappear, and a result exactly at
-  the selected percentage remains visible. No model-loading indicator should appear.
-- Open a classification model’s configuration and confirm Detection Confidence is not shown.
-- With two detection models, change one threshold, close and reopen both configurations, and
-  confirm each model retains its own value.
+- Choose different sounds for two detection models. Run them over a page with several detected
+  objects: each newly painted rectangle, point, or circle should play the sound selected for its
+  model. When several annotations arrive together, two sounds can play at once and the remaining
+  sounds should follow promptly; neither model should suppress the other.
 
-Also verify hardware acceleration for one model.
+- Leave detection running as results arrive progressively. Existing annotations must not play a
+  second time when a later result repeats them, while a genuinely new annotation should play once.
 
-- Automatic should be selected by default. Choose each available option one at a time, close and
-  reopen the configuration, and confirm the choice is retained for that model only.
-- Run a detector after selecting each option. Detections should remain plausible; Processor Only
-  can take much longer. Available accelerators differ by device.
+- Confirm the Sound preview and automatic annotation sounds do not change the device’s system
+  volume. If practical, also test with other audio already playing and with the silent switch on.
 
-Please report your device model, iOS version, model, tiling mode, selected percentage, hardware
-option, and language if anything looks wrong.
+Please report your device model, iOS version, model(s), selected sound and volume, and a short
+description of the annotation sequence if anything sounds incorrect.

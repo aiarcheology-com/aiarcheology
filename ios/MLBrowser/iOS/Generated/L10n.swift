@@ -411,6 +411,34 @@ internal enum L10n {
     internal static let modelTypeReviewConfirm = L10n.tr("Localizable", "configuration.modelTypeReviewConfirm", fallback: "Pre-selected as our best guess. Confirm it's correct or change it — the app can't verify it, so you're responsible for the choice, and a wrong type can produce incorrect results.")
     /// This model's type isn't set, so it won't run. Choose Detection or Classification — the app can't verify the model's real type, so you're responsible for the choice, and a wrong type can produce incorrect results.
     internal static let modelTypeReviewDisabled = L10n.tr("Localizable", "configuration.modelTypeReviewDisabled", fallback: "This model's type isn't set, so it won't run. Choose Detection or Classification — the app can't verify the model's real type, so you're responsible for the choice, and a wrong type can produce incorrect results.")
+    /// Sound
+    internal static let sound = L10n.tr("Localizable", "configuration.sound", fallback: "Sound")
+    /// Bell
+    internal static let soundBell = L10n.tr("Localizable", "configuration.soundBell", fallback: "Bell")
+    /// Bloom
+    internal static let soundBloom = L10n.tr("Localizable", "configuration.soundBloom", fallback: "Bloom")
+    /// Chime
+    internal static let soundChime = L10n.tr("Localizable", "configuration.soundChime", fallback: "Chime")
+    /// Click
+    internal static let soundClick = L10n.tr("Localizable", "configuration.soundClick", fallback: "Click")
+    /// Croak
+    internal static let soundCroak = L10n.tr("Localizable", "configuration.soundCroak", fallback: "Croak")
+    /// Drop
+    internal static let soundDrop = L10n.tr("Localizable", "configuration.soundDrop", fallback: "Drop")
+    /// Echo
+    internal static let soundEcho = L10n.tr("Localizable", "configuration.soundEcho", fallback: "Echo")
+    /// Play sound for annotations
+    internal static let soundEnabled = L10n.tr("Localizable", "configuration.soundEnabled", fallback: "Play sound for annotations")
+    /// Ping
+    internal static let soundPing = L10n.tr("Localizable", "configuration.soundPing", fallback: "Ping")
+    /// Pulse
+    internal static let soundPulse = L10n.tr("Localizable", "configuration.soundPulse", fallback: "Pulse")
+    /// Sonar
+    internal static let soundSonar = L10n.tr("Localizable", "configuration.soundSonar", fallback: "Sonar")
+    /// Tap
+    internal static let soundTap = L10n.tr("Localizable", "configuration.soundTap", fallback: "Tap")
+    /// Volume
+    internal static let soundVolume = L10n.tr("Localizable", "configuration.soundVolume", fallback: "Volume")
     /// Symbol
     internal static let symbol = L10n.tr("Localizable", "configuration.symbol", fallback: "Symbol")
     /// Configuration

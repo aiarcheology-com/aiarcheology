@@ -684,6 +684,18 @@ final class FindingMigrationTests: XCTestCase {
             Set((0..<3).map { "Legacy model \($0)" })
         )
         XCTAssertTrue(configurations.allSatisfy { $0.value(forKey: "license") == nil })
+		XCTAssertTrue(
+			configurations.allSatisfy { ($0.value(forKey: "annotationSoundEnabled") as? Bool) == false },
+			"Migrated models must remain silent until the user explicitly enables sound."
+		)
+		XCTAssertTrue(
+			configurations.allSatisfy { ($0.value(forKey: "annotationSoundIdentifier") as? String) == AnnotationSound.chime.rawValue },
+			"Chime is the persisted migration default."
+		)
+		XCTAssertTrue(
+			configurations.allSatisfy { abs((($0.value(forKey: "annotationSoundVolume") as? Double) ?? -1) - 0.2) < 0.0001 },
+			"The persisted migration default must preserve the 20% annotation-only volume."
+		)
 
         // 5. The new Finding entity is usable in the migrated store.
         XCTAssertNotNil(container.managedObjectModel.entitiesByName["Finding"])
@@ -729,12 +741,22 @@ final class FindingMigrationTests: XCTestCase {
                 row.setValue(Date(), forKey: "creationDate_")
             }
             // A second entity, so the assertions below cannot pass on an empty/partial store.
-            let historyEntity = sourceModel.entitiesByName["WebHistoryEntry"]!
+        let historyEntity = sourceModel.entitiesByName["WebHistoryEntry"]!
             let historyRow = NSManagedObject(entity: historyEntity, insertInto: seedContext)
             historyRow.setValue(UUID(), forKey: "entityId")
             historyRow.setValue(CoreDataManageableState.ready.rawValue, forKey: "lifeCycleString")
             historyRow.setValue(URL(string: "https://example.com/legacy"), forKey: "page")
-            historyRow.setValue(Date(), forKey: "creationDate_")
+        historyRow.setValue(Date(), forKey: "creationDate_")
+
+		// Exercise the other direct mapping's new DeepConfiguration defaults too. The model row is
+		// intentionally plain NSManagedObject, as above, because its source schema predates the
+		// current generated subclass properties.
+		let configurationEntity = sourceModel.entitiesByName["DeepConfiguration"]!
+		let configuration = NSManagedObject(entity: configurationEntity, insertInto: seedContext)
+		configuration.setValue(UUID(), forKey: "entityId")
+		configuration.setValue(CoreDataManageableState.ready.rawValue, forKey: "lifeCycleString")
+		configuration.setValue(URL(string: "file:///legacy-0.0.1.mlmodel"), forKey: "file_")
+		configuration.setValue("Legacy 0.0.1 model", forKey: "modelDescription")
             try seedContext.save()
         }
         for store in seedCoordinator.persistentStores {
@@ -795,5 +817,12 @@ final class FindingMigrationTests: XCTestCase {
 
         let history = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "WebHistoryEntry"))
         XCTAssertEqual(history.count, 1, "unrelated entities must survive the 0.0.1→0.0.2 hop too")
+		let configurations = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "DeepConfiguration"))
+		XCTAssertEqual(configurations.count, 1)
+		let configuration = try XCTUnwrap(configurations.first)
+		XCTAssertEqual(configuration.value(forKey: "annotationSoundEnabled") as? Bool, false)
+		XCTAssertEqual(configuration.value(forKey: "annotationSoundIdentifier") as? String, AnnotationSound.chime.rawValue)
+		let volume = try XCTUnwrap(configuration.value(forKey: "annotationSoundVolume") as? Double)
+		XCTAssertEqual(volume, 0.2, accuracy: 0.0001)
     }
 }

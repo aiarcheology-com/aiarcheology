@@ -16,6 +16,9 @@ extension DeepConfiguration {
     }
     
     @NSManaged public var annotationColor_: Data?
+    @NSManaged public var annotationSoundEnabled: Bool
+    @NSManaged public var annotationSoundIdentifier: String?
+    @NSManaged public var annotationSoundVolume: Double
     @NSManaged public var author: String?
     @NSManaged public var computeUnitString: String?
     @NSManaged public var creationDate_: Date?
