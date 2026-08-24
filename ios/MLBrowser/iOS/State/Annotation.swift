@@ -128,10 +128,19 @@ extension AnnotationSoundPlaying {
 /// and never changes system volume. Two model sounds can be heard together; a dense batch queues
 /// its remaining annotations instead of allocating an unbounded number of players.
 actor AnnotationSoundPlayer: AnnotationSoundPlaying {
-	private static let releaseDelayNanoseconds: UInt64 = 350_000_000
+	private static let playerRetentionBufferNanoseconds: UInt64 = 110_000_000
 	private static let maximumActivePlayers = 2
+	private var isSessionConfigured = false
 	private var activePlayers: [UUID: AVAudioPlayer] = [:]
 	private var queuedRequests: [AnnotationSoundPlaybackRequest] = []
+
+	/// Holds each player until its actual audio stream has finished, plus a short scheduling buffer.
+	/// Using `AVAudioPlayer.duration` means a future longer catalog tone cannot be truncated by a
+	/// disconnected retention constant.
+	static func playerRetentionNanoseconds(for playbackDuration: TimeInterval) -> UInt64 {
+		let durationNanoseconds = UInt64((max(playbackDuration, 0) * 1_000_000_000).rounded(.up))
+		return durationNanoseconds + Self.playerRetentionBufferNanoseconds
+	}
 
 	func play(_ request: AnnotationSoundPlaybackRequest) async {
 		queuedRequests.append(request)
@@ -151,22 +160,29 @@ actor AnnotationSoundPlayer: AnnotationSoundPlaying {
 
 	private func start(_ request: AnnotationSoundPlaybackRequest) {
 		do {
-			// Ambient audio respects Silent mode and mixes with an already-playing app, rather than
-			// changing the device's output level or interrupting another source.
-			try AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
+			try configureSessionIfNeeded()
 			let player = try AVAudioPlayer(data: AnnotationSoundCatalog.audioData(for: request.sound))
 			player.volume = request.volume
 			player.prepareToPlay()
 			player.play()
 			let id = UUID()
+			let retentionNanoseconds = Self.playerRetentionNanoseconds(for: player.duration)
 			activePlayers[id] = player
 			Task { [weak self] in
-				try? await Task.sleep(nanoseconds: Self.releaseDelayNanoseconds)
+				try? await Task.sleep(nanoseconds: retentionNanoseconds)
 				await self?.releasePlayer(id)
 			}
 		} catch {
 			LoggingPolicy.error("Unable to play an annotation sound", error: error, logger: .ui)
 		}
+	}
+
+	private func configureSessionIfNeeded() throws {
+		guard isSessionConfigured.not else { return }
+		// Ambient audio respects Silent mode and mixes with an already-playing app, rather than
+		// changing the device's output level or interrupting another source.
+		try AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
+		isSessionConfigured = true
 	}
 
 	private func releasePlayer(_ id: UUID) {
@@ -181,7 +197,7 @@ actor AnnotationSoundPlayer: AnnotationSoundPlaying {
 /// require no external asset license, and resolve identically in previews, tests, and release builds.
 enum AnnotationSoundCatalog {
 	private static let sampleRate = 44_100
-	private static let duration = 0.24
+	static let duration = 0.24
 	private static let dataBySound = Dictionary(uniqueKeysWithValues: AnnotationSound.allCases.map {
 		($0, makeWAV(for: $0))
 	})

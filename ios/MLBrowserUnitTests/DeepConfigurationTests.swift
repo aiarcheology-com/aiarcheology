@@ -136,6 +136,18 @@ final class DeepConfigurationTests: XCTestCase {
 		}
 	}
 
+	func testAnnotationSoundPlayerRetention_TracksPlaybackDuration() {
+		let catalogRetention = AnnotationSoundPlayer.playerRetentionNanoseconds(
+			for: AnnotationSoundCatalog.duration
+		)
+		let longerToneRetention = AnnotationSoundPlayer.playerRetentionNanoseconds(
+			for: AnnotationSoundCatalog.duration + 1
+		)
+
+		XCTAssertGreaterThan(catalogRetention, UInt64(AnnotationSoundCatalog.duration * 1_000_000_000))
+		XCTAssertGreaterThan(longerToneRetention, catalogRetention)
+	}
+
     func testDeepConfiguration_EqualityTreatsLicenseAsConfigurationState() {
         let entityID = UUID()
         let creationDate = Date(timeIntervalSinceReferenceDate: 123)
