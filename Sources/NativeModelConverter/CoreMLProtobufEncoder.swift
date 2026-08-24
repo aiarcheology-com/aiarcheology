@@ -7,6 +7,160 @@
 
 import Foundation
 
+/// A length-delimited protobuf payload whose bytes are produced only when an output writer reaches
+/// it. The count pass uses `byteCount` without asking the source for any bytes.
+struct CoreMLProtobufDeferredPayload {
+	let byteCount: UInt64
+	let write: (FileHandle) throws -> Void
+}
+
+/// One recursive protobuf representation shared by the ADAF count and file-writing passes.
+///
+/// Static protobuf fields remain small `Data` fragments. Large weight fields stay deferred until
+/// the file writer reaches them, so enclosing message lengths can be precomputed without building
+/// a second model-sized buffer.
+struct CoreMLProtobufSegments {
+	private enum Segment {
+		case data(Data)
+		case deferred(CoreMLProtobufDeferredPayload)
+		case progress(NativeModelConversionProgress)
+	}
+
+	private var segments: [Segment] = []
+	private(set) var byteCount: UInt64 = 0
+
+	mutating func append(data: Data) {
+		guard !data.isEmpty else { return }
+		segments.append(.data(data))
+		byteCount += UInt64(data.count)
+	}
+
+	mutating func append(deferred: CoreMLProtobufDeferredPayload) {
+		segments.append(.deferred(deferred))
+		byteCount += deferred.byteCount
+	}
+
+	mutating func append(progress: NativeModelConversionProgress) {
+		segments.append(.progress(progress))
+	}
+
+	mutating func append(contentsOf other: CoreMLProtobufSegments) {
+		segments.append(contentsOf: other.segments)
+		byteCount += other.byteCount
+	}
+
+	func write(
+		to handle: FileHandle,
+		reporting progress: NativeModelConversionProgressHandler?
+	) throws {
+		for segment in segments {
+			switch segment {
+			case .data(let data):
+				try handle.write(contentsOf: data)
+			case .deferred(let payload):
+				try payload.write(handle)
+			case .progress(let update):
+				progress?(update)
+			}
+		}
+	}
+}
+
+/// The streaming counterpart to ``CoreMLProtobufEncoder``. It deliberately shares the same wire
+/// rules, but represents a nested message as fragments so a caller can count first and write later.
+enum CoreMLProtobufStreamingEncoder {
+	static func appendVarintField(_ fieldNumber: Int, value: UInt64, to segments: inout CoreMLProtobufSegments) {
+		segments.append(data: key(fieldNumber, wireType: 0) + varint(value))
+	}
+
+	static func appendStringField(_ fieldNumber: Int, value: String, to segments: inout CoreMLProtobufSegments) {
+		appendLengthDelimitedField(fieldNumber, data: Data(value.utf8), to: &segments)
+	}
+
+	static func appendFloatField(_ fieldNumber: Int, value: Float, to segments: inout CoreMLProtobufSegments) {
+		var bits = value.bitPattern.littleEndian
+		var data = key(fieldNumber, wireType: 5)
+		withUnsafeBytes(of: &bits) { data.append(contentsOf: $0) }
+		segments.append(data: data)
+	}
+
+	static func appendMessageField(_ fieldNumber: Int, value: CoreMLProtobufSegments, to segments: inout CoreMLProtobufSegments) {
+		segments.append(data: key(fieldNumber, wireType: 2) + varint(value.byteCount))
+		segments.append(contentsOf: value)
+	}
+
+	static func appendDeferredPayloadField(
+		_ fieldNumber: Int,
+		payload: CoreMLProtobufDeferredPayload,
+		to segments: inout CoreMLProtobufSegments
+	) {
+		segments.append(data: key(fieldNumber, wireType: 2) + varint(payload.byteCount))
+		segments.append(deferred: payload)
+	}
+
+	private static func appendLengthDelimitedField(_ fieldNumber: Int, data: Data, to segments: inout CoreMLProtobufSegments) {
+		segments.append(data: key(fieldNumber, wireType: 2) + varint(UInt64(data.count)))
+		segments.append(data: data)
+	}
+
+	private static func key(_ fieldNumber: Int, wireType: UInt64) -> Data {
+		precondition(fieldNumber > 0)
+		return varint((UInt64(fieldNumber) << 3) | wireType)
+	}
+
+	private static func varint(_ value: UInt64) -> Data {
+		var remaining = value
+		var data = Data()
+		while remaining >= 0x80 {
+			data.append(UInt8(remaining & 0x7F) | 0x80)
+			remaining >>= 7
+		}
+		data.append(UInt8(remaining))
+		return data
+	}
+}
+
+/// Publishes a fully written sibling temporary file over a destination. Both the extractor and
+/// streamed model emitter use this exact replacement rule, so an existing artifact remains intact
+/// until a complete replacement exists.
+enum NativeModelAtomicFilePublisher {
+	static func writeAtomically(
+		to destinationURL: URL,
+		writing body: (FileHandle) throws -> Void,
+		beforePublish: () throws -> Void
+	) throws {
+		let temporaryURL = destinationURL.deletingLastPathComponent().appendingPathComponent(
+			".\(destinationURL.lastPathComponent).partial-\(UUID().uuidString)",
+			isDirectory: false
+		)
+		guard FileManager.default.createFile(atPath: temporaryURL.path, contents: nil) else {
+			throw CocoaError(.fileWriteUnknown)
+		}
+		var handle: FileHandle?
+		var published = false
+		defer {
+			try? handle?.close()
+			if !published { try? FileManager.default.removeItem(at: temporaryURL) }
+		}
+		let openedHandle = try FileHandle(forWritingTo: temporaryURL)
+		handle = openedHandle
+		try body(openedHandle)
+		try openedHandle.close()
+		handle = nil
+		try beforePublish()
+		try publish(temporaryURL, as: destinationURL)
+		published = true
+	}
+
+	static func publish(_ temporaryURL: URL, as destinationURL: URL) throws {
+		if FileManager.default.fileExists(atPath: destinationURL.path) {
+			_ = try FileManager.default.replaceItemAt(destinationURL, withItemAt: temporaryURL)
+		} else {
+			try FileManager.default.moveItem(at: temporaryURL, to: destinationURL)
+		}
+	}
+}
+
 /// Encodes the protobuf wire types used by the first native Core ML emitter.
 ///
 /// This is deliberately a small encoder, rather than a copy of the generated Core ML protobuf

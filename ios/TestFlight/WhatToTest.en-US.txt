@@ -1,27 +1,15 @@
-Build: TBD
+Build: AIA-0699
 
-Test Focus: progressive tiled detection, nested detection results, and per-model confidence display.
+Test Focus: bounded-memory ADAF checkpoint conversion and converted-model retention.
 
-- Enable Pyramid or 3×3 tiling and leave detection running on a static page. Rectangles should
-  begin appearing as individual tiles finish, rather than waiting for the entire tiled pass. They
-  should remain aligned with the page and not pulse as duplicate rectangles at the same location.
+- Import an ADAF object-detection checkpoint from Files. The progress view should continue updating
+  through model emission; after success, open the imported configuration and run detection on a
+  page. The converted Core ML model should still load and detect normally after force-quitting and
+  relaunching the app.
 
-- Run a tiled detection model over an area with small features inside larger features. Small,
-  distinct detections inside a larger outline should remain visible; duplicate partial outlines at
-  a tile boundary should still collapse to one result.
-- Open a detection model’s configuration and change Detection Confidence. The percentage should
-  update the existing annotations immediately: results below it disappear, and a result exactly at
-  the selected percentage remains visible. No model-loading indicator should appear.
-- Open a classification model’s configuration and confirm Detection Confidence is not shown.
-- With two detection models, change one threshold, close and reopen both configurations, and
-  confirm each model retains its own value.
+- Import a supported ONNX model and a native graph package. Once each conversion completes, reopen
+  the configuration after relaunch and confirm it remains usable. A cancelled or failed conversion
+  should remain resumable from its original source rather than leaving a partially converted model.
 
-Also verify hardware acceleration for one model.
-
-- Automatic should be selected by default. Choose each available option one at a time, close and
-  reopen the configuration, and confirm the choice is retained for that model only.
-- Run a detector after selecting each option. Detections should remain plausible; Processor Only
-  can take much longer. Available accelerators differ by device.
-
-Please report your device model, iOS version, model, tiling mode, selected percentage, hardware
-option, and language if anything looks wrong.
+- If anything fails, please report the source format, approximate source size, device model, iOS
+  version, whether the app was backgrounded, and the last progress phase shown.

@@ -33,6 +33,18 @@ enum NativeModelConversionImportState: String, Codable, Equatable, Sendable {
 	}
 }
 
+/// The independently durable lifetime of a source package after its converted model is registered.
+///
+/// Registration and source removal cannot be one filesystem transaction with Core Data. Keeping this
+/// small journal in the report makes the intended removal survive termination and gives launch-time
+/// recovery a safe, idempotent retry point.
+enum NativeModelConversionSourceCleanupState: String, Codable, Equatable, Sendable {
+	case notRequested
+	case pending
+	case removed
+	case failed
+}
+
 /// One path-free event in the user-visible conversion report.
 struct NativeModelConversionImportLogEntry: Codable, Equatable, Identifiable, Sendable {
 	let id: UUID
@@ -71,6 +83,9 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 	let sourcePackageFilename: String
 	let convertedModelFilename: String
 	let retainOriginalPackage: Bool
+	/// Optional only for reports produced before source cleanup was journaled. Such a registered,
+	/// non-retained report is conservatively treated as pending and retried on the next launch.
+	var sourceCleanupState: NativeModelConversionSourceCleanupState?
 	let nativeConverterPackageVersion: String
 	let nativeConverterConversionRevision: Int
 	let wasRemoteImport: Bool
@@ -100,6 +115,7 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 		self.sourcePackageFilename = sourcePackageFilename
 		self.convertedModelFilename = convertedModelFilename
 		self.retainOriginalPackage = retainOriginalPackage
+		sourceCleanupState = retainOriginalPackage ? .notRequested : .pending
 		nativeConverterPackageVersion = NativeModelConverterVersion.packageVersion
 		nativeConverterConversionRevision = NativeModelConverterVersion.conversionRevision
 		self.wasRemoteImport = wasRemoteImport
@@ -122,6 +138,15 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 
 	func convertedModelURL(in configurationDirectory: URL) -> URL {
 		configurationDirectory.appendingPathComponent(convertedModelFilename, isDirectory: false)
+	}
+
+	var effectiveSourceCleanupState: NativeModelConversionSourceCleanupState {
+		sourceCleanupState ?? (retainOriginalPackage ? .notRequested : .pending)
+	}
+
+	var needsSourceCleanup: Bool {
+		state == .registered && !retainOriginalPackage
+			&& effectiveSourceCleanupState != .removed
 	}
 
 	func write(in configurationDirectory: URL) throws {
@@ -184,6 +209,23 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 	mutating func record(metrics: NativeModelConversionMetrics) {
 		self.metrics = metrics
 		updatedAt = Date()
+	}
+
+	mutating func recordSourceCleanup(
+		_ cleanupState: NativeModelConversionSourceCleanupState,
+		diagnostic: NativeModelConversionDiagnostic? = nil
+	) {
+		sourceCleanupState = cleanupState
+		updatedAt = Date()
+		if let diagnostic {
+			self.diagnostic = diagnostic
+		} else if self.diagnostic?.code == "app.sourceCleanupFailed" {
+			self.diagnostic = nil
+		}
+		entries.append(NativeModelConversionImportLogEntry(
+			state: state,
+			diagnostic: diagnostic
+		))
 	}
 
 	/// Records the recovery fact that the app no longer has a live task for an incomplete report.
@@ -263,8 +305,82 @@ actor NativeModelConversionImportReportStore {
 		try report.write(in: configurationDirectory)
 	}
 
+	func recordSourceCleanup(
+		_ cleanupState: NativeModelConversionSourceCleanupState,
+		diagnostic: NativeModelConversionDiagnostic? = nil
+	) throws {
+		report.recordSourceCleanup(cleanupState, diagnostic: diagnostic)
+		try report.write(in: configurationDirectory)
+	}
+
 	func snapshot() -> NativeModelConversionImportReport {
 		report
+	}
+}
+
+/// Removes non-retained staged source packages only after a registered report is durable.
+///
+/// This actor is deliberately the sole owner of cleanup attempts. The same service runs after a
+/// successful import and at launch, so a termination between Core Data registration and deletion
+/// leaves a retryable `.pending` journal instead of an orphaned checkpoint archive.
+actor NativeModelSourceCleanupService {
+	@discardableResult
+	func reconcile(
+		reportStore: NativeModelConversionImportReportStore,
+		in configurationDirectory: URL
+	) async -> NativeModelConversionImportReport {
+		let report = await reportStore.snapshot()
+		guard report.needsSourceCleanup else { return report }
+
+		let sourceURL = report.sourcePackageURL(in: configurationDirectory)
+		do {
+			if FileManager.default.fileExists(atPath: sourceURL.path) {
+				try FileManager.default.removeItem(at: sourceURL)
+			}
+		} catch {
+			let diagnostic = NativeModelConversionDiagnostic(
+				code: "app.sourceCleanupFailed",
+				phase: report.lastProgress?.phase ?? .completed,
+				message: "The original package could not yet be removed. The app will retry after the next launch."
+			)
+			try? await reportStore.recordSourceCleanup(.failed, diagnostic: diagnostic)
+			return await reportStore.snapshot()
+		}
+		// If this write is interrupted, the source is already absent but the persisted `.pending`
+		// record is harmless: the next launch observes the absence and records `.removed`.
+		try? await reportStore.recordSourceCleanup(.removed)
+		return await reportStore.snapshot()
+	}
+
+	/// Reconciles every existing report at app launch. Unregistered reports are intentionally left
+	/// alone: their source is the recovery input, even when the user did not ask to retain it after a
+	/// successful conversion.
+	func reconcileAll(in configurationsDirectory: URL) async {
+		guard let configurationDirectories = try? FileManager.default.contentsOfDirectory(
+			at: configurationsDirectory,
+			includingPropertiesForKeys: [.isDirectoryKey],
+			options: [.skipsHiddenFiles]
+		) else {
+			return
+		}
+		for directory in configurationDirectories {
+			guard (try? directory.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true,
+				let report = try? NativeModelConversionImportReport.load(in: directory),
+				report.needsSourceCleanup
+			else {
+				continue
+			}
+			let store = NativeModelConversionImportReportStore(
+				report: report,
+				configurationDirectory: directory
+			)
+			_ = await reconcile(reportStore: store, in: directory)
+		}
+	}
+
+	func reconcileAll() async {
+		guard let documentsDirectory = FileManager.default.documentDirectory else { return }
+		await reconcileAll(in: documentsDirectory.appendingPathComponent("Configurations", isDirectory: true))
 	}
 }
 

@@ -137,3 +137,4 @@ scripts/m3a_parity_spike/results/figures/
 # static site (AIA-0650). Holds the resolved Cloudflare account id and project metadata —
 # machine-local state, not project configuration, and not something to publish.
 .wrangler/
+.adaf-conversion-benchmark-assets/
