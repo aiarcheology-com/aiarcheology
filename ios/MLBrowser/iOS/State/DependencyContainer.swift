@@ -67,6 +67,9 @@ class DependencyContainer {
         return DemoDataManager(dataController: self.dataController)
     }()
 
+	/// Owns the durable source-package cleanup actor shared by launch recovery and model import.
+	lazy var nativeConversionSourceCleanupService = NativeModelSourceCleanupService()
+
     // `private(set)`: `AppState` captures this instance at construction; reassigning it afterwards
     // would hand later consumers a different repository/persistence context. Read-only to the outside.
     private(set) lazy var findingRepository: FindingRepository = {
@@ -475,6 +478,7 @@ class DependencyContainer {
 		catalogProviders: catalogProviders,
 		demoDataManager: demoDataManager,
 			findingRepository: findingRepository,
+		nativeConversionSourceCleanupService: nativeConversionSourceCleanupService,
 			detection: detection,
 			browser: browser,
 			account: account,

@@ -35,6 +35,8 @@ struct ModelImportView: View {
 	let catalogProviders: [any CatalogProvider]
 	/// Shared for the running app session so closing and reopening the catalog keeps its search.
 	private let catalogSearchManager: CatalogSearchManager
+	/// App-owned, serialized cleanup after Core Data registration and again at launch.
+	private let nativeConversionSourceCleanupService: NativeModelSourceCleanupService
 
 	@StateObject private var acquisitionCoordinator = ModelAcquisitionCoordinator(
 		allowedTypes: [
@@ -96,11 +98,13 @@ struct ModelImportView: View {
 	init(
 		onImported: @escaping (_ id: UUID, _ needsReview: Bool) -> Void = { _, _ in },
 		catalogProviders: [any CatalogProvider],
-		catalogSearchManager: CatalogSearchManager? = nil
+		catalogSearchManager: CatalogSearchManager? = nil,
+		nativeConversionSourceCleanupService: NativeModelSourceCleanupService = NativeModelSourceCleanupService()
 	) {
 		self.onImported = onImported
 		self.catalogProviders = catalogProviders
 		self.catalogSearchManager = catalogSearchManager ?? CatalogSearchManager(providers: catalogProviders)
+		self.nativeConversionSourceCleanupService = nativeConversionSourceCleanupService
 	}
 	
 	var body: some View {
@@ -560,6 +564,11 @@ struct ModelImportView: View {
 		}
 		if report.markInterruptedIfIncomplete(),
 			let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) {
+			NativeModelConversionImportReport.removeTransientArtifacts(
+				for: report,
+				in: configurationDirectory,
+				includingSourcePackage: false
+			)
 			try? report.write(in: configurationDirectory)
 		}
 		interruptedNativeConversion = report
@@ -724,11 +733,19 @@ struct ModelImportView: View {
 				// the final `.registered` checkpoint must not be able to throw into the catch below,
 				// which would delete that model as a "transient" artifact and surface a spurious import
 				// failure. A report left at `.emitted` is finalized by interruption recovery instead.
-				try? await reportStore.transition(to: .registered)
-				let report = await reportStore.snapshot()
-				if !report.retainOriginalPackage {
-					try? FileManager.default.removeItem(at: report.sourcePackageURL(in: work.configurationDirectory))
+				do {
+					try await reportStore.transition(to: .registered)
+				} catch {
+					// A source is never removed without the durable registration checkpoint. Retaining it
+					// leaves the transaction recoverable; launch reconciliation will only act once a
+					// later report write succeeds.
+					request.reportObserver(await reportStore.snapshot())
+					return info
 				}
+				let report = await nativeConversionSourceCleanupService.reconcile(
+					reportStore: reportStore,
+					in: work.configurationDirectory
+				)
 				request.reportObserver(report)
 			}
 			return info

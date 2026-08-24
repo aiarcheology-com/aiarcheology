@@ -13,6 +13,12 @@ import NativeModelConverter
 
 @MainActor
 final class NativeModelConversionPerformanceTests: XCTestCase {
+	private static let adafCheckpointFilename = "OD_ringfort.tar"
+	private static let adafCheckpointByteCount: UInt64 = 517_823_445
+	private static let adafCheckpointMD5 = "4518e1966cafa0544bd3ea78be3b711a"
+	/// Frozen from the established dense app-vs-CLI artifact test. This benchmark is not allowed to
+	/// turn a memory optimisation into a new model format.
+	private static let adafArtifactSHA256 = "16ad7c884a35c5c5e4f6939fc6ccf887bb4cc9dfcb7f09913d5ec4e0ddc139f6"
 
 	/// Measures package validation, reading, and `.mlmodel` emission for a 14 MiB Float32 weight
 	/// fixture. The fixture is deliberately convolution-heavy because the current emitter copies
@@ -46,12 +52,68 @@ final class NativeModelConversionPerformanceTests: XCTestCase {
 		}
 	}
 
+	/// Measures the actual 518 MB dense checkpoint conversion on a physical iPhone.
+	///
+	/// This is separately staged and opt-in because copying the checkpoint into an XCTest bundle is
+	/// expensive. The preflight validates both the exact source fixture and the pre-existing Core ML
+	/// artifact before `XCTMemoryMetric` records the repeated conversion process. Use
+	/// `scripts/prepare_adaf_conversion_benchmark_assets.sh` and pass its output through
+	/// `AIA_ADAF_CONVERSION_BENCHMARK_ASSETS` at build time.
+	func testPhysicalIPhoneMetrics_fullADAFCheckpoint() async throws {
+		try requirePhysicalADAFBenchmark()
+		let checkpointURL = try stagedADAFCheckpointURL()
+		let checkpointDigest = try streamingDigest(of: checkpointURL)
+		XCTAssertEqual(checkpointDigest.byteCount, Self.adafCheckpointByteCount)
+		XCTAssertEqual(checkpointDigest.md5, Self.adafCheckpointMD5)
+
+		let directory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: directory) }
+		let modelURL = directory.appendingPathComponent("OD_ringfort.mlmodel", isDirectory: false)
+		let converter = NativeModelConverter()
+
+		let preflight = try await converter.convert(adafDetector: checkpointURL, to: modelURL)
+		let modelDigest = try streamingDigest(of: modelURL)
+		XCTAssertEqual(modelDigest.sha256, Self.adafArtifactSHA256)
+		addADAFBenchmarkAttachment(
+			checkpoint: checkpointDigest,
+			model: modelDigest,
+			metrics: preflight
+		)
+		try FileManager.default.removeItem(at: modelURL)
+
+		let options = XCTMeasureOptions()
+		options.iterationCount = 3
+		measure(metrics: [XCTClockMetric(), XCTMemoryMetric()], options: options) {
+			do {
+				_ = try synchronously {
+					try await converter.convert(adafDetector: checkpointURL, to: modelURL)
+				}
+			} catch {
+				XCTFail("ADAF conversion failed during physical-memory measurement: \(error)")
+			}
+		}
+	}
+
 	private func requirePhysicalDeviceBenchmark() throws {
 		guard ProcessInfo.processInfo.environment["NATIVE_MODEL_CONVERSION_DEVICE_BENCHMARK"] == "1" else {
 			throw XCTSkip("Set NATIVE_MODEL_CONVERSION_DEVICE_BENCHMARK=1 in the Test action to run the opt-in device benchmark.")
 		}
 		guard ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] == nil else {
 			throw XCTSkip("XCTMemoryMetric device evidence must come from a physical iPhone or iPad, not a simulator.")
+		}
+	}
+
+	private func requirePhysicalADAFBenchmark() throws {
+		guard ProcessInfo.processInfo.environment["ADAF_CONVERSION_DEVICE_BENCHMARK"] == "1" else {
+			throw XCTSkip(
+				"Set ADAF_CONVERSION_DEVICE_BENCHMARK=1 to record the opt-in full-checkpoint physical-iPhone metric."
+			)
+		}
+		guard ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] == nil else {
+			throw XCTSkip("The full ADAF conversion benchmark requires a physical iPhone, not a simulator.")
+		}
+		guard UIDevice.current.userInterfaceIdiom == .phone else {
+			throw XCTSkip("The full ADAF conversion benchmark is recorded on a physical iPhone; this device is not an iPhone.")
 		}
 	}
 
@@ -135,6 +197,34 @@ final class NativeModelConversionPerformanceTests: XCTestCase {
 		return packageURL
 	}
 
+	private func stagedADAFCheckpointURL() throws -> URL {
+		let resourceName = (Self.adafCheckpointFilename as NSString).deletingPathExtension
+		let fileExtension = (Self.adafCheckpointFilename as NSString).pathExtension
+		return try XCTUnwrap(
+			Bundle(for: Self.self).url(forResource: resourceName, withExtension: fileExtension),
+			"The dense ADAF checkpoint is absent. Run scripts/prepare_adaf_conversion_benchmark_assets.sh "
+				+ "and set AIA_ADAF_CONVERSION_BENCHMARK_ASSETS before building the test bundle."
+		)
+	}
+
+	private func streamingDigest(of fileURL: URL) throws -> ADAFBenchmarkFileDigest {
+		let handle = try FileHandle(forReadingFrom: fileURL)
+		defer { try? handle.close() }
+		var sha256 = SHA256()
+		var md5 = Insecure.MD5()
+		var byteCount: UInt64 = 0
+		while let chunk = try handle.read(upToCount: 1 * 1_024 * 1_024), !chunk.isEmpty {
+			sha256.update(data: chunk)
+			md5.update(data: chunk)
+			byteCount += UInt64(chunk.count)
+		}
+		return ADAFBenchmarkFileDigest(
+			byteCount: byteCount,
+			sha256: sha256.finalize().map { String(format: "%02x", $0) }.joined(),
+			md5: md5.finalize().map { String(format: "%02x", $0) }.joined()
+		)
+	}
+
 	private func addBenchmarkAttachment(for metrics: NativeModelConversionMetrics) {
 		let report = NativeModelDeviceBenchmarkReport(
 			deviceFamily: UIDevice.current.model,
@@ -146,6 +236,30 @@ final class NativeModelConversionPerformanceTests: XCTestCase {
 		}
 		let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
 		attachment.name = "native-model-conversion-device-preflight.json"
+		attachment.lifetime = .keepAlways
+		add(attachment)
+	}
+
+	private func addADAFBenchmarkAttachment(
+		checkpoint: ADAFBenchmarkFileDigest,
+		model: ADAFBenchmarkFileDigest,
+		metrics: NativeModelConversionMetrics
+	) {
+		let report = ADAFConversionDeviceBenchmarkReport(
+			deviceFamily: UIDevice.current.model,
+			operatingSystemVersion: UIDevice.current.systemVersion,
+			xcodeBuild: Bundle(for: Self.self).object(forInfoDictionaryKey: "DTXcodeBuild") as? String,
+			converterPackageVersion: NativeModelConverterVersion.packageVersion,
+			converterConversionRevision: NativeModelConverterVersion.conversionRevision,
+			checkpoint: checkpoint,
+			model: model,
+			preflightMetrics: metrics
+		)
+		guard let data = try? JSONEncoder.prettySorted.encode(report) else {
+			return XCTFail("Could not encode the ADAF conversion benchmark report.")
+		}
+		let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+		attachment.name = "adaf-full-checkpoint-conversion-preflight.json"
 		attachment.lifetime = .keepAlways
 		add(attachment)
 	}
@@ -196,6 +310,23 @@ private struct NativeModelDeviceBenchmarkReport: Encodable {
 	let deviceFamily: String
 	let operatingSystemVersion: String
 	let metrics: NativeModelConversionMetrics
+}
+
+private struct ADAFBenchmarkFileDigest: Encodable {
+	let byteCount: UInt64
+	let sha256: String
+	let md5: String
+}
+
+private struct ADAFConversionDeviceBenchmarkReport: Encodable {
+	let deviceFamily: String
+	let operatingSystemVersion: String
+	let xcodeBuild: String?
+	let converterPackageVersion: String
+	let converterConversionRevision: Int
+	let checkpoint: ADAFBenchmarkFileDigest
+	let model: ADAFBenchmarkFileDigest
+	let preflightMetrics: NativeModelConversionMetrics
 }
 
 private extension JSONEncoder {

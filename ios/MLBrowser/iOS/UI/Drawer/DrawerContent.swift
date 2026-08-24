@@ -104,7 +104,8 @@ struct DrawerContent: View {
                     if needsReview { importedForReviewId = id }
                 },
                 catalogProviders: appState.catalogProviders,
-                catalogSearchManager: appState.catalogSearchManager
+				catalogSearchManager: appState.catalogSearchManager,
+				nativeConversionSourceCleanupService: appState.nativeConversionSourceCleanupService
             )
                 .environmentObject(deep)
                 .environmentObject(downloader)

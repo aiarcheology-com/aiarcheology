@@ -69,6 +69,14 @@ final class NativeModelConversionImportReportTests: XCTestCase {
 		try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
 		try Data("model".utf8).write(to: modelURL)
 		try Data("metadata".utf8).write(to: NativeModelMetadataSidecar.url(for: modelURL))
+		let partialModelURL = configurationDirectory.appendingPathComponent(
+			".\(modelURL.lastPathComponent).partial-\(UUID().uuidString)"
+		)
+		let unrelatedPartialURL = configurationDirectory.appendingPathComponent(
+			".unrelated.mlmodel.partial-\(UUID().uuidString)"
+		)
+		try Data("partial model".utf8).write(to: partialModelURL)
+		try Data("unrelated partial".utf8).write(to: unrelatedPartialURL)
 
 		NativeModelConversionImportReport.removeTransientArtifacts(
 			for: report,
@@ -78,6 +86,8 @@ final class NativeModelConversionImportReportTests: XCTestCase {
 		XCTAssertTrue(FileManager.default.fileExists(atPath: sourceURL.path))
 		XCTAssertFalse(FileManager.default.fileExists(atPath: modelURL.path))
 		XCTAssertFalse(FileManager.default.fileExists(atPath: NativeModelMetadataSidecar.url(for: modelURL).path))
+		XCTAssertFalse(FileManager.default.fileExists(atPath: partialModelURL.path))
+		XCTAssertTrue(FileManager.default.fileExists(atPath: unrelatedPartialURL.path))
 
 		NativeModelConversionImportReport.removeTransientArtifacts(
 			for: report,
@@ -85,6 +95,103 @@ final class NativeModelConversionImportReportTests: XCTestCase {
 			includingSourcePackage: true
 		)
 		XCTAssertFalse(FileManager.default.fileExists(atPath: sourceURL.path))
+	}
+
+	func testSourceCleanupFailure_doesNotOverwriteSuccessfulImportDiagnosticOrAppendDuplicateEntries() throws {
+		var report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "detector.tar",
+			retainOriginalPackage: false,
+			wasRemoteImport: false
+		)
+		let cleanupDiagnostic = NativeModelConversionDiagnostic(
+			code: "app.sourceCleanupFailed",
+			phase: .completed,
+			message: "The original package could not yet be removed."
+		)
+		// A report written by the earlier implementation could already contain this conversion-level
+		// diagnostic. The first reconciliation must clear it as well as avoiding new ones.
+		report.transition(to: .registered, diagnostic: cleanupDiagnostic)
+		let entryCountBeforeFailure = report.entries.count
+
+		report.recordSourceCleanup(.failed, diagnostic: cleanupDiagnostic)
+		XCTAssertEqual(report.state, .registered)
+		XCTAssertNil(report.diagnostic)
+		XCTAssertEqual(report.entries.count, entryCountBeforeFailure + 1)
+		XCTAssertEqual(report.entries.last?.diagnostic, cleanupDiagnostic)
+
+		report.recordSourceCleanup(.failed, diagnostic: cleanupDiagnostic)
+		XCTAssertEqual(report.entries.count, entryCountBeforeFailure + 1)
+
+		report.recordSourceCleanup(.removed)
+		XCTAssertEqual(report.effectiveSourceCleanupState, .removed)
+		XCTAssertEqual(report.entries.count, entryCountBeforeFailure + 2)
+	}
+
+	func testSourceCleanup_removesOnlyRegisteredNonRetainedSourceAndRecordsCompletion() async throws {
+		let rootDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: rootDirectory) }
+		let configurationDirectory = rootDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try FileManager.default.createDirectory(at: configurationDirectory, withIntermediateDirectories: true)
+
+		let report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "detector.tar",
+			retainOriginalPackage: false,
+			wasRemoteImport: false
+		)
+		try Data("checkpoint".utf8).write(to: report.sourcePackageURL(in: configurationDirectory))
+		try Data("coreml".utf8).write(to: report.convertedModelURL(in: configurationDirectory))
+		try report.write(in: configurationDirectory)
+		let store = NativeModelConversionImportReportStore(report: report, configurationDirectory: configurationDirectory)
+		let service = NativeModelSourceCleanupService()
+
+		// The recovery source is still required before the Core Data configuration commits.
+		_ = await service.reconcile(reportStore: store, in: configurationDirectory)
+		XCTAssertTrue(FileManager.default.fileExists(atPath: report.sourcePackageURL(in: configurationDirectory).path))
+		let pending = await store.snapshot()
+		XCTAssertEqual(pending.effectiveSourceCleanupState, .pending)
+
+		try await store.transition(to: .registered)
+		let cleaned = await service.reconcile(reportStore: store, in: configurationDirectory)
+		XCTAssertEqual(cleaned.state, .registered)
+		XCTAssertEqual(cleaned.effectiveSourceCleanupState, .removed)
+		XCTAssertFalse(FileManager.default.fileExists(atPath: report.sourcePackageURL(in: configurationDirectory).path))
+		XCTAssertTrue(FileManager.default.fileExists(atPath: report.convertedModelURL(in: configurationDirectory).path))
+
+		let loaded = try NativeModelConversionImportReport.load(in: configurationDirectory)
+		XCTAssertEqual(loaded.effectiveSourceCleanupState, .removed)
+	}
+
+	func testSourceCleanup_launchRecoveryLeavesRecoveryAndRetainedSourcesUntouched() async throws {
+		let rootDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: rootDirectory) }
+
+		let incompleteDirectory = rootDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		let retainedDirectory = rootDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try FileManager.default.createDirectory(at: incompleteDirectory, withIntermediateDirectories: true)
+		try FileManager.default.createDirectory(at: retainedDirectory, withIntermediateDirectories: true)
+		let incomplete = try NativeModelConversionImportReport(
+			configurationID: UUID(), sourcePackageFilename: "retry.onnx", retainOriginalPackage: false, wasRemoteImport: false
+		)
+		let retained = try NativeModelConversionImportReport(
+			configurationID: UUID(), sourcePackageFilename: "keep.aiagraph", retainOriginalPackage: true, wasRemoteImport: false
+		)
+		try Data("retry".utf8).write(to: incomplete.sourcePackageURL(in: incompleteDirectory))
+		try Data("keep".utf8).write(to: retained.sourcePackageURL(in: retainedDirectory))
+		try incomplete.write(in: incompleteDirectory)
+		try retained.write(in: retainedDirectory)
+		let retainedStore = NativeModelConversionImportReportStore(report: retained, configurationDirectory: retainedDirectory)
+		try await retainedStore.transition(to: .registered)
+
+		await NativeModelSourceCleanupService().reconcileAll(in: rootDirectory)
+
+		XCTAssertTrue(FileManager.default.fileExists(atPath: incomplete.sourcePackageURL(in: incompleteDirectory).path))
+		XCTAssertTrue(FileManager.default.fileExists(atPath: retained.sourcePackageURL(in: retainedDirectory).path))
+		XCTAssertEqual(
+			try NativeModelConversionImportReport.load(in: retainedDirectory).effectiveSourceCleanupState,
+			.notRequested
+		)
 	}
 
 	private func makeTemporaryDirectory() throws -> URL {

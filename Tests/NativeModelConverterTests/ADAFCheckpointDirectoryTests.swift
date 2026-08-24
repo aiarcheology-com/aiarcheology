@@ -329,11 +329,15 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 			parityEvidence: .structurallyMatched
 		)
 
+		let appArtifactHash = SHA256.hash(data: try Data(contentsOf: appModelURL, options: .mappedIfSafe))
+		let cliArtifactHash = SHA256.hash(data: try Data(contentsOf: cliModelURL, options: .mappedIfSafe))
 		XCTAssertEqual(
-			SHA256.hash(data: try Data(contentsOf: appModelURL, options: .mappedIfSafe)),
-			SHA256.hash(data: try Data(contentsOf: cliModelURL, options: .mappedIfSafe)),
+			appArtifactHash,
+			cliArtifactHash,
 			"the app route must emit the exact artifact already checked through the CLI"
 		)
+		let appArtifactSHA256 = appArtifactHash.map { String(format: "%02x", $0) }.joined()
+		XCTAssertEqual(appArtifactSHA256, "16ad7c884a35c5c5e4f6939fc6ccf887bb4cc9dfcb7f09913d5ec4e0ddc139f6")
 		XCTAssertEqual(appMetrics.sourceFootprint.weightsByteCount, extraction.sourceByteCount)
 		let phases = progress.values.map(\.phase)
 		XCTAssertTrue(phases.contains(.readingWeights), "ADAF extraction must report progress to the import UI")

@@ -5,6 +5,7 @@
 //  The pinned ADAF Faster R-CNN architecture and its loadable Core ML graph (AIA-0685 through AIA-0687).
 //
 
+import CryptoKit
 import Foundation
 
 /// The only Faster R-CNN architecture this converter currently lowers.
@@ -84,6 +85,17 @@ public enum NativeModelFasterRCNNRegistry {
 		public let interface: NativeModelDetectionInterface
 		public let targetInfo: NativeModelDetectionTargetInfo
 		public let targetSemanticsIntent: NativeModelTargetSemanticsIntent
+	}
+
+	/// The ADAF production emission contract. Unlike ``Conversion``, this describes promoted bytes
+	/// without materialising them: the source checkpoint extraction remains a file and synthesized
+	/// constants remain their small independent segment.
+	struct StreamingConversion {
+		let graph: NativeModelGraph
+		let weights: NativeModelADAFPromotedWeights
+		let interface: NativeModelDetectionInterface
+		let targetInfo: NativeModelDetectionTargetInfo
+		let targetSemanticsIntent: NativeModelTargetSemanticsIntent
 	}
 
 	/// Builds the graph skeleton from the closed architecture registry.
@@ -175,6 +187,45 @@ public enum NativeModelFasterRCNNRegistry {
 		return Conversion(
 			graph: emission.graph,
 			weights: emission.data,
+			interface: template.interface,
+			targetInfo: template.targetInfo,
+			targetSemanticsIntent: template.targetSemanticsIntent
+		)
+	}
+
+	/// Creates the bounded-memory production path for a pinned ADAF detector.
+	///
+	/// The historic ``conversion(checkpoint:extraction:weightData:)`` overload stays as an
+	/// in-memory reference for the dense artifact parity test. App conversion must use this overload:
+	/// it never maps the extracted fp16 file, joins it with synthesized bytes, or constructs a full
+	/// Float32 blob.
+	static func streamingConversion(
+		checkpoint: PyTorchCheckpoint,
+		extraction: PyTorchWeightExtraction,
+		weightURL: URL,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
+	) throws -> StreamingConversion {
+		try cancellationCheck?()
+		guard case let .objectDetection(model) = ADAFCheckpointCatalog.identity(of: checkpoint) else {
+			throw NativeModelFasterRCNNRegistryError.checkpointIsNotPinnedDetector
+		}
+		let template = try template(for: model, weights: extraction.weights)
+		guard extraction.byteCount == template.sourceWeightByteCount else {
+			throw NativeModelFasterRCNNRegistryError.weightDataLengthMismatch(
+				expected: template.sourceWeightByteCount,
+				actual: extraction.byteCount
+			)
+		}
+		let weights = try NativeModelADAFPromotedWeights(
+			graph: template.graph,
+			sourceWeightByteCount: template.sourceWeightByteCount,
+			synthesizedWeightData: template.synthesizedWeightData,
+			weightURL: weightURL,
+			checkingCancellation: cancellationCheck
+		)
+		return StreamingConversion(
+			graph: weights.graph,
+			weights: weights,
 			interface: template.interface,
 			targetInfo: template.targetInfo,
 			targetSemanticsIntent: template.targetSemanticsIntent
@@ -1429,6 +1480,273 @@ public enum NativeModelFasterRCNNRegistry {
 		func outputDimension(_ input: Int, kernel: Int, stride: Int, padding: Int) -> Int {
 			(input + 2 * padding - kernel) / stride + 1
 		}
+	}
+}
+
+/// Promotes ADAF's extracted Float16 weights when the protobuf writer reaches each weight field.
+///
+/// The object owns no mapped source `Data`: each requested field seeks the extraction file and
+/// widens no more than ``chunkByteCount`` emitted bytes at a time. The graph is transformed once to
+/// point at the logical Float32 layout, which is small metadata rather than model-sized storage.
+final class NativeModelADAFPromotedWeights: @unchecked Sendable {
+	static let chunkByteCount = 1 * 1_024 * 1_024
+
+	private enum Origin {
+		case extracted(offset: UInt64)
+		case synthesized(offset: UInt64)
+	}
+
+	let graph: NativeModelGraph
+	private let sourceURL: URL
+	private let synthesizedWeightData: Data
+	private let originalWeightsByName: [String: NativeModelWeight]
+	private let originsByName: [String: Origin]
+
+	init(
+		graph sourceGraph: NativeModelGraph,
+		sourceWeightByteCount: UInt64,
+		synthesizedWeightData: Data,
+		weightURL: URL,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws {
+		let actualSourceByteCount = (try? FileManager.default.attributesOfItem(atPath: weightURL.path)[.size] as? NSNumber)?
+			.uint64Value ?? 0
+		guard actualSourceByteCount == sourceWeightByteCount else {
+			throw NativeModelFasterRCNNRegistryError.weightDataLengthMismatch(
+				expected: sourceWeightByteCount,
+				actual: actualSourceByteCount
+			)
+		}
+
+		let orderedWeights = sourceGraph.weights.sorted { $0.offset < $1.offset }
+		var promotedWeights: [NativeModelWeight] = []
+		var originalByName: [String: NativeModelWeight] = [:]
+		var origins: [String: Origin] = [:]
+		var promotedOffset: UInt64 = 0
+		promotedWeights.reserveCapacity(orderedWeights.count)
+		originalByName.reserveCapacity(orderedWeights.count)
+		origins.reserveCapacity(orderedWeights.count)
+
+		for weight in orderedWeights {
+			try cancellationCheck?()
+			guard originalByName.updateValue(weight, forKey: weight.name) == nil else {
+				throw NativeModelFasterRCNNRegistryError.duplicateWeightName
+			}
+			let (sourceEnd, sourceOverflow) = weight.offset.addingReportingOverflow(weight.byteCount)
+			guard !sourceOverflow else {
+				throw NativeModelFasterRCNNRegistryError.weightBlobIsNotContiguous(weight: weight.name)
+			}
+
+			let origin: Origin
+			if sourceEnd <= sourceWeightByteCount {
+				guard weight.dataType == .float16, weight.byteCount.isMultiple(of: 2) else {
+					throw NativeModelFasterRCNNRegistryError.invalidWeight(
+						name: weight.name,
+						expectedShape: weight.shape,
+						actualShape: weight.shape,
+						actualType: weight.dataType.serializedValue,
+						actualByteCount: weight.byteCount
+					)
+				}
+				origin = .extracted(offset: weight.offset)
+			} else {
+				guard weight.offset >= sourceWeightByteCount,
+					sourceEnd - sourceWeightByteCount <= UInt64(synthesizedWeightData.count),
+					weight.dataType == .float32
+				else {
+					throw NativeModelFasterRCNNRegistryError.weightBlobIsNotContiguous(weight: weight.name)
+				}
+				origin = .synthesized(offset: weight.offset - sourceWeightByteCount)
+			}
+			origins[weight.name] = origin
+
+			let promotedByteCount: UInt64
+			switch weight.dataType {
+			case .float16:
+				let (doubled, overflow) = weight.byteCount.multipliedReportingOverflow(by: 2)
+				guard !overflow else {
+					throw NativeModelFasterRCNNRegistryError.weightBlobIsNotContiguous(weight: weight.name)
+				}
+				promotedByteCount = doubled
+			case .float32:
+				promotedByteCount = weight.byteCount
+			case .unsupported:
+				preconditionFailure("The closed Faster R-CNN registry contains floating-point weights only.")
+			}
+			promotedWeights.append(NativeModelWeight(
+				name: weight.name,
+				dataType: .float32,
+				shape: weight.shape,
+				offset: promotedOffset,
+				byteCount: promotedByteCount
+			))
+			let (nextOffset, overflow) = promotedOffset.addingReportingOverflow(promotedByteCount)
+			guard !overflow else {
+				throw NativeModelFasterRCNNRegistryError.weightBlobIsNotContiguous(weight: weight.name)
+			}
+			promotedOffset = nextOffset
+		}
+
+		self.sourceURL = weightURL
+		self.synthesizedWeightData = synthesizedWeightData
+		self.originalWeightsByName = originalByName
+		self.originsByName = origins
+		self.graph = NativeModelGraph(
+			formatVersion: sourceGraph.formatVersion,
+			producer: sourceGraph.producer,
+			inputs: sourceGraph.inputs,
+			weights: promotedWeights,
+			operations: sourceGraph.operations,
+			outputs: sourceGraph.outputs
+		)
+	}
+
+	func payload(
+		for promotedWeight: NativeModelWeight,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler?,
+		digest: NativeModelADAFPromotedWeightsDigest? = nil
+	) throws -> CoreMLProtobufDeferredPayload {
+		guard let original = originalWeightsByName[promotedWeight.name],
+			promotedWeight.dataType == .float32,
+			promotedWeight.byteCount == promotedByteCount(for: original)
+		else {
+			throw NativeModelCoreMLEmissionError.missingWeight(promotedWeight.name)
+		}
+		return CoreMLProtobufDeferredPayload(
+			byteCount: promotedWeight.byteCount,
+			willWriteAt: { fileOffset in
+				digest?.record(
+					weightNamed: promotedWeight.name,
+					logicalOffset: promotedWeight.offset,
+					byteCount: promotedWeight.byteCount,
+					fileOffset: fileOffset
+				)
+			}
+		) { [self] handle in
+			try stream(weightNamed: original.name, checkingCancellation: cancellationCheck) { chunk in
+				try handle.write(contentsOf: chunk)
+			}
+		}
+	}
+
+	private func promotedByteCount(for weight: NativeModelWeight) -> UInt64 {
+		switch weight.dataType {
+		case .float16: weight.byteCount * 2
+		case .float32: weight.byteCount
+		case .unsupported: 0
+		}
+	}
+
+	private func stream(
+		weightNamed name: String,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler?,
+		receive: (Data) throws -> Void
+	) throws {
+		guard let original = originalWeightsByName[name], let origin = originsByName[name] else {
+			throw NativeModelCoreMLEmissionError.missingWeight(name)
+		}
+		switch origin {
+		case .extracted(let offset):
+			let handle = try FileHandle(forReadingFrom: sourceURL)
+			defer { try? handle.close() }
+			try handle.seek(toOffset: offset)
+			var remaining = original.byteCount
+			while remaining > 0 {
+				try cancellationCheck?()
+				let inputCount = min(Int(remaining), Self.chunkByteCount / 2)
+				let input = try handle.read(upToCount: inputCount)
+				let receivedByteCount = UInt64(input?.count ?? 0)
+				guard receivedByteCount == UInt64(inputCount), let input else {
+					throw NativeModelFasterRCNNRegistryError.weightDataLengthMismatch(
+						expected: original.byteCount,
+						actual: original.byteCount - remaining + receivedByteCount
+					)
+				}
+				var promoted = Data()
+				promoted.reserveCapacity(input.count * 2)
+				for (elementIndex, index) in stride(from: input.startIndex, to: input.endIndex, by: 2).enumerated() {
+					if elementIndex.isMultiple(of: 4_096) { try cancellationCheck?() }
+					let bits = UInt16(input[index]) | UInt16(input[index + 1]) << 8
+					var value = Float(Float16(bitPattern: bits)).bitPattern.littleEndian
+					withUnsafeBytes(of: &value) { promoted.append(contentsOf: $0) }
+				}
+				try receive(promoted)
+				remaining -= UInt64(inputCount)
+			}
+		case .synthesized(let offset):
+			var remaining = original.byteCount
+			var cursor = offset
+			while remaining > 0 {
+				try cancellationCheck?()
+				let count = min(Int(remaining), Self.chunkByteCount)
+				let start = Int(cursor)
+				let end = start + count
+				try receive(Data(synthesizedWeightData[start..<end]))
+				cursor += UInt64(count)
+				remaining -= UInt64(count)
+			}
+		}
+	}
+}
+
+/// Indexes the promoted bytes already written into the temporary Core ML model. The corresponding
+/// SHA-256 is read in the logical graph-weight order after emission, avoiding the previous second
+/// fp16 read and Float16-to-Float32 promotion pass.
+final class NativeModelADAFPromotedWeightsDigest {
+	private struct Location {
+		let logicalOffset: UInt64
+		let byteCount: UInt64
+		let fileOffset: UInt64
+	}
+
+	private let expectedWeights: [NativeModelWeight]
+	private var locationsByName: [String: Location] = [:]
+
+	init(logicalWeights: [NativeModelWeight]) {
+		expectedWeights = logicalWeights.sorted { $0.offset < $1.offset }
+		locationsByName.reserveCapacity(logicalWeights.count)
+	}
+
+	func record(weightNamed name: String, logicalOffset: UInt64, byteCount: UInt64, fileOffset: UInt64) {
+		// A shared graph weight may be referenced by more than one operation. Its logical blob has one
+		// copy, so the first serialized occurrence is sufficient for the checksum.
+		if locationsByName[name] == nil {
+			locationsByName[name] = Location(
+				logicalOffset: logicalOffset,
+				byteCount: byteCount,
+				fileOffset: fileOffset
+			)
+		}
+	}
+
+	func sha256(
+		of outputURL: URL,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws -> String {
+		let handle = try FileHandle(forReadingFrom: outputURL)
+		defer { try? handle.close() }
+		var digest = SHA256()
+		for weight in expectedWeights {
+			try cancellationCheck?()
+			guard let location = locationsByName[weight.name],
+				location.logicalOffset == weight.offset,
+				location.byteCount == weight.byteCount
+			else {
+				throw NativeModelCoreMLEmissionError.missingWeight(weight.name)
+			}
+			try handle.seek(toOffset: location.fileOffset)
+			var remaining = location.byteCount
+			while remaining > 0 {
+				try cancellationCheck?()
+				let count = min(Int(remaining), NativeModelADAFPromotedWeights.chunkByteCount)
+				guard let chunk = try handle.read(upToCount: count), chunk.count == count else {
+					throw CocoaError(.fileReadUnknown)
+				}
+				digest.update(data: chunk)
+				remaining -= UInt64(count)
+			}
+		}
+		return digest.finalize().map { String(format: "%02x", $0) }.joined()
 	}
 }
 
