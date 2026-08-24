@@ -407,11 +407,7 @@ public enum PyTorchWeightExtractor {
 	/// to replace it with.
 	private static func publish(_ workingURL: URL, as destinationURL: URL) throws {
 		do {
-			if FileManager.default.fileExists(atPath: destinationURL.path) {
-				_ = try FileManager.default.replaceItemAt(destinationURL, withItemAt: workingURL)
-			} else {
-				try FileManager.default.moveItem(at: workingURL, to: destinationURL)
-			}
+			try NativeModelAtomicFilePublisher.publish(workingURL, as: destinationURL)
 		} catch {
 			throw PyTorchWeightExtractionError.destinationNotWritable(destinationURL.lastPathComponent)
 		}

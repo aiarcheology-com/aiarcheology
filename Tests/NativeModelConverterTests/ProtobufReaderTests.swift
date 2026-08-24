@@ -3,6 +3,7 @@
 //  NativeModelConverterTests
 //
 
+import Foundation
 import XCTest
 @testable import NativeModelConverter
 
@@ -83,4 +84,74 @@ final class ProtobufReaderTests: XCTestCase {
 		XCTAssertEqual(try ProtobufReader.fields(in: unpacked).repeatedInts(1), [2, 3, 5])
 		XCTAssertEqual(try ProtobufReader.fields(in: packed).repeatedInts(2), [2, 3, 5])
 	}
+
+	func testStreamingEncoder_countPassAndDeferredWriteMatchTheInMemoryWireFormat() throws {
+		let payload = Data([0x00, 0x7F, 0x80, 0xFF])
+		var inner = CoreMLProtobufSegments()
+		CoreMLProtobufStreamingEncoder.appendStringField(1, value: "streamed", to: &inner)
+		CoreMLProtobufStreamingEncoder.appendDeferredPayloadField(
+			2,
+			payload: CoreMLProtobufDeferredPayload(byteCount: UInt64(payload.count)) { handle in
+				try handle.write(contentsOf: payload)
+			},
+			to: &inner
+		)
+		var outer = CoreMLProtobufSegments()
+		CoreMLProtobufStreamingEncoder.appendMessageField(9, value: inner, to: &outer)
+
+		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+		defer { try? FileManager.default.removeItem(at: directory) }
+		let output = directory.appendingPathComponent("streamed.bin")
+		try NativeModelAtomicFilePublisher.writeAtomically(
+			to: output,
+			writing: { handle in try outer.write(to: handle, reporting: nil) },
+			beforePublish: {}
+		)
+
+		let expectedInner = CoreMLProtobufEncoder.message { message in
+			CoreMLProtobufEncoder.appendStringField(1, value: "streamed", to: &message)
+			CoreMLProtobufEncoder.appendMessageField(2, value: payload, to: &message)
+		}
+		let expected = CoreMLProtobufEncoder.message { message in
+			CoreMLProtobufEncoder.appendMessageField(9, value: expectedInner, to: &message)
+		}
+		let actual = try Data(contentsOf: output)
+		XCTAssertEqual(actual, expected)
+		XCTAssertEqual(outer.byteCount, UInt64(actual.count))
+	}
+
+	func testStreamingSegments_markerOffsetAccountsForDeferredPayloads() {
+		let marker = Data("marker".utf8)
+		var segments = CoreMLProtobufSegments()
+		segments.append(data: Data("prefix".utf8))
+		segments.append(deferred: CoreMLProtobufDeferredPayload(byteCount: 4) { _ in })
+		segments.append(data: marker)
+
+		XCTAssertEqual(segments.firstFileOffset(of: marker), 10)
+	}
+
+	func testAtomicPublisher_cancellationBeforePublishPreservesExistingArtifactAndCleansTemporaryFile() throws {
+		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+		defer { try? FileManager.default.removeItem(at: directory) }
+		let destination = directory.appendingPathComponent("model.mlmodel")
+		let previous = Data("established artifact".utf8)
+		try previous.write(to: destination)
+
+		XCTAssertThrowsError(
+			try NativeModelAtomicFilePublisher.writeAtomically(
+				to: destination,
+				writing: { handle in try handle.write(contentsOf: Data("new artifact".utf8)) },
+				beforePublish: { throw PublisherTestError.cancelled }
+			)
+		)
+		XCTAssertEqual(try Data(contentsOf: destination), previous)
+		let remainingNames = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+		XCTAssertEqual(remainingNames, [destination.lastPathComponent])
+	}
+}
+
+private enum PublisherTestError: Error {
+	case cancelled
 }

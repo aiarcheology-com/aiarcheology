@@ -7,6 +7,22 @@
 
 import Foundation
 
+/// All of the fixed ADAF conversion facts required by the file-backed emitter.
+///
+/// This stays internal because only the closed detector registry can construct a valid request.
+struct NativeModelADAFEmissionRequest {
+	let graph: NativeModelGraph
+	let promotedWeights: NativeModelADAFPromotedWeights
+	let detection: NativeModelDetectionInterface
+	let detectionTarget: NativeModelDetectionTargetInfo
+	let imagePreprocessing: NativeModelImagePreprocessing
+	let imageSizingContract: NativeModelImageSizingContract
+	let targetSemanticsIntent: NativeModelTargetSemanticsIntent
+	let parityEvidence: NativeModelParityEvidence
+}
+
+private let adafWeightsSHA256Placeholder = String(repeating: "x", count: 64)
+
 /// Serializes the currently implemented native-graph subset as a Core ML neural-network model.
 ///
 /// The emitter intentionally has a narrower operation set than `NativeModelGraphValidator`.
@@ -200,6 +216,52 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		try emit(
 			graph: graph,
 			weights: weights,
+			to: outputURL,
+			context: EmissionContext(
+				metadata: metadata,
+				interface: interface,
+				progress: progress,
+				cancellationCheck: cancellationCheck
+			)
+		)
+	}
+
+	/// Emits the pinned ADAF detector without materialising its promoted Float32 weights or the
+	/// enclosing Core ML protobuf. This is deliberately internal: the file-backed source is a closed
+	/// registry contract, not a second general-purpose graph input API.
+	func emit(
+		adaf request: NativeModelADAFEmissionRequest,
+		to outputURL: URL,
+		reporting progress: NativeModelConversionProgressHandler?,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws {
+		guard request.detectionTarget.classCount == request.detection.labels.count else {
+			throw NativeModelCoreMLEmissionError.invalidDetectionInterface(
+				reason: "detection target class count \(request.detectionTarget.classCount) does not match \(request.detection.labels.count) labels"
+			)
+		}
+		let interface = try resolveEmissionInterface(
+			graph: request.graph,
+			classifierLabels: nil,
+			imagePreprocessing: request.imagePreprocessing,
+			detection: request.detection,
+			detectionTarget: request.detectionTarget,
+			targetSemanticsIntent: request.targetSemanticsIntent
+		)
+		let metadata = try targetMetadata(
+			from: nil,
+			checksums: NativeModelConversionChecksums(weightsSHA256: adafWeightsSHA256Placeholder),
+			graph: request.graph,
+			sourceProvenance: nil,
+			interface: interface,
+			imageSizingContract: request.imageSizingContract,
+			parityEvidence: request.parityEvidence
+		)
+		let weightsDigest = NativeModelADAFPromotedWeightsDigest(logicalWeights: request.graph.weights)
+		try emitStreamingADAF(
+			graph: request.graph,
+			promotedWeights: request.promotedWeights,
+			weightsDigest: weightsDigest,
 			to: outputURL,
 			context: EmissionContext(
 				metadata: metadata,
@@ -512,6 +574,557 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		context.progress?(NativeModelConversionProgress(phase: .writingModel))
 		try model.write(to: outputURL, options: .atomic)
 		context.progress?(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
+	}
+
+	private func emitStreamingADAF(
+		graph: NativeModelGraph,
+		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
+		to outputURL: URL,
+		context: EmissionContext
+	) throws {
+		try context.cancellationCheck?()
+		let model = try streamingADAFModelSegments(
+			graph: graph,
+			promotedWeights: promotedWeights,
+			weightsDigest: weightsDigest,
+			context: context
+		)
+		guard let digestOffset = model.firstFileOffset(of: Data(adafWeightsSHA256Placeholder.utf8)) else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: "metadata",
+				reason: "the streamed ADAF weights checksum placeholder is missing"
+			)
+		}
+		let operationCount = graph.operations.count
+		context.progress?(NativeModelConversionProgress(
+			phase: .emittingModel,
+			completedUnitCount: 0,
+			totalUnitCount: operationCount
+		))
+		try NativeModelAtomicFilePublisher.writeAtomically(
+			to: outputURL,
+			writing: { handle in
+				try model.write(to: handle, reporting: context.progress)
+			},
+			beforePublish: { temporaryURL in
+				try context.cancellationCheck?()
+				let digest = try weightsDigest.sha256(of: temporaryURL, checkingCancellation: context.cancellationCheck)
+				let handle = try FileHandle(forWritingTo: temporaryURL)
+				defer { try? handle.close() }
+				try handle.seek(toOffset: digestOffset)
+				try handle.write(contentsOf: Data(digest.utf8))
+				try context.cancellationCheck?()
+			}
+		)
+		context.progress?(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
+	}
+
+	private func streamingADAFModelSegments(
+		graph: NativeModelGraph,
+		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
+		context: EmissionContext
+	) throws -> CoreMLProtobufSegments {
+		let validation = NativeModelGraphValidator().validate(graph)
+		guard validation.isConvertible else {
+			throw NativeModelCoreMLEmissionError.invalidGraph(validation.issues)
+		}
+		let weightsByName = Dictionary(uniqueKeysWithValues: graph.weights.map { ($0.name, $0) })
+		let tensorsByName = tensorIndex(for: graph)
+		let outputTensors = try graph.outputs.map { outputName -> NativeModelTensor in
+			guard let tensor = tensorsByName[outputName] else {
+				throw NativeModelCoreMLEmissionError.missingOutputTensor(outputName)
+			}
+			return tensor
+		}
+		guard let detection = context.interface.detection, context.interface.classifier == nil else {
+			throw NativeModelCoreMLEmissionError.invalidDetectionInterface(
+				reason: "the streamed emitter is reserved for the ADAF detector pipeline"
+			)
+		}
+		try validate(detection: detection, against: outputTensors)
+		let usesLegacyShapeMapping = requiresLegacyRank5ShapeMapping(graph.operations)
+		let imagePlan = context.interface.imagePlan
+		let layers = try streamingNetworkLayers(
+			operations: graph.operations,
+			weightsByName: weightsByName,
+			promotedWeights: promotedWeights,
+			weightsDigest: weightsDigest,
+			imagePlan: imagePlan,
+			usesLegacyShapeMapping: usesLegacyShapeMapping,
+			cancellationCheck: context.cancellationCheck
+		)
+
+		let inputFeatures = CoreMLProtobufEncoder.message { features in
+			for input in graph.inputs {
+				if let imagePlan, input.name == imagePlan.networkInputName {
+					CoreMLProtobufEncoder.appendMessageField(1, value: imageFeatureDescription(for: imagePlan), to: &features)
+				} else {
+					CoreMLProtobufEncoder.appendMessageField(1, value: featureDescription(
+						for: legacyMappedFeature(input, usesLegacyShapeMapping: usesLegacyShapeMapping)
+					), to: &features)
+				}
+			}
+		}
+		let description = CoreMLProtobufEncoder.message { description in
+			description.append(inputFeatures)
+			CoreMLProtobufEncoder.appendMessageField(10, value: NativeModelDetectorPipelineBuilder.fixedDetectionFeature(
+				named: detection.coordinatesBlobName, rows: detection.boxCount, columns: 4
+			), to: &description)
+			CoreMLProtobufEncoder.appendMessageField(10, value: NativeModelDetectorPipelineBuilder.fixedDetectionFeature(
+				named: detection.confidenceBlobName, rows: detection.boxCount, columns: detection.labels.count
+			), to: &description)
+			// A detector pipeline owns its metadata on the outer description. Adding it to this
+			// inner network stage would change the established serialized artifact and publish
+			// duplicate provenance to Core ML.
+		}
+		var network = CoreMLProtobufSegments()
+		network.append(contentsOf: layers)
+		var networkTail = Data()
+		if !usesLegacyShapeMapping {
+			CoreMLProtobufEncoder.appendVarintField(5, value: 1, to: &networkTail)
+			if imagePlan != nil {
+				CoreMLProtobufEncoder.appendVarintField(6, value: 1, to: &networkTail)
+			}
+		}
+		network.append(data: networkTail)
+
+		let specificationVersion = (graph.inputs + outputTensors).contains { $0.dataType == .float16 } ? 7 : 4
+		var networkModel = CoreMLProtobufSegments()
+		CoreMLProtobufStreamingEncoder.appendVarintField(1, value: UInt64(specificationVersion), to: &networkModel)
+		appendStaticMessageField(2, value: description, to: &networkModel)
+		CoreMLProtobufStreamingEncoder.appendMessageField(500, value: network, to: &networkModel)
+
+		let pipelineDescription = CoreMLProtobufEncoder.message { pipelineDescription in
+			pipelineDescription.append(inputFeatures)
+			if detection.suppressionOwnership == .pipeline {
+				CoreMLProtobufEncoder.appendMessageField(1, value: NativeModelDetectorPipelineBuilder.doubleFeature(
+					named: NativeModelDetectionInterface.iouThresholdInputName, isOptional: true
+				), to: &pipelineDescription)
+				CoreMLProtobufEncoder.appendMessageField(1, value: NativeModelDetectorPipelineBuilder.doubleFeature(
+					named: NativeModelDetectionInterface.confidenceThresholdInputName, isOptional: true
+				), to: &pipelineDescription)
+			}
+			for output in NativeModelDetectorPipelineBuilder.suppressedOutputFeatures(for: detection) {
+				CoreMLProtobufEncoder.appendMessageField(10, value: output, to: &pipelineDescription)
+			}
+			if let metadata = context.metadata {
+				CoreMLProtobufEncoder.appendMessageField(100, value: coreMLMetadataMessage(for: metadata), to: &pipelineDescription)
+			}
+		}
+		var pipeline = CoreMLProtobufSegments()
+		CoreMLProtobufStreamingEncoder.appendMessageField(1, value: networkModel, to: &pipeline)
+		appendStaticMessageField(1, value: NativeModelDetectorPipelineBuilder.nonMaximumSuppressionModel(for: detection), to: &pipeline)
+		var outerModel = CoreMLProtobufSegments()
+		CoreMLProtobufStreamingEncoder.appendVarintField(1, value: UInt64(specificationVersion), to: &outerModel)
+		appendStaticMessageField(2, value: pipelineDescription, to: &outerModel)
+		CoreMLProtobufStreamingEncoder.appendMessageField(NativeModelDetectorPipelineBuilder.pipelineModelField, value: pipeline, to: &outerModel)
+		outerModel.append(progress: NativeModelConversionProgress(phase: .writingModel))
+		return outerModel
+	}
+
+	private func appendStaticMessageField(
+		_ fieldNumber: Int,
+		value: Data,
+		to segments: inout CoreMLProtobufSegments
+	) {
+		var message = CoreMLProtobufSegments()
+		message.append(data: value)
+		CoreMLProtobufStreamingEncoder.appendMessageField(fieldNumber, value: message, to: &segments)
+	}
+
+	func streamingNetworkLayers(
+		operations: [NativeModelOperation],
+		weightsByName: [String: NativeModelWeight],
+		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
+		imagePlan: ImageInputPlan?,
+		usesLegacyShapeMapping: Bool,
+		cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws -> CoreMLProtobufSegments {
+		var layers = CoreMLProtobufSegments()
+		if let imagePlan {
+			appendStaticMessageField(1, value: imagePreprocessingLayer(for: imagePlan), to: &layers)
+		}
+		for (index, operation) in operations.enumerated() {
+			try cancellationCheck?()
+			var layer = try streamingLayer(
+				for: operation,
+				weightsByName: weightsByName,
+				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
+				usesLegacyShapeMapping: usesLegacyShapeMapping,
+				cancellationCheck: cancellationCheck
+			)
+			layer.append(progress: NativeModelConversionProgress(
+				phase: .emittingModel,
+				completedUnitCount: index + 1,
+				totalUnitCount: operations.count,
+				operationName: operation.name
+			))
+			CoreMLProtobufStreamingEncoder.appendMessageField(1, value: layer, to: &layers)
+		}
+		return layers
+	}
+
+	private func streamingLayer(
+		for operation: NativeModelOperation,
+		weightsByName: [String: NativeModelWeight],
+		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
+		usesLegacyShapeMapping: Bool,
+		cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws -> CoreMLProtobufSegments {
+		switch operation.kind {
+		case .convolution2D:
+			return try streamingConvolutionLayer(
+				for: operation,
+				weightsByName: weightsByName,
+				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
+				cancellationCheck: cancellationCheck
+			)
+		case .batchNormalization:
+			return try streamingBatchNormalizationLayer(
+				for: operation,
+				weightsByName: weightsByName,
+				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
+				cancellationCheck: cancellationCheck
+			)
+		case .linear:
+			return try streamingLinearLayer(
+				for: operation,
+				weightsByName: weightsByName,
+				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
+				cancellationCheck: cancellationCheck
+			)
+		case .constant:
+			return try streamingConstantLayer(
+				for: operation,
+				weightsByName: weightsByName,
+				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
+				isExactRank: false,
+				cancellationCheck: cancellationCheck
+			)
+		case .constantND:
+			return try streamingConstantLayer(
+				for: operation,
+				weightsByName: weightsByName,
+				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
+				isExactRank: true,
+				cancellationCheck: cancellationCheck
+			)
+		default:
+			var staticLayer = CoreMLProtobufSegments()
+			staticLayer.append(data: try layer(
+				for: operation,
+				weightsByName: weightsByName,
+				weights: Data(),
+				usesLegacyShapeMapping: usesLegacyShapeMapping
+			))
+			return staticLayer
+		}
+	}
+
+	private func streamingConvolutionLayer(
+		for operation: NativeModelOperation,
+		weightsByName: [String: NativeModelWeight],
+		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
+		cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws -> CoreMLProtobufSegments {
+		guard operation.inputs.count == 2 || operation.inputs.count == 3 else {
+			throw NativeModelCoreMLEmissionError.invalidConvolution(
+				operation: operation.name,
+				reason: "expected an activation input, kernel weight, and optional bias"
+			)
+		}
+		let kernel = try weight(named: operation.inputs[1], in: weightsByName)
+		guard kernel.shape.count == 4 else {
+			throw NativeModelCoreMLEmissionError.invalidConvolution(
+				operation: operation.name,
+				reason: "kernel '\(kernel.name)' must have [outputChannels, kernelChannels, height, width] shape"
+			)
+		}
+		let kernelSize = try integerArrayAttribute("kernelSize", for: operation, count: 2)
+		let strides = try integerArrayAttribute("strides", for: operation, count: 2)
+		let padding = try paddingAttribute(for: operation)
+		let dilations = try integerArrayAttribute("dilations", for: operation, count: 2)
+		let groups = try integerAttribute("groups", for: operation)
+		guard kernel.shape[2] == kernelSize[0], kernel.shape[3] == kernelSize[1],
+			kernelSize.allSatisfy({ $0 > 0 }), strides.allSatisfy({ $0 > 0 }),
+			dilations.allSatisfy({ $0 > 0 }), groups > 0
+		else {
+			throw NativeModelCoreMLEmissionError.invalidConvolution(
+				operation: operation.name,
+				reason: "kernel shape, kernelSize, and groups are inconsistent"
+			)
+		}
+		let bias = try operation.inputs.dropFirst(2).first.map { try weight(named: $0, in: weightsByName) }
+		if let bias, bias.shape != [kernel.shape[0]] {
+			throw NativeModelCoreMLEmissionError.invalidConvolution(
+				operation: operation.name,
+				reason: "bias '\(bias.name)' must contain one value per output channel"
+			)
+		}
+		var convolution = CoreMLProtobufSegments()
+		CoreMLProtobufStreamingEncoder.appendVarintField(1, value: UInt64(kernel.shape[0]), to: &convolution)
+		CoreMLProtobufStreamingEncoder.appendVarintField(2, value: UInt64(kernel.shape[1]), to: &convolution)
+		CoreMLProtobufStreamingEncoder.appendVarintField(10, value: UInt64(groups), to: &convolution)
+		for dimension in kernelSize {
+			CoreMLProtobufStreamingEncoder.appendVarintField(20, value: UInt64(dimension), to: &convolution)
+		}
+		for stride in strides {
+			CoreMLProtobufStreamingEncoder.appendVarintField(30, value: UInt64(stride), to: &convolution)
+		}
+		for dilation in dilations {
+			CoreMLProtobufStreamingEncoder.appendVarintField(40, value: UInt64(dilation), to: &convolution)
+		}
+		appendStaticMessageField(50, value: validPadding(padding), to: &convolution)
+		if let bias {
+			CoreMLProtobufStreamingEncoder.appendVarintField(70, value: 1, to: &convolution)
+			CoreMLProtobufStreamingEncoder.appendMessageField(
+				91,
+				value: try streamingWeightParameters(
+					for: bias,
+					promotedWeights: promotedWeights,
+					weightsDigest: weightsDigest,
+					cancellationCheck: cancellationCheck
+				),
+				to: &convolution
+			)
+		}
+		CoreMLProtobufStreamingEncoder.appendMessageField(
+			90,
+			value: try streamingWeightParameters(
+				for: kernel,
+				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
+				cancellationCheck: cancellationCheck
+			),
+			to: &convolution
+		)
+		return streamingLayerEnvelope(
+			name: operation.name,
+			inputs: [operation.inputs[0]],
+			outputs: operation.outputs,
+			parameterField: 100,
+			parameters: convolution
+		)
+	}
+
+	private func streamingBatchNormalizationLayer(
+		for operation: NativeModelOperation,
+		weightsByName: [String: NativeModelWeight],
+		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
+		cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws -> CoreMLProtobufSegments {
+		guard operation.inputs.count == 5 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "batchNorm requires an activation input followed by scale, bias, mean, and variance weights"
+			)
+		}
+		let gamma = try weight(named: operation.inputs[1], in: weightsByName)
+		let beta = try weight(named: operation.inputs[2], in: weightsByName)
+		let mean = try weight(named: operation.inputs[3], in: weightsByName)
+		let variance = try weight(named: operation.inputs[4], in: weightsByName)
+		guard gamma.shape.count == 1, beta.shape == gamma.shape, mean.shape == gamma.shape, variance.shape == gamma.shape else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "batchNorm scale, bias, mean, and variance must be equal-length vectors"
+			)
+		}
+		guard let epsilon = operation.attributes["epsilon"]?.floatingPointValue, epsilon >= 0 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(operation: operation.name, reason: "batchNorm epsilon must be a non-negative floating-point value")
+		}
+		var batchNorm = CoreMLProtobufSegments()
+		CoreMLProtobufStreamingEncoder.appendVarintField(1, value: UInt64(gamma.shape[0]), to: &batchNorm)
+		CoreMLProtobufStreamingEncoder.appendFloatField(10, value: Float(epsilon), to: &batchNorm)
+		for (field, weight) in [(15, gamma), (16, beta), (17, mean), (18, variance)] {
+			CoreMLProtobufStreamingEncoder.appendMessageField(
+				field,
+				value: try streamingWeightParameters(
+					for: weight,
+					promotedWeights: promotedWeights,
+					weightsDigest: weightsDigest,
+					cancellationCheck: cancellationCheck
+				),
+				to: &batchNorm
+			)
+		}
+		return streamingLayerEnvelope(
+			name: operation.name,
+			inputs: [operation.inputs[0]],
+			outputs: operation.outputs,
+			parameterField: 160,
+			parameters: batchNorm
+		)
+	}
+
+	private func streamingLinearLayer(
+		for operation: NativeModelOperation,
+		weightsByName: [String: NativeModelWeight],
+		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
+		cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws -> CoreMLProtobufSegments {
+		guard operation.inputs.count == 2 || operation.inputs.count == 3 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "linear requires an activation input, weight matrix, and optional bias"
+			)
+		}
+		let matrix = try weight(named: operation.inputs[1], in: weightsByName)
+		guard matrix.shape.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "linear weight '\(matrix.name)' must have [outputChannels, inputChannels] shape"
+			)
+		}
+		let bias = try operation.inputs.dropFirst(2).first.map { try weight(named: $0, in: weightsByName) }
+		if let bias, bias.shape != [matrix.shape[0]] {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "linear bias '\(bias.name)' must contain one value per output channel"
+			)
+		}
+		var innerProduct = CoreMLProtobufSegments()
+		CoreMLProtobufStreamingEncoder.appendVarintField(1, value: UInt64(matrix.shape[1]), to: &innerProduct)
+		CoreMLProtobufStreamingEncoder.appendVarintField(2, value: UInt64(matrix.shape[0]), to: &innerProduct)
+		if let bias {
+			CoreMLProtobufStreamingEncoder.appendVarintField(10, value: 1, to: &innerProduct)
+			CoreMLProtobufStreamingEncoder.appendMessageField(
+				21,
+				value: try streamingWeightParameters(
+					for: bias,
+					promotedWeights: promotedWeights,
+					weightsDigest: weightsDigest,
+					cancellationCheck: cancellationCheck
+				),
+				to: &innerProduct
+			)
+		}
+		CoreMLProtobufStreamingEncoder.appendMessageField(
+			20,
+			value: try streamingWeightParameters(
+				for: matrix,
+				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
+				cancellationCheck: cancellationCheck
+			),
+			to: &innerProduct
+		)
+		return streamingLayerEnvelope(
+			name: operation.name,
+			inputs: [operation.inputs[0]],
+			outputs: operation.outputs,
+			parameterField: 140,
+			parameters: innerProduct
+		)
+	}
+
+	private func streamingConstantLayer(
+		for operation: NativeModelOperation,
+		weightsByName: [String: NativeModelWeight],
+		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
+		isExactRank: Bool,
+		cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws -> CoreMLProtobufSegments {
+		guard operation.inputs.count == 1 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "\(isExactRank ? "constantND" : "constant") takes exactly one input naming the weight that holds its values"
+			)
+		}
+		let constant = try weight(named: operation.inputs[0], in: weightsByName)
+		let shape: [Int]
+		if isExactRank {
+			guard !constant.shape.isEmpty, constant.shape.allSatisfy({ $0 > 0 }) else {
+				throw NativeModelCoreMLEmissionError.invalidOperation(
+					operation: operation.name,
+					reason: "constantND '\(constant.name)' must have a non-empty positive shape"
+				)
+			}
+			shape = constant.shape
+		} else {
+			shape = constant.shape.count == 4 && constant.shape[0] == 1 ? Array(constant.shape.dropFirst()) : constant.shape
+			guard shape.count == 3 else {
+				throw NativeModelCoreMLEmissionError.invalidOperation(
+					operation: operation.name,
+					reason: "constant '\(constant.name)' must have a [channels, height, width] shape, got \(constant.shape)"
+				)
+			}
+		}
+		var parameters = CoreMLProtobufSegments()
+		var shapeData = Data()
+		CoreMLProtobufEncoder.appendPackedVarintField(1, values: shape.map(UInt64.init), to: &shapeData)
+		parameters.append(data: shapeData)
+		CoreMLProtobufStreamingEncoder.appendMessageField(
+			2,
+			value: try streamingWeightParameters(
+				for: constant,
+				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
+				cancellationCheck: cancellationCheck
+			),
+			to: &parameters
+		)
+		return streamingLayerEnvelope(
+			name: operation.name,
+			inputs: [],
+			outputs: operation.outputs,
+			parameterField: isExactRank ? 1070 : 290,
+			parameters: parameters
+		)
+	}
+
+	private func streamingWeightParameters(
+		for weight: NativeModelWeight,
+		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
+		cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws -> CoreMLProtobufSegments {
+		guard weight.dataType == .float32 else {
+			preconditionFailure("ADAF promoted weights must be Float32 before protobuf emission.")
+		}
+		var parameters = CoreMLProtobufSegments()
+		CoreMLProtobufStreamingEncoder.appendDeferredPayloadField(
+			1,
+			payload: try promotedWeights.payload(
+				for: weight,
+				checkingCancellation: cancellationCheck,
+				digest: weightsDigest
+			),
+			to: &parameters
+		)
+		return parameters
+	}
+
+	private func streamingLayerEnvelope(
+		name: String,
+		inputs: [String],
+		outputs: [NativeModelTensor],
+		parameterField: Int,
+		parameters: CoreMLProtobufSegments
+	) -> CoreMLProtobufSegments {
+		var layer = CoreMLProtobufSegments()
+		CoreMLProtobufStreamingEncoder.appendStringField(1, value: name, to: &layer)
+		for input in inputs {
+			CoreMLProtobufStreamingEncoder.appendStringField(2, value: input, to: &layer)
+		}
+		for output in outputs {
+			CoreMLProtobufStreamingEncoder.appendStringField(3, value: output.name, to: &layer)
+		}
+		CoreMLProtobufStreamingEncoder.appendMessageField(parameterField, value: parameters, to: &layer)
+		return layer
 	}
 
 	/// Validates the graph against the emitter's contract and serializes it, without touching disk.
@@ -1282,7 +1895,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		}
 	}
 
-	private struct ImageInputPlan {
+	struct ImageInputPlan {
 		/// The model's image input feature name (what Vision feeds).
 		let imageFeatureName: String
 		/// The graph's original input blob name; the normalization layer writes it.

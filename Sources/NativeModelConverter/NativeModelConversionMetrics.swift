@@ -371,10 +371,10 @@ public struct NativeModelConverter: Sendable {
 			phase = .validatingWeights
 			report(NativeModelConversionProgress(phase: phase, completedUnitCount: 0, totalUnitCount: 1))
 			try cancellationCheck()
-			let conversion = try NativeModelFasterRCNNRegistry.conversion(
+			let conversion = try NativeModelFasterRCNNRegistry.streamingConversion(
 				checkpoint: checkpoint,
 				extraction: extraction,
-				weightData: try Data(contentsOf: weightsURL, options: .mappedIfSafe),
+				weightURL: weightsURL,
 				checkingCancellation: cancellationCheck
 			)
 			report(NativeModelConversionProgress(phase: phase, completedUnitCount: 1, totalUnitCount: 1))
@@ -388,15 +388,17 @@ public struct NativeModelConverter: Sendable {
 			)
 			let emissionStartedAt = DispatchTime.now().uptimeNanoseconds
 			try emitter.emit(
-				graph: conversion.graph,
-				weights: conversion.weights,
+				adaf: NativeModelADAFEmissionRequest(
+					graph: conversion.graph,
+					promotedWeights: conversion.weights,
+					detection: conversion.interface,
+					detectionTarget: conversion.targetInfo,
+					imagePreprocessing: .imageNetRGB,
+					imageSizingContract: .adafFasterRCNN,
+					targetSemanticsIntent: conversion.targetSemanticsIntent,
+					parityEvidence: .structurallyMatched
+				),
 				to: outputURL,
-				detection: conversion.interface,
-				detectionTarget: conversion.targetInfo,
-				imagePreprocessing: .imageNetRGB,
-				imageSizingContract: .adafFasterRCNN,
-				targetSemanticsIntent: conversion.targetSemanticsIntent,
-				parityEvidence: .structurallyMatched,
 				reporting: report,
 				checkingCancellation: cancellationCheck
 			)

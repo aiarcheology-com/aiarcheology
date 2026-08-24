@@ -35,6 +35,8 @@ final class AppState: ObservableObject {
 	lazy var catalogSearchManager = CatalogSearchManager(providers: catalogProviders)
 	let demoDataManager: DemoDataManager
 	let findingRepository: FindingRepository
+	/// Reconciles source-package removal after a converted Core ML model is durably registered.
+	let nativeConversionSourceCleanupService: NativeModelSourceCleanupService
 
 	/// Real Clerk-backed auth vs. the DEBUG mock, decided by the composition root (AIA-0385).
 	let usesRealAuth: Bool
@@ -111,6 +113,7 @@ final class AppState: ObservableObject {
 		catalogProviders: [any CatalogProvider],
 		demoDataManager: DemoDataManager,
 		findingRepository: FindingRepository,
+		nativeConversionSourceCleanupService: NativeModelSourceCleanupService,
 		detection: DetectionSession,
 		browser: BrowserSession,
 		account: AccountSession,
@@ -130,6 +133,7 @@ final class AppState: ObservableObject {
 		self.catalogProviders = catalogProviders
 		self.demoDataManager = demoDataManager
 		self.findingRepository = findingRepository
+		self.nativeConversionSourceCleanupService = nativeConversionSourceCleanupService
 		self.detection = detection
 		self.browser = browser
 		self.account = account
@@ -209,6 +213,13 @@ final class AppState: ObservableObject {
 		// 4. Signal ready
 		isReady = true
 		LoggingPolicy.debug("AppState ready", logger: .lifecycle)
+
+		// Source removal is deliberately out of the launch critical path. Reports already record a
+		// pending cleanup only after Core Data registration, so this actor can safely retry it without
+		// delaying first render or touching incomplete imports.
+		Task(priority: .utility) { [nativeConversionSourceCleanupService] in
+			await nativeConversionSourceCleanupService.reconcileAll()
+		}
 
 		// 5. Best-effort remote flag refresh. Deliberately *after* `isReady`, and not
 		// awaited: launch must never wait on ConfigCat (AIA-0350). Failures leave the
