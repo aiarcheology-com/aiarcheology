@@ -1497,9 +1497,7 @@ final class NativeModelADAFPromotedWeights: @unchecked Sendable {
 	}
 
 	let graph: NativeModelGraph
-	private(set) var sha256: String
 	private let sourceURL: URL
-	private let sourceWeightByteCount: UInt64
 	private let synthesizedWeightData: Data
 	private let originalWeightsByName: [String: NativeModelWeight]
 	private let originsByName: [String: Origin]
@@ -1590,11 +1588,9 @@ final class NativeModelADAFPromotedWeights: @unchecked Sendable {
 		}
 
 		self.sourceURL = weightURL
-		self.sourceWeightByteCount = sourceWeightByteCount
 		self.synthesizedWeightData = synthesizedWeightData
 		self.originalWeightsByName = originalByName
 		self.originsByName = origins
-		self.sha256 = ""
 		self.graph = NativeModelGraph(
 			formatVersion: sourceGraph.formatVersion,
 			producer: sourceGraph.producer,
@@ -1603,19 +1599,12 @@ final class NativeModelADAFPromotedWeights: @unchecked Sendable {
 			operations: sourceGraph.operations,
 			outputs: sourceGraph.outputs
 		)
-
-		var digest = SHA256()
-		for weight in orderedWeights {
-			try stream(weightNamed: weight.name, checkingCancellation: cancellationCheck) { chunk in
-				digest.update(data: chunk)
-			}
-		}
-		sha256 = digest.finalize().map { String(format: "%02x", $0) }.joined()
 	}
 
 	func payload(
 		for promotedWeight: NativeModelWeight,
-		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler?
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler?,
+		digest: NativeModelADAFPromotedWeightsDigest? = nil
 	) throws -> CoreMLProtobufDeferredPayload {
 		guard let original = originalWeightsByName[promotedWeight.name],
 			promotedWeight.dataType == .float32,
@@ -1623,7 +1612,17 @@ final class NativeModelADAFPromotedWeights: @unchecked Sendable {
 		else {
 			throw NativeModelCoreMLEmissionError.missingWeight(promotedWeight.name)
 		}
-		return CoreMLProtobufDeferredPayload(byteCount: promotedWeight.byteCount) { [self] handle in
+		return CoreMLProtobufDeferredPayload(
+			byteCount: promotedWeight.byteCount,
+			willWriteAt: { fileOffset in
+				digest?.record(
+					weightNamed: promotedWeight.name,
+					logicalOffset: promotedWeight.offset,
+					byteCount: promotedWeight.byteCount,
+					fileOffset: fileOffset
+				)
+			}
+		) { [self] handle in
 			try stream(weightNamed: original.name, checkingCancellation: cancellationCheck) { chunk in
 				try handle.write(contentsOf: chunk)
 			}
@@ -1655,10 +1654,12 @@ final class NativeModelADAFPromotedWeights: @unchecked Sendable {
 			while remaining > 0 {
 				try cancellationCheck?()
 				let inputCount = min(Int(remaining), Self.chunkByteCount / 2)
-				guard let input = try handle.read(upToCount: inputCount), input.count == inputCount else {
+				let input = try handle.read(upToCount: inputCount)
+				let receivedByteCount = UInt64(input?.count ?? 0)
+				guard receivedByteCount == UInt64(inputCount), let input else {
 					throw NativeModelFasterRCNNRegistryError.weightDataLengthMismatch(
-						expected: sourceWeightByteCount,
-						actual: offset + (original.byteCount - remaining)
+						expected: original.byteCount,
+						actual: original.byteCount - remaining + receivedByteCount
 					)
 				}
 				var promoted = Data()
@@ -1685,6 +1686,67 @@ final class NativeModelADAFPromotedWeights: @unchecked Sendable {
 				remaining -= UInt64(count)
 			}
 		}
+	}
+}
+
+/// Indexes the promoted bytes already written into the temporary Core ML model. The corresponding
+/// SHA-256 is read in the logical graph-weight order after emission, avoiding the previous second
+/// fp16 read and Float16-to-Float32 promotion pass.
+final class NativeModelADAFPromotedWeightsDigest {
+	private struct Location {
+		let logicalOffset: UInt64
+		let byteCount: UInt64
+		let fileOffset: UInt64
+	}
+
+	private let expectedWeights: [NativeModelWeight]
+	private var locationsByName: [String: Location] = [:]
+
+	init(logicalWeights: [NativeModelWeight]) {
+		expectedWeights = logicalWeights.sorted { $0.offset < $1.offset }
+		locationsByName.reserveCapacity(logicalWeights.count)
+	}
+
+	func record(weightNamed name: String, logicalOffset: UInt64, byteCount: UInt64, fileOffset: UInt64) {
+		// A shared graph weight may be referenced by more than one operation. Its logical blob has one
+		// copy, so the first serialized occurrence is sufficient for the checksum.
+		if locationsByName[name] == nil {
+			locationsByName[name] = Location(
+				logicalOffset: logicalOffset,
+				byteCount: byteCount,
+				fileOffset: fileOffset
+			)
+		}
+	}
+
+	func sha256(
+		of outputURL: URL,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws -> String {
+		let handle = try FileHandle(forReadingFrom: outputURL)
+		defer { try? handle.close() }
+		var digest = SHA256()
+		for weight in expectedWeights {
+			try cancellationCheck?()
+			guard let location = locationsByName[weight.name],
+				location.logicalOffset == weight.offset,
+				location.byteCount == weight.byteCount
+			else {
+				throw NativeModelCoreMLEmissionError.missingWeight(weight.name)
+			}
+			try handle.seek(toOffset: location.fileOffset)
+			var remaining = location.byteCount
+			while remaining > 0 {
+				try cancellationCheck?()
+				let count = min(Int(remaining), NativeModelADAFPromotedWeights.chunkByteCount)
+				guard let chunk = try handle.read(upToCount: count), chunk.count == count else {
+					throw CocoaError(.fileReadUnknown)
+				}
+				digest.update(data: chunk)
+				remaining -= UInt64(count)
+			}
+		}
+		return digest.finalize().map { String(format: "%02x", $0) }.joined()
 	}
 }
 

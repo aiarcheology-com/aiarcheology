@@ -215,17 +215,21 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 		_ cleanupState: NativeModelConversionSourceCleanupState,
 		diagnostic: NativeModelConversionDiagnostic? = nil
 	) {
+		let stateChanged = sourceCleanupState != cleanupState
 		sourceCleanupState = cleanupState
 		updatedAt = Date()
-		if let diagnostic {
-			self.diagnostic = diagnostic
-		} else if self.diagnostic?.code == "app.sourceCleanupFailed" {
+		// Source removal happens after a model is registered. A prior version wrote this operational
+		// retry note into the conversion-level diagnostic; clear that legacy value as soon as cleanup
+		// is reconciled so a usable import is never rendered as a failed conversion.
+		if self.diagnostic?.code == "app.sourceCleanupFailed" {
 			self.diagnostic = nil
 		}
-		entries.append(NativeModelConversionImportLogEntry(
-			state: state,
-			diagnostic: diagnostic
-		))
+		if stateChanged {
+			entries.append(NativeModelConversionImportLogEntry(
+				state: state,
+				diagnostic: diagnostic
+			))
+		}
 	}
 
 	/// Records the recovery fact that the app no longer has a live task for an incomplete report.
@@ -254,8 +258,19 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 		includingSourcePackage: Bool
 	) {
 		let fileManager = FileManager.default
-		try? fileManager.removeItem(at: report.convertedModelURL(in: configurationDirectory))
-		try? fileManager.removeItem(at: NativeModelMetadataSidecar.url(for: report.convertedModelURL(in: configurationDirectory)))
+		let convertedModelURL = report.convertedModelURL(in: configurationDirectory)
+		try? fileManager.removeItem(at: convertedModelURL)
+		try? fileManager.removeItem(at: NativeModelMetadataSidecar.url(for: convertedModelURL))
+		let partialPrefix = ".\(report.convertedModelFilename).partial-"
+		if let siblingURLs = try? fileManager.contentsOfDirectory(
+			at: configurationDirectory,
+			includingPropertiesForKeys: nil,
+			options: []
+		) {
+			for url in siblingURLs where url.lastPathComponent.hasPrefix(partialPrefix) {
+				try? fileManager.removeItem(at: url)
+			}
+		}
 		if includingSourcePackage {
 			try? fileManager.removeItem(at: report.sourcePackageURL(in: configurationDirectory))
 		}

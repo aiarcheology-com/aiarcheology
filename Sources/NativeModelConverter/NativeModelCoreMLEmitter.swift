@@ -21,6 +21,8 @@ struct NativeModelADAFEmissionRequest {
 	let parityEvidence: NativeModelParityEvidence
 }
 
+private let adafWeightsSHA256Placeholder = String(repeating: "x", count: 64)
+
 /// Serializes the currently implemented native-graph subset as a Core ML neural-network model.
 ///
 /// The emitter intentionally has a narrower operation set than `NativeModelGraphValidator`.
@@ -248,16 +250,18 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		)
 		let metadata = try targetMetadata(
 			from: nil,
-			checksums: NativeModelConversionChecksums(weightsSHA256: request.promotedWeights.sha256),
+			checksums: NativeModelConversionChecksums(weightsSHA256: adafWeightsSHA256Placeholder),
 			graph: request.graph,
 			sourceProvenance: nil,
 			interface: interface,
 			imageSizingContract: request.imageSizingContract,
 			parityEvidence: request.parityEvidence
 		)
+		let weightsDigest = NativeModelADAFPromotedWeightsDigest(logicalWeights: request.graph.weights)
 		try emitStreamingADAF(
 			graph: request.graph,
 			promotedWeights: request.promotedWeights,
+			weightsDigest: weightsDigest,
 			to: outputURL,
 			context: EmissionContext(
 				metadata: metadata,
@@ -575,6 +579,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	private func emitStreamingADAF(
 		graph: NativeModelGraph,
 		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
 		to outputURL: URL,
 		context: EmissionContext
 	) throws {
@@ -582,8 +587,15 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		let model = try streamingADAFModelSegments(
 			graph: graph,
 			promotedWeights: promotedWeights,
+			weightsDigest: weightsDigest,
 			context: context
 		)
+		guard let digestOffset = model.firstFileOffset(of: Data(adafWeightsSHA256Placeholder.utf8)) else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: "metadata",
+				reason: "the streamed ADAF weights checksum placeholder is missing"
+			)
+		}
 		let operationCount = graph.operations.count
 		context.progress?(NativeModelConversionProgress(
 			phase: .emittingModel,
@@ -595,7 +607,15 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			writing: { handle in
 				try model.write(to: handle, reporting: context.progress)
 			},
-			beforePublish: { try context.cancellationCheck?() }
+			beforePublish: { temporaryURL in
+				try context.cancellationCheck?()
+				let digest = try weightsDigest.sha256(of: temporaryURL, checkingCancellation: context.cancellationCheck)
+				let handle = try FileHandle(forWritingTo: temporaryURL)
+				defer { try? handle.close() }
+				try handle.seek(toOffset: digestOffset)
+				try handle.write(contentsOf: Data(digest.utf8))
+				try context.cancellationCheck?()
+			}
 		)
 		context.progress?(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
 	}
@@ -603,6 +623,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	private func streamingADAFModelSegments(
 		graph: NativeModelGraph,
 		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
 		context: EmissionContext
 	) throws -> CoreMLProtobufSegments {
 		let validation = NativeModelGraphValidator().validate(graph)
@@ -629,6 +650,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			operations: graph.operations,
 			weightsByName: weightsByName,
 			promotedWeights: promotedWeights,
+			weightsDigest: weightsDigest,
 			imagePlan: imagePlan,
 			usesLegacyShapeMapping: usesLegacyShapeMapping,
 			cancellationCheck: context.cancellationCheck
@@ -712,10 +734,11 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		CoreMLProtobufStreamingEncoder.appendMessageField(fieldNumber, value: message, to: &segments)
 	}
 
-	private func streamingNetworkLayers(
+	func streamingNetworkLayers(
 		operations: [NativeModelOperation],
 		weightsByName: [String: NativeModelWeight],
 		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
 		imagePlan: ImageInputPlan?,
 		usesLegacyShapeMapping: Bool,
 		cancellationCheck: NativeModelConversionCancellationHandler?
@@ -725,10 +748,12 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			appendStaticMessageField(1, value: imagePreprocessingLayer(for: imagePlan), to: &layers)
 		}
 		for (index, operation) in operations.enumerated() {
+			try cancellationCheck?()
 			var layer = try streamingLayer(
 				for: operation,
 				weightsByName: weightsByName,
 				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
 				usesLegacyShapeMapping: usesLegacyShapeMapping,
 				cancellationCheck: cancellationCheck
 			)
@@ -747,6 +772,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		for operation: NativeModelOperation,
 		weightsByName: [String: NativeModelWeight],
 		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
 		usesLegacyShapeMapping: Bool,
 		cancellationCheck: NativeModelConversionCancellationHandler?
 	) throws -> CoreMLProtobufSegments {
@@ -756,6 +782,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				for: operation,
 				weightsByName: weightsByName,
 				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
 				cancellationCheck: cancellationCheck
 			)
 		case .batchNormalization:
@@ -763,6 +790,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				for: operation,
 				weightsByName: weightsByName,
 				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
 				cancellationCheck: cancellationCheck
 			)
 		case .linear:
@@ -770,6 +798,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				for: operation,
 				weightsByName: weightsByName,
 				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
 				cancellationCheck: cancellationCheck
 			)
 		case .constant:
@@ -777,6 +806,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				for: operation,
 				weightsByName: weightsByName,
 				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
 				isExactRank: false,
 				cancellationCheck: cancellationCheck
 			)
@@ -785,6 +815,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				for: operation,
 				weightsByName: weightsByName,
 				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
 				isExactRank: true,
 				cancellationCheck: cancellationCheck
 			)
@@ -804,6 +835,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		for operation: NativeModelOperation,
 		weightsByName: [String: NativeModelWeight],
 		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
 		cancellationCheck: NativeModelConversionCancellationHandler?
 	) throws -> CoreMLProtobufSegments {
 		guard operation.inputs.count == 2 || operation.inputs.count == 3 else {
@@ -858,13 +890,23 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			CoreMLProtobufStreamingEncoder.appendVarintField(70, value: 1, to: &convolution)
 			CoreMLProtobufStreamingEncoder.appendMessageField(
 				91,
-				value: try streamingWeightParameters(for: bias, promotedWeights: promotedWeights, cancellationCheck: cancellationCheck),
+				value: try streamingWeightParameters(
+					for: bias,
+					promotedWeights: promotedWeights,
+					weightsDigest: weightsDigest,
+					cancellationCheck: cancellationCheck
+				),
 				to: &convolution
 			)
 		}
 		CoreMLProtobufStreamingEncoder.appendMessageField(
 			90,
-			value: try streamingWeightParameters(for: kernel, promotedWeights: promotedWeights, cancellationCheck: cancellationCheck),
+			value: try streamingWeightParameters(
+				for: kernel,
+				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
+				cancellationCheck: cancellationCheck
+			),
 			to: &convolution
 		)
 		return streamingLayerEnvelope(
@@ -880,6 +922,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		for operation: NativeModelOperation,
 		weightsByName: [String: NativeModelWeight],
 		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
 		cancellationCheck: NativeModelConversionCancellationHandler?
 	) throws -> CoreMLProtobufSegments {
 		guard operation.inputs.count == 5 else {
@@ -907,7 +950,12 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		for (field, weight) in [(15, gamma), (16, beta), (17, mean), (18, variance)] {
 			CoreMLProtobufStreamingEncoder.appendMessageField(
 				field,
-				value: try streamingWeightParameters(for: weight, promotedWeights: promotedWeights, cancellationCheck: cancellationCheck),
+				value: try streamingWeightParameters(
+					for: weight,
+					promotedWeights: promotedWeights,
+					weightsDigest: weightsDigest,
+					cancellationCheck: cancellationCheck
+				),
 				to: &batchNorm
 			)
 		}
@@ -924,6 +972,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		for operation: NativeModelOperation,
 		weightsByName: [String: NativeModelWeight],
 		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
 		cancellationCheck: NativeModelConversionCancellationHandler?
 	) throws -> CoreMLProtobufSegments {
 		guard operation.inputs.count == 2 || operation.inputs.count == 3 else {
@@ -953,13 +1002,23 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			CoreMLProtobufStreamingEncoder.appendVarintField(10, value: 1, to: &innerProduct)
 			CoreMLProtobufStreamingEncoder.appendMessageField(
 				21,
-				value: try streamingWeightParameters(for: bias, promotedWeights: promotedWeights, cancellationCheck: cancellationCheck),
+				value: try streamingWeightParameters(
+					for: bias,
+					promotedWeights: promotedWeights,
+					weightsDigest: weightsDigest,
+					cancellationCheck: cancellationCheck
+				),
 				to: &innerProduct
 			)
 		}
 		CoreMLProtobufStreamingEncoder.appendMessageField(
 			20,
-			value: try streamingWeightParameters(for: matrix, promotedWeights: promotedWeights, cancellationCheck: cancellationCheck),
+			value: try streamingWeightParameters(
+				for: matrix,
+				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
+				cancellationCheck: cancellationCheck
+			),
 			to: &innerProduct
 		)
 		return streamingLayerEnvelope(
@@ -975,6 +1034,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		for operation: NativeModelOperation,
 		weightsByName: [String: NativeModelWeight],
 		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
 		isExactRank: Bool,
 		cancellationCheck: NativeModelConversionCancellationHandler?
 	) throws -> CoreMLProtobufSegments {
@@ -1009,7 +1069,12 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		parameters.append(data: shapeData)
 		CoreMLProtobufStreamingEncoder.appendMessageField(
 			2,
-			value: try streamingWeightParameters(for: constant, promotedWeights: promotedWeights, cancellationCheck: cancellationCheck),
+			value: try streamingWeightParameters(
+				for: constant,
+				promotedWeights: promotedWeights,
+				weightsDigest: weightsDigest,
+				cancellationCheck: cancellationCheck
+			),
 			to: &parameters
 		)
 		return streamingLayerEnvelope(
@@ -1024,6 +1089,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	private func streamingWeightParameters(
 		for weight: NativeModelWeight,
 		promotedWeights: NativeModelADAFPromotedWeights,
+		weightsDigest: NativeModelADAFPromotedWeightsDigest,
 		cancellationCheck: NativeModelConversionCancellationHandler?
 	) throws -> CoreMLProtobufSegments {
 		guard weight.dataType == .float32 else {
@@ -1032,7 +1098,11 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		var parameters = CoreMLProtobufSegments()
 		CoreMLProtobufStreamingEncoder.appendDeferredPayloadField(
 			1,
-			payload: try promotedWeights.payload(for: weight, checkingCancellation: cancellationCheck),
+			payload: try promotedWeights.payload(
+				for: weight,
+				checkingCancellation: cancellationCheck,
+				digest: weightsDigest
+			),
 			to: &parameters
 		)
 		return parameters
@@ -1825,7 +1895,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		}
 	}
 
-	private struct ImageInputPlan {
+	struct ImageInputPlan {
 		/// The model's image input feature name (what Vision feeds).
 		let imageFeatureName: String
 		/// The graph's original input blob name; the normalization layer writes it.

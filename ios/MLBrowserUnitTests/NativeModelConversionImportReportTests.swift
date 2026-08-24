@@ -69,6 +69,14 @@ final class NativeModelConversionImportReportTests: XCTestCase {
 		try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
 		try Data("model".utf8).write(to: modelURL)
 		try Data("metadata".utf8).write(to: NativeModelMetadataSidecar.url(for: modelURL))
+		let partialModelURL = configurationDirectory.appendingPathComponent(
+			".\(modelURL.lastPathComponent).partial-\(UUID().uuidString)"
+		)
+		let unrelatedPartialURL = configurationDirectory.appendingPathComponent(
+			".unrelated.mlmodel.partial-\(UUID().uuidString)"
+		)
+		try Data("partial model".utf8).write(to: partialModelURL)
+		try Data("unrelated partial".utf8).write(to: unrelatedPartialURL)
 
 		NativeModelConversionImportReport.removeTransientArtifacts(
 			for: report,
@@ -78,6 +86,8 @@ final class NativeModelConversionImportReportTests: XCTestCase {
 		XCTAssertTrue(FileManager.default.fileExists(atPath: sourceURL.path))
 		XCTAssertFalse(FileManager.default.fileExists(atPath: modelURL.path))
 		XCTAssertFalse(FileManager.default.fileExists(atPath: NativeModelMetadataSidecar.url(for: modelURL).path))
+		XCTAssertFalse(FileManager.default.fileExists(atPath: partialModelURL.path))
+		XCTAssertTrue(FileManager.default.fileExists(atPath: unrelatedPartialURL.path))
 
 		NativeModelConversionImportReport.removeTransientArtifacts(
 			for: report,
@@ -85,6 +95,37 @@ final class NativeModelConversionImportReportTests: XCTestCase {
 			includingSourcePackage: true
 		)
 		XCTAssertFalse(FileManager.default.fileExists(atPath: sourceURL.path))
+	}
+
+	func testSourceCleanupFailure_doesNotOverwriteSuccessfulImportDiagnosticOrAppendDuplicateEntries() throws {
+		var report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "detector.tar",
+			retainOriginalPackage: false,
+			wasRemoteImport: false
+		)
+		let cleanupDiagnostic = NativeModelConversionDiagnostic(
+			code: "app.sourceCleanupFailed",
+			phase: .completed,
+			message: "The original package could not yet be removed."
+		)
+		// A report written by the earlier implementation could already contain this conversion-level
+		// diagnostic. The first reconciliation must clear it as well as avoiding new ones.
+		report.transition(to: .registered, diagnostic: cleanupDiagnostic)
+		let entryCountBeforeFailure = report.entries.count
+
+		report.recordSourceCleanup(.failed, diagnostic: cleanupDiagnostic)
+		XCTAssertEqual(report.state, .registered)
+		XCTAssertNil(report.diagnostic)
+		XCTAssertEqual(report.entries.count, entryCountBeforeFailure + 1)
+		XCTAssertEqual(report.entries.last?.diagnostic, cleanupDiagnostic)
+
+		report.recordSourceCleanup(.failed, diagnostic: cleanupDiagnostic)
+		XCTAssertEqual(report.entries.count, entryCountBeforeFailure + 1)
+
+		report.recordSourceCleanup(.removed)
+		XCTAssertEqual(report.effectiveSourceCleanupState, .removed)
+		XCTAssertEqual(report.entries.count, entryCountBeforeFailure + 2)
 	}
 
 	func testSourceCleanup_removesOnlyRegisteredNonRetainedSourceAndRecordsCompletion() async throws {

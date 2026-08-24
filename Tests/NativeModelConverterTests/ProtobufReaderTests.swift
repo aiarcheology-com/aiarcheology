@@ -121,6 +121,16 @@ final class ProtobufReaderTests: XCTestCase {
 		XCTAssertEqual(outer.byteCount, UInt64(actual.count))
 	}
 
+	func testStreamingSegments_markerOffsetAccountsForDeferredPayloads() {
+		let marker = Data("marker".utf8)
+		var segments = CoreMLProtobufSegments()
+		segments.append(data: Data("prefix".utf8))
+		segments.append(deferred: CoreMLProtobufDeferredPayload(byteCount: 4) { _ in })
+		segments.append(data: marker)
+
+		XCTAssertEqual(segments.firstFileOffset(of: marker), 10)
+	}
+
 	func testAtomicPublisher_cancellationBeforePublishPreservesExistingArtifactAndCleansTemporaryFile() throws {
 		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
 		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

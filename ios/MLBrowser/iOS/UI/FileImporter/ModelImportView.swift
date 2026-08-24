@@ -564,6 +564,11 @@ struct ModelImportView: View {
 		}
 		if report.markInterruptedIfIncomplete(),
 			let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) {
+			NativeModelConversionImportReport.removeTransientArtifacts(
+				for: report,
+				in: configurationDirectory,
+				includingSourcePackage: false
+			)
 			try? report.write(in: configurationDirectory)
 		}
 		interruptedNativeConversion = report

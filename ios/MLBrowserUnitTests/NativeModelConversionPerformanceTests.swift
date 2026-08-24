@@ -200,7 +200,7 @@ final class NativeModelConversionPerformanceTests: XCTestCase {
 	private func stagedADAFCheckpointURL() throws -> URL {
 		let resourceName = (Self.adafCheckpointFilename as NSString).deletingPathExtension
 		let fileExtension = (Self.adafCheckpointFilename as NSString).pathExtension
-		try XCTUnwrap(
+		return try XCTUnwrap(
 			Bundle(for: Self.self).url(forResource: resourceName, withExtension: fileExtension),
 			"The dense ADAF checkpoint is absent. Run scripts/prepare_adaf_conversion_benchmark_assets.sh "
 				+ "and set AIA_ADAF_CONVERSION_BENCHMARK_ASSETS before building the test bundle."

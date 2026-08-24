@@ -182,6 +182,125 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 		}
 	}
 
+	func testPromotedWeightsDigest_usesLogicalWeightOrderWhenEmissionOrderDiffers() throws {
+		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+		defer { try? FileManager.default.removeItem(at: directory) }
+		let sourceURL = directory.appendingPathComponent("weights.bin")
+		try Data([0x00, 0x00, 0x00, 0x3C]).write(to: sourceURL)
+		let promotedWeights = try makePromotedWeights(sourceURL: sourceURL, byteCount: 4, weightCount: 2)
+		let digest = NativeModelADAFPromotedWeightsDigest(logicalWeights: promotedWeights.graph.weights)
+
+		var segments = CoreMLProtobufSegments()
+		for weight in promotedWeights.graph.weights.reversed() {
+			CoreMLProtobufStreamingEncoder.appendDeferredPayloadField(
+				1,
+				payload: try promotedWeights.payload(for: weight, checkingCancellation: nil, digest: digest),
+				to: &segments
+			)
+		}
+		let outputURL = directory.appendingPathComponent("model.mlmodel")
+		var actualDigest = ""
+		try NativeModelAtomicFilePublisher.writeAtomically(
+			to: outputURL,
+			writing: { handle in try segments.write(to: handle, reporting: nil) },
+			beforePublish: { temporaryURL in
+				actualDigest = try digest.sha256(of: temporaryURL, checkingCancellation: nil)
+			}
+		)
+
+		var expectedBytes = Data()
+		for value in [Float(0), Float(1)] {
+			var bits = value.bitPattern.littleEndian
+			withUnsafeBytes(of: &bits) { expectedBytes.append(contentsOf: $0) }
+		}
+		XCTAssertEqual(actualDigest, NativeModelConversionChecksums.sha256Hex(of: expectedBytes))
+	}
+
+	func testPromotedWeights_shortReadReportsPerWeightCounts() throws {
+		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+		defer { try? FileManager.default.removeItem(at: directory) }
+		let sourceURL = directory.appendingPathComponent("weights.bin")
+		try Data([0x00, 0x00, 0x00, 0x3C]).write(to: sourceURL)
+		let promotedWeights = try makePromotedWeights(sourceURL: sourceURL, byteCount: 4, weightCount: 1)
+		try Data([0x00]).write(to: sourceURL)
+		let outputURL = directory.appendingPathComponent("output.bin")
+		FileManager.default.createFile(atPath: outputURL.path, contents: nil)
+		let handle = try FileHandle(forWritingTo: outputURL)
+		defer { try? handle.close() }
+		let weight = try XCTUnwrap(promotedWeights.graph.weights.first)
+		let payload = try promotedWeights.payload(for: weight, checkingCancellation: nil)
+
+		XCTAssertThrowsError(try payload.write(handle)) { error in
+			XCTAssertEqual(
+				error as? NativeModelFasterRCNNRegistryError,
+				.weightDataLengthMismatch(expected: 2, actual: 1)
+			)
+		}
+	}
+
+	func testStreamingNetworkLayers_cancelsBeforeWeightlessOperation() throws {
+		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+		defer { try? FileManager.default.removeItem(at: directory) }
+		let sourceURL = directory.appendingPathComponent("empty.bin")
+		try Data().write(to: sourceURL)
+		let promotedWeights = try makePromotedWeights(sourceURL: sourceURL, byteCount: 0, weightCount: 0)
+		let operation = NativeModelOperation(
+			name: "weightless.relu",
+			kind: .relu,
+			inputs: ["input"],
+			outputs: [NativeModelTensor(name: "output", dataType: .float32, shape: [1, 1, 1, 1])],
+			attributes: [:]
+		)
+
+		XCTAssertThrowsError(
+			try NativeModelCoreMLEmitter().streamingNetworkLayers(
+				operations: [operation],
+				weightsByName: [:],
+				promotedWeights: promotedWeights,
+				weightsDigest: NativeModelADAFPromotedWeightsDigest(logicalWeights: []),
+				imagePlan: nil,
+				usesLegacyShapeMapping: false,
+				cancellationCheck: { throw CancellationError() }
+			)
+		) { error in
+			XCTAssertTrue(error is CancellationError)
+		}
+	}
+
+	private func makePromotedWeights(
+		sourceURL: URL,
+		byteCount: UInt64,
+		weightCount: Int
+	) throws -> NativeModelADAFPromotedWeights {
+		let weights = (0..<weightCount).map { index in
+			NativeModelWeight(
+				name: "weight.\(index)",
+				dataType: .float16,
+				shape: [1],
+				offset: UInt64(index * 2),
+				byteCount: 2
+			)
+		}
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "test", version: "1"),
+			inputs: [],
+			weights: weights,
+			operations: [],
+			outputs: []
+		)
+		return try NativeModelADAFPromotedWeights(
+			graph: graph,
+			sourceWeightByteCount: byteCount,
+			synthesizedWeightData: Data(),
+			weightURL: sourceURL,
+			checkingCancellation: nil
+		)
+	}
+
 	private func extractedWeights(for checkpoint: PyTorchCheckpoint) -> [NativeModelWeight] {
 		var offset: UInt64 = 0
 		return checkpoint.tensors.compactMap { tensor in

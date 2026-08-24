@@ -11,7 +11,21 @@ import Foundation
 /// it. The count pass uses `byteCount` without asking the source for any bytes.
 struct CoreMLProtobufDeferredPayload {
 	let byteCount: UInt64
+	/// Invoked with the byte offset at which this payload will be written to the output file.
+	/// Streaming ADAF emission uses this to index the already-emitted weights for a metadata digest
+	/// without reopening and widening the extracted fp16 source a second time.
+	let willWriteAt: ((UInt64) -> Void)?
 	let write: (FileHandle) throws -> Void
+
+	init(
+		byteCount: UInt64,
+		willWriteAt: ((UInt64) -> Void)? = nil,
+		write: @escaping (FileHandle) throws -> Void
+	) {
+		self.byteCount = byteCount
+		self.willWriteAt = willWriteAt
+		self.write = write
+	}
 }
 
 /// One recursive protobuf representation shared by the ADAF count and file-writing passes.
@@ -53,16 +67,41 @@ struct CoreMLProtobufSegments {
 		to handle: FileHandle,
 		reporting progress: NativeModelConversionProgressHandler?
 	) throws {
+		var fileOffset = try handle.offset()
 		for segment in segments {
 			switch segment {
 			case .data(let data):
 				try handle.write(contentsOf: data)
+				fileOffset += UInt64(data.count)
 			case .deferred(let payload):
+				payload.willWriteAt?(fileOffset)
 				try payload.write(handle)
+				fileOffset += payload.byteCount
 			case .progress(let update):
 				progress?(update)
 			}
 		}
+	}
+
+	/// The offset of a small marker in the output wire form. Static fragments stay in memory, so this
+	/// never scans deferred weight payloads.
+	func firstFileOffset(of marker: Data) -> UInt64? {
+		guard !marker.isEmpty else { return nil }
+		var fileOffset: UInt64 = 0
+		for segment in segments {
+			switch segment {
+			case .data(let data):
+				if let range = data.range(of: marker) {
+					return fileOffset + UInt64(range.lowerBound)
+				}
+				fileOffset += UInt64(data.count)
+			case .deferred(let payload):
+				fileOffset += payload.byteCount
+			case .progress:
+				break
+			}
+		}
+		return nil
 	}
 }
 
@@ -129,6 +168,18 @@ enum NativeModelAtomicFilePublisher {
 		writing body: (FileHandle) throws -> Void,
 		beforePublish: () throws -> Void
 	) throws {
+		try writeAtomically(
+			to: destinationURL,
+			writing: body,
+			beforePublish: { _ in try beforePublish() }
+		)
+	}
+
+	static func writeAtomically(
+		to destinationURL: URL,
+		writing body: (FileHandle) throws -> Void,
+		beforePublish: (URL) throws -> Void
+	) throws {
 		let temporaryURL = destinationURL.deletingLastPathComponent().appendingPathComponent(
 			".\(destinationURL.lastPathComponent).partial-\(UUID().uuidString)",
 			isDirectory: false
@@ -147,7 +198,7 @@ enum NativeModelAtomicFilePublisher {
 		try body(openedHandle)
 		try openedHandle.close()
 		handle = nil
-		try beforePublish()
+		try beforePublish(temporaryURL)
 		try publish(temporaryURL, as: destinationURL)
 		published = true
 	}
