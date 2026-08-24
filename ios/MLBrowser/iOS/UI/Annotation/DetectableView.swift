@@ -67,7 +67,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     @State private var interactionState: ContentInteractionState = .idle
     /// The detection state machine (generation / coalesce / freeze / apply-guards), extracted so it
     /// is unit-testable without SwiftUI (AIA-0386). This view is now layout + event-forwarding.
-    @StateObject private var coordinator: DetectionCoordinator
+	@StateObject private var coordinator: DetectionCoordinator
+	/// Stable over SwiftUI body recomputation, so a partial/final result pair retains its sound
+	/// de-duplication state instead of becoming audible twice.
+	@State private var soundEvents: AnnotationSoundEventCoordinator
     /// Classification consumer (AIA-0374) — a parallel branch of the snapshot flow,
     /// independent of the detection queue/appliedFrame machinery above.
     @StateObject private var flashController = ClassificationFlashController()
@@ -78,6 +81,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     init(
         snapshotWorkCoordinator: SnapshotWorkCoordinator,
         drivers: DeepDrivers,
+        soundPlayer: any AnnotationSoundPlaying,
         trigger: P,
         showIdentifiers: Bool,
         animateDetections: Bool = true,
@@ -93,6 +97,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     ) {
 		self.snapshotWorkCoordinator = snapshotWorkCoordinator
 		self._drivers = ObservedObject(wrappedValue: drivers)
+		self._soundEvents = State(initialValue: AnnotationSoundEventCoordinator(player: soundPlayer))
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
         self.animateDetections = animateDetections
@@ -219,7 +224,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 				contentGeometryDidChange()
             }
         }
-		.onSnapshot { image, _, request in
+        .onSnapshot { image, _, request in
 			guard acceptsSnapshot(request) else { return }
             // Skip detection while content is being manipulated - geometry is changing
             guard !isInteracting else {
@@ -236,7 +241,14 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // deliberately AFTER both guards above so a straggler frame can't
             // classify-and-flash mid-scroll or behind the save sheet. Independent of
             // the detection queue below.
-            flashController.classifyPass(drivers: drivers, image: image)
+			flashController.classifyPass(
+				drivers: drivers,
+				image: image,
+				showIdentifiers: showIdentifiers,
+				onResultsBecameVisible: { results in
+					soundEvents.classificationResultsBecameVisible(results)
+				}
+			)
             // Detection pipeline: serialize + coalesce + apply-guard live in the coordinator
             // (AIA-0386). This is the single detection entry point.
             coordinator.ingest(snapshot: image)
@@ -276,6 +288,14 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 isInteracting: { interactionState.isInteracting },
                 isCapturing: { isCapturingFinding.wrappedValue }
             )
+			coordinator.bindSoundEvents { passID, rawResults in
+				// Same filter as AnnotationOverlay: a hidden low-confidence observation is not painted
+				// and must not produce a sound. This callback is never called by refreshPresentation().
+				soundEvents.detectionResultsApplied(
+					passID: passID,
+					results: DetectionPresentation.filteredResults(rawResults)
+				)
+			}
         }
         .onChange(of: tiling) { _, value in
             // Keep the coordinator's live tiling scheme current (read at each pass start).

@@ -1,15 +1,22 @@
 Build: AIA-0699
 
-Test Focus: bounded-memory ADAF checkpoint conversion and converted-model retention.
+Test Focus: configurable annotation sounds.
 
-- Import an ADAF object-detection checkpoint from Files. The progress view should continue updating
-  through model emission; after success, open the imported configuration and run detection on a
-  page. The converted Core ML model should still load and detect normally after force-quitting and
-  relaunching the app.
+- Open a detection model’s configuration, then Annotation > Sound. With the setting off, the
+  Annotation row must say Disabled. Turn it on, select and preview several of the eleven sounds
+  (including Sonar), adjust the volume, then close and reopen the configuration to confirm the
+  choices persist for that model.
 
-- Import a supported ONNX model and a native graph package. Once each conversion completes, reopen
-  the configuration after relaunch and confirm it remains usable. A cancelled or failed conversion
-  should remain resumable from its original source rather than leaving a partially converted model.
+- Choose different sounds for two detection models. Run them over a page with several detected
+  objects: each newly painted rectangle, point, or circle should play the sound selected for its
+  model. When several annotations arrive together, two sounds can play at once and the remaining
+  sounds should follow promptly; neither model should suppress the other.
 
-- If anything fails, please report the source format, approximate source size, device model, iOS
-  version, whether the app was backgrounded, and the last progress phase shown.
+- Leave detection running as results arrive progressively. Existing annotations must not play a
+  second time when a later result repeats them, while a genuinely new annotation should play once.
+
+- Confirm the Sound preview and automatic annotation sounds do not change the device’s system
+  volume. If practical, also test with other audio already playing and with the silent switch on.
+
+Please report your device model, iOS version, model(s), selected sound and volume, and a short
+description of the annotation sequence if anything sounds incorrect.

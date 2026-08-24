@@ -72,6 +72,22 @@ extension DeepConfiguration {
 			selectedSymbol_ = newValue.rawValue
 		}
 	}
+
+	/// The selected app-provided annotation sound. Unknown legacy/future values fall back to the
+	/// default sound so a corrupted identifier never makes a persisted model unplayable.
+	public var annotationSound: AnnotationSound {
+		get { AnnotationSound(rawValue: annotationSoundIdentifier ?? "") ?? .chime }
+		set { annotationSoundIdentifier = newValue.rawValue }
+	}
+
+	/// Value-only sound choice copied into driver parameters before it crosses actor boundaries.
+	public var annotationSoundConfiguration: AnnotationSoundConfiguration {
+		AnnotationSoundConfiguration(
+			isEnabled: annotationSoundEnabled,
+			sound: annotationSound,
+			volume: annotationSoundVolume
+		)
+	}
 	
 	public var creationDate: String {
 		return DateFormatter.longDateFormater.string(from: creationDate_ ?? .now)
@@ -114,6 +130,7 @@ extension DeepConfiguration {
 		guard lhs.annotationColor == rhs.annotationColor else { return false }
 		guard lhs.phaseOutTime == rhs.phaseOutTime else { return false }
 		guard lhs.selectedSymbol == rhs.selectedSymbol else { return false }
+		guard lhs.annotationSoundConfiguration == rhs.annotationSoundConfiguration else { return false }
 		guard lhs.enabled == rhs.enabled else { return false }
 		return true
 	}
@@ -158,6 +175,7 @@ extension DeepConfiguration {
 			file: file,
 			phaseOutTime: phaseOutTime,
 			selectedSymbol: selectedSymbol,
+			annotationSound: annotationSoundConfiguration,
 			demo: demo,
 			flashEnabled: flashOnFindingEnabled,
 			flashSize: flashSize

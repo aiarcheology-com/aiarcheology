@@ -97,6 +97,10 @@ enum AID {
 	static let configModelTypePicker = "_AIA:Picker.ConfigurationFormModelType"
 	static let configFormDismiss = "_AIA:Button.ConfigurationFormDismiss"
 	static let configDetectionConfidence = "_AIA:Slider.ConfigurationFormDetectionConfidence"
+	static let configSound = "_AIA:NavigationLink.ConfigurationFormSound"
+	static let configSoundEnabled = "_AIA:Toggle.ConfigurationFormSoundEnabled"
+	static let configSoundVolume = "_AIA:Slider.ConfigurationFormSoundVolume"
+	static let configSoundChime = "_AIA:Button.#chimeConfigurationFormSoundChoice"
 	static let newConfigurationOpenCatalog = "_AIA:Button.NewConfigurationOpenCatalog"
 
 	// Settings

@@ -43,9 +43,15 @@ class DependencyContainer {
         return SnapState(settings: self.settings)
     }()
     
-    lazy var deepState: DeepState = {
-        return DeepState(dataController: self.dataController)
-    }()
+	lazy var deepState: DeepState = {
+		return DeepState(dataController: self.dataController)
+	}()
+
+	/// Shared player boundary for app-provided annotation sounds (AIA-0716). The actor owns its
+	/// AVAudioPlayer off the main actor; views receive it through AppState rather than `.shared`.
+	lazy var annotationSoundPlayer: any AnnotationSoundPlaying = {
+		AnnotationSoundPlayer()
+	}()
     
     lazy var downloader: Downloader = {
         return Downloader(dataController: self.dataController)
@@ -474,6 +480,7 @@ class DependencyContainer {
 			settings: settings,
 			snap: snapState,
 		deep: deepState,
+		annotationSoundPlayer: annotationSoundPlayer,
 		downloader: downloader,
 		catalogProviders: catalogProviders,
 		demoDataManager: demoDataManager,

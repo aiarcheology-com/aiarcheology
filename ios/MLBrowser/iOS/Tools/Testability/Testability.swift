@@ -81,6 +81,7 @@ extension TestabilityIdentification {
 		case configurationFormExport
 		case configurationFormDismiss
 		case configurationFormCancel
+		case configurationFormSoundChoice
 		case configurationExapandableRow
 		// New Configuration
 		case newConfigurationPickDocument
@@ -278,6 +279,8 @@ extension TestabilityIdentification {
 		case supportRequestSendUnredactedData
 		// Configuration Form — per-model finding flash (AIA-0374)
 		case configurationFormFlashOnFinding
+		// Configuration Form — per-model annotation sound (AIA-0716)
+		case configurationFormSoundEnabled
 		// Finding Share Composer — attach an openable link (AIA-0650)
 		case findingShareIncludeLink
 		// Finding Share Composer — carry the page's whole address, or only its site (AIA-0657)
@@ -305,6 +308,7 @@ extension TestabilityIdentification {
 		case configurationFormFadeOutTime
 		case configurationFormFlashSize
 		case configurationFormDetectionConfidence
+		case configurationFormSoundVolume
 		// Snap Adjustment
 		case snapAdjustmentBrightness
 		case snapAdjustmentContrast
@@ -335,6 +339,7 @@ extension TestabilityIdentification {
 	enum NavigationLink: String, TestabilityIdentification {
 		// Settings
 		case settingsTiledDetection
+		case configurationFormSound
 		case settingsHistory
 		case settingsAbout
 		case settingsReset

@@ -105,6 +105,8 @@ struct DeepDriverParams: Sendable {
 	var file: URL?
 	var phaseOutTime: Double = 1.0
 	var selectedSymbol: AnnotationSymbol = .circle
+	/// Per-model app-provided annotation sound (AIA-0716).
+	var annotationSound: AnnotationSoundConfiguration = .init()
 	var demo: Bool = false
 	/// Per-model finding-flash style (AIA-0374; classify models).
 	var flashEnabled: Bool = true

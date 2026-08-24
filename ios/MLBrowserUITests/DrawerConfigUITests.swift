@@ -118,6 +118,21 @@ final class DrawerConfigUITests: UITestCase {
                       "Model row should show its type as a caption")
     }
 
+	func testConfigForm_annotationSoundSubmenuShowsPerModelControls() {
+		launch()
+		openFirstModelSettings()
+		XCTAssertTrue(scrollTo(AID.configSound), "Sound entry point was not rendered in Annotation")
+		let sound = element(AID.configSound)
+		XCTAssertTrue(sound.isHittable, "Sound entry point must be tappable")
+		XCTAssertEqual(sound.value as? String, "Disabled", "Sound row must not imply its selected tone is active")
+		sound.tap()
+
+		XCTAssertTrue(element(AID.configSoundEnabled).waitForExistence(timeout: 5))
+		XCTAssertTrue(element(AID.configSoundVolume).waitForExistence(timeout: 5))
+		XCTAssertTrue(element(AID.configSoundChime).waitForExistence(timeout: 5))
+		XCTAssertTrue(flipSwitch(AID.configSoundEnabled), "Per-model annotation sound toggle did not change")
+	}
+
     // AIA-0402 (follow-up): after import, an UNPARSED-type model's settings auto-open in "type review"
     // mode so the user picks a type — no model runs on a type the app couldn't verify. The real file
     // import isn't scriptable under XCUITest, so `reviewFirstModelType` forces the first seeded model

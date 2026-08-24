@@ -17180,6 +17180,174 @@
         }
       }
     },
+    "configuration.sound" : {
+      "comment" : "Configuration annotation submenu title for app-provided sounds.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sound"
+          }
+        }
+      }
+    },
+    "configuration.soundBell" : {
+      "comment" : "Name of an app-provided annotation sound.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bell"
+          }
+        }
+      }
+    },
+    "configuration.soundBloom" : {
+      "comment" : "Name of an app-provided annotation sound.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloom"
+          }
+        }
+      }
+    },
+    "configuration.soundChime" : {
+      "comment" : "Name of an app-provided annotation sound.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chime"
+          }
+        }
+      }
+    },
+    "configuration.soundClick" : {
+      "comment" : "Name of an app-provided annotation sound.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Click"
+          }
+        }
+      }
+    },
+    "configuration.soundCroak" : {
+      "comment" : "Name of an app-provided annotation sound.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Croak"
+          }
+        }
+      }
+    },
+    "configuration.soundDrop" : {
+      "comment" : "Name of an app-provided annotation sound.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drop"
+          }
+        }
+      }
+    },
+    "configuration.soundEcho" : {
+      "comment" : "Name of an app-provided annotation sound.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Echo"
+          }
+        }
+      }
+    },
+    "configuration.soundEnabled" : {
+      "comment" : "Toggle label that enables an app-provided sound when an annotation is painted.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play sound for annotations"
+          }
+        }
+      }
+    },
+    "configuration.soundPing" : {
+      "comment" : "Name of an app-provided annotation sound.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ping"
+          }
+        }
+      }
+    },
+    "configuration.soundPulse" : {
+      "comment" : "Name of an app-provided annotation sound.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pulse"
+          }
+        }
+      }
+    },
+    "configuration.soundSonar" : {
+      "comment" : "Name of an app-provided annotation sound.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sonar"
+          }
+        }
+      }
+    },
+    "configuration.soundTap" : {
+      "comment" : "Name of an app-provided annotation sound.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap"
+          }
+        }
+      }
+    },
+    "configuration.soundVolume" : {
+      "comment" : "Label for a model's app-provided annotation-sound volume slider.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volume"
+          }
+        }
+      }
+    },
     "configuration.title" : {
       "comment" : "Navigation title for configuration screen",
       "extractionState" : "manual",

@@ -73,6 +73,9 @@ final class DeepConfigurationTests: XCTestCase {
         config.enabled = true
         config.phaseOutTime = 1.5
         config.computeUnit = .processorOnly
+		config.annotationSoundEnabled = true
+		config.annotationSound = .croak
+		config.annotationSoundVolume = 0.73
 
         try DeepConfiguration.save(in: context)
         context.refresh(config, mergeChanges: false)
@@ -86,7 +89,64 @@ final class DeepConfigurationTests: XCTestCase {
         XCTAssertTrue(config.enabled)
         XCTAssertEqual(config.phaseOutTime, 1.5)
         XCTAssertEqual(config.computeUnit, .processorOnly)
+		XCTAssertTrue(config.annotationSoundEnabled)
+		XCTAssertEqual(config.annotationSound, .croak)
+		XCTAssertEqual(config.annotationSoundConfiguration.volume, 0.73, accuracy: 0.0001)
     }
+
+	func testAnnotationSound_DefaultsOffAtTwentyPercentAndClampsInvalidVolume() {
+		let config = createValidConfiguration()
+
+		XCTAssertFalse(config.annotationSoundConfiguration.isEnabled)
+		XCTAssertEqual(config.annotationSound, .chime)
+		XCTAssertEqual(config.annotationSoundConfiguration.volume, 0.2, accuracy: 0.0001)
+
+		config.annotationSoundVolume = 9
+		XCTAssertEqual(config.annotationSoundConfiguration.volume, 1, accuracy: 0.0001)
+		config.annotationSoundVolume = -1
+		XCTAssertEqual(config.annotationSoundConfiguration.volume, 0, accuracy: 0.0001)
+	}
+
+	func testAnnotationSound_PersistsAfterContextResetAndRefetch() throws {
+		let config = createValidConfiguration()
+		let id = config.entityId
+		config.annotationSoundEnabled = true
+		config.annotationSound = .pulse
+		config.annotationSoundVolume = 0.61
+		try DeepConfiguration.save(in: context)
+
+		// A reset drops the managed object cache. The fetched values must come from the persistent
+		// Core Data store, not from ConfigurationForm's in-memory object.
+		context.reset()
+		let fetched = try XCTUnwrap(DeepConfiguration.select(id, in: context))
+		XCTAssertTrue(fetched.annotationSoundEnabled)
+		XCTAssertEqual(fetched.annotationSound, .pulse)
+		XCTAssertEqual(fetched.annotationSoundConfiguration.volume, 0.61, accuracy: 0.0001)
+	}
+
+	func testAnnotationSoundCatalog_ProducesDistinctValidWAVData() {
+		let files = AnnotationSound.allCases.map(AnnotationSoundCatalog.audioData(for:))
+
+		XCTAssertEqual(files.count, 11)
+		XCTAssertEqual(files.count, Set(files).count)
+		for data in files {
+			XCTAssertGreaterThan(data.count, 44)
+			XCTAssertEqual(String(data: data.prefix(4), encoding: .ascii), "RIFF")
+			XCTAssertEqual(String(data: data.dropFirst(8).prefix(4), encoding: .ascii), "WAVE")
+		}
+	}
+
+	func testAnnotationSoundPlayerRetention_TracksPlaybackDuration() {
+		let catalogRetention = AnnotationSoundPlayer.playerRetentionNanoseconds(
+			for: AnnotationSoundCatalog.duration
+		)
+		let longerToneRetention = AnnotationSoundPlayer.playerRetentionNanoseconds(
+			for: AnnotationSoundCatalog.duration + 1
+		)
+
+		XCTAssertGreaterThan(catalogRetention, UInt64(AnnotationSoundCatalog.duration * 1_000_000_000))
+		XCTAssertGreaterThan(longerToneRetention, catalogRetention)
+	}
 
     func testDeepConfiguration_EqualityTreatsLicenseAsConfigurationState() {
         let entityID = UUID()

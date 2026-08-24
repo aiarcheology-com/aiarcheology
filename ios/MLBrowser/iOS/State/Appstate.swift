@@ -26,6 +26,8 @@ final class AppState: ObservableObject {
 	let settings: Settings
 	let snap: SnapState
 	let deep: DeepState
+	/// Shared app-provided sound player, injected by the composition root (AIA-0716).
+	let annotationSoundPlayer: any AnnotationSoundPlaying
 	let downloader: Downloader
 	let catalogProviders: [any CatalogProvider]
 	/// Ephemeral catalog browsing state. It deliberately survives sheet dismissal during this
@@ -106,6 +108,7 @@ final class AppState: ObservableObject {
 		settings: Settings,
 		snap: SnapState,
 		deep: DeepState,
+		annotationSoundPlayer: any AnnotationSoundPlaying,
 		downloader: Downloader,
 		catalogProviders: [any CatalogProvider],
 		demoDataManager: DemoDataManager,
@@ -125,6 +128,7 @@ final class AppState: ObservableObject {
 		self.settings = settings
 		self.snap = snap
 		self.deep = deep
+		self.annotationSoundPlayer = annotationSoundPlayer
 		self.downloader = downloader
 		self.catalogProviders = catalogProviders
 		self.demoDataManager = demoDataManager
