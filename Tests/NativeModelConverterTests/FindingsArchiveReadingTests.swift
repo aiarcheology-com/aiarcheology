@@ -57,8 +57,9 @@ final class FindingsArchiveReadingTests: XCTestCase {
 
 		let payload = try archive.bytes(of: entry, maximumByteCount: 1024 * 1024)
 		XCTAssertEqual(payload.count, entry.uncompressedSize)
+		let text = try XCTUnwrap(String(bytes: payload, encoding: .utf8))
 		XCTAssertEqual(
-			String(decoding: payload, as: UTF8.self),
+			text,
 			#"{"schemaVersion":1,"findings":[{"id":"00000000-0000-0000-0000-000000000001","title":"Ringfort"}]}"#
 		)
 	}

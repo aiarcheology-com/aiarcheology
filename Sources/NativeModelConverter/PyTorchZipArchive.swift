@@ -336,11 +336,7 @@ struct PyTorchZipArchive {
 				throw PyTorchZipArchiveError.unsupportedEntryFlags(flags)
 			}
 			let method = Int(readUInt16(bytes, cursor + 10))
-			// Stored always; deflate only when the caller asked for it. Everything else — bzip2,
-			// LZMA, zstd, the "reserved" values — is refused rather than ignored.
-			guard method == Self.storedMethod || (allowsDeflate && method == Self.deflateMethod) else {
-				throw PyTorchZipArchiveError.unsupportedCompression(method: method)
-			}
+			try requireSupportedMethod(method, allowsDeflate: allowsDeflate)
 
 			let crc = readUInt32(bytes, cursor + 16)
 			let compressedSize = readUInt32(bytes, cursor + 20)
@@ -435,6 +431,18 @@ struct PyTorchZipArchive {
 				throw PyTorchZipArchiveError.malformedCentralDirectory("malformed extra field on '\(name)'")
 			}
 			cursor = next
+		}
+	}
+
+	/// Stored always; deflate only when the caller asked for it. Everything else — bzip2, LZMA,
+	/// zstd, the "reserved" values — is refused rather than ignored, because each one changes what
+	/// the bytes at the data offset mean.
+	///
+	/// Its own function so that `readCentralDirectory` stays within the complexity the repo lints
+	/// for; the rule itself is one line either way.
+	private static func requireSupportedMethod(_ method: Int, allowsDeflate: Bool) throws {
+		guard method == storedMethod || (allowsDeflate && method == deflateMethod) else {
+			throw PyTorchZipArchiveError.unsupportedCompression(method: method)
 		}
 	}
 
@@ -548,9 +556,16 @@ struct PyTorchZipArchive {
 		var output = [UInt8](repeating: 0, count: expectedByteCount)
 		let written = output.withUnsafeMutableBufferPointer { destination -> Int in
 			payload.withUnsafeBufferPointer { source -> Int in
-				compression_decode_buffer(
-					destination.baseAddress!, expectedByteCount,
-					source.baseAddress!, payload.count,
+				// Both buffers are non-empty (checked above), so neither base address can be nil;
+				// answering 0 rather than force-unwrapping keeps that reasoning out of a trap.
+				guard let destinationBase = destination.baseAddress,
+					let sourceBase = source.baseAddress
+				else {
+					return 0
+				}
+				return compression_decode_buffer(
+					destinationBase, expectedByteCount,
+					sourceBase, payload.count,
 					nil, COMPRESSION_ZLIB
 				)
 			}
