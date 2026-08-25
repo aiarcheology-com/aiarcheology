@@ -116,4 +116,56 @@ final class FindingsArchiveReadingTests: XCTestCase {
 			)
 		}
 	}
+
+	// MARK: - The public façade the app actually calls
+
+	func test_facade_readsTheFindingsArchiveAndInflatesAnEntry() throws {
+		let reader = try ZipArchiveReader(bytes: try findingsArchiveBytes(), allowsDeflate: true)
+
+		XCTAssertEqual(
+			Set(reader.entries.map(\.name)),
+			[
+				"Findings/findings.json",
+				"Findings/findings.csv",
+				"Findings/images/00000000-0000-0000-0000-000000000001.jpg"
+			]
+		)
+		let payload = try reader.bytes(named: "Findings/findings.json", maximumByteCount: 1024 * 1024)
+		let text = try XCTUnwrap(String(bytes: payload, encoding: .utf8))
+		XCTAssertTrue(text.hasPrefix(#"{"schemaVersion":1"#))
+	}
+
+	/// The façade must not quietly widen what the reader accepts: without opting in, a deflated
+	/// archive is still refused.
+	func test_facade_withoutOptingIntoDeflate_refusesTheArchive() throws {
+		XCTAssertThrowsError(try ZipArchiveReader(bytes: try findingsArchiveBytes())) { error in
+			guard case .unreadable = error as? ZipArchiveReaderError else {
+				return XCTFail("expected .unreadable, got \(error)")
+			}
+		}
+	}
+
+	func test_facade_missingEntry_isNamedRatherThanGeneric() throws {
+		let reader = try ZipArchiveReader(bytes: try findingsArchiveBytes(), allowsDeflate: true)
+		XCTAssertThrowsError(try reader.bytes(named: "Findings/nope.json", maximumByteCount: 1024)) { error in
+			XCTAssertEqual(error as? ZipArchiveReaderError, .entryNotFound(name: "Findings/nope.json"))
+		}
+	}
+
+	/// The bomb bound, surfaced through the façade: refused on the DECLARED size, before allocation.
+	func test_facade_entryOverTheCap_isRefusedOnItsDeclaredSize() throws {
+		let reader = try ZipArchiveReader(bytes: try findingsArchiveBytes(), allowsDeflate: true)
+		let name = "Findings/images/00000000-0000-0000-0000-000000000001.jpg"
+		XCTAssertThrowsError(try reader.bytes(named: name, maximumByteCount: 64)) { error in
+			XCTAssertEqual(error as? ZipArchiveReaderError, .entryTooLarge(name: name, byteCount: 4100))
+		}
+	}
+
+	/// Bytes that are not an archive at all get the one error a user-facing message can be written
+	/// from, rather than a structural complaint about central directories.
+	func test_facade_nonArchiveBytes_saySoPlainly() {
+		XCTAssertThrowsError(try ZipArchiveReader(bytes: Array("not a zip".utf8), allowsDeflate: true)) { error in
+			XCTAssertEqual(error as? ZipArchiveReaderError, .notAZipArchive)
+		}
+	}
 }
