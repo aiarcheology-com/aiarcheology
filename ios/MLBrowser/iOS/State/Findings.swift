@@ -38,17 +38,44 @@ extension Finding: CoreDataManagableWithState {
         }
 
         // Required: a finding without its screenshot reference is unusable.
-        if screenshotFilename != Finding.screenshotFilename(for: entityId) {
+        if Finding.isCanonicalScreenshotFilename(screenshotFilename, for: entityId).not {
             issues.append(.init(key: "screenshotFilename", message: "Filename is missing or does not match the entity id."))
         }
 
         return .init(issues: issues)
     }
 
-    /// The canonical screenshot filename — derived from the entity id so a stored
-    /// row and its file can always be matched without extra bookkeeping.
+    /// Extensions a stored finding screenshot may legitimately carry.
+    ///
+    /// `jpg` is what every new finding is written as (AIA-713); `png` is what 1.0.7 and earlier
+    /// wrote. Both must stay valid FOR EVER: those files are never rewritten, so a row that
+    /// accepted only the current extension would fail `validateForUpdate` the next time anything
+    /// touched a pre-1.0.8 finding — turning a silent format change into user-visible data loss.
+    static let supportedScreenshotExtensions: Set<String> = ["jpg", "png"]
+
+    /// The canonical screenshot filename for a NEW finding — derived from the entity id so a
+    /// stored row and its file can always be matched without extra bookkeeping.
     static func screenshotFilename(for entityId: UUID) -> String {
-        "\(entityId.uuidString).png"
+        "\(entityId.uuidString).jpg"
+    }
+
+    /// The screenshot filename for `entityId` carrying a specific extension, used when restoring an
+    /// archived finding whose image must keep the bytes — and therefore the codec — it was exported
+    /// with. Returns nil for an unsupported extension rather than inventing one.
+    static func screenshotFilename(for entityId: UUID, pathExtension: String) -> String? {
+        let ext = pathExtension.lowercased()
+        guard supportedScreenshotExtensions.contains(ext) else { return nil }
+        return "\(entityId.uuidString).\(ext)"
+    }
+
+    /// Whether `filename` is a legitimate screenshot name for `entityId`: the entity's UUID plus
+    /// any supported image extension. Checked instead of equality against the current canonical
+    /// name so legacy `.png` rows keep validating (see `supportedScreenshotExtensions`).
+    static func isCanonicalScreenshotFilename(_ filename: String?, for entityId: UUID) -> Bool {
+        guard let filename else { return false }
+        let name = (filename as NSString).deletingPathExtension
+        let ext = (filename as NSString).pathExtension.lowercased()
+        return name == entityId.uuidString && supportedScreenshotExtensions.contains(ext)
     }
 
     /// Pure validation: avoid main-actor-only APIs here. Findings are always captured

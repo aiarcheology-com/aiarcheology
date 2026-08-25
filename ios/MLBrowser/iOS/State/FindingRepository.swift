@@ -26,7 +26,7 @@ struct FindingMetadata {
 
 /// The Core Data + screenshot-store repository for `Finding` rows.
 ///
-/// Extracted from `SaveFindingSheet` (AIA-0392) so the persist transaction (PNG write → entity
+/// Extracted from `SaveFindingSheet` (AIA-0392) so the persist transaction (image write → entity
 /// create → lifecycle → validate → save → rollback) is unit-testable against Core Data + the
 /// filesystem alone, with no View. Injected the SAME `DataController` as the rest of the graph, so
 /// the write always targets the one store-backed `viewContext` — deterministically, regardless of
@@ -49,10 +49,10 @@ final class FindingRepository {
 		dataController.container.viewContext
 	}
 
-	/// Persists one finding. PNG first, then the entity: a file without a row is self-healed by the
+	/// Persists one finding. Image first, then the entity: a file without a row is self-healed by the
 	/// orphan sweep, while a row without a file would be a broken finding. Any entity failure deletes
 	/// both the pending object (it must not linger in the context for a later unrelated save to
-	/// commit) and the PNG. Throws on either failure so the caller can surface the error UI.
+	/// commit) and the image. Throws on either failure so the caller can surface the error UI.
 	/// - Returns: the persisted, `.ready` finding.
 	@discardableResult
 	func save(capture: FindingCapture, image: UIImage, box: CGRect, metadata: FindingMetadata) throws -> Finding {
@@ -99,10 +99,219 @@ final class FindingRepository {
 		return finding
 	}
 
+	// MARK: - Archive import (AIA-713)
+
+	/// What to do about a finding whose id the device already stores.
+	enum DuplicatePolicy {
+		/// Leave the stored finding exactly as it is.
+		case skip
+		/// Overwrite it with the archived one.
+		case replace
+	}
+
+	/// The outcome of an import, in the terms the user is told about.
+	struct ImportSummary: Equatable {
+		var restored = 0
+		var skipped = 0
+		var failed = 0
+	}
+
+	/// Restores findings decoded by ``FindingArchiveImport`` into the store.
+	///
+	/// **Identity is resolved before any file is touched.** Screenshot filenames derive from the
+	/// finding id, so writing an archived image before deciding skip-or-replace would overwrite the
+	/// picture of a finding the user never agreed to change — and `Data.write(.atomic)` replaces
+	/// silently. Every row therefore looks itself up first, and a `.skip` duplicate causes no file
+	/// IO at all.
+	///
+	/// **A replaced finding is recoverable until the save commits.** The existing image is read into
+	/// memory before the new one is written, and put back if the row fails validation or the
+	/// terminal save throws. Without that, a failed replace leaves a row pointing at an image that
+	/// was already overwritten.
+	///
+	/// Rows are inserted, validated and then committed in ONE save. A row that fails validation is
+	/// removed (a new object) or reverted to its stored values (an existing one) and counted as
+	/// failed, rather than being allowed to fail the whole save — `Finding.save(in:)` commits the
+	/// entire context, so one bad row would otherwise discard every good one.
+	///
+	/// - Note: the caller must have decoded the archive OFF the MainActor; this method is the
+	///   `viewContext` half and does no unzipping, parsing or image decoding.
+	@discardableResult
+	func importFindings(
+		_ contents: FindingArchiveContents,
+		duplicates: DuplicatePolicy
+	) throws -> ImportSummary {
+		var summary = ImportSummary()
+		var replacedImages: [(filename: String, data: Data?)] = []
+		var writtenFilenames: [String] = []
+
+		// All import work happens in a CHILD context, never directly in the viewContext.
+		//
+		// The reason is `rollback()`. Discarding a failed import used to mean rolling back the app's
+		// shared context, which would also throw away any unrelated edit the user happened to have
+		// pending — and, symmetrically, a successful import would commit those unrelated edits as a
+		// side effect. A child context makes the import's own changes the only thing that can be
+		// discarded: on failure the child is simply abandoned, and the parent never saw it.
+		let importContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+		importContext.parent = context
+
+		// Objects whose `modifiedAt` suppression must be lifted once the save that consumes it is
+		// done. Leaving the flag set would freeze the timestamp of every imported finding FOR EVER:
+		// the managed object stays live, and every later edit would keep the archived value.
+		var suppressed: [Finding] = []
+		defer { for finding in suppressed { finding.preservesModifiedAt = false } }
+
+		for row in contents.rows {
+			let existing = Finding.select(row.id, in: importContext)
+			if existing != nil, duplicates == .skip {
+				summary.skipped += 1
+				continue
+			}
+
+			var backup: (filename: String, data: Data?)?
+			var filename: String?
+			do {
+				if let imageData = contents.images[row.id] {
+					let ext = row.screenshotExtension ?? "jpg"
+					if let previous = existing?.screenshotFilename,
+						let previousURL = FindingScreenshotStore.url(forFilename: previous) {
+						backup = (previous, try? Data(contentsOf: previousURL))
+					}
+					let written = try FindingScreenshotStore.save(imageData, for: row.id, pathExtension: ext)
+					filename = written
+					writtenFilenames.append(written)
+					if let backup { replacedImages.append(backup) }
+				} else {
+					// No image in the archive: keep whatever the device already has for a replaced
+					// finding, and give a new one the canonical name with no file behind it — a row
+					// whose picture is missing is an already-supported state.
+					filename = existing?.screenshotFilename ?? Finding.screenshotFilename(for: row.id)
+				}
+
+				let finding = existing ?? Finding.create(in: importContext)
+				suppressed.append(finding)
+				try apply(row, to: finding, screenshotFilename: filename)
+				summary.restored += 1
+			} catch {
+				LoggingPolicy.warning(
+					"Skipped a finding during import: \(error.localizedDescription)",
+					logger: .storage
+				)
+				restore(backup)
+				if let existing {
+					// Never delete a finding the user already had because an archived copy was bad.
+					importContext.refresh(existing, mergeChanges: false)
+				} else if let pending = Finding.select(row.id, in: importContext) {
+					importContext.delete(pending)
+				}
+				if let filename, backup == nil, existing == nil {
+					FindingScreenshotStore.delete(filename: filename)
+					writtenFilenames.removeAll { $0 == filename }
+				}
+				summary.failed += 1
+			}
+		}
+
+		do {
+			// Child first (validates and pushes into the parent), then the parent to the store.
+			try importContext.save()
+			try Finding.save(in: context)
+		} catch {
+			// The child is abandoned rather than rolled back; the parent's unrelated pending edits
+			// are deliberately left alone. Every file this import wrote must still go, and every
+			// image it replaced must come back.
+			importContext.reset()
+			for filename in writtenFilenames {
+				FindingScreenshotStore.delete(filename: filename)
+			}
+			for backup in replacedImages {
+				restore(backup)
+			}
+			LoggingPolicy.error("Finding import failed to commit", error: error, logger: .storage)
+			throw error
+		}
+
+		return summary
+	}
+
+	/// How many of an archive's findings this device already stores.
+	///
+	/// Lets the caller ask the skip-or-replace question ONCE, with a real number, instead of per
+	/// finding or not at all. Read-only: nothing here writes, so asking is always safe.
+	func duplicateCount(in contents: FindingArchiveContents) -> Int {
+		contents.rows.count { Finding.select($0.id, in: context) != nil }
+	}
+
+	/// Writes one decoded row onto a finding and walks it through the lifecycle state machine.
+	///
+	/// The lifecycle goes through `transition(to:)` rather than assigning `lifeCycleString`:
+	/// `.empty → .ready` is not an allowed transition, and setting the raw string would force past
+	/// the guard exactly as a corrupt write does.
+	private func apply(_ row: ImportedFindingRow, to finding: Finding, screenshotFilename: String?) throws {
+		finding.entityId = row.id
+		finding.title = row.title.trimmingCharacters(in: .whitespacesAndNewlines)
+		finding.label_ = row.label
+		finding.note_ = row.note
+		finding.author = row.author
+		finding.gps_ = row.gps
+		finding.page = row.page
+		finding.detectionClass = row.detectionClass
+		finding.detectionConfidence = row.confidence
+		finding.modelId = row.modelId
+		finding.creationDate_ = row.creationDate ?? .now
+		finding.boxX = row.box.x
+		finding.boxY = row.box.y
+		finding.boxWidth = row.box.width
+		finding.boxHeight = row.box.height
+		finding.screenshotFilename = screenshotFilename
+
+		// The archived timestamp is authoritative: stamping "now" would make a restored copy win
+		// last-write-wins against a newer edit elsewhere. v0 archives carry none, so fall back the
+		// way the attribute documents.
+		finding.preservesModifiedAt = true
+		finding.modifiedAt = row.modifiedAt ?? row.creationDate ?? .now
+
+		// Walk to `.draft` first, validate there, then step to the archived state.
+		//
+		// `transition(to:)` silently keeps the current state when a hop is not allowed, so applying
+		// the archived lifecycle directly would leave a replaced `.ready` finding `.ready` even
+		// though the archive says `.draft` — a wrong answer that looks like success. Every state can
+		// reach `.draft`, and `.draft` can reach every state, so this is one deterministic route
+		// rather than a per-pair table.
+		let target = row.lifeCycle.flatMap(CoreDataManageableState.init(rawValue:)) ?? .ready
+		Self.descendToDraft(finding)
+		try finding.throwIfInvalid()
+		if target != .draft {
+			finding.transition(to: target)
+		}
+	}
+
+	/// Moves a finding to `.draft` from wherever it is, using only permitted transitions.
+	private static func descendToDraft(_ finding: Finding) {
+		if finding.lifeCycle == .ready { finding.transition(to: .deprecated) }
+		if finding.lifeCycle == .deprecated { finding.transition(to: .empty) }
+		if finding.lifeCycle != .draft { finding.transition(to: .draft) }
+	}
+
+	/// Puts a replaced image back, or removes the replacement when there was nothing there before.
+	private func restore(_ backup: (filename: String, data: Data?)?) {
+		guard let backup else { return }
+		guard let data = backup.data else {
+			FindingScreenshotStore.delete(filename: backup.filename)
+			return
+		}
+		guard let url = FindingScreenshotStore.url(forFilename: backup.filename) else { return }
+		do {
+			try data.write(to: url, options: .atomic)
+		} catch {
+			LoggingPolicy.warning("Could not restore a replaced finding image", logger: .storage)
+		}
+	}
+
 	/// Removes every finding (AIA-0303, Settings → Reset → Remove Findings). Batch-deletes all
 	/// `Finding` rows on a background context, merging the deletion into the live `viewContext` so
 	/// an open `@FetchRequest` refreshes and no zombie rows can resurrect on a later save; then, and
-	/// only if the row delete succeeded, sweeps the now-orphaned screenshot PNGs.
+	/// only if the row delete succeeded, sweeps the now-orphaned screenshot files.
 	///
 	/// Mirrors `DemoDataManager.deleteBrowsingHistory()` but PROPAGATES the delete error instead of
 	/// swallowing it, so the caller can surface it. The sweep is skipped when the delete throws (we

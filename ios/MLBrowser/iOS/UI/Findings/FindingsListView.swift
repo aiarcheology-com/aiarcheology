@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreData
+import UniformTypeIdentifiers
 
 /// The findings inventory (AIA-0215): stored detections with label filtering,
 /// presented as a sheet from the drawer's Findings section.
@@ -15,6 +16,14 @@ struct FindingsListView: View {
 	@Environment(\.managedObjectContext) private var moc
 	/// Held only to hand on to the share composer's own sheet, which needs it live (AIA-0650).
 	@EnvironmentObject private var featureFlags: FeatureFlagsState
+
+	/// The persist/restore transaction. Passed by initializer rather than injected as an environment
+	/// object because `FindingRepository` is a plain type (AIA-0303) — the same way `DrawerContent`
+	/// hands it to `SettingsForm` and `WebScreen` to `SaveFindingSheet`.
+	///
+	/// Declared BEFORE `onOpenPage` so the memberwise initializer ends on the closure and the call
+	/// site keeps its trailing-closure form.
+	let findingRepository: FindingRepository
 
 	/// "Open page" routes through the presenting drawer: it must dismiss this
 	/// sheet and the drawer before the web screen loads the URL.
@@ -40,6 +49,17 @@ struct FindingsListView: View {
 	@State private var isExporting = false
 	@State private var exportFailed = false
 
+	// MARK: Import (AIA-713)
+
+	@State private var isPresentingImporter = false
+	@State private var isImporting = false
+	@State private var importFailed = false
+	/// A decoded archive waiting on the user's skip-or-replace answer. Holding the decoded contents
+	/// — rather than the file URL — means answering the question does not re-read or re-inflate it.
+	@State private var pendingImport: FindingArchiveContents?
+	@State private var pendingDuplicateCount = 0
+	@State private var importSummary: FindingRepository.ImportSummary?
+
 	var body: some View {
 		NavigationStack {
 			VStack(spacing: 0) {
@@ -59,8 +79,9 @@ struct FindingsListView: View {
 			.navigationTitle(L10n.Findings.title)
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
-				ToolbarItem(placement: .navigationBarLeading) {
+				ToolbarItemGroup(placement: .navigationBarLeading) {
 					exportButton
+					importButton
 				}
 				ToolbarItem(placement: .navigationBarTrailing) {
 					Button(action: { dismiss() }) {
@@ -75,7 +96,7 @@ struct FindingsListView: View {
 			}
 		}
 		.onAppear {
-			// Self-heal write-time leftovers (PNG written, entity insert failed) and
+			// Self-heal write-time leftovers (image written, entity insert failed) and
 			// failed file deletes. Runs on the viewContext/MainActor; the save sheet
 			// is dismissed before this list can open, so it never races a save.
 			FindingScreenshotStore.sweepOrphans(in: moc)
@@ -89,6 +110,127 @@ struct FindingsListView: View {
 		}
 		.alert(L10n.Findings.Export.error, isPresented: $exportFailed) {
 			Button(L10n.Common.ok, role: .cancel) {}
+		}
+		.fileImporter(
+			isPresented: $isPresentingImporter,
+			allowedContentTypes: [.zip],
+			allowsMultipleSelection: false
+		) { result in
+			switch result {
+			case let .success(urls):
+				if let url = urls.first { Task { await decodeArchive(at: url) } }
+			case let .failure(error):
+				LoggingPolicy.warning("Findings import cancelled or failed: \(error.localizedDescription)", logger: .storage)
+			}
+		}
+		.alert(L10n.Findings.Import.error, isPresented: $importFailed) {
+			Button(L10n.Common.ok, role: .cancel) {}
+		}
+		// Asked ONCE, with a real count, instead of per finding: importing must never silently
+		// create a second copy of a finding the device already has, and must never silently
+		// overwrite one either.
+		.alert(
+			L10n.Findings.Import.Duplicates.title,
+			isPresented: Binding(get: { pendingImport != nil }, set: { if $0 == false { pendingImport = nil } })
+		) {
+			Button(L10n.Findings.Import.Duplicates.keep) { commitPendingImport(duplicates: .skip) }
+			Button(L10n.Findings.Import.Duplicates.replace, role: .destructive) { commitPendingImport(duplicates: .replace) }
+			Button(L10n.Common.cancel, role: .cancel) { pendingImport = nil }
+		} message: {
+			Text(L10n.Findings.Import.Duplicates.message(pendingDuplicateCount))
+		}
+		.alert(
+			L10n.Findings.Import.Result.title,
+			isPresented: Binding(get: { importSummary != nil }, set: { if $0 == false { importSummary = nil } })
+		) {
+			Button(L10n.Common.ok, role: .cancel) { importSummary = nil }
+		} message: {
+			let summary = importSummary ?? .init()
+			Text(L10n.Findings.Import.Result.message(summary.restored, summary.skipped, summary.failed))
+		}
+	}
+
+	// MARK: - Import
+
+	@ViewBuilder
+	private var importButton: some View {
+		if isImporting {
+			ProgressView()
+		} else {
+			Button(action: { isPresentingImporter = true }) {
+				Text(L10n.Findings.import)
+			}
+			.tint(.blue)
+			.testability(Testability.Button.findingsImport)
+		}
+	}
+
+	/// Reads and validates the archive off the MainActor, then decides whether a question is needed.
+	///
+	/// The picked file lives outside the sandbox, so it is opened under a security scope and copied
+	/// into the app's own temporary directory FIRST: the scope must be released promptly, and the
+	/// decode that follows is asynchronous.
+	private func decodeArchive(at url: URL) async {
+		isImporting = true
+		let staged = FileManager.default.temporaryDirectory
+			.appendingPathComponent("findings-import-\(UUID().uuidString).zip")
+		do {
+			// Copying a multi-hundred-megabyte archive is real IO and does not belong on the main
+			// thread. The security scope is opened and closed around the copy inside the same
+			// detached task, so it is held for exactly as long as the read needs it.
+			try await Task.detached(priority: .userInitiated) {
+				let scoped = url.startAccessingSecurityScopedResource()
+				defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+				try FileManager.default.copyItem(at: url, to: staged)
+			}.value
+		} catch {
+			LoggingPolicy.error("Could not stage the picked findings archive", error: error, logger: .storage)
+			isImporting = false
+			importFailed = true
+			return
+		}
+
+		Task {
+			defer { try? FileManager.default.removeItem(at: staged) }
+			do {
+				// Unzip, JSON parsing and image inspection all run off the MainActor: this view's
+				// context is the viewContext, and a 200-finding archive would otherwise block it.
+				let contents = try await Task.detached(priority: .userInitiated) {
+					try FindingArchiveImport.read(archiveAt: staged)
+				}.value
+
+				let duplicates = findingRepository.duplicateCount(in: contents)
+				if duplicates > 0 {
+					pendingDuplicateCount = duplicates
+					pendingImport = contents
+				} else {
+					apply(contents, duplicates: .skip)
+				}
+			} catch {
+				LoggingPolicy.error("Could not read the findings archive", error: error, logger: .storage)
+				importFailed = true
+			}
+			isImporting = false
+		}
+	}
+
+	private func commitPendingImport(duplicates: FindingRepository.DuplicatePolicy) {
+		guard let contents = pendingImport else { return }
+		pendingImport = nil
+		// Deferred by one turn: setting `importSummary` synchronously here would raise the result
+		// alert while the duplicates alert is still dismissing, and SwiftUI drops the second — the
+		// user would replace their findings and be told nothing at all.
+		Task { @MainActor in
+			apply(contents, duplicates: duplicates)
+		}
+	}
+
+	private func apply(_ contents: FindingArchiveContents, duplicates: FindingRepository.DuplicatePolicy) {
+		do {
+			importSummary = try findingRepository.importFindings(contents, duplicates: duplicates)
+		} catch {
+			LoggingPolicy.error("Failed to import findings", error: error, logger: .storage)
+			importFailed = true
 		}
 	}
 

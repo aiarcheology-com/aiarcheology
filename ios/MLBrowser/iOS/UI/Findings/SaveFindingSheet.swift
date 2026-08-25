@@ -156,7 +156,7 @@ struct FindingCapture: Identifiable {
 }
 
 /// Save dialog for a tapped detection (AIA-0215): stores the finding as a Core Data
-/// row plus a clean PNG of the displayed snapshot — the highlight is always drawn
+/// row plus a clean image of the displayed snapshot — the highlight is always drawn
 /// live from the stored bounding box, never baked into the image.
 struct SaveFindingSheet: View {
 	@Environment(\.dismiss) private var dismiss
@@ -379,7 +379,7 @@ struct SaveFindingSheet: View {
 	// MARK: - Save
 
 	/// Bake the editor's crop, then hand the finding to the repository — the whole persist
-	/// transaction (PNG write → entity → lifecycle → save → rollback) lives there (AIA-0392).
+	/// transaction (image write → entity → lifecycle → save → rollback) lives there (AIA-0392).
 	private func save() {
 		let (imageToStore, boxToStore) = croppedCapture()
 		do {
@@ -405,7 +405,7 @@ struct SaveFindingSheet: View {
 		title.trimmingCharacters(in: .whitespacesAndNewlines)
 	}
 
-	/// Bakes the editor's crop at save time: the stored PNG IS the cropped region
+	/// Bakes the editor's crop at save time: the stored image IS the cropped region
 	/// (still clean — no highlight baked in) and the box is re-normalized into
 	/// crop space, so every downstream renderer works unchanged. Any failure
 	/// falls back to the uncropped capture rather than losing the finding.

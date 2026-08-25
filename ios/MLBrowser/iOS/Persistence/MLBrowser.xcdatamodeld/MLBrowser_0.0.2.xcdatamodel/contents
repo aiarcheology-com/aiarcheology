@@ -50,6 +50,7 @@
         <attribute name="label_" optional="YES" attributeType="String"/>
         <attribute name="lifeCycleString" attributeType="String"/>
         <attribute name="modelId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="modifiedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="note_" optional="YES" attributeType="String"/>
         <attribute name="page" optional="YES" attributeType="URI"/>
         <attribute name="screenshotFilename" optional="YES" attributeType="String"/>

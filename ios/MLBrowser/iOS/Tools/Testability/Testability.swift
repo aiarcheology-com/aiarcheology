@@ -219,6 +219,7 @@ extension TestabilityIdentification {
 		case findPickCancel
 		// Findings
 		case findingsDismiss
+		case findingsImport
 		case findingsItem
 		case findingsFilterLabel
 		case findingsDeleteEntry
