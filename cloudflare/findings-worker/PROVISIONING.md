@@ -80,8 +80,19 @@ Development instance (`advanced-tetra-5`), stored as `op://Personal/ML Browser A
 | JWKS | `https://advanced-tetra-5.clerk.accounts.dev/.well-known/jwks.json` |
 
 **The `JWKS URL` field stored on that 1Password item omits the `.json` suffix and returns 404.**
-Use the URL above. Never commit a key: follow `ios/asc.env.template` and reference `op://` paths,
-resolved at runtime with `op read`.
+Use the URL above.
+
+For the integration tests, which must *mint* a token rather than verify one, the same item carries
+a `development secret key` (`sk_test_…`). Reference it — never copy it:
+
+| Purpose | Reference |
+|-|-|
+| Publishable key | `op://Personal/ML Browser API Key Clerk/credential` |
+| Backend API secret (tests only) | `op://Personal/ML Browser API Key Clerk/development secret key` |
+
+Resolve with `op read` at runtime and feed it through `wrangler secret put --env staging`, exactly
+as `ios/asc.env.template` does for App Store Connect. It is a **development** instance key: it must
+never reach a production environment, and never a committed file.
 
 ## Cost guard — not optional
 
