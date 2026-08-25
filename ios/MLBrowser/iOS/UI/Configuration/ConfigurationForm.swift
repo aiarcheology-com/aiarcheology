@@ -491,7 +491,8 @@ struct ConfigurationForm: View {
 			NavigationLink {
 				AnnotationSoundConfigurationView(
 					configuration: configuration,
-					onPreview: { await appState.annotationSoundPlayer.play($0) }
+					onPreview: { await appState.annotationSoundPlayer.play($0) },
+					onReadOutputVolume: { await appState.annotationSoundPlayer.deviceOutputVolume() }
 				)
 			} label: {
 				ConfigurationDetailRow(
@@ -624,6 +625,11 @@ struct ConfigurationForm: View {
 private struct AnnotationSoundConfigurationView: View {
 	@ObservedObject var configuration: DeepConfiguration
 	let onPreview: @Sendable (AnnotationSoundPlaybackRequest) async -> Void
+	/// Reads the device's media output level through the player boundary (AIA-0720), so this view
+	/// can warn about a silenced device without importing AVFoundation.
+	let onReadOutputVolume: @Sendable () async -> Float
+
+	@State private var isDeviceOutputMuted = false
 
 	private var volumeBinding: Binding<Double> {
 		Binding(
@@ -650,6 +656,25 @@ private struct AnnotationSoundConfigurationView: View {
 					.accessibilityValue(Text(volumeBinding.wrappedValue, format: .percent.precision(.fractionLength(0))))
 			}
 
+			// AIA-0720. An explicit preview tap that produces nothing, with no explanation, is a
+			// defect regardless of cause — #720 was reported as "no sound on iPhone" and turned out
+			// to be Silent mode. iOS exposes no API for the Silent switch, so the note carries the
+			// weight and is always shown; the muted-volume warning below is the only part that can
+			// actually be detected, and it is the rarer case.
+			Section {
+				Text(L10n.Configuration.soundOutputNote)
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.testability(Testability.Label.configurationFormSoundOutputNote)
+
+				if isDeviceOutputMuted {
+					Label(L10n.Configuration.soundOutputMuted, systemImage: "speaker.slash")
+						.font(.footnote)
+						.foregroundStyle(.orange)
+						.testability(Testability.Label.configurationFormSoundOutputMuted)
+				}
+			}
+
 			ForEach(AnnotationSound.allCases) { sound in
 				Button {
 					configuration.annotationSound = sound
@@ -672,6 +697,11 @@ private struct AnnotationSoundConfigurationView: View {
 		}
 		.navigationTitle(L10n.Configuration.sound)
 		.navigationBarTitleDisplayMode(.inline)
+		.task {
+			// Re-read on every appearance rather than once: the user may well leave to fix the
+			// volume and come straight back, which is the whole point of showing the warning.
+			isDeviceOutputMuted = await onReadOutputVolume() <= 0
+		}
 	}
 
 	private func previewRequest(for sound: AnnotationSound) -> AnnotationSoundPlaybackRequest {

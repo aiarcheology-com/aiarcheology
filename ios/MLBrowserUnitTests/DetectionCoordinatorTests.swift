@@ -271,6 +271,10 @@ final class AnnotationSoundEventCoordinatorTests: XCTestCase {
 		}
 
 		func recordedRequests() -> [AnnotationSoundPlaybackRequest] { requests }
+
+		/// The coordinator never reads this; the fake reports a healthy device so a settings-screen
+		/// concern cannot leak into these detection-path assertions.
+		func deviceOutputVolume() async -> Float { 1 }
 	}
 
 	private func detection(
@@ -377,5 +381,103 @@ final class AnnotationSoundEventCoordinatorTests: XCTestCase {
 
 		let requests = await player.recordedRequests()
 		XCTAssertEqual(requests.map(\.sound), [.chime, .pulse])
+	}
+}
+
+// MARK: - Annotation sound admission policy (AIA-0720)
+
+/// The playback gate that replaced AIA-0716's two-voice FIFO. Surplus sounds are **dropped** rather
+/// than queued, so what is heard always corresponds to detections happening now instead of trailing
+/// them by the length of a backlog — and same-sound detections within one pass are **staggered**, so
+/// a listener can hear that three things were found rather than one.
+final class AnnotationSoundAdmissionPolicyTests: XCTestCase {
+	private typealias Policy = AnnotationSoundAdmissionPolicy
+
+	func testFirstOnsetPlaysImmediately() {
+		var policy = Policy()
+		XCTAssertEqual(policy.admissionDelay(for: .chime, activeVoices: 0, now: 100), 0)
+	}
+
+	func testRefusesEveryRequestWhileAllVoicesAreBusy() {
+		var policy = Policy()
+		XCTAssertNil(
+			policy.admissionDelay(for: .chime, activeVoices: Policy.maximumActiveVoices, now: 100),
+			"A saturated player must drop the request, not queue it behind a busy voice"
+		)
+	}
+
+	/// The behaviour the reporter asked for: several objects in one pass are heard as a short run,
+	/// not as a single tone. Firing identical waveforms simultaneously would sum into one louder
+	/// tone, so spacing the onsets is the only way the count is audible at all.
+	func testSameSoundDetectionsAreStaggeredIntoACountableRun() {
+		var policy = Policy()
+		let interval = Policy.minimumInterOnsetInterval
+
+		let delays = (0..<3).map { _ in
+			policy.admissionDelay(for: .chime, activeVoices: 0, now: 100)
+		}
+
+		XCTAssertEqual(delays, [0, interval, interval * 2])
+	}
+
+	func testTheStaggeredRunIsBoundedAndSurplusIsDropped() {
+		var policy = Policy()
+
+		for _ in 0..<Policy.maximumStaggeredOnsets {
+			XCTAssertNotNil(policy.admissionDelay(for: .chime, activeVoices: 0, now: 100))
+		}
+
+		XCTAssertNil(
+			policy.admissionDelay(for: .chime, activeVoices: 0, now: 100),
+			"Beyond the cap a dense pass must shorten to a fixed-length run, never trail the detections"
+		)
+	}
+
+	func testTheRunResetsOnceItHasBeenHeard() {
+		var policy = Policy()
+		let interval = Policy.minimumInterOnsetInterval
+
+		for _ in 0..<Policy.maximumStaggeredOnsets {
+			_ = policy.admissionDelay(for: .chime, activeVoices: 0, now: 100)
+		}
+
+		let laterPass = 100 + interval * TimeInterval(Policy.maximumStaggeredOnsets) + 1
+		XCTAssertEqual(
+			policy.admissionDelay(for: .chime, activeVoices: 0, now: laterPass),
+			0,
+			"A later pass starts a fresh run rather than inheriting the previous pass's backlog"
+		)
+	}
+
+	/// The reason the gate is keyed per sound rather than globally.
+	///
+	/// `AnnotationSoundEventCoordinator` emits requests in driver-registration order, so a single
+	/// global gate would let the first-registered model win every slot under saturation and a second
+	/// model's tone would never be heard — defeating the point of telling models apart by ear.
+	func testASecondModelsSoundIsNotStarvedByTheFirst() {
+		var policy = Policy()
+
+		XCTAssertEqual(policy.admissionDelay(for: .chime, activeVoices: 0, now: 100), 0)
+		XCTAssertEqual(
+			policy.admissionDelay(for: .sonar, activeVoices: 1, now: 100),
+			0,
+			"A different model's sound must not be delayed or dropped by another model's onset"
+		)
+	}
+}
+
+// MARK: - Annotation sound session category (AIA-0720)
+
+final class AnnotationSoundCategoryTests: XCTestCase {
+	/// #720 was reported as "no sound on iPhone" and proved to be Silent mode. The resolution was to
+	/// keep respecting Silent mode and say so on the Sound screen, which makes `.ambient` a promise
+	/// to the user rather than an implementation detail: `.playback` would keep playing through a
+	/// silenced device and turn the shipped copy into a lie.
+	func testPlaybackCategoryRespectsSilentMode() {
+		XCTAssertEqual(
+			AnnotationSoundPlayer.sessionCategory,
+			.ambient,
+			"L10n.Configuration.soundOutputNote promises detection sounds follow Silent mode; only .ambient honours that"
+		)
 	}
 }

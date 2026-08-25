@@ -429,6 +429,10 @@ internal enum L10n {
     internal static let soundEcho = L10n.tr("Localizable", "configuration.soundEcho", fallback: "Echo")
     /// Play sound for annotations
     internal static let soundEnabled = L10n.tr("Localizable", "configuration.soundEnabled", fallback: "Play sound for annotations")
+    /// Your device's media volume is off, so these sounds will not be heard.
+    internal static let soundOutputMuted = L10n.tr("Localizable", "configuration.soundOutputMuted", fallback: "Your device's media volume is off, so these sounds will not be heard.")
+    /// Detection sounds follow Silent mode. If your device is silenced you will not hear them, not even the previews above.
+    internal static let soundOutputNote = L10n.tr("Localizable", "configuration.soundOutputNote", fallback: "Detection sounds follow Silent mode. If your device is silenced you will not hear them, not even the previews above.")
     /// Ping
     internal static let soundPing = L10n.tr("Localizable", "configuration.soundPing", fallback: "Ping")
     /// Pulse
