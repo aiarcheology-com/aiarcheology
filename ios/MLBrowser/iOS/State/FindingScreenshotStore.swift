@@ -55,8 +55,11 @@ enum FindingScreenshotStore {
     /// before calling — this writes what it is given.
     ///
     /// **Named `save` on purpose.** `ArchitectureTests.testOnlyFindingRepositoryWritesScreenshots`
-    /// matches `FindingScreenshotStore.save`, so an overload keeps this writer inside the privacy
-    /// invariant; a differently-named entry point would silently escape it.
+    /// matches a `.save` call on this type by source text, so an overload keeps this writer inside
+    /// the privacy invariant; a differently-named entry point would silently escape it.
+    ///
+    /// (That scan reads whole files and does not exclude comments, so this note deliberately avoids
+    /// spelling the matched pattern out — doing so makes this very file an offender.)
     /// - Parameter pathExtension: the codec the bytes actually are. Defaults to the canonical `jpg`
     ///   for anything this app encodes; an import passes the archived file's own extension so a
     ///   restored PNG is not stored under a name claiming to be a JPEG.

@@ -26708,6 +26708,102 @@
         }
       }
     },
+    "findings.import" : {
+      "comment" : "Toolbar button that imports findings from an exported archive",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import"
+          }
+        }
+      }
+    },
+    "findings.import.duplicates.keep" : {
+      "comment" : "Button keeping the findings already on this device",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Mine"
+          }
+        }
+      }
+    },
+    "findings.import.duplicates.message" : {
+      "comment" : "Asks whether archived copies should replace the ones already stored. %lld is a count of findings.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld of these findings are already on this device."
+          }
+        }
+      }
+    },
+    "findings.import.duplicates.replace" : {
+      "comment" : "Button replacing stored findings with the archived copies",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replace"
+          }
+        }
+      }
+    },
+    "findings.import.duplicates.title" : {
+      "comment" : "Title of the duplicate-findings prompt shown during import",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some findings are already here"
+          }
+        }
+      }
+    },
+    "findings.import.error" : {
+      "comment" : "Alert shown when a findings archive cannot be read",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That file is not a findings archive."
+          }
+        }
+      }
+    },
+    "findings.import.result.message" : {
+      "comment" : "Summary after importing. %1$lld restored, %2$lld skipped as duplicates, %3$lld unreadable.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restored %1$lld. Skipped %2$lld already here. %3$lld could not be read."
+          }
+        }
+      }
+    },
+    "findings.import.result.title" : {
+      "comment" : "Title of the alert summarising a finished import",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import finished"
+          }
+        }
+      }
+    },
     "findings.openPage" : {
       "comment" : "Button that reopens the page a finding was captured on",
       "extractionState" : "manual",

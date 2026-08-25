@@ -215,6 +215,14 @@ final class FindingRepository {
 		return summary
 	}
 
+	/// How many of an archive's findings this device already stores.
+	///
+	/// Lets the caller ask the skip-or-replace question ONCE, with a real number, instead of per
+	/// finding or not at all. Read-only: nothing here writes, so asking is always safe.
+	func duplicateCount(in contents: FindingArchiveContents) -> Int {
+		contents.rows.count { Finding.select($0.id, in: context) != nil }
+	}
+
 	/// Writes one decoded row onto a finding and walks it through the lifecycle state machine.
 	///
 	/// The lifecycle goes through `transition(to:)` rather than assigning `lifeCycleString`:

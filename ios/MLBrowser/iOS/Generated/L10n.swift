@@ -631,6 +631,8 @@ internal enum L10n {
   internal enum Findings {
     /// Export
     internal static let export = L10n.tr("Localizable", "findings.export", fallback: "Export")
+    /// Import
+    internal static let `import` = L10n.tr("Localizable", "findings.import", fallback: "Import")
     /// Open Page
     internal static let openPage = L10n.tr("Localizable", "findings.openPage", fallback: "Open Page")
     /// Findings
@@ -648,6 +650,30 @@ internal enum L10n {
     internal enum Filter {
       /// All
       internal static let all = L10n.tr("Localizable", "findings.filter.all", fallback: "All")
+    }
+    internal enum Import {
+      /// That file is not a findings archive.
+      internal static let error = L10n.tr("Localizable", "findings.import.error", fallback: "That file is not a findings archive.")
+      internal enum Duplicates {
+        /// Keep Mine
+        internal static let keep = L10n.tr("Localizable", "findings.import.duplicates.keep", fallback: "Keep Mine")
+        /// %lld of these findings are already on this device.
+        internal static func message(_ p1: Int) -> String {
+          return L10n.tr("Localizable", "findings.import.duplicates.message", p1, fallback: "%lld of these findings are already on this device.")
+        }
+        /// Replace
+        internal static let replace = L10n.tr("Localizable", "findings.import.duplicates.replace", fallback: "Replace")
+        /// Some findings are already here
+        internal static let title = L10n.tr("Localizable", "findings.import.duplicates.title", fallback: "Some findings are already here")
+      }
+      internal enum Result {
+        /// Restored %1$lld. Skipped %2$lld already here. %3$lld could not be read.
+        internal static func message(_ p1: Int, _ p2: Int, _ p3: Int) -> String {
+          return L10n.tr("Localizable", "findings.import.result.message", p1, p2, p3, fallback: "Restored %1$lld. Skipped %2$lld already here. %3$lld could not be read.")
+        }
+        /// Import finished
+        internal static let title = L10n.tr("Localizable", "findings.import.result.title", fallback: "Import finished")
+      }
     }
   }
   internal enum History {
