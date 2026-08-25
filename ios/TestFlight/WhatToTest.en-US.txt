@@ -1,22 +1,43 @@
-Build: AIA-0699
+Build: AIA-0720
 
-Test Focus: configurable annotation sounds.
+Test Focus: how annotation sounds behave when several objects are found at once, and why a device
+may stay silent.
 
-- Open a detection model’s configuration, then Annotation > Sound. With the setting off, the
-  Annotation row must say Disabled. Turn it on, select and preview several of the eleven sounds
-  (including Sonar), adjust the volume, then close and reopen the configuration to confirm the
-  choices persist for that model.
+- Silent mode now has a visible explanation. Open a detection model's configuration, then
+  Annotation > Sound. A note under the sound list states that detection sounds follow Silent mode.
+  Turn Silent mode ON (Control Center) and tap a few sound names: nothing should play, and the note
+  should tell you why. Turn Silent mode off and tap again: the previews should be audible. This is
+  unchanged behaviour made honest, not a behaviour change.
 
-- Choose different sounds for two detection models. Run them over a page with several detected
-  objects: each newly painted rectangle, point, or circle should play the sound selected for its
-  model. When several annotations arrive together, two sounds can play at once and the remaining
-  sounds should follow promptly; neither model should suppress the other.
+- Turn the device's media volume all the way down while Silent mode is off. The Sound screen should
+  show an orange warning that media volume is off. Raise the volume, leave the screen and come back:
+  the warning should be gone.
 
-- Leave detection running as results arrive progressively. Existing annotations must not play a
-  second time when a later result repeats them, while a genuinely new annotation should play once.
+- Several objects found at once now sound like a short run, not a single tone. Run a model over a
+  page where several objects are found together: expect up to three onsets in quick succession
+  (about a sixth of a second apart) rather than one tone or a long trailing sequence. A single object
+  should still be a single tone.
 
-- Confirm the Sound preview and automatic annotation sounds do not change the device’s system
-  volume. If practical, also test with other audio already playing and with the silent switch on.
+- The limit is a rolling one, not a per-pass allowance: detections arriving within about half a
+  second of each other share the same run of three. That is deliberate, because a detection pass
+  reports partial results before its final ones.
 
-Please report your device model, iOS version, model(s), selected sound and volume, and a short
-description of the annotation sequence if anything sounds incorrect.
+- Dense detection must not lag. Keep detection running over a busy page. Sounds should always
+  correspond to what is being found right now; they must never queue up and continue playing after
+  the detections that caused them have finished.
+
+- Two models with different sounds should both be heard. Neither model should silence or delay the
+  other, even while objects are arriving continuously.
+
+- Play music or a video in another app, then run detection. Detection sounds should mix with it
+  rather than pausing or ducking it, and must never change the device's system volume.
+
+- Browse to a page with video, play it, then leave the page and run detection. Sounds should still
+  work afterwards — previously the audio setup was performed only once per launch and could be lost
+  after web page media played.
+
+Note: a stationary object still plays its sound on each detection pass; that is unchanged and
+intentional.
+
+Please report your device model, iOS version, model(s), selected sound and volume, whether Silent
+mode was on, and a short description of the annotation sequence if anything sounds incorrect.

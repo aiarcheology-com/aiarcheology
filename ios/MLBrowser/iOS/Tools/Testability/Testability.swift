@@ -381,6 +381,13 @@ extension TestabilityIdentification {
 		/// days". Identified so a test can read back the granted length the screen actually rendered,
 		/// which is remote-configurable, without matching localized copy.
 		case welcomeHeadline
+		/// The annotation sound screen's standing note that playback follows Silent mode
+		/// (AIA-0720). Always present; iOS exposes no API for the Silent switch, so this note is
+		/// the only coverage that case can have.
+		case configurationFormSoundOutputNote
+		/// The annotation sound screen's warning that device media volume is zero (AIA-0720).
+		/// Unlike the note above this one is detectable, so it is shown conditionally.
+		case configurationFormSoundOutputMuted
 	}
 
 	enum TextField: String, TestabilityIdentification {

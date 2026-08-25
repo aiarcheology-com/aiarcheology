@@ -18152,6 +18152,30 @@
         }
       }
     },
+    "configuration.soundOutputMuted" : {
+      "comment" : "Warning shown on the annotation sound screen when the device media volume is zero, so no sound can be heard.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your device's media volume is off, so these sounds will not be heard."
+          }
+        }
+      }
+    },
+    "configuration.soundOutputNote" : {
+      "comment" : "Footnote on the annotation sound screen explaining that playback follows the device Silent mode and media volume.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detection sounds follow Silent mode. If your device is silenced you will not hear them, not even the previews above."
+          }
+        }
+      }
+    },
     "configuration.soundPing" : {
       "comment" : "Name of an app-provided annotation sound.",
       "extractionState" : "manual",
