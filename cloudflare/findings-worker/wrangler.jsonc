@@ -1,0 +1,61 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+
+  // The bare top-level config declares NO bindings and is NEVER deployed. Wrangler does not
+  // inherit bindings into env blocks, so each environment below re-declares every one of them
+  // with its own resource id. Deploy only with `--env staging` / `--env production`.
+  "name": "aia-findings",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "observability": { "enabled": true },
+
+  "env": {
+    "staging": {
+      "r2_buckets": [
+        { "binding": "FINDINGS", "bucket_name": "aia-findings-staging", "jurisdiction": "eu" }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "aia-findings-staging",
+          "database_id": "8a5550ce-673c-4ba2-bcb7-57337d5e0009"
+        }
+      ],
+      "vars": {
+        "CLERK_ISSUER": "https://advanced-tetra-5.clerk.accounts.dev",
+        "CLERK_JWKS_URL": "https://advanced-tetra-5.clerk.accounts.dev/.well-known/jwks.json",
+        "USER_BYTE_LIMIT": 52428800,
+        // Staging and production draw on ONE account-wide free tier, and each environment's
+        // counter can only see its own bucket. Staging is deliberately given a small slice so
+        // the two ceilings together stay under the 10 GB allowance.
+        "GLOBAL_BYTE_CEILING": 1073741824,
+        "IMAGE_BYTE_LIMIT": 16777216,
+        "META_BYTE_LIMIT": 65536
+      }
+    },
+
+    "production": {
+      "r2_buckets": [
+        { "binding": "FINDINGS", "bucket_name": "aia-findings-production", "jurisdiction": "eu" }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "aia-findings-production",
+          "database_id": "ff7411c4-3add-42aa-836f-eae0b06b6366"
+        }
+      ],
+      "vars": {
+        // A production Clerk instance does not exist yet. These placeholders are not a valid
+        // issuer, and the Worker refuses every request with 503 while they stand, so a premature
+        // production deploy fails closed instead of trusting development-instance tokens.
+        "CLERK_ISSUER": "REPLACE_BEFORE_PRODUCTION_DEPLOY",
+        "CLERK_JWKS_URL": "REPLACE_BEFORE_PRODUCTION_DEPLOY",
+        "USER_BYTE_LIMIT": 52428800,
+        "GLOBAL_BYTE_CEILING": 8589934592,
+        "IMAGE_BYTE_LIMIT": 16777216,
+        "META_BYTE_LIMIT": 65536
+      }
+    }
+  }
+}
