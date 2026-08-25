@@ -7,6 +7,26 @@ so the **irreversible** ones are not got wrong.
 This is a **separate Worker** from `sentry-github-relay` in the parent folder. That one holds a
 GitHub PAT and must not share a public endpoint's blast radius.
 
+## Rule zero: nothing automated may touch production data
+
+**No script, no test, and no AI agent may read, write, or delete objects in
+`aia-findings-production`.** It holds real, irreplaceable fieldwork — a season of someone's
+survey — and there is no undo: R2 has no recycle bin, and the app's own store is not a backup of
+it.
+
+This is enforced structurally in the Worker's test harness, not by remembering it:
+
+- The harness resolves its bucket from configuration and **asserts the name ends in `-staging`
+  before any write or delete**, aborting otherwise. Fail closed: an unset or unexpected value
+  refuses to run rather than defaulting to anything.
+- Test credentials are scoped to the staging environment only. Production secrets are never placed
+  where a test can reach them (`wrangler secret put --env staging`, never `--env production`).
+- No cleanup helper takes a bucket name as a free parameter that could be pointed at production.
+- Production carries **no lifecycle expiry rule**, so no automated policy can delete from it either.
+
+Anything that needs to touch production is a deliberate, human, one-off action — not a script
+committed to this repo.
+
 ## Read this first: the two things that cannot be undone
 
 1. **R2 jurisdiction is fixed at bucket creation.** There is no move, no copy-in-place, no setting
@@ -128,7 +148,10 @@ So staging must be actively bounded, not merely tidied occasionally:
   **Production must never get an expiry rule** — it holds real fieldwork. Verify the asymmetry
   after any change: `lifecycle list` on production should show only Cloudflare's default
   multipart-abort rule.
-- Integration tests should delete what they upload, in teardown, rather than relying on the rule.
+- Integration tests **must delete what they uploaded in teardown**. The 7-day rule is a backstop
+  for what teardown misses (a crashed run, a killed process), never the primary mechanism: a test
+  suite run twenty times in an afternoon would otherwise hold twenty runs' worth of objects against
+  the shared allowance until the rule caught up.
 - The global ceiling below must count **both** buckets, not production alone.
 
 ## Cost guard — not optional
