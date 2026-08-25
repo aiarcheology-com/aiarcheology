@@ -826,3 +826,127 @@ final class FindingMigrationTests: XCTestCase {
 		XCTAssertEqual(volume, 0.2, accuracy: 0.0001)
     }
 }
+
+// MARK: - modifiedAt write-path choke point (AIA-713)
+
+/// `Finding.willSave()` is the ONE place `modifiedAt` is stamped, so that no writer — present or
+/// future, sync-aware or not — can persist a change without advancing the last-write-wins key.
+/// These tests pin the two halves that are easy to get wrong: the automatic stamp must fire on
+/// every ordinary mutation, and it must NOT fire for a writer carrying an authoritative timestamp.
+@MainActor
+final class FindingModifiedAtTests: XCTestCase {
+    var stack: TestCoreDataStack!
+    var moc: NSManagedObjectContext { stack.viewContext }
+
+    override func setUp() async throws {
+        try await super.setUp()
+        stack = TestCoreDataStack()
+    }
+
+    override func tearDown() async throws {
+        stack = nil
+        try await super.tearDown()
+    }
+
+    private func makeReadyFinding() throws -> Finding {
+        let finding = Finding.create(in: moc)
+        finding.creationDate_ = .now
+        finding.title = "Choke point"
+        finding.page = URL(string: "https://zbgis.skgeodesy.sk/mkzbgis/sk/teren")
+        finding.screenshotFilename = Finding.screenshotFilename(for: finding.entityId)
+        finding.boxX = 0.25
+        finding.boxY = 0.25
+        finding.boxWidth = 0.5
+        finding.boxHeight = 0.5
+        finding.detectionConfidence = 0.9
+        finding.transition(to: .draft)
+        finding.transition(to: .ready)
+        try Finding.save(in: moc)
+        return finding
+    }
+
+    func testSave_StampsModifiedAt() throws {
+        let finding = try makeReadyFinding()
+        XCTAssertNotNil(finding.modifiedAt, "willSave must stamp modifiedAt on the first save")
+    }
+
+    func testMutation_AdvancesModifiedAt() throws {
+        let finding = try makeReadyFinding()
+        let first = try XCTUnwrap(finding.modifiedAt)
+
+        finding.note_ = "revised in the field"
+        try Finding.save(in: moc)
+
+        let second = try XCTUnwrap(finding.modifiedAt)
+        XCTAssertGreaterThan(
+            second, first,
+            "an ordinary mutation must advance modifiedAt, or last-write-wins cannot order two edits"
+        )
+    }
+
+    /// The case an equality-based guard silently gets wrong: an authoritative writer sets
+    /// `modifiedAt` AND another attribute. Assigning a value equal to the committed one leaves
+    /// `changedValues()` empty, so only the explicit flag can stop the automatic stamp.
+    func testPreservesModifiedAt_KeepsTheAuthoritativeTimestamp() throws {
+        let finding = try makeReadyFinding()
+        let authoritative = Date(timeIntervalSince1970: 1_000_000)
+
+        finding.preservesModifiedAt = true
+        finding.modifiedAt = authoritative
+        finding.note_ = "restored from an archive"
+        try Finding.save(in: moc)
+
+        XCTAssertEqual(
+            finding.modifiedAt, authoritative,
+            "an import/sync writer's timestamp must survive; stamping now would hand this device a false LWW win"
+        )
+    }
+
+    /// The case that actually requires the flag, and the reason an equality guard alone is not
+    /// enough: the authoritative timestamp EQUALS the committed one, so assigning it leaves
+    /// `changedValues()` empty and `changedValues()["modifiedAt"] == nil` is true. Without
+    /// `preservesModifiedAt` the stamp fires and silently overwrites the value the caller supplied.
+    /// (Verified by mutation: deleting the flag check from `willSave()` fails THIS test and no other.)
+    func testPreservesModifiedAt_WhenTheTimestampEqualsTheCommittedValue() throws {
+        let finding = try makeReadyFinding()
+        let committed = try XCTUnwrap(finding.modifiedAt)
+
+        finding.preservesModifiedAt = true
+        finding.modifiedAt = committed // equal — contributes nothing to changedValues()
+        finding.note_ = "restored from an archive whose timestamp matches"
+        try Finding.save(in: moc)
+
+        XCTAssertEqual(
+            finding.modifiedAt, committed,
+            "the flag, not changedValues(), is what suppresses the stamp when the timestamp is unchanged"
+        )
+    }
+
+    /// Same object, flag cleared: the very next ordinary save must resume stamping, so the
+    /// suppression cannot leak past the one write it was meant for.
+    func testClearingTheFlag_ResumesStamping() throws {
+        let finding = try makeReadyFinding()
+        let authoritative = Date(timeIntervalSince1970: 1_000_000)
+        finding.preservesModifiedAt = true
+        finding.modifiedAt = authoritative
+        try Finding.save(in: moc)
+
+        finding.preservesModifiedAt = false
+        finding.note_ = "edited by the user afterwards"
+        try Finding.save(in: moc)
+
+        XCTAssertGreaterThan(
+            try XCTUnwrap(finding.modifiedAt), authoritative,
+            "clearing preservesModifiedAt must restore the automatic stamp"
+        )
+    }
+
+    /// A deleted object must not be re-dirtied by the stamp — that would push a pending delete
+    /// back into the context and can fail the save outright.
+    func testDelete_DoesNotThrow() throws {
+        let finding = try makeReadyFinding()
+        moc.delete(finding)
+        XCTAssertNoThrow(try moc.save(), "stamping must skip deleted objects")
+        XCTAssertEqual(Finding.count(in: moc, predicate: nil), 0)
+    }
+}
