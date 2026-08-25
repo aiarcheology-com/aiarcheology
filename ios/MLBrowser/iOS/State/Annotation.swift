@@ -149,13 +149,22 @@ struct AnnotationSoundAdmissionPolicy: Sendable {
 	/// tone. This interval is what actually bounds the rate.
 	static let minimumInterOnsetInterval: TimeInterval = 0.15
 
-	/// How many objects one pass may announce with the same sound. Beyond this the remaining
+	/// How many objects one run may announce with the same sound. Beyond this the remaining
 	/// detections are dropped rather than extending the run indefinitely.
 	static let maximumStaggeredOnsets = 3
 
-	/// The next moment each sound is allowed to be heard. This runs *ahead* of `now` while a pass is
-	/// being staggered, which is what turns a simultaneous burst into a countable run.
-	private var nextOnsetBySound: [AnnotationSound: TimeInterval] = [:]
+	/// A run of onsets for one sound: when the next may be heard, and how many have been granted.
+	///
+	/// The count is tracked explicitly rather than derived from the delay. Deriving it invited a
+	/// float hazard: each delay is an accumulated sum of `minimumInterOnsetInterval`, so a fourth
+	/// onset computed a delay of 0.4499999999825377 against a 0.45 horizon and was admitted — a cap
+	/// that held or broke depending on the device's uptime. An integer cannot drift.
+	private struct Run {
+		var nextOnset: TimeInterval
+		var grantedOnsets: Int
+	}
+
+	private var runBySound: [AnnotationSound: Run] = [:]
 
 	init() {}
 
@@ -171,6 +180,13 @@ struct AnnotationSoundAdmissionPolicy: Sendable {
 	/// Spacing the onsets is the only way a listener can hear that three things were found rather
 	/// than one, which is what "one sound per object" has to mean in practice.
 	///
+	/// **This is a rolling limiter, not a per-pass counter**, and the distinction is deliberate. A
+	/// detection pass publishes partial results before its final ones, so "per pass" would be the
+	/// wrong unit: two bursts arriving 80 ms apart would each be granted a full run and the density
+	/// this exists to bound would return. A run therefore spans whatever arrives inside it and only
+	/// resets once the sound has gone quiet — in practice every ordinary pass, which arrives seconds
+	/// after the last, starts a fresh run.
+	///
 	/// - Parameter now: a monotonic timestamp; callers pass `ProcessInfo.processInfo.systemUptime`
 	///   so the gate cannot be skewed by a wall-clock adjustment.
 	/// - Returns: the delay to wait before starting playback, or `nil` if the request is dropped.
@@ -181,15 +197,22 @@ struct AnnotationSoundAdmissionPolicy: Sendable {
 	) -> TimeInterval? {
 		guard activeVoices < Self.maximumActiveVoices else { return nil }
 
-		let earliest = nextOnsetBySound[sound] ?? now
-		let delay = max(earliest - now, 0)
-		// Drop rather than extend the run: the cap is on how far ahead of *now* the stagger may
-		// reach, so a dense pass shortens to a fixed-length run instead of trailing the detections
-		// that caused it — the failure AIA-0716's FIFO produced.
-		let horizon = Self.minimumInterOnsetInterval * TimeInterval(Self.maximumStaggeredOnsets)
-		guard delay < horizon else { return nil }
+		// A run that has already been heard out is over: the next detection starts a new one, which
+		// is what lets a stationary object sound again on the following pass.
+		var run = runBySound[sound] ?? Run(nextOnset: now, grantedOnsets: 0)
+		if now >= run.nextOnset {
+			run = Run(nextOnset: now, grantedOnsets: 0)
+		}
 
-		nextOnsetBySound[sound] = max(earliest, now) + Self.minimumInterOnsetInterval
+		// Drop rather than extend: a dense burst shortens to a fixed-length run instead of trailing
+		// the detections that caused it — the failure AIA-0716's FIFO produced.
+		guard run.grantedOnsets < Self.maximumStaggeredOnsets else { return nil }
+
+		let delay = max(run.nextOnset - now, 0)
+		runBySound[sound] = Run(
+			nextOnset: max(run.nextOnset, now) + Self.minimumInterOnsetInterval,
+			grantedOnsets: run.grantedOnsets + 1
+		)
 		return delay
 	}
 }
@@ -235,7 +258,11 @@ actor AnnotationSoundPlayer: AnnotationSoundPlaying {
 	/// request, so a dense pass does not re-enter AVAudioSession for every annotation.
 	private func startBurst(_ requests: [AnnotationSoundPlaybackRequest]) {
 		guard requests.isEmpty.not else { return }
-		prepareSession()
+		// Fail closed, as AIA-0716 did. If the category could not be established, the shared session
+		// may still be whatever WebKit left behind — possibly `.playback`, which plays straight
+		// through Silent mode. Staying silent is the only outcome consistent with what the Sound
+		// screen promises the user.
+		guard prepareSession() else { return }
 		for request in requests {
 			start(request)
 		}
@@ -312,21 +339,35 @@ actor AnnotationSoundPlayer: AnnotationSoundPlaying {
 	/// plays, and any interruption — a call, Siri, an alarm, a media-services reset — deactivates it.
 	/// A once-per-process latch left the category stale for the rest of the run with nothing to
 	/// re-establish it.
-	private func prepareSession() {
+	/// - Returns: whether the session is safe to play through.
+	@discardableResult
+	private func prepareSession() -> Bool {
 		let session = AVAudioSession.sharedInstance()
 		do {
 			// `.ambient` respects Silent mode and mixes with an already-playing app, rather than
 			// changing the device's output level or interrupting another source. See
 			// `sessionCategory` for why this is a promise rather than a preference.
+			//
+			// Establishing the category is what makes activation safe: activating whatever category
+			// happens to be current could interrupt another app, because the process default
+			// (`.soloAmbient`) does not mix.
 			try session.setCategory(Self.sessionCategory, options: [.mixWithOthers])
-			// Activation is here for observability, not audibility: `outputVolume` and the current
-			// route are only reliably meaningful on an active session, and reading them from an
-			// inactive one would send the next investigation after the wrong cause.
-			try session.setActive(true)
 		} catch {
 			LoggingPolicy.error("Unable to configure the annotation audio session", error: error, logger: .ui)
+			logPlaybackEnvironment(session)
+			return false
 		}
+
+		do {
+			try session.setActive(true)
+		} catch {
+			// Not fatal: the category is correct, so playback still respects Silent mode and mixes.
+			// Only the route/volume diagnostic below is less trustworthy.
+			LoggingPolicy.error("Unable to activate the annotation audio session", error: error, logger: .ui)
+		}
+
 		logPlaybackEnvironment(session)
+		return true
 	}
 
 	/// Everything a future "no sound on my device" report needs, in one line.
@@ -357,11 +398,11 @@ actor AnnotationSoundPlayer: AnnotationSoundPlaying {
 	}
 
 	func deviceOutputVolume() async -> Float {
-		let session = AVAudioSession.sharedInstance()
-		// `outputVolume` is only reliably meaningful on an active session, so the settings screen
-		// must not read it from a session this app has never activated.
-		try? session.setActive(true)
-		return session.outputVolume
+		// Deliberately does **not** activate the session. Merely opening the Sound screen must not
+		// interrupt music playing in another app, and activating the process-default `.soloAmbient`
+		// category — which does not mix — would do exactly that. `outputVolume` is readable without
+		// activation, so the polite read is also the correct one.
+		AVAudioSession.sharedInstance().outputVolume
 	}
 
 	private func releasePlayer(_ id: UUID) {

@@ -432,32 +432,61 @@ final class AnnotationSoundAdmissionPolicyTests: XCTestCase {
 		}
 	}
 
-	func testTheStaggeredRunIsBoundedAndSurplusIsDropped() {
-		var policy = Policy()
+	/// Deliberately run at a realistic device uptime rather than a tidy `now = 100`.
+	///
+	/// The original implementation derived the onset count from elapsed time and compared it against
+	/// a `0.15 * 3` horizon. At a large uptime the fourth delay accumulated to 0.4499999999825377,
+	/// slipped under the horizon, and a fourth tone played — a cap that held or broke depending on
+	/// how long the device had been switched on. A round `now` rounded the other way and hid it.
+	func testTheRunIsBoundedRegardlessOfDeviceUptime() {
+		for uptime in [0, 100, 86_400, 1_234_567.891] as [TimeInterval] {
+			var policy = Policy()
 
-		for _ in 0..<Policy.maximumStaggeredOnsets {
-			XCTAssertNotNil(policy.admissionDelay(for: .chime, activeVoices: 0, now: 100))
+			for onset in 0..<Policy.maximumStaggeredOnsets {
+				XCTAssertNotNil(
+					policy.admissionDelay(for: .chime, activeVoices: 0, now: uptime),
+					"Onset \(onset) must be granted at uptime \(uptime)"
+				)
+			}
+
+			XCTAssertNil(
+				policy.admissionDelay(for: .chime, activeVoices: 0, now: uptime),
+				"A fourth onset must be dropped at uptime \(uptime); the cap must not depend on uptime"
+			)
 		}
-
-		XCTAssertNil(
-			policy.admissionDelay(for: .chime, activeVoices: 0, now: 100),
-			"Beyond the cap a dense pass must shorten to a fixed-length run, never trail the detections"
-		)
 	}
 
-	func testTheRunResetsOnceItHasBeenHeard() {
+	/// The rolling window is intentional: a pass publishes partial results before final ones, so
+	/// resetting per burst would grant two full runs to bursts milliseconds apart and reintroduce
+	/// the density this bounds.
+	func testABurstArrivingInsideAnExistingRunSharesItsBudget() {
 		var policy = Policy()
-		let interval = Policy.minimumInterOnsetInterval
 
 		for _ in 0..<Policy.maximumStaggeredOnsets {
 			_ = policy.admissionDelay(for: .chime, activeVoices: 0, now: 100)
 		}
 
-		let laterPass = 100 + interval * TimeInterval(Policy.maximumStaggeredOnsets) + 1
+		XCTAssertNil(
+			policy.admissionDelay(for: .chime, activeVoices: 0, now: 100.08),
+			"A partial result arriving 80ms later must not be granted a second full run"
+		)
+	}
+
+	/// The other half of the rolling window, and the one the user explicitly asked for: a stationary
+	/// object keeps announcing itself on each ordinary pass, because passes arrive seconds apart and
+	/// a run that has been heard out is over.
+	func testAnOrdinaryLaterPassStartsAFreshRun() {
+		var policy = Policy()
+
+		for _ in 0..<Policy.maximumStaggeredOnsets {
+			_ = policy.admissionDelay(for: .chime, activeVoices: 0, now: 100)
+		}
+
+		// Detection passes in the field arrive roughly every 1.5-3 seconds.
 		XCTAssertEqual(
-			policy.admissionDelay(for: .chime, activeVoices: 0, now: laterPass),
+			policy.admissionDelay(for: .chime, activeVoices: 0, now: 101.5),
 			0,
-			"A later pass starts a fresh run rather than inheriting the previous pass's backlog"
+			"A later pass must sound immediately, not inherit the previous pass's backlog"
 		)
 	}
 

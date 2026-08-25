@@ -13,10 +13,14 @@ may stay silent.
   show an orange warning that media volume is off. Raise the volume, leave the screen and come back:
   the warning should be gone.
 
-- Several objects in one detection pass now sound like a short run, not a single tone. Run a model
-  over a page where several objects are found at once: expect up to three onsets in quick succession
-  (about a sixth of a second apart) rather than one tone or a long trailing sequence. A pass with one
-  object should still be a single tone.
+- Several objects found at once now sound like a short run, not a single tone. Run a model over a
+  page where several objects are found together: expect up to three onsets in quick succession
+  (about a sixth of a second apart) rather than one tone or a long trailing sequence. A single object
+  should still be a single tone.
+
+- The limit is a rolling one, not a per-pass allowance: detections arriving within about half a
+  second of each other share the same run of three. That is deliberate, because a detection pass
+  reports partial results before its final ones.
 
 - Dense detection must not lag. Keep detection running over a busy page. Sounds should always
   correspond to what is being found right now; they must never queue up and continue playing after
