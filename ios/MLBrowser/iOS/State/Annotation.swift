@@ -211,6 +211,9 @@ actor AnnotationSoundPlayer: AnnotationSoundPlaying {
 
 	private var activePlayers: [UUID: AVAudioPlayer] = [:]
 	private var admissionPolicy = AnnotationSoundAdmissionPolicy()
+	/// Last environment reported by `logPlaybackEnvironment`, so continuous detection logs
+	/// transitions rather than one line per pass.
+	private var lastLoggedEnvironment: String?
 
 	/// Holds each player until its actual audio stream has finished, plus a short scheduling buffer.
 	/// Using `AVAudioPlayer.duration` means a future longer catalog tone cannot be truncated by a
@@ -263,6 +266,12 @@ actor AnnotationSoundPlayer: AnnotationSoundPlaying {
 	}
 
 	private func startImmediately(_ request: AnnotationSoundPlaybackRequest) {
+		// Re-checked here, not only at admission. A staggered onset was admitted against the voice
+		// count at *scheduling* time — typically near zero, since nothing in the pass had started
+		// yet — so without this the cap could be exceeded by the time the delay elapses. Dropping is
+		// the right outcome: the reserved onset slot has already moved on, and this path never queues.
+		guard activePlayers.count < AnnotationSoundAdmissionPolicy.maximumActiveVoices else { return }
+
 		do {
 			let player = try AVAudioPlayer(data: AnnotationSoundCatalog.audioData(for: request.sound))
 			player.volume = request.volume
@@ -325,21 +334,26 @@ actor AnnotationSoundPlayer: AnnotationSoundPlaying {
 	/// iOS exposes **no** API for the Silent mode switch, so this deliberately cannot report the one
 	/// condition that caused #720. It reports every neighbouring condition instead, so that ruling
 	/// them out leaves Silent mode as the remaining explanation rather than a guess.
+	///
+	/// **Logged on change, not per burst.** Detection passes run continuously, so a line per burst
+	/// would add tens of entries a minute to a size-capped, rotating support log — evicting the very
+	/// evidence this exists to preserve. Emitting only when the environment actually differs keeps
+	/// the first state and every transition (a volume change, a route change) and drops the rest.
 	private func logPlaybackEnvironment(_ session: AVAudioSession) {
 		let route = session.currentRoute.outputs
 			.map { "\($0.portType.rawValue)" }
 			.joined(separator: ",")
-		LoggingPolicy.debug(
-			"""
-			Annotation sound environment: category=\(session.category.rawValue) \
+		let environment = """
+			category=\(session.category.rawValue) \
 			outputVolume=\(String(format: "%.2f", session.outputVolume)) \
 			route=\(route.isEmpty ? "none" : route) \
 			otherAudioPlaying=\(session.isOtherAudioPlaying) \
-			secondaryAudioSilenced=\(session.secondaryAudioShouldBeSilencedHint) \
-			activeVoices=\(activePlayers.count)
-			""",
-			logger: .ui
-		)
+			secondaryAudioSilenced=\(session.secondaryAudioShouldBeSilencedHint)
+			"""
+
+		guard environment != lastLoggedEnvironment else { return }
+		lastLoggedEnvironment = environment
+		LoggingPolicy.debug("Annotation sound environment: \(environment)", logger: .ui)
 	}
 
 	func deviceOutputVolume() async -> Float {
