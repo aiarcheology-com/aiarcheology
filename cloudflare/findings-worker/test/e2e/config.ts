@@ -33,14 +33,17 @@ function required(name: string): string {
 /// deletes real objects, so it refuses to run against any host that is not plainly the staging
 /// deployment. No helper here takes a bucket or environment as a parameter that could be pointed
 /// somewhere else.
+const STAGING_WORKER = 'aia-findings-staging';
+
 export function stagingTarget(): string {
   const target = required('E2E_TARGET');
-  const host = new URL(target).hostname;
-  if (!/(^|[-.])staging([-.]|$)/.test(host)) {
-    throw new Error(`Refusing to run: ${host} is not a staging host.`);
-  }
-  if (/production/.test(host)) {
-    throw new Error(`Refusing to run: ${host} names production.`);
+  const url = new URL(target);
+  // The check is on the Worker's name, not a substring of the host. Wrangler derives the deployed
+  // name from the environment, and only `--env staging` produces this one -- which is as close as a
+  // black-box client can get to asserting the binding behind it. A looser pattern would accept
+  // something merely named like staging.
+  if (url.protocol !== 'https:' || !url.hostname.startsWith(`${STAGING_WORKER}.`)) {
+    throw new Error(`Refusing to run: ${url.hostname} is not the ${STAGING_WORKER} Worker.`);
   }
   return target.replace(/\/$/, '');
 }

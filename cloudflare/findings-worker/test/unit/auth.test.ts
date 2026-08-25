@@ -39,6 +39,23 @@ describe('authentication', () => {
     expect(response.status).toBe(401);
   });
 
+  it('refuses a subject that would reshape the storage layout', async () => {
+    // `sub` becomes a path segment of every key this user owns, and that prefix is the isolation
+    // boundary account deletion and export will list on. Clerk issues `user_...` today, but a JWT
+    // template can override `sub`, and a `/` in it would nest one namespace inside another.
+    const token = await tokenFor('tenant/../other');
+    const response = await SELF.fetch('https://worker.test/v1/me/usage', { headers: auth(token) });
+    expect(response.status).toBe(401);
+  });
+
+  it('refuses an impersonation token', async () => {
+    // Support acting as a user is a real Clerk feature and a reasonable thing to want, but it would
+    // silently grant read and write over someone's site coordinates.
+    const token = await tokenFor('user_impersonated', { actor: { sub: 'user_admin' } });
+    const response = await SELF.fetch('https://worker.test/v1/me/usage', { headers: auth(token) });
+    expect(response.status).toBe(401);
+  });
+
   it('accepts a well-formed token and reports an empty account', async () => {
     const token = await tokenFor('user_fresh');
     const response = await SELF.fetch('https://worker.test/v1/me/usage', { headers: auth(token) });

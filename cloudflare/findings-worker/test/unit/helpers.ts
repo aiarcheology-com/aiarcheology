@@ -32,12 +32,13 @@ export async function installTestKeySet(): Promise<void> {
 export interface TokenOptions {
   issuer?: string;
   expiresAt?: number;
+  actor?: Record<string, unknown>;
 }
 
 export async function tokenFor(subject: string, options: TokenOptions = {}): Promise<string> {
   if (signingKey === null) throw new Error('installTestKeySet() has not run.');
   const nowSeconds = Math.floor(Date.now() / 1000);
-  return new SignJWT({})
+  return new SignJWT(options.actor === undefined ? {} : { act: options.actor })
     .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
     .setSubject(subject)
     .setIssuer(options.issuer ?? ISSUER)

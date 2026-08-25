@@ -178,6 +178,10 @@ So staging must be actively bounded, not merely tidied occasionally:
   npx wrangler r2 bucket lifecycle list aia-findings-staging --jurisdiction eu   # verify
   ```
 
+  It expires R2 objects without touching D1, so a run that dies before teardown can leave index
+  rows pointing at objects that are gone. That is acceptable for staging and is exactly why
+  teardown, not the rule, is the mechanism.
+
   **Production must never get an expiry rule** — it holds real fieldwork. Verify the asymmetry
   after any change: `lifecycle list` on production should show only Cloudflare's default
   multipart-abort rule.

@@ -10,6 +10,7 @@ interface FindingRow {
   receivedAt: number;
   deleted: boolean;
   bytes: number;
+  hasImage: boolean;
 }
 
 interface Page {
@@ -286,6 +287,28 @@ describe('deletion', () => {
     expect(((await revived.json()) as { finding: FindingRow }).finding.deleted).toBe(false);
     const meta = await SELF.fetch(`${BASE}/v1/findings/${id}/meta`, { headers: auth(token) });
     expect(await meta.json()).toEqual({ note: 'edited elsewhere' });
+  });
+
+  it('says a resurrected finding has no image, so the client knows to send one', async () => {
+    // Deleting removes the objects; an edit newer than the tombstone brings the row back but not
+    // the picture. Without `hasImage` the client would ask for it, get a terminal 404, and show a
+    // finding with a permanently broken photo on every device.
+    const token = await tokenFor(nextUser());
+    const id = findingId('53');
+    const now = Date.now();
+    await putImage(token, id, now, 64);
+    const alive = await putMeta(token, id, now);
+    expect(((await alive.json()) as { finding: FindingRow }).finding.hasImage).toBe(true);
+
+    await SELF.fetch(`${BASE}/v1/findings/${id}?modifiedAt=${now + 1}`, {
+      method: 'DELETE',
+      headers: auth(token),
+    });
+
+    const revived = await putMeta(token, id, now + 2);
+    const finding = ((await revived.json()) as { finding: FindingRow }).finding;
+    expect(finding.deleted).toBe(false);
+    expect(finding.hasImage).toBe(false);
   });
 
   it('refuses a delete older than the stored edit', async () => {

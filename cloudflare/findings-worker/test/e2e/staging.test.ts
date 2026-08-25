@@ -12,6 +12,13 @@ const target = stagingTarget();
 /// Every finding this run creates, so teardown can remove them even if a test failed part-way.
 const created = new Set<string>();
 let baselineUsed = 0;
+/// The cursor at the head of the stream when this run began.
+///
+/// Tombstones are kept for ever and listing starts from the oldest, so a suite that asserted on
+/// the first page would quietly start failing once this test account had accumulated a page of
+/// them. Every assertion here is a delta from where this run started, which is also how a real
+/// client reads the stream.
+let headCursor: string | null = null;
 
 async function call(path: string, init: RequestInit = {}): Promise<Response> {
   const token = await sessionToken();
@@ -32,16 +39,30 @@ async function remove(id: string): Promise<number> {
   return response.status;
 }
 
+async function headOfStream(): Promise<string | null> {
+  let cursor: string | null = null;
+  for (;;) {
+    const response = await call(`/v1/findings?limit=500${cursor === null ? '' : `&cursor=${encodeURIComponent(cursor)}`}`);
+    expect(response.status).toBe(200);
+    const page = (await response.json()) as { nextCursor: string | null; hasMore: boolean };
+    cursor = page.nextCursor;
+    if (!page.hasMore) return cursor;
+  }
+}
+
 beforeAll(async () => {
   baselineUsed = await usedBytes();
+  headCursor = await headOfStream();
 });
 
 afterAll(async () => {
   const failures: string[] = [];
   for (const id of created) {
     const status = await remove(id);
-    // 409 would mean something newer arrived; 404 that it is already gone. Neither leaves bytes.
-    if (status !== 200 && status !== 404) failures.push(`${id} -> ${status}`);
+    // A delete is idempotent here -- deleting an id that was never committed simply writes a
+    // tombstone -- so 200 is the normal answer even for a finding a failed test never created.
+    // 409 would mean something newer arrived, and that would leave bytes behind.
+    if (status !== 200) failures.push(`${id} -> ${status}`);
   }
   const finalUsed = await usedBytes();
   if (failures.length > 0) throw new Error(`Teardown could not delete: ${failures.join(', ')}`);
@@ -115,7 +136,7 @@ describe('the deployed staging Worker', () => {
     created.add(first);
     await call(`/v1/findings/${first}/meta?modifiedAt=${Date.now()}`, { method: 'PUT', body: '{"note":"one"}' });
 
-    const page = await call('/v1/findings');
+    const page = await call(`/v1/findings?cursor=${encodeURIComponent(headCursor ?? '')}`);
     expect(page.status).toBe(200);
     const body = (await page.json()) as {
       findings: { id: string }[];
@@ -164,7 +185,7 @@ describe('the deployed staging Worker', () => {
 
     expect((await call(`/v1/findings/${id}/image`)).status).toBe(404);
 
-    const page = await call('/v1/findings');
+    const page = await call(`/v1/findings?cursor=${encodeURIComponent(headCursor ?? '')}`);
     const listed = ((await page.json()) as { findings: { id: string; deleted: boolean }[] }).findings;
     expect(listed.find((row) => row.id === id)?.deleted).toBe(true);
   });

@@ -39,8 +39,17 @@ export async function authenticate(request: Request, env: Env): Promise<string> 
   try {
     const { payload } = await jwtVerify(token, keySet(env.CLERK_JWKS_URL), {
       issuer: env.CLERK_ISSUER,
-      clockTolerance: 30,
+      // An explicit allowlist, so a key set that ever advertises a weaker algorithm cannot talk
+      // this Worker into accepting it.
+      algorithms: ['RS256'],
+      clockTolerance: 5,
     });
+    // An impersonation token carries `act`. Support staff acting as a user is a real Clerk feature
+    // and a reasonable thing to want -- but it would silently grant read and write over someone's
+    // site coordinates, so it is refused until it is a decision somebody made on purpose.
+    if (payload.act !== undefined) {
+      throw new Error('actor session');
+    }
     subject = payload.sub;
   } catch {
     // Deliberately opaque: distinguishing "expired" from "bad signature" tells an attacker which
@@ -48,7 +57,11 @@ export async function authenticate(request: Request, env: Env): Promise<string> 
     throw new ApiError('unauthorized', 'The session token is not valid.');
   }
 
-  if (typeof subject !== 'string' || subject.length === 0 || subject.length > 128) {
+  // The subject becomes a path segment of every storage key this user owns, and that prefix is the
+  // isolation boundary account deletion and export will list on. A `/` in it would nest one user's
+  // namespace inside another's. Clerk subjects are `user_...` today, but a JWT template can
+  // override `sub`, so the shape is checked rather than assumed.
+  if (typeof subject !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(subject)) {
     throw new ApiError('unauthorized', 'The session token carries no usable subject.');
   }
   return subject;
