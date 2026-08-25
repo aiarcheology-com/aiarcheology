@@ -57,12 +57,17 @@ enum FindingScreenshotStore {
     /// **Named `save` on purpose.** `ArchitectureTests.testOnlyFindingRepositoryWritesScreenshots`
     /// matches `FindingScreenshotStore.save`, so an overload keeps this writer inside the privacy
     /// invariant; a differently-named entry point would silently escape it.
-    static func save(_ data: Data, for entityId: UUID) throws -> String {
+    /// - Parameter pathExtension: the codec the bytes actually are. Defaults to the canonical `jpg`
+    ///   for anything this app encodes; an import passes the archived file's own extension so a
+    ///   restored PNG is not stored under a name claiming to be a JPEG.
+    static func save(_ data: Data, for entityId: UUID, pathExtension: String = "jpg") throws -> String {
         guard let directory else {
             throw ModelFileStorageError.cannotAccessDocuments
         }
+        guard let filename = Finding.screenshotFilename(for: entityId, pathExtension: pathExtension) else {
+            throw ModelFileStorageError.fileOperationFailed
+        }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let filename = Finding.screenshotFilename(for: entityId)
         try data.write(to: directory.appendingPathComponent(filename), options: .atomic)
         LoggingPolicy.debug("Finding screenshot saved (\(data.count) bytes)", logger: .storage)
         return filename

@@ -59,6 +59,15 @@ extension Finding: CoreDataManagableWithState {
         "\(entityId.uuidString).jpg"
     }
 
+    /// The screenshot filename for `entityId` carrying a specific extension, used when restoring an
+    /// archived finding whose image must keep the bytes — and therefore the codec — it was exported
+    /// with. Returns nil for an unsupported extension rather than inventing one.
+    static func screenshotFilename(for entityId: UUID, pathExtension: String) -> String? {
+        let ext = pathExtension.lowercased()
+        guard supportedScreenshotExtensions.contains(ext) else { return nil }
+        return "\(entityId.uuidString).\(ext)"
+    }
+
     /// Whether `filename` is a legitimate screenshot name for `entityId`: the entity's UUID plus
     /// any supported image extension. Checked instead of equality against the current canonical
     /// name so legacy `.png` rows keep validating (see `supportedScreenshotExtensions`).
