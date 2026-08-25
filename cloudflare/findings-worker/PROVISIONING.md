@@ -79,8 +79,8 @@ Development instance (`advanced-tetra-5`), stored as `op://Personal/ML Browser A
 | Issuer | `https://advanced-tetra-5.clerk.accounts.dev` |
 | JWKS | `https://advanced-tetra-5.clerk.accounts.dev/.well-known/jwks.json` |
 
-**The `JWKS URL` field stored on that 1Password item omits the `.json` suffix and returns 404.**
-Use the URL above.
+Both values are stored correctly on that item; verify with `op read` rather than eyeballing a
+truncated display — `/.well-known/jwks` (no suffix) 404s, `/.well-known/jwks.json` is the endpoint.
 
 For the integration tests, which must *mint* a token rather than verify one, the same item carries
 a `development secret key` (`sk_test_…`). Reference it — never copy it:
