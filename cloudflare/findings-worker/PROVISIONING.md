@@ -32,7 +32,15 @@ GitHub PAT and must not share a public endpoint's blast radius.
 ```sh
 npx wrangler r2 bucket create aia-findings-staging    --jurisdiction eu
 npx wrangler r2 bucket create aia-findings-production --jurisdiction eu
-npx wrangler r2 bucket list          # verify BOTH report the EU jurisdiction before uploading anything
+```
+
+**Both already exist.** Verify jurisdiction the way that actually proves it — the buckets must appear
+in the EU listing and be ABSENT from the default one. Trusting the create command's output would not
+catch a flag that silently failed to apply:
+
+```sh
+npx wrangler r2 bucket list --jurisdiction eu   # expect both
+npx wrangler r2 bucket list                     # expect NEITHER
 ```
 
 The jurisdiction must be repeated in the Worker's binding or it will not resolve the bucket:
@@ -94,10 +102,40 @@ Resolve with `op read` at runtime and feed it through `wrangler secret put --env
 as `ios/asc.env.template` does for App Store Connect. It is a **development** instance key: it must
 never reach a production environment, and never a committed file.
 
+## The free tier is per ACCOUNT, not per bucket
+
+Staging and production draw from **one shared allowance** — 10 GB-month storage, 1M Class A, 10M
+Class B per month, across the whole account. 500 MB of test data in staging leaves 9.5 GB for
+production; there is no per-bucket quota to isolate them.
+
+Two details make this sharper than a subtraction:
+
+- **Storage bills on the PEAK storage per day, averaged over the month.** Test data that exists for
+  an afternoon still counts toward that day's peak; deleting it afterwards does not undo it.
+- **Usage rounds up to the next billing unit.** 1.1 GB-month bills as 2 GB-month.
+
+So staging must be actively bounded, not merely tidied occasionally:
+
+- `aia-findings-staging` carries an **object lifecycle rule** that expires objects after 7 days, so
+  forgotten test data cannot accumulate into the production allowance. Already applied:
+
+  ```sh
+  npx wrangler r2 bucket lifecycle add aia-findings-staging expire-test-data "" \
+      --expire-days 7 --jurisdiction eu
+  npx wrangler r2 bucket lifecycle list aia-findings-staging --jurisdiction eu   # verify
+  ```
+
+  **Production must never get an expiry rule** — it holds real fieldwork. Verify the asymmetry
+  after any change: `lifecycle list` on production should show only Cloudflare's default
+  multipart-abort rule.
+- Integration tests should delete what they upload, in teardown, rather than relying on the rule.
+- The global ceiling below must count **both** buckets, not production alone.
+
 ## Cost guard — not optional
 
-The 50 MB per-user cap bounds ONE account; it is not a spend cap. 10 GB free ÷ 50 MB is roughly
-**200 users, and nothing stops user 201** — R2 then bills $0.015/GB-month with no ceiling. Before
+The 50 MB per-user cap bounds ONE user; it is not a spend cap. 10 GB free ÷ 50 MB is **exactly 200
+users** — production alone can consume the entire account allowance, before staging takes any of it
+— **and nothing stops user 201** — R2 then bills $0.015/GB-month with no ceiling. Before
 production traffic:
 
 - a **global** byte ceiling in the Worker (a cheap D1 aggregate, checked when a user's first upload
