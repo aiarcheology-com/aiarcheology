@@ -409,7 +409,7 @@ final class AnnotationSoundAdmissionPolicyTests: XCTestCase {
 	/// The behaviour the reporter asked for: several objects in one pass are heard as a short run,
 	/// not as a single tone. Firing identical waveforms simultaneously would sum into one louder
 	/// tone, so spacing the onsets is the only way the count is audible at all.
-	func testSameSoundDetectionsAreStaggeredIntoACountableRun() {
+	func testSameSoundDetectionsAreStaggeredIntoACountableRun() throws {
 		var policy = Policy()
 		let interval = Policy.minimumInterOnsetInterval
 
@@ -417,7 +417,19 @@ final class AnnotationSoundAdmissionPolicyTests: XCTestCase {
 			policy.admissionDelay(for: .chime, activeVoices: 0, now: 100)
 		}
 
-		XCTAssertEqual(delays, [0, interval, interval * 2])
+		// Compared with a tolerance rather than exactly: each delay is a difference between two
+		// monotonic timestamps, so the accumulated representation error is real and harmless
+		// (0.15 s arrives as 0.1499999999999773). A sub-microsecond tolerance still fails loudly if
+		// the spacing itself regresses.
+		XCTAssertEqual(delays.count, 3)
+		for (index, delay) in delays.enumerated() {
+			XCTAssertEqual(
+				try XCTUnwrap(delay),
+				interval * TimeInterval(index),
+				accuracy: 1e-6,
+				"Onset \(index) of a same-sound run must be spaced one interval from the previous one"
+			)
+		}
 	}
 
 	func testTheStaggeredRunIsBoundedAndSurplusIsDropped() {
