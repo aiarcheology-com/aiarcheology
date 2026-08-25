@@ -17,6 +17,15 @@ enum FindingArchiveImportError: Error, Equatable {
 	case noFindingsManifest
 	case tooManyEntries(Int)
 	case tooManyFindings(Int)
+	/// Two rows in one manifest claim the same finding id. Refused outright: they address the same
+	/// row and the same image filename, so processing both means one silently overwrites the other's
+	/// picture — and a failure on the second can leave the first's bytes attached to the original row.
+	case duplicateFindingId(UUID)
+	/// The archive declares a schema this build does not know how to read.
+	case unsupportedSchemaVersion(Int)
+	/// The archive's images exceed what an import may hold in memory in total, whatever each
+	/// individual image was allowed to be.
+	case archiveTooLarge(byteCount: Int)
 	case malformedManifest(String)
 	/// An image whose DECLARED size or pixel dimensions exceed what an import may hold.
 	case imageTooLarge(id: UUID)
@@ -76,6 +85,10 @@ enum FindingArchiveImport {
 	/// Pixels, not bytes. A few hundred KB of JPEG can declare a 60000x60000 canvas, which costs
 	/// ~14 GB the moment anything decodes it — a bomb that no byte-count bound catches.
 	static let maximumImagePixelCount = 50_000_000
+	/// Total inflated image bytes an import may hold at once. The per-image cap alone is not a
+	/// bound: 4,096 findings at 16 MB each satisfies every other limit and still asks for ~64 GB,
+	/// and a highly compressible payload makes the ZIP itself small enough to look harmless.
+	static let maximumTotalImageByteCount = 256 * 1024 * 1024
 
 	private static let manifestName = "findings.json"
 
@@ -150,14 +163,28 @@ enum FindingArchiveImport {
 				// v0: the bare top-level array 1.0.7 shipped. It must import for ever.
 				raw = try decoder.decode([RawRow].self, from: data)
 			} else if top is [String: Any] {
-				raw = try decoder.decode(Envelope.self, from: data).findings
+				let envelope = try decoder.decode(Envelope.self, from: data)
+				// A newer schema may have changed what a field MEANS, not merely added one. Reading
+				// it as v1 would silently default whatever moved, so an unknown version is refused
+				// rather than guessed at — which is the entire reason the envelope exists.
+				guard envelope.schemaVersion <= FindingExporter.schemaVersion else {
+					throw FindingArchiveImportError.unsupportedSchemaVersion(envelope.schemaVersion)
+				}
+				raw = envelope.findings
 			} else {
 				throw FindingArchiveImportError.malformedManifest("top level is neither an array nor an object")
 			}
 			guard raw.count <= maximumFindingCount else {
 				throw FindingArchiveImportError.tooManyFindings(raw.count)
 			}
-			return try raw.map(validated)
+			let rows = try raw.map(validated)
+			// Byte-exact duplicate detection, mirroring the zip reader's rule for entry names: two
+			// rows claiming one id are an attempt to make the write ambiguous, not a convenience.
+			var seen = Set<UUID>(minimumCapacity: rows.count)
+			for row in rows where seen.insert(row.id).inserted == false {
+				throw FindingArchiveImportError.duplicateFindingId(row.id)
+			}
+			return rows
 		} catch let error as FindingArchiveImportError {
 			throw error
 		} catch {
@@ -254,6 +281,7 @@ enum FindingArchiveImport {
 		reader: ZipArchiveReader
 	) throws -> [UUID: Data] {
 		var images: [UUID: Data] = [:]
+		var totalByteCount = 0
 		for row in rows {
 			guard let ext = row.screenshotExtension else { continue }
 			let name = "\(root)images/\(row.id.uuidString).\(ext)"
@@ -270,6 +298,12 @@ enum FindingArchiveImport {
 				throw FindingArchiveImportError.unreadableArchive("\(error)")
 			}
 			let data = Data(bytes)
+			// Aggregate budget, checked as we go: the per-image cap bounds one picture, this bounds
+			// the import.
+			totalByteCount += data.count
+			guard totalByteCount <= maximumTotalImageByteCount else {
+				throw FindingArchiveImportError.archiveTooLarge(byteCount: totalByteCount)
+			}
 			try validateImageDimensions(data, id: row.id)
 			images[row.id] = data
 		}

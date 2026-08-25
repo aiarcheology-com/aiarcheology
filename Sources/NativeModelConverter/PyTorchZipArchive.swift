@@ -477,6 +477,12 @@ struct PyTorchZipArchive {
 		// gigabyte is refused before any allocation; a record claiming a kilobyte cannot inflate to
 		// more than a kilobyte, because there is nowhere for the extra bytes to go. No compression
 		// ratio needs to be guessed at.
+		// The COMPRESSED read needs its own bound. `maximumByteCount` above constrains the declared
+		// uncompressed size, which says nothing about how many bytes sit on disk: an entry claiming
+		// to inflate to 100 bytes from a 300 MB payload would otherwise allocate all 300 MB.
+		guard entry.compressedSize <= maximumByteCount else {
+			throw PyTorchZipArchiveError.entryTooLarge(name: entry.name, byteCount: entry.compressedSize)
+		}
 		let stored = try source.readChecked(at: dataOffset, count: entry.compressedSize)
 		let payload = entry.method == UInt16(Self.deflateMethod)
 			? try Self.inflate(stored, to: entry.uncompressedSize, name: entry.name)
@@ -603,7 +609,12 @@ struct PyTorchZipArchive {
 		// With the data-descriptor bit set, torch writes zeroes here and the real sizes live in the
 		// central directory; without it, the local sizes must match what the directory claims.
 		if entry.flags & Self.dataDescriptorFlag == 0 {
-			guard Int(Self.readUInt32(header, 18)) == entry.uncompressedSize,
+			// Offset 18 is the COMPRESSED size and offset 22 the uncompressed one. Comparing both
+			// against `uncompressedSize` was harmless while only stored entries were accepted — the
+			// two are equal there — but it rejects every deflated entry whose writer put real sizes
+			// in the local header (Python `zipfile`, the `zip` CLI, most server-side writers, all of
+			// which leave the data-descriptor bit clear).
+			guard Int(Self.readUInt32(header, 18)) == entry.compressedSize,
 				Int(Self.readUInt32(header, 22)) == entry.uncompressedSize
 			else {
 				throw PyTorchZipArchiveError.localHeaderMismatch(name: entry.name)

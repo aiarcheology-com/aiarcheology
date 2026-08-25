@@ -117,6 +117,26 @@ final class FindingsArchiveReadingTests: XCTestCase {
 		}
 	}
 
+	/// A deflated entry whose writer put REAL sizes in the local header and left the data-descriptor
+	/// bit clear — Python `zipfile`, the `zip` CLI, and most server-side writers all do this.
+	///
+	/// The committed `NSFileCoordinator` fixture cannot cover it: that writer always sets the
+	/// descriptor bit and zeroes the local sizes, so the comparison branch is never reached. Without
+	/// this test, a reader that compared the local COMPRESSED size against `uncompressedSize` looked
+	/// perfectly green while rejecting every archive from every other zip writer in existence.
+	func test_deflatedEntryWithRealSizesInItsLocalHeader_isAccepted() throws {
+		let url = try XCTUnwrap(Bundle.module.url(
+			forResource: "findings-export-deflate-nodescriptor",
+			withExtension: "zip"
+		))
+		let reader = try ZipArchiveReader(bytes: [UInt8](try Data(contentsOf: url)), allowsDeflate: true)
+
+		let payload = try reader.bytes(named: "Findings/findings.json", maximumByteCount: 1024 * 1024)
+		let text = try XCTUnwrap(String(bytes: payload, encoding: .utf8))
+		XCTAssertTrue(text.hasPrefix(#"{"schemaVersion":1"#))
+		XCTAssertEqual(payload.count, 990, "the entry must inflate to the size its directory declares")
+	}
+
 	// MARK: - The public façade the app actually calls
 
 	func test_facade_readsTheFindingsArchiveAndInflatesAnEntry() throws {

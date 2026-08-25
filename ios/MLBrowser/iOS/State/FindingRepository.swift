@@ -142,12 +142,27 @@ final class FindingRepository {
 		duplicates: DuplicatePolicy
 	) throws -> ImportSummary {
 		var summary = ImportSummary()
-		// Filename plus the bytes it held, for every image this import overwrote.
 		var replacedImages: [(filename: String, data: Data?)] = []
 		var writtenFilenames: [String] = []
 
+		// All import work happens in a CHILD context, never directly in the viewContext.
+		//
+		// The reason is `rollback()`. Discarding a failed import used to mean rolling back the app's
+		// shared context, which would also throw away any unrelated edit the user happened to have
+		// pending — and, symmetrically, a successful import would commit those unrelated edits as a
+		// side effect. A child context makes the import's own changes the only thing that can be
+		// discarded: on failure the child is simply abandoned, and the parent never saw it.
+		let importContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+		importContext.parent = context
+
+		// Objects whose `modifiedAt` suppression must be lifted once the save that consumes it is
+		// done. Leaving the flag set would freeze the timestamp of every imported finding FOR EVER:
+		// the managed object stays live, and every later edit would keep the archived value.
+		var suppressed: [Finding] = []
+		defer { for finding in suppressed { finding.preservesModifiedAt = false } }
+
 		for row in contents.rows {
-			let existing = Finding.select(row.id, in: context)
+			let existing = Finding.select(row.id, in: importContext)
 			if existing != nil, duplicates == .skip {
 				summary.skipped += 1
 				continue
@@ -173,7 +188,8 @@ final class FindingRepository {
 					filename = existing?.screenshotFilename ?? Finding.screenshotFilename(for: row.id)
 				}
 
-				let finding = existing ?? Finding.create(in: context)
+				let finding = existing ?? Finding.create(in: importContext)
+				suppressed.append(finding)
 				try apply(row, to: finding, screenshotFilename: filename)
 				summary.restored += 1
 			} catch {
@@ -184,9 +200,9 @@ final class FindingRepository {
 				restore(backup)
 				if let existing {
 					// Never delete a finding the user already had because an archived copy was bad.
-					context.refresh(existing, mergeChanges: false)
-				} else if let pending = Finding.select(row.id, in: context) {
-					context.delete(pending)
+					importContext.refresh(existing, mergeChanges: false)
+				} else if let pending = Finding.select(row.id, in: importContext) {
+					importContext.delete(pending)
 				}
 				if let filename, backup == nil, existing == nil {
 					FindingScreenshotStore.delete(filename: filename)
@@ -197,11 +213,14 @@ final class FindingRepository {
 		}
 
 		do {
+			// Child first (validates and pushes into the parent), then the parent to the store.
+			try importContext.save()
 			try Finding.save(in: context)
 		} catch {
-			// The whole transaction is gone, so every file this import wrote must go too, and every
+			// The child is abandoned rather than rolled back; the parent's unrelated pending edits
+			// are deliberately left alone. Every file this import wrote must still go, and every
 			// image it replaced must come back.
-			context.rollback()
+			importContext.reset()
 			for filename in writtenFilenames {
 				FindingScreenshotStore.delete(filename: filename)
 			}
@@ -252,18 +271,26 @@ final class FindingRepository {
 		finding.preservesModifiedAt = true
 		finding.modifiedAt = row.modifiedAt ?? row.creationDate ?? .now
 
+		// Walk to `.draft` first, validate there, then step to the archived state.
+		//
+		// `transition(to:)` silently keeps the current state when a hop is not allowed, so applying
+		// the archived lifecycle directly would leave a replaced `.ready` finding `.ready` even
+		// though the archive says `.draft` — a wrong answer that looks like success. Every state can
+		// reach `.draft`, and `.draft` can reach every state, so this is one deterministic route
+		// rather than a per-pair table.
 		let target = row.lifeCycle.flatMap(CoreDataManageableState.init(rawValue:)) ?? .ready
-		switch target {
-		case .ready, .undefined:
-			finding.transition(to: .draft)
-			try finding.throwIfInvalid()
-			finding.transition(to: .ready)
-		case .draft:
-			finding.transition(to: .draft)
-			try finding.throwIfInvalid()
-		case .deprecated, .empty:
+		Self.descendToDraft(finding)
+		try finding.throwIfInvalid()
+		if target != .draft {
 			finding.transition(to: target)
 		}
+	}
+
+	/// Moves a finding to `.draft` from wherever it is, using only permitted transitions.
+	private static func descendToDraft(_ finding: Finding) {
+		if finding.lifeCycle == .ready { finding.transition(to: .deprecated) }
+		if finding.lifeCycle == .deprecated { finding.transition(to: .empty) }
+		if finding.lifeCycle != .draft { finding.transition(to: .draft) }
 	}
 
 	/// Puts a replaced image back, or removes the replacement when there was nothing there before.

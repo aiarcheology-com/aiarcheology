@@ -118,7 +118,7 @@ struct FindingsListView: View {
 		) { result in
 			switch result {
 			case let .success(urls):
-				if let url = urls.first { decodeArchive(at: url) }
+				if let url = urls.first { Task { await decodeArchive(at: url) } }
 			case let .failure(error):
 				LoggingPolicy.warning("Findings import cancelled or failed: \(error.localizedDescription)", logger: .storage)
 			}
@@ -170,21 +170,25 @@ struct FindingsListView: View {
 	/// The picked file lives outside the sandbox, so it is opened under a security scope and copied
 	/// into the app's own temporary directory FIRST: the scope must be released promptly, and the
 	/// decode that follows is asynchronous.
-	private func decodeArchive(at url: URL) {
+	private func decodeArchive(at url: URL) async {
 		isImporting = true
-		let scoped = url.startAccessingSecurityScopedResource()
 		let staged = FileManager.default.temporaryDirectory
 			.appendingPathComponent("findings-import-\(UUID().uuidString).zip")
 		do {
-			try FileManager.default.copyItem(at: url, to: staged)
+			// Copying a multi-hundred-megabyte archive is real IO and does not belong on the main
+			// thread. The security scope is opened and closed around the copy inside the same
+			// detached task, so it is held for exactly as long as the read needs it.
+			try await Task.detached(priority: .userInitiated) {
+				let scoped = url.startAccessingSecurityScopedResource()
+				defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+				try FileManager.default.copyItem(at: url, to: staged)
+			}.value
 		} catch {
-			if scoped { url.stopAccessingSecurityScopedResource() }
 			LoggingPolicy.error("Could not stage the picked findings archive", error: error, logger: .storage)
 			isImporting = false
 			importFailed = true
 			return
 		}
-		if scoped { url.stopAccessingSecurityScopedResource() }
 
 		Task {
 			defer { try? FileManager.default.removeItem(at: staged) }
@@ -213,7 +217,12 @@ struct FindingsListView: View {
 	private func commitPendingImport(duplicates: FindingRepository.DuplicatePolicy) {
 		guard let contents = pendingImport else { return }
 		pendingImport = nil
-		apply(contents, duplicates: duplicates)
+		// Deferred by one turn: setting `importSummary` synchronously here would raise the result
+		// alert while the duplicates alert is still dismissing, and SwiftUI drops the second — the
+		// user would replace their findings and be told nothing at all.
+		Task { @MainActor in
+			apply(contents, duplicates: duplicates)
+		}
 	}
 
 	private func apply(_ contents: FindingArchiveContents, duplicates: FindingRepository.DuplicatePolicy) {
