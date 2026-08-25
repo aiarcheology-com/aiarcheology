@@ -26,7 +26,7 @@ struct FindingMetadata {
 
 /// The Core Data + screenshot-store repository for `Finding` rows.
 ///
-/// Extracted from `SaveFindingSheet` (AIA-0392) so the persist transaction (PNG write → entity
+/// Extracted from `SaveFindingSheet` (AIA-0392) so the persist transaction (image write → entity
 /// create → lifecycle → validate → save → rollback) is unit-testable against Core Data + the
 /// filesystem alone, with no View. Injected the SAME `DataController` as the rest of the graph, so
 /// the write always targets the one store-backed `viewContext` — deterministically, regardless of
@@ -49,10 +49,10 @@ final class FindingRepository {
 		dataController.container.viewContext
 	}
 
-	/// Persists one finding. PNG first, then the entity: a file without a row is self-healed by the
+	/// Persists one finding. Image first, then the entity: a file without a row is self-healed by the
 	/// orphan sweep, while a row without a file would be a broken finding. Any entity failure deletes
 	/// both the pending object (it must not linger in the context for a later unrelated save to
-	/// commit) and the PNG. Throws on either failure so the caller can surface the error UI.
+	/// commit) and the image. Throws on either failure so the caller can surface the error UI.
 	/// - Returns: the persisted, `.ready` finding.
 	@discardableResult
 	func save(capture: FindingCapture, image: UIImage, box: CGRect, metadata: FindingMetadata) throws -> Finding {
@@ -102,7 +102,7 @@ final class FindingRepository {
 	/// Removes every finding (AIA-0303, Settings → Reset → Remove Findings). Batch-deletes all
 	/// `Finding` rows on a background context, merging the deletion into the live `viewContext` so
 	/// an open `@FetchRequest` refreshes and no zombie rows can resurrect on a later save; then, and
-	/// only if the row delete succeeded, sweeps the now-orphaned screenshot PNGs.
+	/// only if the row delete succeeded, sweeps the now-orphaned screenshot files.
 	///
 	/// Mirrors `DemoDataManager.deleteBrowsingHistory()` but PROPAGATES the delete error instead of
 	/// swallowing it, so the caller can surface it. The sweep is skipped when the delete throws (we

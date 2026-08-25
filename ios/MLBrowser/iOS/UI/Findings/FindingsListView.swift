@@ -75,7 +75,7 @@ struct FindingsListView: View {
 			}
 		}
 		.onAppear {
-			// Self-heal write-time leftovers (PNG written, entity insert failed) and
+			// Self-heal write-time leftovers (image written, entity insert failed) and
 			// failed file deletes. Runs on the viewContext/MainActor; the save sheet
 			// is dismissed before this list can open, so it never races a save.
 			FindingScreenshotStore.sweepOrphans(in: moc)

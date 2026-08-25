@@ -815,6 +815,23 @@ final class FindingMigrationTests: XCTestCase {
             )
         }
 
+        // AIA-713: what migration does to the new modifiedAt column was OBSERVED here rather than
+        // assumed — the first guess (that Core Data instantiates destination rows as the real
+        // `Finding` subclass, so `willSave()` stamps them) is WRONG, and this assertion is what
+        // caught it. A mapping-model migration does not run the subclass hook, so every upgraded
+        // row arrives nil.
+        //
+        // That makes the documented nil → `creationDate_` fallback live and load-bearing rather
+        // than dead code, and it is the outcome we want: had migration stamped instead, every
+        // finding on an upgrading device would share one identical timestamp and the first cloud
+        // merge would order a whole season of fieldwork by nothing at all.
+        for row in migrated {
+            XCTAssertNil(
+                row.value(forKey: "modifiedAt"),
+                "a mapping-model migration does not run willSave, so modifiedAt arrives nil and the creationDate_ fallback applies"
+            )
+        }
+
         let history = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "WebHistoryEntry"))
         XCTAssertEqual(history.count, 1, "unrelated entities must survive the 0.0.1→0.0.2 hop too")
 		let configurations = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "DeepConfiguration"))

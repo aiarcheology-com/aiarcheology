@@ -58,10 +58,49 @@ final class FindingExporterTests: XCTestCase {
 
 	// MARK: - JSON shape
 
-	func testEncodeJSON_zeroFindings_isEmptyArray() throws {
-		let data = try FindingExporter.encodeJSON([], copiedIds: [])
-		let array = try JSONSerialization.jsonObject(with: data) as? [Any]
-		XCTAssertEqual(array?.count, 0)
+	func testEncodeJSON_zeroFindings_isEmptyFindingsArray() throws {
+		let data = try FindingExporter.encodeJSON([], copiedImageNames: [:])
+		let document = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+		XCTAssertEqual(document["schemaVersion"] as? Int, 1)
+		XCTAssertEqual((document["findings"] as? [Any])?.count, 0)
+	}
+
+	/// The envelope is what makes the archive self-describing; an importer that cannot tell
+	/// v0 (bare array) from v1 has to guess, and guessing on user data is how findings get lost.
+	func testEncodeJSON_wrapsRowsInASchemaVersionedEnvelope() throws {
+		let data = try FindingExporter.encodeJSON(
+			[FindingSnapshot(id: UUID(), title: "Enveloped")],
+			copiedImageNames: [:]
+		)
+		let document = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+		XCTAssertEqual(document["schemaVersion"] as? Int, FindingExporter.schemaVersion)
+		let rows = try XCTUnwrap(document["findings"] as? [[String: Any]])
+		XCTAssertEqual(rows.count, 1)
+		XCTAssertEqual(rows.first?["title"] as? String, "Enveloped")
+	}
+
+	/// AIA-713: a restored finding must keep its provenance and its lifecycle, and carry the
+	/// last-write-wins key at sub-second precision so two edits in the same second cannot tie.
+	func testEncodeJSON_carriesModifiedAtModelIdAndLifeCycle() throws {
+		let modelId = UUID()
+		let snap = FindingSnapshot(
+			id: UUID(),
+			title: "Provenanced",
+			modifiedAt: Date(timeIntervalSince1970: 1_700_000_000.25),
+			modelId: modelId,
+			lifeCycle: CoreDataManageableState.draft.rawValue
+		)
+		let data = try FindingExporter.encodeJSON([snap], copiedImageNames: [:])
+		let document = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+		let row = try XCTUnwrap((document["findings"] as? [[String: Any]])?.first)
+
+		XCTAssertEqual(row["modelId"] as? String, modelId.uuidString)
+		XCTAssertEqual(row["lifeCycle"] as? String, CoreDataManageableState.draft.rawValue)
+		let modifiedAt = try XCTUnwrap(row["modifiedAt"] as? String)
+		XCTAssertTrue(
+			modifiedAt.contains(".25") || modifiedAt.contains(".250"),
+			"modifiedAt must serialize with fractional seconds, got \(modifiedAt)"
+		)
 	}
 
 	func testEncodeJSON_nilOptionals_writesExplicitNulls() throws {
@@ -69,12 +108,12 @@ final class FindingExporterTests: XCTestCase {
 		// there, as JSON null — not omitted.
 		let snap = FindingSnapshot(id: UUID(), box: .init(x: 0, y: 0, width: 0.1, height: 0.1))
 
-		let data = try FindingExporter.encodeJSON([snap], copiedIds: [])
-		let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+		let data = try FindingExporter.encodeJSON([snap], copiedImageNames: [:])
+		let rows = try XCTUnwrap(Self.findingRows(in: data))
 		let row = try XCTUnwrap(rows.first)
 
 		XCTAssertEqual(row["id"] as? String, snap.id.uuidString)
-		for key in ["label", "note", "gps", "page", "detectionClass", "date", "screenshot"] {
+		for key in ["label", "note", "gps", "page", "detectionClass", "date", "screenshot", "modifiedAt", "modelId"] {
 			XCTAssertTrue(row[key] is NSNull, "\(key) should serialize as explicit null")
 		}
 	}
@@ -83,17 +122,17 @@ final class FindingExporterTests: XCTestCase {
 		let copied = FindingSnapshot(id: UUID())
 		let notCopied = FindingSnapshot(id: UUID())
 
-		let data = try FindingExporter.encodeJSON([copied, notCopied], copiedIds: [copied.id])
-		let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+		let data = try FindingExporter.encodeJSON([copied, notCopied], copiedImageNames: [copied.id: "\(copied.id.uuidString).jpg"])
+		let rows = try XCTUnwrap(Self.findingRows(in: data))
 
-		XCTAssertEqual(rows[0]["screenshot"] as? String, "images/\(copied.id.uuidString).png")
+		XCTAssertEqual(rows[0]["screenshot"] as? String, "images/\(copied.id.uuidString).jpg")
 		XCTAssertTrue(rows[1]["screenshot"] is NSNull)
 	}
 
 	func testEncodeJSON_includesTitle() throws {
 		let snap = FindingSnapshot(id: UUID(), title: "Old Fort")
-		let data = try FindingExporter.encodeJSON([snap], copiedIds: [])
-		let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+		let data = try FindingExporter.encodeJSON([snap], copiedImageNames: [:])
+		let rows = try XCTUnwrap(Self.findingRows(in: data))
 		XCTAssertEqual(rows.first?["title"] as? String, "Old Fort")
 	}
 
@@ -103,11 +142,16 @@ final class FindingExporterTests: XCTestCase {
 		let credited = FindingSnapshot(id: UUID(), title: "Signed", author: "Jane Archeologist")
 		let anonymous = FindingSnapshot(id: UUID(), title: "Unsigned")
 
-		let data = try FindingExporter.encodeJSON([credited, anonymous], copiedIds: [])
-		let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+		let data = try FindingExporter.encodeJSON([credited, anonymous], copiedImageNames: [:])
+		let rows = try XCTUnwrap(Self.findingRows(in: data))
 
 		XCTAssertEqual(rows[0]["author"] as? String, "Jane Archeologist")
 		XCTAssertTrue(rows[1]["author"] is NSNull, "author should serialize as explicit null, not be omitted")
+	}
+
+	/// Decodes the `findings` array out of the schemaVersion envelope.
+	private static func findingRows(in data: Data) -> [[String: Any]]? {
+		(try? JSONSerialization.jsonObject(with: data) as? [String: Any])??["findings"] as? [[String: Any]]
 	}
 
 	// MARK: - CSV escaping
@@ -119,8 +163,8 @@ final class FindingExporterTests: XCTestCase {
 		XCTAssertEqual(FindingExporter.csvField(nil), "")
 	}
 
-	func testEncodeCSV_headerThenRows_nilFieldsAreEmpty() {
-		let csv = FindingExporter.encodeCSV([FindingSnapshot(id: UUID())], copiedIds: [])
+	func testEncodeCSV_headerThenRows_nilFieldsAreEmpty() throws {
+		let csv = FindingExporter.encodeCSV([FindingSnapshot(id: UUID())], copiedImageNames: [:])
 		let lines = csv.components(separatedBy: "\r\n")
 
 		XCTAssertEqual(lines.count, 2, "header + one row")
@@ -132,9 +176,21 @@ final class FindingExporterTests: XCTestCase {
 		// one cell per declared column is the cheapest check that they did not drift apart.
 		XCTAssertEqual(cells.count, lines[0].components(separatedBy: ",").count, "one cell per declared column")
 		XCTAssertEqual(cells[1], "", "title cell empty")
-		// Indexed, not `.last`: screenshot stopped being the final column when `author` was appended.
-		XCTAssertEqual(cells[13], "", "screenshot cell empty")
-		XCTAssertEqual(cells.last, "", "author cell empty")
+
+		// Located by HEADER, never by `.last` or a literal index: `author` stopped being the final
+		// column when AIA-713 appended modifiedAt/modelId/lifeCycle, which is the same way this
+		// assertion broke when `author` itself was appended. Header lookup shifts with the schema.
+		let header = lines[0].components(separatedBy: ",")
+		func cell(_ column: String) throws -> String {
+			let index = try XCTUnwrap(header.firstIndex(of: column), "no \(column) column")
+			return cells[index]
+		}
+		XCTAssertEqual(try cell("screenshot"), "", "screenshot cell empty")
+		XCTAssertEqual(try cell("author"), "", "author cell empty")
+		XCTAssertEqual(try cell("modifiedAt"), "", "modifiedAt cell empty")
+		XCTAssertEqual(try cell("modelId"), "", "modelId cell empty")
+		// lifeCycle is NOT nullable — a restored finding has to land in a real state.
+		XCTAssertEqual(try cell("lifeCycle"), CoreDataManageableState.ready.rawValue)
 	}
 
 	/// The author value lands in the cell the `author` HEADER names (AIA-0651). Located by header
@@ -143,7 +199,7 @@ final class FindingExporterTests: XCTestCase {
 	func testEncodeCSV_authorCell_matchesTheAuthorHeaderColumn() throws {
 		let snapshot = FindingSnapshot(id: UUID(), title: "Signed", author: "Jane Archeologist")
 
-		let csv = FindingExporter.encodeCSV([snapshot], copiedIds: [])
+		let csv = FindingExporter.encodeCSV([snapshot], copiedImageNames: [:])
 		let lines = csv.components(separatedBy: "\r\n")
 		let headers = try XCTUnwrap(lines.first).components(separatedBy: ",")
 		let authorColumn = try XCTUnwrap(headers.firstIndex(of: "author"), "the CSV header declares no author column")

@@ -56,8 +56,10 @@ extension Finding {
     /// screenshot is referenced by `screenshotFilename` because container paths
     /// are not stable across restore).
     @NSManaged public var page: URL?
-    /// Filename under Documents/Findings — always "<entityId>.png"; the full path
-    /// is resolved against the current Documents directory at read time.
+    /// Filename under Documents/Findings — "<entityId>" plus a supported image extension
+    /// (`.jpg` for anything written since AIA-713, `.png` for rows saved by 1.0.7 and earlier,
+    /// which are never rewritten). The full path is resolved against the current Documents
+    /// directory at read time. Validated by `Finding.isCanonicalScreenshotFilename`.
     @NSManaged public var screenshotFilename: String?
     /// The finding's required, user-facing name shown in the inventory list. Stored
     /// non-optional (empty-string default at the Core Data level); a `ready` finding
