@@ -78,8 +78,27 @@ npx wrangler d1 create aia-findings-staging
 npx wrangler d1 create aia-findings-production
 ```
 
-Record each `database_id` in the matching `env` block. D1 has no jurisdiction setting today — note
-it as an open question for the DPIA rather than assuming EU residency.
+**Both already exist**, and their ids are recorded in the matching `env` block of
+`wrangler.jsonc`:
+
+| | |
+|-|-|
+| `aia-findings-staging` | `8a5550ce-673c-4ba2-bcb7-57337d5e0009` |
+| `aia-findings-production` | `ff7411c4-3add-42aa-836f-eae0b06b6366` |
+
+D1 has no jurisdiction setting today — `wrangler d1 list` prints an empty jurisdiction column for
+both. That is an open question for the DPIA, not a residency guarantee, and it is the one place
+where EU-pinned R2 does not settle the matter.
+
+Migrations live in `migrations/` and are applied per environment:
+
+```sh
+npx wrangler d1 migrations apply aia-findings-staging --env staging --remote
+```
+
+`0001_init.sql` seeds the `global_bytes` counter row. That seed is load-bearing: the ceiling is a
+conditional `UPDATE ... WHERE key = 'global_bytes'`, and against a missing row it changes nothing
+and reports no error, so an unseeded counter would fail OPEN.
 
 ## Environments: bindings are NOT inherited
 
@@ -93,6 +112,13 @@ writing into production storage.
 - Secrets are per-Worker, and each environment deploys as its own Worker:
   `npx wrangler secret put NAME --env staging`.
 - Never edit production's existing resource ids or routes when adding an environment.
+
+## Deployed
+
+| | |
+|-|-|
+| Staging | `https://aia-findings-staging.vladimir-slavik.workers.dev` |
+| Production | not deployed, and not to be deployed until it has a real Clerk issuer |
 
 ## Clerk
 
@@ -110,8 +136,15 @@ Development instance (`advanced-tetra-5`), stored as `op://Personal/ML Browser A
 Both values are stored correctly on that item; verify with `op read` rather than eyeballing a
 truncated display — `/.well-known/jwks` (no suffix) 404s, `/.well-known/jwks.json` is the endpoint.
 
-For the integration tests, which must *mint* a token rather than verify one, the same item carries
-a `development secret key` (`sk_test_…`). Reference it — never copy it:
+The staging end-to-end suite mints a token instead of verifying one, and does it **without the
+`sk_test_` backend secret**: a development instance issues a dev-browser token from
+`POST /v1/dev_browser`, and password sign-in through the Clerk Frontend API proceeds from there —
+the same public flow the iOS app uses. The suite reads the test user's credentials from an
+untracked `.dev.vars`; see `.dev.vars.example`.
+
+The backend secret below is therefore no longer needed by anything in this repository. It is kept
+here only because a future task that has to act *as* the backend (creating or deleting users, say)
+would need it. Reference it — never copy it:
 
 | Purpose | Reference |
 |-|-|
