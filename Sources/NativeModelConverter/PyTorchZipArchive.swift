@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Compression
 
 /// One entry in the central directory.
 ///
@@ -17,6 +18,9 @@ struct PyTorchZipEntry: Equatable {
 	let name: String
 	let uncompressedSize: Int
 	let crc32: UInt32
+	/// Bytes on disk. Equal to `uncompressedSize` for a stored entry; smaller (or, for
+	/// incompressible input, very slightly larger) for a deflated one.
+	let compressedSize: Int
 	let localHeaderOffset: Int
 	/// The central record's general-purpose flags and compression method, kept so the local header
 	/// can be required to agree with them rather than merely to exist.
@@ -41,6 +45,10 @@ enum PyTorchZipArchiveError: Error, Equatable {
 	case zip64ChainInconsistent(String)
 	case malformedCentralDirectory(String)
 	case unsupportedCompression(method: Int)
+	/// A deflated entry whose bytes do not inflate to the size its central record declares.
+	case inflationFailed(name: String)
+	/// A deflated entry handed to the streaming reader, which has no inflate path by design.
+	case streamingUnsupportedForDeflatedEntry(name: String)
 	case unsupportedEntryFlags(UInt16)
 	case duplicateEntryName(String)
 	case entryNameNotUTF8
@@ -57,11 +65,17 @@ enum PyTorchZipArchiveError: Error, Equatable {
 	case unsupportedRoot(String)
 }
 
-/// A read-only view of a stored-entry zip archive, opened from its central directory.
+/// A read-only view of a zip archive, opened from its central directory.
 ///
-/// Scope is deliberately narrow: this reads the archives `torch.save` writes, and refuses everything
-/// else rather than growing toward a general zip reader. Every refusal is a distinct error so the
-/// caller can say *why*, which is the whole point of the milestone this belongs to.
+/// Scope is deliberately narrow: this reads the archives `torch.save` writes — and, since AIA-713,
+/// the findings archives `FindingExporter` writes — and refuses everything else rather than growing
+/// toward a general zip reader. Every refusal is a distinct error so the caller can say *why*.
+///
+/// **Deflate is opt-in (`allowsDeflate`), defaulting to off.** A `torch.save` checkpoint is always
+/// stored, so the checkpoint path keeps exactly the guarantee it had before: method 0 or refuse.
+/// The findings archive is the opposite — `NSFileCoordinator(.forUploading)` deflates EVERY entry,
+/// including already-compressed JPEG bytes — so it opts in. One hardened parser serves both;
+/// a second zip implementation for the sake of one compression method would be the greater risk.
 struct PyTorchZipArchive {
 	let entries: [PyTorchZipEntry]
 	private let source: any RandomAccessBytes
@@ -96,6 +110,9 @@ struct PyTorchZipArchive {
 	/// sentinel, so the 32-bit value read here would be `0xFFFFFFFF` used as a literal.
 	private static let zip64ExtraHeaderID: UInt16 = 0x0001
 
+	private static let storedMethod = 0
+	private static let deflateMethod = 8
+
 	private static let maximumEntryCount = 200_000
 	private static let maximumEntryNameLength = 1024
 	private static let maximumCentralDirectoryLength = 32 * 1024 * 1024
@@ -108,9 +125,11 @@ struct PyTorchZipArchive {
 	/// bytes are actually read, which for a checkpoint means `data.pkl` and `version` and nothing
 	/// else — two reads instead of 934, and the reason a half-gigabyte archive costs a few hundred
 	/// kilobytes.
-	static func open(_ source: any RandomAccessBytes) throws -> PyTorchZipArchive {
+	/// - Parameter allowsDeflate: when false (the default) any entry that is not stored is refused
+	///   outright, which is the guarantee the checkpoint reader relies on.
+	static func open(_ source: any RandomAccessBytes, allowsDeflate: Bool = false) throws -> PyTorchZipArchive {
 		let directory = try readEndOfCentralDirectory(source)
-		let entries = try readCentralDirectory(source, directory)
+		let entries = try readCentralDirectory(source, directory, allowsDeflate: allowsDeflate)
 		var index: [String: Int] = [:]
 		index.reserveCapacity(entries.count)
 		for (position, entry) in entries.enumerated() {
@@ -293,6 +312,8 @@ struct PyTorchZipArchive {
 	private static func readCentralDirectory(
 		_ source: any RandomAccessBytes,
 		_ directory: Directory
+	,
+		allowsDeflate: Bool
 	) throws -> [PyTorchZipEntry] {
 		guard directory.entryCount <= maximumEntryCount else {
 			throw PyTorchZipArchiveError.tooManyEntries(directory.entryCount)
@@ -315,7 +336,11 @@ struct PyTorchZipArchive {
 				throw PyTorchZipArchiveError.unsupportedEntryFlags(flags)
 			}
 			let method = Int(readUInt16(bytes, cursor + 10))
-			guard method == 0 else { throw PyTorchZipArchiveError.unsupportedCompression(method: method) }
+			// Stored always; deflate only when the caller asked for it. Everything else — bzip2,
+			// LZMA, zstd, the "reserved" values — is refused rather than ignored.
+			guard method == Self.storedMethod || (allowsDeflate && method == Self.deflateMethod) else {
+				throw PyTorchZipArchiveError.unsupportedCompression(method: method)
+			}
 
 			let crc = readUInt32(bytes, cursor + 16)
 			let compressedSize = readUInt32(bytes, cursor + 20)
@@ -333,9 +358,13 @@ struct PyTorchZipArchive {
 				throw PyTorchZipArchiveError.malformedCentralDirectory("entry on another disk")
 			}
 			// Stored entries record the same value twice; a disagreement means the writer thought the
-			// data was compressed, and trusting either number would size the payload wrongly.
-			guard compressedSize == uncompressedSize else {
-				throw PyTorchZipArchiveError.malformedCentralDirectory("stored entry sizes disagree")
+			// data was compressed, and trusting either number would size the payload wrongly. A
+			// deflated entry is expected to disagree — that is what the compression did — so the
+			// check applies only to stored entries, and NOT as a general "sizes look sane" test.
+			if method == Self.storedMethod {
+				guard compressedSize == uncompressedSize else {
+					throw PyTorchZipArchiveError.malformedCentralDirectory("stored entry sizes disagree")
+				}
 			}
 			guard nameLength > 0 else {
 				throw PyTorchZipArchiveError.malformedCentralDirectory("empty entry name")
@@ -370,6 +399,7 @@ struct PyTorchZipArchive {
 			}
 			entries.append(PyTorchZipEntry(
 				name: name, uncompressedSize: size, crc32: crc,
+				compressedSize: Int(compressedSize),
 				localHeaderOffset: headerOffset, flags: flags, method: UInt16(method)
 			))
 			cursor = recordEnd
@@ -430,7 +460,19 @@ struct PyTorchZipArchive {
 			throw PyTorchZipArchiveError.entryTooLarge(name: entry.name, byteCount: entry.uncompressedSize)
 		}
 		let dataOffset = try dataOffset(of: entry)
-		let payload = try source.readChecked(at: dataOffset, count: entry.uncompressedSize)
+		// Read `compressedSize` bytes — equal to `uncompressedSize` for a stored entry — and inflate
+		// when the entry says so.
+		//
+		// **This is where the zip-bomb defence lives, and it is structural rather than heuristic.**
+		// `maximumByteCount` is checked against the DECLARED uncompressed size above, before a byte
+		// is read, and inflation targets a buffer of exactly that declared size. A record claiming a
+		// gigabyte is refused before any allocation; a record claiming a kilobyte cannot inflate to
+		// more than a kilobyte, because there is nowhere for the extra bytes to go. No compression
+		// ratio needs to be guessed at.
+		let stored = try source.readChecked(at: dataOffset, count: entry.compressedSize)
+		let payload = entry.method == UInt16(Self.deflateMethod)
+			? try Self.inflate(stored, to: entry.uncompressedSize, name: entry.name)
+			: stored
 		// The checksum binds the payload to the directory record that pointed at it. It is no defence
 		// against a hostile archive — an attacker computes a correct CRC trivially — but it is a
 		// complete defence against the failure that actually shipped once: an offset resolved to the
@@ -461,6 +503,12 @@ struct PyTorchZipArchive {
 		guard entry.uncompressedSize <= maximumByteCount else {
 			throw PyTorchZipArchiveError.entryTooLarge(name: entry.name, byteCount: entry.uncompressedSize)
 		}
+		// Streaming exists for multi-megabyte tensor storages, which `torch.save` always writes
+		// stored. Inflating in bounded chunks would need a streaming decoder whose only caller does
+		// not exist, so this refuses rather than silently reading compressed bytes as plain ones.
+		guard entry.method != UInt16(Self.deflateMethod) else {
+			throw PyTorchZipArchiveError.streamingUnsupportedForDeflatedEntry(name: entry.name)
+		}
 		precondition(chunkByteCount > 0, "a chunk of no bytes never advances")
 
 		let dataOffset = try dataOffset(of: entry)
@@ -478,6 +526,39 @@ struct PyTorchZipArchive {
 		guard CRC32.finalize(crc) == entry.crc32 else {
 			throw PyTorchZipArchiveError.checksumMismatch(name: entry.name)
 		}
+	}
+
+	/// Inflates a raw-DEFLATE payload into a buffer of exactly `expectedByteCount` bytes.
+	///
+	/// `COMPRESSION_ZLIB` is Apple's name for RAW deflate — no zlib wrapper — which is precisely what
+	/// a zip entry's payload is. The output buffer is pre-sized from the central directory, so this
+	/// cannot be made to allocate more than the caller already approved.
+	///
+	/// A short or over-long result is an error rather than a truncation: the caller's CRC check would
+	/// catch it too, but failing here names the actual problem.
+	private static func inflate(_ payload: [UInt8], to expectedByteCount: Int, name: String) throws -> [UInt8] {
+		guard expectedByteCount > 0 else {
+			// An empty entry legitimately deflates to a couple of framing bytes; anything it inflates
+			// to would not fit in the zero bytes the directory promised.
+			return []
+		}
+		guard payload.isEmpty == false else {
+			throw PyTorchZipArchiveError.inflationFailed(name: name)
+		}
+		var output = [UInt8](repeating: 0, count: expectedByteCount)
+		let written = output.withUnsafeMutableBufferPointer { destination -> Int in
+			payload.withUnsafeBufferPointer { source -> Int in
+				compression_decode_buffer(
+					destination.baseAddress!, expectedByteCount,
+					source.baseAddress!, payload.count,
+					nil, COMPRESSION_ZLIB
+				)
+			}
+		}
+		guard written == expectedByteCount else {
+			throw PyTorchZipArchiveError.inflationFailed(name: name)
+		}
+		return output
 	}
 
 	/// Resolves where an entry's payload begins, validating the local header against the central
@@ -534,10 +615,14 @@ struct PyTorchZipArchive {
 			throw PyTorchZipArchiveError.localHeaderMismatch(name: entry.name)
 		}
 
+		// The payload ON DISK is `compressedSize` bytes — equal to `uncompressedSize` only for a
+		// stored entry. Bounding by the uncompressed size would run a deflated entry's range off the
+		// end of the archive (and, for the pathological case of an entry that compressed LARGER than
+		// its input, would under-bound it and let the read overlap the central directory).
 		guard let afterName = checkedSum(nameStart, nameLength),
 			let dataOffset = checkedSum(afterName, extraLength),
-			let dataEnd = checkedSum(dataOffset, entry.uncompressedSize),
-			source.containsRange(offset: dataOffset, count: entry.uncompressedSize),
+			let dataEnd = checkedSum(dataOffset, entry.compressedSize),
+			source.containsRange(offset: dataOffset, count: entry.compressedSize),
 			// Entries live before the directory that describes them. Without this, a crafted local
 			// header and payload can be hidden inside a central record's comment and reached by
 			// pointing `localHeaderOffset` back into the directory.
