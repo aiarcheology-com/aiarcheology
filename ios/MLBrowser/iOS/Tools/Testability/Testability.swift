@@ -268,6 +268,8 @@ extension TestabilityIdentification {
 	}
 	
 	enum Toggle: String, TestabilityIdentification {
+		/// The cloud back-up switch in Settings (AIA-744).
+		case findingsBackUp
 		// Settings
 		case settingsRunAtLaunch
 		case settingsShowLabels

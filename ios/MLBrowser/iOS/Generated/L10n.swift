@@ -691,10 +691,10 @@ internal enum L10n {
         internal static let button = L10n.tr("Localizable", "findings.sync.backup.button", fallback: "Back Up My Findings")
         /// Back Up
         internal static let confirm = L10n.tr("Localizable", "findings.sync.backup.confirm", fallback: "Back Up")
-        /// Not Now
-        internal static let decline = L10n.tr("Localizable", "findings.sync.backup.decline", fallback: "Not Now")
         /// Back-up didn’t finish. It will try again.
         internal static let failed = L10n.tr("Localizable", "findings.sync.backup.failed", fallback: "Back-up didn’t finish. It will try again.")
+        /// Keep on This Device
+        internal static let keepOnDevice = L10n.tr("Localizable", "findings.sync.backup.keepOnDevice", fallback: "Keep on This Device")
         /// %d findings on this device are not in this account yet.
         internal static func message(_ p1: Int) -> String {
           return L10n.tr("Localizable", "findings.sync.backup.message", p1, fallback: "%d findings on this device are not in this account yet.")
@@ -705,6 +705,10 @@ internal enum L10n {
         internal static let succeeded = L10n.tr("Localizable", "findings.sync.backup.succeeded", fallback: "Your findings are backed up.")
         /// Back up existing findings?
         internal static let title = L10n.tr("Localizable", "findings.sync.backup.title", fallback: "Back up existing findings?")
+        /// Back Up My Findings
+        internal static let toggle = L10n.tr("Localizable", "findings.sync.backup.toggle", fallback: "Back Up My Findings")
+        /// When off, nothing new leaves this device. Findings already backed up stay in your account and are still restored on a new device.
+        internal static let toggleFooter = L10n.tr("Localizable", "findings.sync.backup.toggleFooter", fallback: "When off, nothing new leaves this device. Findings already backed up stay in your account and are still restored on a new device.")
       }
       internal enum Storage {
         /// Cloud storage full — delete findings you no longer need, or export them

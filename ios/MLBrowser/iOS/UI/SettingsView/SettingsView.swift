@@ -26,6 +26,10 @@ struct SettingsForm: View {
 	/// order, so signed-out is a state Settings must render rather than one it can assume away.
 	@ObservedObject var authState: AuthState
 
+	/// Cloud sync, for the back-up switch in the account section (AIA-744). Settings is where a
+	/// reversible data choice lives in this app -- it is where the analytics one already is.
+	@ObservedObject var findingsSync: FindingsSyncCoordinator
+
 	/// When the app-managed free window runs out, or `nil` when none is open (AIA-0556).
 	///
 	/// A plain `Date?` rather than the whole `FreeAccessState`: Settings only needs to state the
@@ -80,12 +84,14 @@ struct SettingsForm: View {
 	init(
 		findingRepository: FindingRepository,
 		authState: AuthState,
+		findingsSync: FindingsSyncCoordinator,
 		freeAccessEndsOn: Date? = nil,
 		freeAccessDaysRemaining: @escaping () -> Int?,
 		startAtManageAccount: Bool = false
 	) {
 		self.findingRepository = findingRepository
 		self._authState = ObservedObject(wrappedValue: authState)
+		self._findingsSync = ObservedObject(wrappedValue: findingsSync)
 		self.freeAccessEndsOn = freeAccessEndsOn
 		self.freeAccessDaysRemaining = freeAccessDaysRemaining
 		var path = NavigationPath()
@@ -126,6 +132,7 @@ struct SettingsForm: View {
 				webContentSection
 				mlBrowserSection
 				accountSection
+				backUpToggle
 				debugSection
 			}
 			.navigationDestination(for: AccountRoute.self) { route in
@@ -672,6 +679,29 @@ struct SettingsForm: View {
 	/// Identity only, since AIA-0455 moved the subscription to the ML Browser section: sign in, who
 	/// is signed in, and Clerk's profile. Nothing here is about money except the warning that
 	/// deleting the account does not stop it.
+	/// The back-up switch (AIA-744).
+	///
+	/// Only while signed in and only when the build has a Worker: offering to turn off something
+	/// that cannot happen would be a promise about a feature the user does not have.
+	@ViewBuilder
+	private var backUpToggle: some View {
+		if let account = authState.accountIdentifier, findingsSync.isCloudConfigured {
+			Section(footer: Text(L10n.Findings.Sync.Backup.toggleFooter)) {
+				Toggle(
+					L10n.Findings.Sync.Backup.toggle,
+					isOn: Binding(
+						get: { findingsSync.isBackUpEnabled },
+						// The account travels with the decision, and the coordinator refuses it if
+						// the provider has moved on -- the same fence the back-up button uses, for
+						// the same reason: `AuthState` lags during an account switch.
+						set: { findingsSync.setBackUpEnabled($0, expectedAccount: account) }
+					)
+				)
+				.testability(Testability.Toggle.findingsBackUp)
+			}
+		}
+	}
+
 	private var accountSection: some View {
 		Section(header: Text(L10n.Auth.Account.title)) {
 			Group {
