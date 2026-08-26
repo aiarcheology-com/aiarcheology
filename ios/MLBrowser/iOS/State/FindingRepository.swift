@@ -33,10 +33,16 @@ struct FindingMetadata {
 /// whether `@Environment(\.managedObjectContext)` crossed the presenting `.sheet` boundary.
 ///
 /// **Privacy invariant (centralized here):** a finding screenshot is written only to the app's
-/// local `Documents/Findings` (via `FindingScreenshotStore`) and is never transmitted off-device;
-/// it leaves the device only through explicit user export (`FindingExporter`). This type is the
-/// only production caller of `FindingScreenshotStore.save` — enforced by
+/// local `Documents/Findings` (via `FindingScreenshotStore`). This type is the only production
+/// caller of `FindingScreenshotStore.save` — enforced by
 /// `ArchitectureTests.testOnlyFindingRepositoryWritesScreenshots`.
+///
+/// The invariant is about the *writer*, not about egress, and this comment used to claim both. A
+/// screenshot now leaves the device by two paths: explicit user export (`FindingExporter`), and
+/// cloud back-up for a signed-in account (`FindingsSyncCoordinator.upload`, AIA-713) — which is
+/// gated on the account owning the finding, and readable in the privacy policy §3.5. Saying
+/// "never transmitted off-device" here outlived the feature that made it false, which is exactly
+/// how a future reader ends up trusting it.
 @MainActor
 final class FindingRepository {
 
@@ -263,20 +269,13 @@ final class FindingRepository {
 			// Child first (validates and pushes into the parent), then the parent to the store.
 			try importContext.save()
 			reachedParent = true
-			try Finding.save(in: context)
+			try preservingTimestamps(of: createdIds + replacedIds) { try Finding.save(in: context) }
 		} catch {
 			// Undo this import's own rows in the parent, by id, and nothing else -- the parent's
 			// unrelated pending edits are deliberately left alone. Only when the child save
 			// actually pushed them: if it was the one that threw, the parent never saw them, and
 			// refreshing a pre-existing finding here would discard edits that are not ours.
-			if reachedParent {
-				for id in createdIds {
-					if let row = Finding.select(id, in: context) { context.delete(row) }
-				}
-				for id in replacedIds {
-					if let row = Finding.select(id, in: context) { context.refresh(row, mergeChanges: false) }
-				}
-			}
+			if reachedParent { undoInParent(created: createdIds, replaced: replacedIds) }
 			importContext.reset()
 			for filename in writtenFilenames {
 				FindingScreenshotStore.delete(filename: filename)
@@ -290,6 +289,35 @@ final class FindingRepository {
 
 		didChangeFindings?()
 		return summary
+	}
+
+	/// Runs `work` with `preservesModifiedAt` set on the PARENT's instances of the given rows.
+	///
+	/// The flag was set on the child's instances; the parent holds its own instances of the same
+	/// rows, with the flag false. Its `willSave()` would then restamp "now" over an archived
+	/// timestamp whenever the assignment did not reach `changedValues()` — a replace whose stored
+	/// value already equals the archived one — handing the restored copy a false win over the edit
+	/// it was meant to lose to.
+	private func preservingTimestamps<T>(of ids: [UUID], _ work: () throws -> T) rethrows -> T {
+		let rows = ids.compactMap { Finding.select($0, in: context) }
+		for row in rows { row.preservesModifiedAt = true }
+		defer { for row in rows { row.preservesModifiedAt = false } }
+		return try work()
+	}
+
+	/// Takes one import's rows back out of the parent context, by id and nothing else.
+	///
+	/// `importContext.reset()` abandons the child, but by then the child's save has pushed every row
+	/// into the parent, where they sit pending until some unrelated save writes them -- as findings
+	/// the user was told had failed to import, whose images this method's caller has already
+	/// deleted. The parent's own unrelated pending edits are deliberately left alone.
+	private func undoInParent(created: [UUID], replaced: [UUID]) {
+		for id in created {
+			if let row = Finding.select(id, in: context) { context.delete(row) }
+		}
+		for id in replaced {
+			if let row = Finding.select(id, in: context) { context.refresh(row, mergeChanges: false) }
+		}
 	}
 
 	/// How many of an archive's findings this device already stores.

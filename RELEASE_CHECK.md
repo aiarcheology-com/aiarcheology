@@ -34,6 +34,12 @@ broken feature.** That is the trade this file exists to catch.
 - [ ] The App Store privacy labels match the policy — findings and screenshots are collected once a
       user signs in and accepts. They currently declare the opposite (#731).
 - [ ] A signed-in user can turn back-up off (#744), or the policy is amended to say they cannot.
+- [ ] **The hosted privacy policy at <https://aiarcheology.com/privacy-policy/> matches the in-app
+      copy.** That URL is what App Review and users read, and nothing publishes it automatically:
+      run `python3 scripts/privacy_policy_hosted.py --check` to confirm the generated copies are in
+      step with the app's, then paste `docs/privacy/privacy-policy-wordpress.html` into WordPress
+      and read the live page. They drifted once already (#624), and this release is the one where
+      the policy first has to disclose uploading coordinates and a real name.
 
 ## 1.0.7
 

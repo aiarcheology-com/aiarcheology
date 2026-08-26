@@ -1,7 +1,39 @@
-Build: AIA-713
+Build: AIA-713 (findings back-up)
 
-Test Focus: bringing findings back from an exported archive, and confirming that findings you
-already had are never quietly changed. Screenshots are also stored differently in this build.
+Test Focus: backing your findings up to your account, bringing them back from an exported archive,
+and confirming that findings you already had are never quietly changed. Screenshots are also stored
+differently in this build.
+
+Please read this first: once you sign in, this build can upload your findings — the title, your
+note, the finder credit, any coordinates you typed, and the screenshot — to your account, so they
+survive a lost or replaced phone. Nothing is uploaded while you are signed out. If you sign in on a
+device that already has findings, the app asks before uploading them; findings you make afterwards
+while signed in are uploaded as you make them. You can stop it at any time in Settings.
+
+- Signing in offers to back up what is already there. With a few findings on the device, sign in.
+  A card should ask whether to back up the findings already on this device, and it should name the
+  right number. Tap Keep on This Device. Nothing should upload. Make a new finding: that one SHOULD
+  upload, because you made it while signed in.
+
+- The button, and changing your mind. Open Findings; the green Back Up My Findings button is pinned
+  at the bottom and should stay visible however long the list is. Tap it. It should confirm the
+  back-up, and it should also lift the earlier Keep on This Device decision — that button is the
+  explicit yes.
+
+- Restoring on a clean device. Delete the app, reinstall it, and sign in with the same account.
+  Your findings should come back, pictures included, without importing anything.
+
+- Turning it off really stops it. In Settings, switch backing up off. Make a new finding: it must
+  not upload. Now delete a finding that WAS backed up — that delete must still reach the account,
+  so it does not reappear on another device. Switch back on and confirm uploads resume.
+
+- Signing out leaves your findings alone. Sign out. Every finding must still be on the device.
+  Sign in as a different account on the same phone: that account must not see the first one's
+  findings, and the card should ask before anything of theirs is uploaded.
+
+- Offline is not an error. Turn on Airplane Mode, make two findings, then tap Back Up My Findings.
+  It should say you are offline rather than claiming success. Turn the network back on: they should
+  upload on their own, without you tapping anything.
 
 - Export, then bring it back. Open the drawer > Findings and tap Export; save or AirDrop the ZIP
   somewhere you can reach it. Delete a couple of findings (swipe), then tap Import and pick that

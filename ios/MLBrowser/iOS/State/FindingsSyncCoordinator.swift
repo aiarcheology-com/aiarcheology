@@ -479,26 +479,7 @@ final class FindingsSyncCoordinator: ObservableObject {
         var claimsAreSaved = false
         defer { if claimsAreSaved == false { requeue(claims, for: account) } }
 
-        if let mine = claims.created {
-            ledger.owned.formUnion(mine)
-        }
-        // An explicit "back up my findings" is a yes for everything it named, so it also lifts any
-        // earlier exclusion on those ids -- that lifting is the whole of AIA-740.
-        if let claimed = claims.manual {
-            ledger.owned.formUnion(claimed)
-            ledger.excluded.subtract(claimed)
-        }
-        if let preference = claims.preference {
-            ledger.backUpEnabled = preference
-        }
-        if let answer = claims.consent {
-            if answer.accepted {
-                ledger.owned.formUnion(answer.keys)
-                ledger.excluded.subtract(answer.keys)
-            } else {
-                ledger.excluded.formUnion(answer.keys)
-            }
-        }
+        claims.apply(to: &ledger)
         isBackUpEnabled = ledger.backUpEnabled
 
         lastCycleFailure = nil
@@ -564,6 +545,28 @@ final class FindingsSyncCoordinator: ObservableObject {
         var manual: Set<String>?
         var preference: Bool?
         var consent: (accepted: Bool, keys: Set<String>)?
+
+        func apply(to ledger: inout FindingsSyncLedger) {
+            if let created {
+                ledger.owned.formUnion(created)
+            }
+            // An explicit "back up my findings" is a yes for everything it named, so it also lifts
+            // any earlier exclusion on those ids -- that lifting is the whole of AIA-740.
+            if let manual {
+                ledger.owned.formUnion(manual)
+                ledger.excluded.subtract(manual)
+            }
+            if let preference {
+                ledger.backUpEnabled = preference
+            }
+            guard let consent else { return }
+            if consent.accepted {
+                ledger.owned.formUnion(consent.keys)
+                ledger.excluded.subtract(consent.keys)
+            } else {
+                ledger.excluded.formUnion(consent.keys)
+            }
+        }
     }
 
     /// Puts back everything a cycle claimed but never persisted.

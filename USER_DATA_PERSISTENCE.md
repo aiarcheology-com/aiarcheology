@@ -160,12 +160,19 @@ completes without the user doing anything.
 ## 7. Quota
 
 50 MB per user, enforced server-side and reported on every authenticated JSON response as
-`{used, limit}`. The client pre-checks because a rejected *authenticated* upload still costs a
-Class A operation plus ingress; the server decides because two devices each holding 40 MB will both
+`{used, limit}`. The client does **not** pre-check: it uploads, and parks the finding if the
+server refuses. Only the server can decide, because two devices each holding 40 MB will both
 believe they are under the cap.
 
-The check and the reservation are a single guarded transaction. Read-then-write let three
-concurrent 2 KB uploads all succeed against a 4 KB cap in testing.
+The check and the reservation are a single guarded transaction, and the totals it checks are
+recomputed from the recorded object sizes inside that same transaction. Read-then-write let three
+concurrent 2 KB uploads all succeed against a 4 KB cap in testing; incrementing a counter under a
+post-image guard let two devices writing one object at the same size both charge for it, for ever
+(AIA-751).
+
+A quota park is not permanent. Deleting a backed-up finding frees room, and the parks it caused are
+lifted on the same cycle — otherwise the advice the app gives ("remove or export findings") would
+not work.
 
 Storage is accounted separately from sync: `object_bytes` records what is actually stored, including
 an image whose metadata never committed, so an abandoned upload is not free storage.

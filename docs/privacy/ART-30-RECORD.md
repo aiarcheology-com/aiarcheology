@@ -57,11 +57,11 @@ No DPO is appointed — the controller is a sole trader, and none of Art. 37(1)(
 |-|-|
 | **Purpose** | Back up a user's findings to their account so the work survives a lost, broken or replaced device, and restore them on a new device |
 | **Legal basis** | Art. 6(1)(b) — performance of a contract. See "Why 6(1)(b) and not consent" below |
-| **Data subjects** | Signed-in users who accept the back-up prompt |
-| **Categories of data** | **Content:** finding title, note, label, finder credit (`author`, a free-typed **real name**), source page URL, detection bounding box, **coordinates the user typed in** (`gps`), capture date, and the **screenshot image**. **Index:** Clerk user id, finding id, modified/received timestamps, byte sizes, deletion flag |
+| **Data subjects** | Signed-in users whose findings are backed up. Two routes, and the record must name both: findings that already existed on the device are uploaded only if the user accepts the prompt, and findings created *while* signed in are uploaded without one — they are the account's by construction. A user who signs in on an empty device is never prompted and is still a data subject here |
+| **Categories of data** | **Content:** finding title, note, label, finder credit (`author`, a free-typed **real name**), source page URL, detection bounding box, **coordinates the user typed in** (`gps`), capture date, **what the model detected, its confidence score and which model produced it**, the finding's lifecycle state, and the **screenshot image**. **Index:** Clerk user id, finding id, modified/received timestamps, byte sizes, deletion flag |
 | **Special categories (Art. 9)** | None processed |
 | **Recipients** | Cloudflare, Inc. (processor) — R2 object storage and D1 database |
-| **Transfers** | **Split.** R2 is pinned to the EU jurisdiction, so content stays in the EU. **D1 has no jurisdiction setting** — verified 2026-08-26, `wrangler d1 list` shows an empty jurisdiction column for both databases — so the index may be processed outside the EU under the Cloudflare DPA's SCCs |
+| **Transfers** | **Split.** R2 is pinned to the EU jurisdiction, so finding content is *stored* only in the EU. The Worker that reads and writes it runs on Cloudflare's global edge and is not region-pinned, so content is briefly processed in memory wherever the request lands; that processing is covered by the Cloudflare DPA, not by the R2 jurisdiction. **D1 has no jurisdiction setting** — verified 2026-08-26, `wrangler d1 list` shows an empty jurisdiction column for both databases — so the index may be processed outside the EU under the Cloudflare DPA's SCCs |
 | **Retention** | See below |
 | **Security** | TLS in transit; encryption at rest by Cloudflare; per-request authorization of the signed-in account against the owning account; per-user and global byte ceilings enforced in a single guarded transaction. **Not end-to-end encrypted** — see the DPIA |
 
@@ -76,12 +76,12 @@ The in-app prompt before a user's existing findings are first uploaded is **not*
 | What | How long | Why |
 |-|-|-|
 | Finding content (R2 objects) | Until the user deletes the finding or the account | — |
-| **Tombstones** (deleted finding's id + timestamp) | **Kept indefinitely** | Garbage-collecting them would resurrect deleted findings on a device that had been offline since before the delete. Content is gone; only the id and timestamp remain |
+| **Tombstones** (deleted finding's id + timestamp) | Until the account is deleted | Garbage-collecting them *earlier* would resurrect deleted findings on a device that had been offline since before the delete. Content is gone; only the id and timestamp remain. Account deletion removes them along with every other row (`purge.ts`) |
 | **Account-deletion fence row** (Clerk user id) | **Kept after erasure** | It is what makes the purge idempotent against webhook retries. Clerk does not reuse ids |
 | D1 Time Travel | ~30 days | Cloudflare platform behaviour; purged rows remain restorable for that window |
 | Byte counters | Reset to zero on purge | — |
 
-An erasure request under Art. 17 is satisfied by account deletion, with these three residual items disclosed. They are identifiers and timestamps, not content.
+An erasure request under Art. 17 is satisfied by account deletion. Two items survive it: the fence row and the Time Travel window. Both are identifiers and timestamps, never content. Tombstones do **not** survive — they are deleted with the rest of the index.
 
 ---
 

@@ -152,15 +152,19 @@ nothing until you answer &mdash; if you decline, those findings stay on your dev
 create afterwards while signed in are backed up as you make them.</p>
 <p><strong>What is uploaded</strong> is the finding as you see it: its title, your note and label, the
 finder credit if you filled one in, the web address of the map or page it came from, where on that
-page the detection sits, any coordinates you typed in yourself, the date, and the screenshot
+page the detection sits, any coordinates you typed in yourself, the date, what the App&rsquo;s model
+thought it had found and how confident it was, which model produced that, and the screenshot
 image.</p>
 <p><strong>Where it is stored.</strong> With <strong>Cloudflare</strong>, under a location belonging to
 your account, and our server checks on every single request that the account asking for data is the
 account that owns it. Two parts are stored differently, and we would rather be exact about it:</p>
 <ul>
   <li>The <strong>findings and screenshots themselves</strong> &mdash; everything you wrote and
-    captured &mdash; are held in object storage we have pinned to the <strong>European
-    Union</strong>. Their contents stay in the EU.</li>
+    captured &mdash; are <strong>stored</strong> in object storage we have pinned to the
+    <strong>European Union</strong>. We should be precise about what that covers: they are kept only
+    in the EU, but the server that hands them to your phone runs wherever your request reaches
+    Cloudflare, so a finding passes briefly through that server on its way to and from EU storage.
+    That handling is covered by the safeguards in section 6.</li>
   <li>A small <strong>index</strong> recording which findings your account has, when each was last
     changed, how large it is, and which have been deleted, is held in Cloudflare&rsquo;s database
     service, which <strong>does not offer a region setting</strong>. It may therefore be processed
@@ -175,7 +179,9 @@ incident, or checking that a deletion really happened &mdash; and not otherwise.
 end-to-end encryption deliberately: with end-to-end encryption, losing your key would mean losing
 your fieldwork for good, with nothing we could do to help you recover it.</p>
 <p><strong>Deleting it.</strong> Deleting a finding in the App deletes it from your backup too, on
-every device. Deleting your account removes every finding and screenshot we hold for you. Note that
+every device &mdash; unless another device has edited that same finding more recently than you
+deleted it, in which case the newer edit wins and the finding stays. This is how the App settles any
+disagreement between your devices: the most recent change is the one that counts. Deleting your account removes every finding and screenshot we hold for you. Note that
 your backup is the one part of your data that <strong>uninstalling the App does not remove</strong>
 &mdash; that is exactly what makes restoring on a new phone possible &mdash; so delete your account
 if you want it gone.</p>

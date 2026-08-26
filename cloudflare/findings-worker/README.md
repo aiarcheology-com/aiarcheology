@@ -159,6 +159,8 @@ npm run migrate:staging
 npm run deploy:staging
 ```
 
-Production is configured but deliberately not deployed. Its Clerk values are placeholders, so a
-premature production deploy refuses every request rather than trusting development-instance tokens;
-set a real production issuer and JWKS first.
+Production is deployed and carries the real Clerk issuer (`clerk.aiarcheology.com`, AIA-741). Note
+what that changed: the placeholder values used to be the safety net — a premature production deploy
+refused every request. It no longer does. The only thing standing between a mistaken deploy and
+live traffic is the cloud-findings gate list in `RELEASE_CHECK.md`, so treat that list as the
+guard it now is.

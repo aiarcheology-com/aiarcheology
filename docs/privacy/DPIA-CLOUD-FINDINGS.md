@@ -64,15 +64,15 @@ Mitigations: SCCs under the Cloudflare DPA; the index holds **no content** — n
 
 ### R5 — Deletion does not fully delete
 
-Tombstones are kept indefinitely, the deletion fence row retains a Clerk user id, and D1 Time Travel retains purged rows for ~30 days.
+The deletion fence row retains a Clerk user id, and D1 Time Travel retains purged rows for ~30 days. (Tombstones are kept only until the account is deleted; the purge removes them with every other row.)
 
-Each is deliberate and load-bearing — see the retention table in the Art. 30 record. All three are identifiers and timestamps, never content. Disclosed in privacy policy §7.
+Each is deliberate and load-bearing — see the retention table in the Art. 30 record. Both are identifiers and timestamps, never content. The per-finding tombstone is disclosed in privacy policy §7; the fence row and the Time Travel window are recorded here and in the Art. 30 record, and are not separately named to users — they are operational identifiers carrying no finding content.
 
 **Residual risk: low, accepted.**
 
 ### R6 — Quota exhaustion or cost blow-up
 
-Per-user (50 MiB) and global byte ceilings are enforced inside a single guarded transaction, so concurrent uploads cannot race past the limit. A blocked upload is reported to the user and nothing already stored is deleted.
+Per-user (50 MiB) and global byte ceilings are enforced inside a single guarded transaction, and the totals they check are recomputed from the recorded object sizes in that same transaction, so concurrent uploads can neither race past the limit nor leave a total that disagrees with what is stored (AIA-751). A blocked upload is reported to the user and nothing already stored is deleted. Running out of room is treated as curable: deleting a finding lifts the block.
 
 Not a privacy risk; recorded because availability is an Art. 32 concern.
 
@@ -91,6 +91,6 @@ This should be revisited if the user base changes character — for example if p
 
 ## Outcome
 
-Proceed. Residual risk is acceptable at this scale with the mitigations above, provided the open items in the Art. 30 record are closed before production launch — in particular Clerk residency and the production Clerk issuer, which is still a placeholder.
+Proceed. Residual risk is acceptable at this scale with the mitigations above, provided the open items in the Art. 30 record are closed before production launch. Clerk residency was answered on 2026-08-26 (no EU option exists; transfers rely on the EU–US Data Privacy Framework) and the production Clerk issuer is configured and verified (`clerk.aiarcheology.com`, AIA-741).
 
 **Review triggers:** a change in what a finding contains (especially automatic geolocation); enabling any sharing surface; a materially larger or more professional user base; Cloudflare offering a D1 region.
