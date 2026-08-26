@@ -169,6 +169,7 @@ struct DrawerContent: View {
             SettingsForm(
                 findingRepository: appState.findingRepository,
                 authState: authState,
+                findingsSync: appState.findingsSync,
                 // The free window's end date, so the account section can say plainly what the user
                 // is on — free usage, not a trial (AIA-0556). A value rather than the state object:
                 // it is frozen at grant and cannot change while this sheet is up.

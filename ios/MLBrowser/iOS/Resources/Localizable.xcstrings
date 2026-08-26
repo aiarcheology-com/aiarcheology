@@ -27884,6 +27884,30 @@
         }
       }
     },
+    "findings.sync.backup.toggle" : {
+      "comment" : "Settings switch that turns cloud back-up on or off for the signed-in account",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back Up My Findings"
+          }
+        }
+      }
+    },
+    "findings.sync.backup.toggleFooter" : {
+      "comment" : "Explains what turning the back-up switch off does, and what it does not do",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When off, nothing new leaves this device. Findings already backed up stay in your account and are still restored on a new device."
+          }
+        }
+      }
+    },
     "findings.sync.backup.busy" : {
       "comment" : "Shown on the back-up button while a back-up is running",
       "extractionState" : "manual",
@@ -27892,6 +27916,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Backing up…"
+          }
+        }
+      }
+    },
+    "findings.sync.backup.keepOnDevice" : {
+      "comment" : "Declines the back-up question. Says what it does -- these findings stay local -- rather than \"Not Now\", which read as a promise to ask again and as a global stop (AIA-740).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep on This Device"
           }
         }
       }
@@ -28036,114 +28072,6 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "備份"
-          }
-        }
-      }
-    },
-    "findings.sync.backup.decline" : {
-      "comment" : "Button that declines backing up findings already on the device",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "ليس الآن"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "এখন নয়"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Teď ne"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Jetzt nicht"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not Now"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Ahora no"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "الان نه"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Pas maintenant"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "לא עכשיו"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "अभी नहीं"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Most nem"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Nie teraz"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Не сейчас"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Не зараз"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "暂不"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "暫不"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "暫時唔使"
           }
         }
       }

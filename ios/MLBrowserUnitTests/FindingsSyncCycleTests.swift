@@ -526,6 +526,97 @@ extension FindingsSyncCycleTests {
 		XCTAssertTrue(sut.isQuotaBlocked, "the button reads this to stop looking like it will work")
 	}
 
+	// MARK: - Turning back-up off (AIA-744)
+
+	func testTurningBackUpOffStopsFindingsCreatedAfterwardsFromUploading() async throws {
+		StubWorkerProtocol.handler = { request in
+			if request.httpMethod == "PUT", request.url?.path.hasSuffix("/meta") == true {
+				return (200, StubWorkerProtocol.json([
+					"finding": [
+						"id": UUID().uuidString, "modifiedAt": 1, "receivedAt": 2,
+						"deleted": false, "bytes": 1, "hasImage": false
+					],
+					"usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			if request.url?.path.hasSuffix("/image") == true {
+				return (200, StubWorkerProtocol.json([
+					"modifiedAt": 1, "bytes": 1, "usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+		let account = try XCTUnwrap(auth.accountIdentifier)
+
+		await sut.setBackUpEnabled(false, expectedAccount: account)?.value
+		XCTAssertFalse(sut.isBackUpEnabled)
+
+		// The case that made the missing switch confusing: a finding created while signed in is the
+		// account's by construction, so it used to upload no matter what the user had answered.
+		try saveFinding(title: "Made while back-up is off")
+		StubWorkerProtocol.requests = []
+		await sut.syncNow()?.value
+
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.contains { $0.hasPrefix("PUT") } == false,
+			"nothing may leave the device while back-up is off: \(StubWorkerProtocol.requests)"
+		)
+
+		// ...and turning it back on sends what accumulated, without needing the button.
+		StubWorkerProtocol.requests = []
+		await sut.setBackUpEnabled(true, expectedAccount: account)?.value
+
+		XCTAssertTrue(sut.isBackUpEnabled)
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.contains { $0.hasPrefix("PUT") && $0.contains("/meta") },
+			"turning back-up on uploads what was withheld: \(StubWorkerProtocol.requests)"
+		)
+	}
+
+	func testTurningBackUpOffStillPullsSoAReinstallCanRestore() async throws {
+		let remote = UUID()
+		StubWorkerProtocol.handler = { request in
+			if request.httpMethod == "GET", request.url?.path.hasSuffix("/meta") == true {
+				return (200, StubWorkerProtocol.json([
+					"findings": [[
+						"id": remote.uuidString, "title": "From the cloud",
+						"lifeCycle": "ready", "date": "2026-08-26T10:00:00Z"
+					]],
+					"schemaVersion": 1
+				]))
+			}
+			if request.httpMethod == "GET" {
+				return (200, StubWorkerProtocol.json([
+					"findings": [[
+						"id": remote.uuidString, "modifiedAt": 5, "receivedAt": 7,
+						"deleted": false, "bytes": 10, "hasImage": false
+					]],
+					"nextCursor": NSNull(), "hasMore": false,
+					"usage": ["used": 10, "limit": 52_428_800]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+		let account = try XCTUnwrap(auth.accountIdentifier)
+
+		await sut.setBackUpEnabled(false, expectedAccount: account)?.value
+		await sut.syncNow()?.value
+
+		// Off means "stop sending", not "forget what is already backed up". A user who turns it off
+		// and then reinstalls must still get their work back -- withholding it would be the worse
+		// surprise, and deleting the account is the way to remove a backup.
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.contains { $0.hasPrefix("GET") },
+			"the pull still runs while back-up is off: \(StubWorkerProtocol.requests)"
+		)
+	}
+
 	func testBackUpNowClearsTheStandingQuestionRatherThanLeavingItOnScreen() async throws {
 		_ = try saveFindingBelongingToNobody(title: "Asked about")
 		StubWorkerProtocol.handler = { request in
