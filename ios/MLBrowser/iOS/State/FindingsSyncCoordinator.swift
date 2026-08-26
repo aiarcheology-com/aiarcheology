@@ -55,7 +55,16 @@ final class FindingsSyncCoordinator: ObservableObject {
     private let authProvider: AuthProviding
     private let analytics: AnalyticsState?
     private let findingRepository: FindingRepository
-    private let context: NSManagedObjectContext
+    private let dataController: DataController
+
+    /// Read from the controller every time, never captured.
+    ///
+    /// `DataController.container` is REPLACED when a migration fails and the store is rebuilt, and
+    /// that happens on a later main-queue turn -- after this object exists. A captured context then
+    /// points at a store that is gone: every fetch returns nothing, sync sees an empty device, and
+    /// it uploads nothing while the app shows the user their findings. `FindingRepository` computes
+    /// its context for exactly this reason; this used to be the one place that did not.
+    private var context: NSManagedObjectContext { dataController.container.viewContext }
     private let transportFactory: (@MainActor (URL) -> FindingsCloudTransport)?
     /// Overridden by tests so a cycle cannot read or write the real device's ledger.
     private let ledgerDirectory: URL?
@@ -86,7 +95,7 @@ final class FindingsSyncCoordinator: ObservableObject {
         authProvider: AuthProviding,
         analytics: AnalyticsState? = nil,
         findingRepository: FindingRepository,
-        context: NSManagedObjectContext,
+        dataController: DataController,
         transportFactory: (@MainActor (URL) -> FindingsCloudTransport)? = nil,
         ledgerDirectory: URL? = FindingsSyncLedgerStore.defaultDirectory,
         now: @escaping () -> Date = Date.init
@@ -94,7 +103,7 @@ final class FindingsSyncCoordinator: ObservableObject {
         self.authProvider = authProvider
         self.analytics = analytics
         self.findingRepository = findingRepository
-        self.context = context
+        self.dataController = dataController
         self.now = now
         self.transportFactory = transportFactory
         self.ledgerDirectory = ledgerDirectory

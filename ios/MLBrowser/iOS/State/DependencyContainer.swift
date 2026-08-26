@@ -92,7 +92,7 @@ class DependencyContainer {
             authProvider: self.authProvider,
             analytics: self.analyticsState,
             findingRepository: self.findingRepository,
-            context: self.dataController.container.viewContext
+            dataController: self.dataController
         )
     }()
 
@@ -472,6 +472,9 @@ class DependencyContainer {
 		// this skips.
 		if usesMockAuth == false {
 			account.authState.purgeCloudData = { [findingsSync] in try await findingsSync.purgeCloudData() }
+		// Signing in is its own trigger. It is none of the three the coordinator watches for, so
+		// without this the first thing a new user does -- sign in -- produces silence (AIA-727).
+		account.authState.accountDidChange = { [findingsSync] _ in findingsSync.syncNow() }
 		}
 		_ = messageReplyCoordinator
 		// Arm notification scheduling (AIA-0115, S7): hooks messageCenterState's reevaluation

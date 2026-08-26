@@ -96,7 +96,7 @@ final class FindingsSyncCycleTests: XCTestCase {
 			authProvider: auth,
 			analytics: analytics,
 			findingRepository: repository,
-			context: moc,
+			dataController: dataController,
 			transportFactory: { url in
 				FindingsCloudTransport(baseURL: url, session: StubWorkerProtocol.session) { "stub.token" }
 			},
@@ -295,7 +295,6 @@ final class FindingsSyncCycleTests: XCTestCase {
 	}
 }
 
-
 // MARK: - What sync is allowed to report
 
 extension FindingsSyncCycleTests {
@@ -355,7 +354,6 @@ extension FindingsSyncCycleTests {
 		)
 	}
 }
-
 
 // MARK: - Whose findings are these
 
@@ -444,5 +442,63 @@ extension FindingsSyncCycleTests {
 
 		await sut.syncNow()?.value
 		XCTAssertNil(sut.backupConsentRequest, "declining is an answer, not a deferral")
+	}
+}
+
+// MARK: - Reading the store that is actually there
+
+extension FindingsSyncCycleTests {
+
+	func testSyncStillSeesFindingsAfterTheStoreIsRebuilt() async throws {
+		// The failure this guards produced no error and no crash: a migration that cannot find its
+		// mapping model makes `DataController` destroy the store and build a FRESH container, on a
+		// later main-queue turn. Anything holding the old `viewContext` then queries a store that no
+		// longer exists -- every fetch returns nothing, so sync reports "pending 0" and uploads
+		// nothing while the app happily shows the user their findings.
+		//
+		// `FindingRepository` computes its context for exactly this reason; the coordinator used to
+		// capture it once.
+		try saveFinding(title: "Recorded before the rebuild")
+		XCTAssertEqual(Finding.count(in: moc, predicate: nil), 1)
+
+		// Stand in for the recovery: replace the container the way `DataController` does.
+		await dataController.replaceContainerForTesting()
+
+		let afterRebuild = try saveFinding(title: "Recorded after the rebuild").entityId
+
+		StubWorkerProtocol.handler = { request in
+			if request.httpMethod == "PUT", request.url?.path.hasSuffix("/meta") == true {
+				return (200, StubWorkerProtocol.json([
+					"finding": [
+						"id": UUID().uuidString, "modifiedAt": 1, "receivedAt": 2,
+						"deleted": false, "bytes": 1, "hasImage": false
+					],
+					"usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			if request.url?.path.hasSuffix("/image") == true {
+				return (200, StubWorkerProtocol.json([
+					"modifiedAt": 1, "bytes": 1, "usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		StubWorkerProtocol.requests = []
+		await sut.syncNow()?.value
+
+		// The finding made after the rebuild is this account's own work, so it needs no consent and
+		// must reach the cloud. A coordinator holding the dead context uploads nothing at all.
+		// Asserted on THIS finding, not merely on "something was uploaded": a coordinator holding
+		// the old context can still see rows in the store it was built against, so any-upload would
+		// pass while the live store went unread.
+		let uploads = StubWorkerProtocol.requests.filter { $0.hasPrefix("PUT") }
+		XCTAssertTrue(
+			uploads.contains { $0.contains(afterRebuild.uuidString) },
+			"the finding saved after the rebuild never reached the cloud: \(uploads)"
+		)
 	}
 }

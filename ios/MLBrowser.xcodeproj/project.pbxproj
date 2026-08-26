@@ -92,6 +92,7 @@
 		8A4F0E382F110A0600ABCDEF /* Findings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E322F110A0600ABCDEF /* Findings.swift */; };
 		8A4F0E392F110A0600ABCDEF /* FindingScreenshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E332F110A0600ABCDEF /* FindingScreenshotStore.swift */; };
 		8A4F0E3A2F110A0600ABCDEF /* SaveFindingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E342F110A0600ABCDEF /* SaveFindingSheet.swift */; };
+		AC218D7270000000000B423 /* BackupConsentPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC218D7270000000000A423 /* BackupConsentPrompt.swift */; };
 		8A4F0E3B2F110A0600ABCDEF /* FindingsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E352F110A0600ABCDEF /* FindingsListView.swift */; };
 		8A4F0E3E2F110A0600ABCDEF /* FindingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E3D2F110A0600ABCDEF /* FindingsTests.swift */; };
 		8A4F0E412F110A0600ABCDEF /* FindingExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E402F110A0600ABCDEF /* FindingExporter.swift */; };
@@ -496,6 +497,7 @@
 		8A4F0E322F110A0600ABCDEF /* Findings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Findings.swift; sourceTree = "<group>"; };
 		8A4F0E332F110A0600ABCDEF /* FindingScreenshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingScreenshotStore.swift; sourceTree = "<group>"; };
 		8A4F0E342F110A0600ABCDEF /* SaveFindingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveFindingSheet.swift; sourceTree = "<group>"; };
+		AC218D7270000000000A423 /* BackupConsentPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupConsentPrompt.swift; sourceTree = "<group>"; };
 		8A4F0E352F110A0600ABCDEF /* FindingsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsListView.swift; sourceTree = "<group>"; };
 		8A4F0E3D2F110A0600ABCDEF /* FindingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsTests.swift; sourceTree = "<group>"; };
 		8A4F0E402F110A0600ABCDEF /* FindingExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingExporter.swift; sourceTree = "<group>"; };
@@ -944,6 +946,7 @@
 			isa = PBXGroup;
 			children = (
 				8A4F0E342F110A0600ABCDEF /* SaveFindingSheet.swift */,
+				AC218D7270000000000A423 /* BackupConsentPrompt.swift */,
 				8A4F0E352F110A0600ABCDEF /* FindingsListView.swift */,
 				8A4F0E422F110A0600ABCDEF /* ActivityShareSheet.swift */,
 				8A4F0E442F110A0600ABCDEF /* FindingShareCard.swift */,
@@ -2119,6 +2122,7 @@
 				AC055600000000000000B009 /* FindingsEscapeHatch.swift in Sources */,
 				8A4F0E432F110A0600ABCDEF /* ActivityShareSheet.swift in Sources */,
 				8A4F0E452F110A0600ABCDEF /* FindingShareCard.swift in Sources */,
+				AC218D7270000000000B423 /* BackupConsentPrompt.swift in Sources */,
 				8A4F0E3B2F110A0600ABCDEF /* FindingsListView.swift in Sources */,
 				8AC650B02B2B9B1800922648 /* DefaultRenderer.swift in Sources */,
 				8AC650A92B2B4C8300922648 /* CoreDataManagable.swift in Sources */,

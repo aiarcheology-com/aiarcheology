@@ -103,6 +103,28 @@ final class DataController: ObservableObject {
 		}
 	}
 
+#if DEBUG
+	/// Replaces the container the way migration recovery does, for tests.
+	///
+	/// Recovery destroys the store and builds a FRESH container on a later main-queue turn, which is
+	/// what strands anything holding the old `viewContext`. Reproducing it is the only way to test
+	/// that a collaborator reads the live context rather than one it captured at launch.
+	func replaceContainerForTesting() async {
+		let replacement = NSPersistentContainer(
+			name: DataController.containerName,
+			managedObjectModel: Self.sharedModel
+		)
+		let description = NSPersistentStoreDescription()
+		description.type = NSInMemoryStoreType
+		replacement.persistentStoreDescriptions = [description]
+		await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+			replacement.loadPersistentStores { _, _ in continuation.resume() }
+		}
+		container = replacement
+		container.viewContext.automaticallyMergesChangesFromParent = true
+	}
+#endif
+
 	init(inMemory: Bool = false) {
 		container = NSPersistentContainer(name: DataController.containerName, managedObjectModel: Self.sharedModel)
 
