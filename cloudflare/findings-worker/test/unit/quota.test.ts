@@ -85,20 +85,18 @@ describe('the account-wide ceiling', () => {
     // The 50 MB per-user cap bounds one user; it is not a spend cap. This is the guard that stops
     // user 201 from quietly taking the account past its free allowance.
     const token = await tokenFor(nextUser());
-    const ceiling = env.GLOBAL_BYTE_CEILING;
-    const restore = await env.DB.prepare("SELECT value FROM counter WHERE key = 'global_bytes'").first<{
-      value: number;
-    }>();
-    await env.DB.prepare("UPDATE counter SET value = ?1 WHERE key = 'global_bytes'").bind(ceiling - 10).run();
+    // The account-wide total is derived from the per-user rows, so the crowd is seeded as users,
+    // not as a number poked into the cached total.
+    await env.DB.prepare("INSERT INTO counter (key, value) VALUES ('user:crowd', ?1)")
+      .bind(env.GLOBAL_BYTE_CEILING - 10)
+      .run();
 
     try {
       const refused = await putImage(token, findingId('08'), 1024);
       expect(refused.status).toBe(507);
       expect(((await refused.json()) as { error: { code: string } }).error.code).toBe('global_capacity');
     } finally {
-      await env.DB.prepare("UPDATE counter SET value = ?1 WHERE key = 'global_bytes'")
-        .bind(restore?.value ?? 0)
-        .run();
+      await env.DB.prepare("DELETE FROM counter WHERE key = 'user:crowd'").run();
     }
   });
 });

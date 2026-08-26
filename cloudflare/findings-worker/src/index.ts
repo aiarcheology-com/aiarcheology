@@ -87,7 +87,15 @@ async function handle(request: Request, env: Env): Promise<Response> {
   if (match === null) {
     throw new ApiError('not_found', 'No such endpoint.');
   }
-  const id = requireFindingId(decodeURIComponent(match[1] ?? ''));
+  let rawId: string;
+  try {
+    rawId = decodeURIComponent(match[1] ?? '');
+  } catch {
+    // `decodeURIComponent` throws on malformed percent-encoding. Unhandled it would surface as a
+    // retryable 500 for what is a client mistake that retrying cannot fix.
+    throw new ApiError('bad_request', 'The finding id is malformed.');
+  }
+  const id = requireFindingId(rawId);
   const kind = match[2] as 'meta' | 'image' | undefined;
 
   if (request.method === 'GET' && kind !== undefined) {
@@ -104,6 +112,11 @@ async function handle(request: Request, env: Env): Promise<Response> {
         'content-type': kind === 'meta' ? 'application/json; charset=utf-8' : 'image/jpeg',
         'content-length': String(object.size),
         'x-content-type-options': 'nosniff',
+        // The same reasoning as every JSON response, and it matters most here: these two carry the
+        // coordinates, the finder's name and the photograph. A cache keying on URL alone would hand
+        // one user another's fieldwork, and the URL is identical for every account.
+        'cache-control': 'private, no-store',
+        vary: 'Authorization',
         etag: object.httpEtag,
       },
     });

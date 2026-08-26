@@ -1,5 +1,6 @@
 import { ApiError, json } from './errors';
 import { purgeAccount } from './purge';
+import { readBodyWithCap } from './store';
 import type { Env } from './env';
 
 /// How far a webhook's timestamp may be from now.
@@ -17,6 +18,10 @@ const SUBJECT = /^[A-Za-z0-9_-]{1,128}$/;
 /// **A verified event we do not handle is acknowledged, not refused.** Answering non-2xx makes svix
 /// retry indefinitely and can get the endpoint disabled, which would silently remove the backstop.
 /// Only an unverifiable request is refused.
+/// Clerk's `user.deleted` events are a few hundred bytes. The cap is generous enough that a future
+/// event shape cannot trip it and small enough that concurrent posts cannot pressure the isolate.
+const MAXIMUM_EVENT_BYTES = 64 * 1024;
+
 export async function handleClerkWebhook(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
     throw new ApiError('not_found', 'No such endpoint.');
@@ -25,7 +30,10 @@ export async function handleClerkWebhook(request: Request, env: Env): Promise<Re
     throw new ApiError('config_error', 'This environment has no webhook secret configured.');
   }
 
-  const body = await request.text();
+  // Read under a cap before verifying. This endpoint is unauthenticated by nature -- the signature
+  // is the authentication, and it cannot be checked without the body -- so the body is the one
+  // thing an anonymous caller controls. Clerk's events are kilobytes; anything larger is not one.
+  const body = new TextDecoder().decode(await readBodyWithCap(request, MAXIMUM_EVENT_BYTES));
   await verify(request, body, env.CLERK_WEBHOOK_SECRET);
 
   let event: { type?: string; data?: { id?: unknown } };
