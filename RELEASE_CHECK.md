@@ -11,6 +11,30 @@ its own paragraph.
 
 ---
 
+## Cloud findings — gates for the first release that ships it
+
+Added 2026-08-26 with AIA-741. These are not 1.0.7 items; they gate whichever release first carries
+account-backed sync (#713).
+
+`FindingsCloudEndpoint.baseURL(for: .production)` now returns a real URL. Until the Worker behind it
+is deployed, that address answers nothing — and the app will *show* the back-up button and fail,
+where before it hid the button and stayed quiet. **A release cut before the deploy ships a visibly
+broken feature.** That is the trade this file exists to catch.
+
+- [ ] `wrangler deploy --env production` has run, and `wrangler deployments list --name
+      aia-findings-production` shows it. (It did not exist on the account as of 2026-08-26.)
+- [ ] `wrangler d1 migrations apply aia-findings-production --remote --env production` has run —
+      the production database had **0 tables**.
+- [ ] `CLERK_WEBHOOK_SECRET` is set for `--env production`. It is a **different** secret from the
+      development one; signing secrets are per endpoint.
+- [ ] The production Clerk instance has a `user.deleted` webhook pointing at the production Worker,
+      and a signed delivery has been seen to return 2xx.
+- [ ] **A development-instance token presented to the production Worker returns 401.** Every other
+      check passes whether or not the issuer is enforced; only this one fails when it is not.
+- [ ] The App Store privacy labels match the policy — findings and screenshots are collected once a
+      user signs in and accepts. They currently declare the opposite (#731).
+- [ ] A signed-in user can turn back-up off (#744), or the policy is amended to say they cannot.
+
 ## 1.0.7
 
 **Build under test: 981** — uploaded to TestFlight 2026-08-13 from `release/1.0.7-2026-08-13`, cut

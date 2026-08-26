@@ -122,17 +122,20 @@ enum FindingsCloudError: Error, Sendable {
 
 /// The findings Worker, per environment.
 ///
-/// The base URL is paired with the Clerk instance deliberately: the staging Worker trusts the
-/// development Clerk instance and nothing else, so a build signing in against production would be
-/// rejected by it anyway. Production has no Worker yet and returns `nil`, which turns sync off
-/// rather than pointing it somewhere wrong.
+/// The base URL is paired with the Clerk instance deliberately: each Worker trusts exactly one
+/// Clerk issuer, so a build signing in against the other instance is rejected rather than served.
+/// That pairing is the check worth running after a production deploy -- a development token
+/// presented to the production Worker must come back 401 (AIA-741).
+///
+/// A `nil` here turns sync off rather than pointing it somewhere wrong, and the back-up button
+/// hides itself when it sees one.
 enum FindingsCloudEndpoint {
     static func baseURL(for environment: ClerkEnvironment) -> URL? {
         switch environment {
         case .development:
             return URL(string: "https://aia-findings-staging.vladimir-slavik.workers.dev")
         case .production:
-            return nil
+            return URL(string: "https://aia-findings-production.vladimir-slavik.workers.dev")
         }
     }
 }
