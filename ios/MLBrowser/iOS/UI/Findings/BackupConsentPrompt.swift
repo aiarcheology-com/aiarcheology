@@ -80,7 +80,12 @@ private struct BackupConsentCard: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .testability(Testability.Button.backupConsentConfirm)
-                Button(L10n.Findings.Sync.Backup.decline) { answer(false) }
+                // "Keep on This Device", not "Not Now". The old label made two promises the code does
+                // not keep: that the app would ask again (it would not -- AIA-740), and that
+                // declining stops back-up generally (it does not; findings created while signed in
+                // are the account's by construction and still upload). The label now says only what
+                // the button actually does, to these findings. The general off switch is AIA-744.
+                Button(L10n.Findings.Sync.Backup.keepOnDevice) { answer(false) }
                     .buttonStyle(.bordered)
                     .controlSize(.large)
                     .testability(Testability.Button.backupConsentDecline)

@@ -489,7 +489,7 @@ struct FindingsListView: View {
 				.padding(.horizontal, 12)
 			}
 			.buttonStyle(.borderedProminent)
-			.controlSize(.large)
+			.controlSize(.regular)
 			// Green means "this will work". A full account is the one state where it will not, so
 			// the button stops claiming otherwise -- but stays ENABLED, because deleting a finding
 			// frees room and the retry has to be available the moment it does.
@@ -498,7 +498,10 @@ struct FindingsListView: View {
 			.testability(Testability.Button.findingsBackUp)
 		}
 		.padding(.horizontal)
-		.padding(.vertical, 18)
+		.padding(.vertical, 14)
+		// Spans leading to trailing so the bar reads as a footer for the list. Without it the
+		// VStack hugs the button and `.bar` paints a floating box around it.
+		.frame(maxWidth: .infinity)
 		.background(.bar)
 	}
 

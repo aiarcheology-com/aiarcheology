@@ -61,6 +61,26 @@ struct FindingsSyncLedger: Codable, Sendable, Equatable {
     /// transition into it, not on every upload that is refused while it lasts.
     var isReportedQuotaBlocked = false
 
+    /// Whether this account backs findings up at all (AIA-744).
+    ///
+    /// Stored optional on purpose. A ledger written before this existed has no such key, and
+    /// synthesised decoding of a non-optional would throw -- which `loadLedger` answers by resetting
+    /// the whole ledger. That would discard `excluded`, and every finding the user had chosen to
+    /// keep local would upload on the next cycle. An absent flag therefore means on.
+    ///
+    /// Not `private`: a synthesised memberwise initialiser takes the *minimum* access of its stored
+    /// properties, so marking this private makes `FindingsSyncLedger(...)` private and every call
+    /// site outside this file stops compiling. Read and written through ``backUpEnabled``.
+    var backUpEnabledFlag: Bool?
+
+    /// Off means nothing is uploaded, including findings created while signed in. Findings already
+    /// in the cloud stay there: turning a back-up off must not delete the copy protecting the work.
+    /// Pulling continues, so a reinstall still restores.
+    var backUpEnabled: Bool {
+        get { backUpEnabledFlag ?? true }
+        set { backUpEnabledFlag = newValue }
+    }
+
     /// Whether this account may upload the finding at all.
     ///
     /// A finding the account did not create here, has not agreed to back up, and has never sent is

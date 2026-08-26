@@ -65,6 +65,12 @@ final class FindingsSyncCoordinator: ObservableObject {
         case failed
     }
 
+    /// Whether the signed-in account backs findings up (AIA-744).
+    ///
+    /// Optimistic: set the moment the user flips the switch, then confirmed when a cycle writes it
+    /// to the ledger. A switch that waited for a network round trip to move would feel broken.
+    @Published private(set) var isBackUpEnabled = true
+
     /// True while a user-initiated back-up is running, so the button can say so.
     @Published private(set) var isBackingUp = false
 
@@ -134,6 +140,11 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// existed and will save its own copy afterwards, silently restoring the exclusions the user
     /// just cleared -- putting back the very one-way door AIA-740 removes.
     private var pendingManualBackup: [String: Set<String>] = [:]
+
+    /// A back-up on/off decision waiting for a cycle to persist it, for the same reason
+    /// ``pendingManualBackup`` is queued rather than written: a cycle already in flight holds an
+    /// older copy of the ledger and would save it back over any direct write.
+    private var pendingBackUpPreference: [String: Bool] = [:]
 
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.aiarcheology.findings-sync.path")
@@ -262,6 +273,26 @@ final class FindingsSyncCoordinator: ObservableObject {
         return task
     }
 
+    /// Turns backing up on or off for the signed-in account (AIA-744).
+    ///
+    /// Declining the one-time prompt was never a general "stop": it answered only the findings it
+    /// named, and anything created afterwards while signed in uploaded regardless. That is defensible
+    /// -- those findings are the account's by construction -- but it left no way to say stop at all,
+    /// short of signing out or deleting the account. This is that way.
+    ///
+    /// Turning it back on resumes uploads. It deliberately does **not** lift per-finding exclusions:
+    /// keeping a particular finding local was a separate decision, and a switch labelled "back up my
+    /// findings" should not quietly reverse it. ``backUpNow(expectedAccount:)`` is the explicit yes.
+    @discardableResult
+    func setBackUpEnabled(_ enabled: Bool, expectedAccount: String) -> Task<Void, Never>? {
+        guard authProvider.accountIdentifier == expectedAccount else { return nil }
+        pendingBackUpPreference[expectedAccount] = enabled
+        isBackUpEnabled = enabled
+        // Run a cycle either way: turning it on should start uploading now rather than at the next
+        // unrelated trigger, and turning it off still needs the decision written to the ledger.
+        return syncNow()
+    }
+
     /// The user pressed "Back up my findings".
     ///
     /// This is an explicit yes for everything currently on the device, so it **lifts the account's
@@ -279,6 +310,10 @@ final class FindingsSyncCoordinator: ObservableObject {
     func backUpNow(expectedAccount: String) -> Task<Void, Never>? {
         guard authProvider.accountIdentifier == expectedAccount else { return nil }
         guard isCloudConfigured else { return nil }
+        // Pressing the button is an explicit yes, so it turns back-up on if the user had it off --
+        // uploading while the switch reads off would be the worse surprise of the two.
+        if isBackUpEnabled == false { pendingBackUpPreference[expectedAccount] = true }
+        isBackUpEnabled = true
 
         isBackingUp = true
         lastManualBackup = nil
@@ -394,10 +429,20 @@ final class FindingsSyncCoordinator: ObservableObject {
             ledger.owned.formUnion(claimed)
             ledger.excluded.subtract(claimed)
         }
+        if let preference = pendingBackUpPreference.removeValue(forKey: account) {
+            ledger.backUpEnabled = preference
+        }
+        isBackUpEnabled = ledger.backUpEnabled
 
         lastCycleFailure = nil
         do {
-            try await push(account: account, store: store, transport: cloud, ledger: &ledger)
+            // Off means nothing leaves the device -- including findings created while signed in,
+            // which is the case that made the absence of this switch confusing (AIA-744). The pull
+            // still runs: what is already in the cloud is the user's, and a reinstall must still
+            // restore it. Turning back-up off is not a request to forget what was backed up.
+            if ledger.backUpEnabled {
+                try await push(account: account, store: store, transport: cloud, ledger: &ledger)
+            }
             try await pull(account: account, store: store, transport: cloud, ledger: &ledger)
         } catch is CancellationError {
             return
