@@ -82,6 +82,20 @@ class DependencyContainer {
         return FindingRepository(dataController: self.dataController)
     }()
 
+    /// Findings to the cloud and back (AIA-727).
+    ///
+    /// Constructed lazily like everything else here, but note that constructing it is what wires
+    /// the repository's delete hook — so a delete only becomes a tombstone once something has
+    /// asked for this. `AppState` does, at launch.
+    lazy var findingsSync: FindingsSyncCoordinator = {
+        FindingsSyncCoordinator(
+            authProvider: self.authProvider,
+            analytics: self.analyticsState,
+            findingRepository: self.findingRepository,
+            context: self.dataController.container.viewContext
+        )
+    }()
+
     // MARK: - Authentication (AIA-0340)
 
     /// Whether the auth gate uses the in-memory mock instead of Clerk.
@@ -485,6 +499,7 @@ class DependencyContainer {
 		catalogProviders: catalogProviders,
 		demoDataManager: demoDataManager,
 			findingRepository: findingRepository,
+			findingsSync: findingsSync,
 		nativeConversionSourceCleanupService: nativeConversionSourceCleanupService,
 			detection: detection,
 			browser: browser,

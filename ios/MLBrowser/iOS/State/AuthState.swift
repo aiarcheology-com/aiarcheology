@@ -79,6 +79,17 @@ protocol AuthProviding {
     /// rejects revoked/banned sessions. Throws ``AuthValidationError`` on failure.
     func validateSession() async throws
 
+    /// A short-lived bearer token proving who this is to our own backend, or `nil` when signed out
+    /// (AIA-727).
+    ///
+    /// Ask for one per request rather than holding it: these expire in about a minute, and the SDK
+    /// caches and refreshes behind this call, so re-asking is cheap and holding one is a bug that
+    /// only shows up on a slow upload.
+    ///
+    /// **Never log it and never persist it.** It is a credential to every finding the account owns,
+    /// which is to say to the coordinates of every site the user has recorded.
+    func sessionToken() async throws -> String?
+
     /// Sign the current user out.
     func signOut() async
 

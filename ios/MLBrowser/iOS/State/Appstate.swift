@@ -35,6 +35,10 @@ final class AppState: ObservableObject {
 	lazy var catalogSearchManager = CatalogSearchManager(providers: catalogProviders)
 	let demoDataManager: DemoDataManager
 	let findingRepository: FindingRepository
+	/// Findings to the cloud and back (AIA-727). Held here because constructing it is what wires
+	/// the repository's delete hook, so a delete becomes a tombstone from launch rather than from
+	/// whenever a view happens to ask for sync.
+	let findingsSync: FindingsSyncCoordinator
 	/// Reconciles source-package removal after a converted Core ML model is durably registered.
 	let nativeConversionSourceCleanupService: NativeModelSourceCleanupService
 
@@ -113,6 +117,7 @@ final class AppState: ObservableObject {
 		catalogProviders: [any CatalogProvider],
 		demoDataManager: DemoDataManager,
 		findingRepository: FindingRepository,
+		findingsSync: FindingsSyncCoordinator,
 		nativeConversionSourceCleanupService: NativeModelSourceCleanupService,
 		detection: DetectionSession,
 		browser: BrowserSession,
@@ -133,6 +138,7 @@ final class AppState: ObservableObject {
 		self.catalogProviders = catalogProviders
 		self.demoDataManager = demoDataManager
 		self.findingRepository = findingRepository
+		self.findingsSync = findingsSync
 		self.nativeConversionSourceCleanupService = nativeConversionSourceCleanupService
 		self.detection = detection
 		self.browser = browser

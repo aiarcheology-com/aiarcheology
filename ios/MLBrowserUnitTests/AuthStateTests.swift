@@ -359,6 +359,8 @@ private final class SuspendableAuthProvider: AuthProviding {
 		}
 	}
 
+	func sessionToken() async throws -> String? { isSignedIn ? "suspendable.session.token" : nil }
+
 	/// Let the currently suspended `validateSession()` return successfully.
 	func resumeValidation() {
 		let continuation = suspended

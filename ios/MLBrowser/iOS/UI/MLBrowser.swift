@@ -387,6 +387,9 @@ struct MLBrowser: App {
 				// (No-op during XCTest runs; gated inside Downloader.)
 				await appState.dataController.awaitStoreReady()
 				appState.downloader.reconnectBackgroundSession()
+				// Started here rather than at construction: sync reads and writes findings, so it
+				// must not run before the store is open (AIA-727).
+				appState.findingsSync.start()
 			}
 			// A received shared finding (AIA-0650, moved here by AIA-0657). **Applied last, on
 			// purpose**: this modifier must be the outermost one in the scene so the card sits above

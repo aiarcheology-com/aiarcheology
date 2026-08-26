@@ -675,6 +675,36 @@ internal enum L10n {
         internal static let title = L10n.tr("Localizable", "findings.import.result.title", fallback: "Import finished")
       }
     }
+    internal enum Sync {
+      /// %d could not be backed up
+      internal static func parked(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "findings.sync.parked", p1, fallback: "%d could not be backed up")
+      }
+      /// %d not backed up yet
+      internal static func pending(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "findings.sync.pending", p1, fallback: "%d not backed up yet")
+      }
+      internal enum Backup {
+        /// Back Up
+        internal static let confirm = L10n.tr("Localizable", "findings.sync.backup.confirm", fallback: "Back Up")
+        /// Not Now
+        internal static let decline = L10n.tr("Localizable", "findings.sync.backup.decline", fallback: "Not Now")
+        /// %d findings on this device are not in this account yet.
+        internal static func message(_ p1: Int) -> String {
+          return L10n.tr("Localizable", "findings.sync.backup.message", p1, fallback: "%d findings on this device are not in this account yet.")
+        }
+        /// Back up existing findings?
+        internal static let title = L10n.tr("Localizable", "findings.sync.backup.title", fallback: "Back up existing findings?")
+      }
+      internal enum Storage {
+        /// Cloud storage full — delete findings you no longer need, or export them
+        internal static let full = L10n.tr("Localizable", "findings.sync.storage.full", fallback: "Cloud storage full — delete findings you no longer need, or export them")
+        /// Cloud storage %d%% full
+        internal static func warning(_ p1: Int) -> String {
+          return L10n.tr("Localizable", "findings.sync.storage.warning", p1, fallback: "Cloud storage %d%% full")
+        }
+      }
+    }
   }
   internal enum History {
     /// Browsing History

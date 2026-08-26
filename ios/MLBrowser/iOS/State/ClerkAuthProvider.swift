@@ -194,6 +194,13 @@ final class ClerkAuthProvider: AuthProviding {
         }
     }
 
+    func sessionToken() async throws -> String? {
+        // `getToken()` serves a cached token and refreshes it when it is close to expiring, so
+        // calling this per request is the intended usage rather than a wasteful one.
+        guard let session = Clerk.shared.session else { return nil }
+        return try await session.getToken()
+    }
+
     func signOut() async {
         do {
             try await Clerk.shared.auth.signOut()
@@ -294,6 +301,16 @@ final class MockAuthProvider: AuthProviding {
         case .offline: throw AuthValidationError.offline
         case .signedOut: throw AuthValidationError.noValidSession
         case .ready: return
+        }
+    }
+
+    /// A syntactically plausible stand-in. Nothing in the app parses it; the Worker would reject
+    /// it, which is correct — a UI test must never reach real storage.
+    func sessionToken() async throws -> String? {
+        switch outcome {
+        case .signedOut: return nil
+        case .offline: throw AuthValidationError.offline
+        case .ready: return "mock.session.token"
         }
     }
 

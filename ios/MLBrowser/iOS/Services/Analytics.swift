@@ -89,6 +89,14 @@ enum AnalyticsEvent: Equatable {
 	/// reason the grant date does.
 	case freeAccessKeepDaysTapped
 
+	/// The first sync cycle that completed for an account (AIA-727). Answers one question — does
+	/// anyone actually use cloud findings — and nothing about what they store.
+	case cloudSyncEnabled
+	/// An upload was refused because the account's cloud storage is full (AIA-727). Worth knowing
+	/// because the cap is a number somebody chose, and it is the point at which the product stops
+	/// working for a user.
+	case cloudSyncQuotaBlocked
+
 	var name: String {
 		switch self {
 		case .paywallShown: "com.aiarcheology.paywall.shown"
@@ -105,6 +113,8 @@ enum AnalyticsEvent: Equatable {
 		case .onboardingTourSkipped: "com.aiarcheology.onboarding.tour_skipped"
 		case .freeAccessConfirmShown: "com.aiarcheology.free_access.forfeit_confirm_shown"
 		case .freeAccessKeepDaysTapped: "com.aiarcheology.free_access.keep_days_tapped"
+		case .cloudSyncEnabled: "com.aiarcheology.cloud_sync.enabled"
+		case .cloudSyncQuotaBlocked: "com.aiarcheology.cloud_sync.quota_blocked"
 		}
 	}
 
@@ -113,7 +123,8 @@ enum AnalyticsEvent: Equatable {
 		case .paywallShown, .subscribeTapped, .accountSignedIn, .subscriptionActivated,
 			 .freeAccessWindowGranted, .freeAccessContinueTapped, .freeAccessWindowExpired,
 			 .welcomeShown, .onboardingTourCompleted, .onboardingTourSkipped,
-			 .freeAccessConfirmShown, .freeAccessKeepDaysTapped:
+			 .freeAccessConfirmShown, .freeAccessKeepDaysTapped,
+			 .cloudSyncEnabled, .cloudSyncQuotaBlocked:
 			// Deliberately payload-free. The account is expressed only as the transport's
 			// hashed `clientUser`; the raw Clerk id must never travel as a parameter (AIA-0437).
 			// The window's own numbers — grant date, days remaining — stay on the device: they
