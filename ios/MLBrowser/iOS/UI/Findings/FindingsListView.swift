@@ -484,7 +484,9 @@ struct FindingsListView: View {
 					}
 					Text(findingsSync.isBackingUp ? L10n.Findings.Sync.Backup.busy : L10n.Findings.Sync.Backup.button)
 				}
-				.frame(maxWidth: .infinity)
+				// Sized to its label rather than edge to edge: full-bleed made it read as a
+				// modal's primary action rather than one control on a list of findings.
+				.padding(.horizontal, 12)
 			}
 			.buttonStyle(.borderedProminent)
 			.controlSize(.large)
@@ -496,7 +498,7 @@ struct FindingsListView: View {
 			.testability(Testability.Button.findingsBackUp)
 		}
 		.padding(.horizontal)
-		.padding(.vertical, 10)
+		.padding(.vertical, 18)
 		.background(.bar)
 	}
 
