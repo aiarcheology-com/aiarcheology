@@ -103,6 +103,11 @@ const RECOMPUTE_USER = `UPDATE counter SET value =
 
 /// Recomputes the account-wide total from the per-user rows. `LIKE 'user:%'` rather than
 /// `<> 'global_bytes'` so a counter added later for anything else cannot silently join the sum.
+///
+/// The guard that reads this sum replaces the ACTING user's row with a live sum over their own
+/// `object_bytes`, because their cached row is the one that could still be carrying drift from
+/// before this file derived its totals -- and a guard reading a stale low value fails open.
+/// Everyone else's row is corrected by their own next write.
 const RECOMPUTE_GLOBAL = `UPDATE counter SET value =
   (SELECT COALESCE(SUM(value), 0) FROM counter WHERE key LIKE 'user:%') WHERE key = 'global_bytes'`;
 
@@ -175,10 +180,11 @@ export async function reserveBytes(
             WHERE ${currentBytes} = ?5
               AND NOT EXISTS (SELECT 1 FROM user_state WHERE user_id = ?1 AND deleting = 1)
               AND (SELECT COALESCE(SUM(bytes), 0) FROM object_bytes WHERE user_id = ?1) - ?5 + ?4 <= ?6
-              AND (SELECT COALESCE(SUM(value), 0) FROM counter WHERE key LIKE 'user:%') - ?5 + ?4 <= ?7
+              AND (SELECT COALESCE(SUM(value), 0) FROM counter WHERE key LIKE 'user:%' AND key <> ?8)
+                  + (SELECT COALESCE(SUM(bytes), 0) FROM object_bytes WHERE user_id = ?1) - ?5 + ?4 <= ?7
            ON CONFLICT (user_id, finding_id, kind) DO UPDATE SET bytes = excluded.bytes`,
       )
-      .bind(userId, findingId, kind, incoming, existing, env.USER_BYTE_LIMIT, env.GLOBAL_BYTE_CEILING),
+      .bind(userId, findingId, kind, incoming, existing, env.USER_BYTE_LIMIT, env.GLOBAL_BYTE_CEILING, key),
 
     env.DB.prepare(RECOMPUTE_USER).bind(key, userId),
     env.DB.prepare(RECOMPUTE_GLOBAL),

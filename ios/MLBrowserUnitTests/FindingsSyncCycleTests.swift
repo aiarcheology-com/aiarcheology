@@ -858,4 +858,80 @@ extension FindingsSyncCycleTests {
 		)
 	}
 
+	/// An account switch mid-download must not spend this account's cursor.
+	///
+	/// Refusing the import was only half of it: reporting the row as "dealt with" moved the cursor
+	/// past a finding this device never received, so signing back in would never fetch it again —
+	/// the cross-account leak swapped for permanent per-device loss.
+	func testAnAccountSwitchMidDownloadLeavesTheCursorWhereItWas() async throws {
+		let incoming = UUID()
+		let body = try manifest(id: incoming, title: "A's dig", modifiedAt: 1_000)
+		let auth = try XCTUnwrap(self.auth)
+		let switched = DispatchSemaphore(value: 0)
+		StubWorkerProtocol.handler = { [body] request in
+			if request.url?.path.contains("/meta") == true {
+				Task { @MainActor in
+					auth.setOutcomeForTesting(.signedOut)
+					switched.signal()
+				}
+				switched.wait()
+				return (200, body)
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [[
+					"id": incoming.uuidString, "modifiedAt": 1_000, "receivedAt": 77,
+					"deleted": false, "bytes": 10, "hasImage": false
+				]],
+				"nextCursor": "77.\(incoming.uuidString)", "hasMore": false,
+				"usage": ["used": 10, "limit": 52_428_800]
+			]))
+		}
+		let account = try XCTUnwrap(auth.accountIdentifier)
+
+		await sut.syncNow()?.value
+
+		auth.setOutcomeForTesting(.ready)
+		let ledger = await FindingsSyncLedgerStore(accountIdentifier: account, directory: scratch).loadLedger()
+		XCTAssertNil(
+			ledger.cursor,
+			"The row was never applied, so the cursor must not have moved past it: \(String(describing: ledger.cursor))"
+		)
+	}
+
+	/// A row this build cannot decode must not block every finding behind it.
+	///
+	/// The counterpart — a Core Data save that failed because the disk is full — is deliberately
+	/// NOT skipped, because it is about this device rather than this finding and it clears. That
+	/// half has no test: inducing a store failure under the real repository is not something this
+	/// harness can do, so it rests on the catch clauses being exhaustive by type.
+	func testARowThisBuildCannotDecodeDoesNotBlockEveryFindingBehindIt() async throws {
+		let incoming = UUID()
+		// Metadata that parses as JSON but is not a findings manifest: `decodeRows` throws a
+		// decoding error, which IS deterministic, so this row is allowed to be skipped. The
+		// assertion below is that the cursor still moves for that case — the counterpart to the
+		// storage failure, which must not.
+		let body = StubWorkerProtocol.json(["not": "a manifest"])
+		StubWorkerProtocol.handler = { [body] request in
+			if request.url?.path.contains("/meta") == true { return (200, body) }
+			return (200, StubWorkerProtocol.json([
+				"findings": [[
+					"id": incoming.uuidString, "modifiedAt": 1_000, "receivedAt": 88,
+					"deleted": false, "bytes": 10, "hasImage": false
+				]],
+				"nextCursor": "88.\(incoming.uuidString)", "hasMore": false,
+				"usage": ["used": 10, "limit": 52_428_800]
+			]))
+		}
+		let account = try XCTUnwrap(auth.accountIdentifier)
+
+		await sut.syncNow()?.value
+
+		let ledger = await FindingsSyncLedgerStore(accountIdentifier: account, directory: scratch).loadLedger()
+		XCTAssertNotNil(
+			ledger.cursor,
+			"A row this build can never decode must not block every finding behind it for ever"
+		)
+		XCTAssertNil(storedFinding(incoming), "Nothing decodable arrived, so nothing should be stored")
+	}
+
 }

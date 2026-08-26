@@ -100,3 +100,33 @@ describe('the account-wide ceiling', () => {
     }
   });
 });
+
+describe('the global guard against a drifted counter', () => {
+  it('reads the acting user\'s own bytes from truth, not from their cached total', async () => {
+    // A cached row left low by an older build made the ceiling fail OPEN: the guard added the
+    // incoming bytes to a total that did not include what the user already had.
+    const user = nextUser();
+    const token = await tokenFor(user);
+    expect((await putImage(token, findingId('20'), 2048)).status).toBe(200);
+    // Exactly the drift the derived totals were introduced to heal: the cached row says zero while
+    // `object_bytes` says 2048.
+    await env.DB.prepare("UPDATE counter SET value = 0 WHERE key = 'user:' || ?1").bind(user).run();
+
+    // Other tests in this file leave their own users behind, so the crowd is sized against what is
+    // actually there. Headroom is set so the DRIFTED total still fits and the true one does not:
+    // that difference is the whole of the bug.
+    const others = await env.DB.prepare(
+      "SELECT COALESCE(SUM(value), 0) AS total FROM counter WHERE key LIKE 'user:%'",
+    ).first<{ total: number }>();
+    const crowd = env.GLOBAL_BYTE_CEILING - 2048 - (others?.total ?? 0);
+    await env.DB.prepare("INSERT INTO counter (key, value) VALUES ('user:crowd', ?1)").bind(crowd).run();
+
+    try {
+      const refused = await putImage(token, findingId('21'), 1024);
+      expect(refused.status).toBe(507);
+      expect(((await refused.json()) as { error: { code: string } }).error.code).toBe('global_capacity');
+    } finally {
+      await env.DB.prepare("DELETE FROM counter WHERE key = 'user:crowd'").run();
+    }
+  });
+});

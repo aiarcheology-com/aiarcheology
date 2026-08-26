@@ -5,6 +5,7 @@ import { ApiError, errorResponse, json } from './errors';
 import {
   commitFinding,
   findingRow,
+  isDeleting,
   listSince,
   objectKey,
   readBodyWithCap,
@@ -45,6 +46,21 @@ async function refuseIfStale(env: Env, userId: string, id: string, incoming: num
     throw new ApiError('stale', 'A newer version of this finding is already stored.', { winner: existing });
   }
   return existing;
+}
+
+/// Cleans up after an upload that was admitted before a purge began and landed after it.
+///
+/// The fence inside `reserveBytes` refuses everything that reaches it afterwards, but a request
+/// that had already passed it can still be inside `FINDINGS.put` when the purge starts. R2 listing
+/// is point-in-time: it cannot see a write that has not landed yet, so such an object survives a
+/// purge that reported success -- unindexed, and past the credential that could name it.
+///
+/// So the write checks the fence again on the other side and removes itself. The purge's own
+/// re-listing catches the opposite ordering, and between them nothing outlives an erasure.
+async function refuseIfAccountVanished(env: Env, userId: string, id: string, kind: 'meta' | 'image'): Promise<void> {
+  if ((await isDeleting(env, userId)) === false) return;
+  await env.FINDINGS.delete(objectKey(userId, id, kind));
+  throw new ApiError('account_deleting', 'This account is being deleted.');
 }
 
 async function handle(request: Request, env: Env): Promise<Response> {
@@ -133,6 +149,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     await env.FINDINGS.put(objectKey(userId, id, 'image'), body, {
       httpMetadata: { contentType: 'image/jpeg' },
     });
+    await refuseIfAccountVanished(env, userId, id, 'image');
     return json({ modifiedAt, bytes: body.byteLength, usage });
   }
 
@@ -149,6 +166,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     await env.FINDINGS.put(objectKey(userId, id, 'meta'), body, {
       httpMetadata: { contentType: 'application/json' },
     });
+    await refuseIfAccountVanished(env, userId, id, 'meta');
     // The index row is written last and is the commit point. `deleted` returns to 0 here on
     // purpose: an edit that outlives a tombstone brings the finding back, which is what
     // last-write-wins means when one of the writes was a delete.

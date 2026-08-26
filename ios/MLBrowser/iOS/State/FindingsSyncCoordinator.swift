@@ -534,8 +534,10 @@ final class FindingsSyncCoordinator: ObservableObject {
             if blocked { analytics?.track(.cloudSyncQuotaBlocked) }
         }
 
-        await store.save(ledger)
-        claimsAreSaved = true
+        // Only a write that landed clears the claims. A failed one (a full disk) used to look
+        // exactly like a successful one, and the intents this cycle had taken off the queue went
+        // with it -- backing up could switch itself back on after the user had stopped it.
+        claimsAreSaved = await store.save(ledger)
         refreshCounts(from: ledger)
     }
 
@@ -584,8 +586,20 @@ final class FindingsSyncCoordinator: ObservableObject {
         if let preference = claims.preference, pendingBackUpPreference[account] == nil {
             pendingBackUpPreference[account] = preference
         }
-        if let consent = claims.consent, pendingConsentAnswer[account] == nil {
-            pendingConsentAnswer[account] = consent
+        if let consent = claims.consent {
+            guard var queued = pendingConsentAnswer[account] else {
+                pendingConsentAnswer[account] = consent
+                return
+            }
+            // A newer answer exists. It wins for the findings it actually names -- but it usually
+            // names different ones, and dropping the older claim outright discarded an answer the
+            // user had already given about a different set.
+            if queued.accepted == consent.accepted {
+                queued.keys.formUnion(consent.keys)
+            } else {
+                queued.keys.formUnion(consent.keys.subtracting(queued.keys))
+            }
+            pendingConsentAnswer[account] = queued
         }
     }
 
@@ -918,7 +932,10 @@ final class FindingsSyncCoordinator: ObservableObject {
                     LoggingPolicy.warning("A synced finding arrived without its image", logger: .networking)
                 }
             }
-            guard stillSignedIn(as: account) else { return .skipped }
+            // Not `.skipped`: that advances the cursor, and this row was never applied. The
+            // account moved on mid-flight, so the page stops here and A's cursor stays put --
+            // otherwise A's own device would step permanently past a finding it never received.
+            guard stillSignedIn(as: account) else { return .failed }
             // The decision to replace was taken before the downloads; re-take it against what the
             // store says now. A delete or an edit made in the meantime is newer than this row and
             // must not be overwritten by it.
@@ -926,8 +943,11 @@ final class FindingsSyncCoordinator: ObservableObject {
                pending.modifiedAt >= row.modifiedAt {
                 return .supersededLocally
             }
+            // `>=`, matching the pre-download rule. Reaching here with an equal timestamp means
+            // the local copy was edited DURING the download to the same millisecond -- different
+            // content, same instant -- and the coordinator's own rule is that local ties win.
             if let local = Finding.select(row.id, in: context),
-               effectiveMilliseconds(of: local) > row.modifiedAt {
+               effectiveMilliseconds(of: local) >= row.modifiedAt {
                 return .supersededLocally
             }
 
@@ -957,13 +977,21 @@ final class FindingsSyncCoordinator: ObservableObject {
             // Worth another go, so the cursor stays put and the next cycle resumes here.
             LoggingPolicy.warning("Could not apply a synced finding: \(error.localizedDescription)", logger: .networking)
             return .failed
-        } catch {
-            // Anything else is deterministic -- metadata this build cannot decode, an image that
-            // fails validation, an import the store refused. Retrying reproduces it exactly, so
-            // halting would strand every finding behind this one permanently and say nothing.
-            // The row is skipped and reported instead, once, because the cursor moves past it.
+        } catch let error as FindingArchiveImportError {
+            // Deterministic: metadata this build cannot decode, or an image that fails validation.
+            // Retrying reproduces it exactly, so halting would strand every finding behind this one
+            // permanently and say nothing. Skipped and reported instead, once, as the cursor moves.
             Observability.captureError("Could not apply a synced finding", error: error)
             return .skipped
+        } catch let error as DecodingError {
+            Observability.captureError("A synced finding's metadata could not be decoded", error: error)
+            return .skipped
+        } catch {
+            // Everything else -- a Core Data save that failed, a disk with no room left -- is about
+            // this device, not this finding, and it clears. Skipping would move the cursor past a
+            // finding the user never received and never look at it again.
+            LoggingPolicy.warning("Could not store a synced finding: \(error.localizedDescription)", logger: .storage)
+            return .failed
         }
     }
 
