@@ -49,6 +49,12 @@ struct FindingsSyncLedger: Codable, Sendable, Equatable {
     var parked: [String: ParkedUpload] = [:]
     var usedBytes: Int?
     var limitBytes: Int?
+    /// Whether "this account syncs" has already been reported. Once per account, ever: the signal
+    /// is that sync got used at all, and repeating it every launch would say nothing new.
+    var hasReportedSyncEnabled = false
+    /// Whether the account is currently in the storage-full state. Held so the event fires on the
+    /// transition into it, not on every upload that is refused while it lasts.
+    var isReportedQuotaBlocked = false
 
     func needsUpload(id: UUID, localModifiedAt: Int64) -> Bool {
         let key = id.uuidString

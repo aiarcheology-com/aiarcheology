@@ -67,6 +67,7 @@ final class FindingsSyncCycleTests: XCTestCase {
 	private var auth: MockAuthProvider!
 	private var scratch: URL!
 	private var sut: FindingsSyncCoordinator!
+	private var tracker: RecordingAnalyticsTracker!
 	private var moc: NSManagedObjectContext { dataController.container.viewContext }
 
 	override func setUp() async throws {
@@ -77,8 +78,23 @@ final class FindingsSyncCycleTests: XCTestCase {
 		repository = FindingRepository(dataController: dataController)
 		auth = MockAuthProvider(outcome: .ready, accountID: "user_cycle_\(UUID().uuidString.prefix(8))")
 		scratch = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		tracker = RecordingAnalyticsTracker()
+		let settings = Settings()
+		let flags = FeatureFlagsState(provider: StaticFeatureFlagProvider(overrides: [.isAnalyticsEnabled: true]))
+		let analytics = AnalyticsState(
+			settings: settings,
+			tracker: tracker,
+			featureFlags: flags,
+			isAccountIdentityEnabled: true
+		)
+		analytics.updateAccountIdentity("user_2aaaaaaaaaaaaaaaaaaaaaaaaa")
+		// Consent is per account (AIA-0437) and nothing is sent without it, so these tests answer
+		// the question the same way a consenting user would. What is asserted below is what sync
+		// reports when it is allowed to report anything at all.
+		analytics.chooseAnalytics(enabled: true)
 		sut = FindingsSyncCoordinator(
 			authProvider: auth,
+			analytics: analytics,
 			findingRepository: repository,
 			context: moc,
 			transportFactory: { url in
@@ -277,5 +293,67 @@ final class FindingsSyncCycleTests: XCTestCase {
 		let deletes = StubWorkerProtocol.requests.filter { $0.hasPrefix("DELETE") }
 		XCTAssertEqual(deletes.count, 1, "expected exactly one tombstone, got \(StubWorkerProtocol.requests)")
 		XCTAssertTrue(deletes.first?.contains(id.uuidString) == true, "got \(deletes)")
+	}
+}
+
+
+// MARK: - What sync is allowed to report
+
+extension FindingsSyncCycleTests {
+
+	func testACompletedCycleReportsThatSyncIsUsed_andNothingPerFinding() async throws {
+		// Two account-scoped signals, and deliberately nothing per finding: a per-finding event
+		// would be a record of how often somebody surveys, which is not ours to collect.
+		let id = UUID()
+		let modifiedAt: Int64 = 1_700_000_000_000
+		let manifest = try manifest(id: id, title: "A ditch", modifiedAt: modifiedAt)
+		StubWorkerProtocol.handler = { request in
+			if request.url?.path.hasSuffix("/meta") == true { return (200, manifest) }
+			return (200, StubWorkerProtocol.json([
+				"findings": request.url?.query?.contains("cursor") == true ? [] : [[
+					"id": id.uuidString, "modifiedAt": modifiedAt, "receivedAt": modifiedAt + 1,
+					"deleted": false, "bytes": 512, "hasImage": false
+				]],
+				"nextCursor": "1.\(id.uuidString)",
+				"hasMore": false,
+				"usage": ["used": 512, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.syncNow()?.value
+		XCTAssertEqual(tracker.events, [.cloudSyncEnabled])
+
+		// A second cycle says nothing new: the signal is that the account syncs at all.
+		await sut.syncNow()?.value
+		XCTAssertEqual(tracker.events, [.cloudSyncEnabled])
+	}
+
+	func testRunningOutOfCloudStorageIsReportedOnceForAsLongAsItLasts() async throws {
+		try saveFinding(title: "Too big for the account")
+		StubWorkerProtocol.handler = { request in
+			if request.httpMethod == "PUT" {
+				return (507, StubWorkerProtocol.json([
+					"error": [
+						"code": "quota_exceeded",
+						"message": "full",
+						"retryable": false
+					]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 52_428_800, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.syncNow()?.value
+		await sut.answerBackupConsent(accepted: true)?.value
+		XCTAssertEqual(tracker.events.filter { $0 == .cloudSyncQuotaBlocked }.count, 1)
+
+		await sut.syncNow()?.value
+		XCTAssertEqual(
+			tracker.events.filter { $0 == .cloudSyncQuotaBlocked }.count, 1,
+			"the account being full is one event, not one per attempt"
+		)
 	}
 }

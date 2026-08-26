@@ -90,6 +90,7 @@ class DependencyContainer {
     lazy var findingsSync: FindingsSyncCoordinator = {
         FindingsSyncCoordinator(
             authProvider: self.authProvider,
+            analytics: self.analyticsState,
             findingRepository: self.findingRepository,
             context: self.dataController.container.viewContext
         )

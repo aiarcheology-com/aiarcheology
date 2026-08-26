@@ -44,6 +44,7 @@ final class FindingsSyncCoordinator: ObservableObject {
     @Published private(set) var parkedCount = 0
 
     private let authProvider: AuthProviding
+    private let analytics: AnalyticsState?
     private let findingRepository: FindingRepository
     private let context: NSManagedObjectContext
     private let transportFactory: (@MainActor (URL) -> FindingsCloudTransport)?
@@ -55,11 +56,16 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// the same finding twice.
     private var runningCycle: Task<Void, Never>?
 
+    /// Counted per cycle, for the one log line it emits.
+    private var uploaded = 0
+    private var applied = 0
+
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.aiarcheology.findings-sync.path")
 
     init(
         authProvider: AuthProviding,
+        analytics: AnalyticsState? = nil,
         findingRepository: FindingRepository,
         context: NSManagedObjectContext,
         transportFactory: (@MainActor (URL) -> FindingsCloudTransport)? = nil,
@@ -67,6 +73,7 @@ final class FindingsSyncCoordinator: ObservableObject {
         now: @escaping () -> Date = Date.init
     ) {
         self.authProvider = authProvider
+        self.analytics = analytics
         self.findingRepository = findingRepository
         self.context = context
         self.now = now
@@ -177,6 +184,9 @@ final class FindingsSyncCoordinator: ObservableObject {
 
         isSyncing = true
         defer { isSyncing = false }
+        let started = Date()
+        uploaded = 0
+        applied = 0
 
         let store = ledgerStore(for: account)
         let cloud = transport(for: baseURL)
@@ -196,6 +206,29 @@ final class FindingsSyncCoordinator: ObservableObject {
         }
 
         guard stillSignedIn(as: account) else { return }
+
+        // One line per cycle, with counts and a duration -- enough to answer "is it syncing?" from
+        // a support question. Deliberately no ids, titles or coordinates: a log that named
+        // findings would put site locations in a device log.
+        let elapsed = Int(Date().timeIntervalSince(started) * 1000)
+        LoggingPolicy.info(
+            "Findings sync finished in \(elapsed)ms: uploaded \(uploaded), applied \(applied), "
+                + "pending \(uploadCandidates(ledger: ledger).count), parked \(ledger.parked.count)",
+            logger: .networking
+        )
+
+        if uploaded > 0 || applied > 0, ledger.hasReportedSyncEnabled == false {
+            ledger.hasReportedSyncEnabled = true
+            analytics?.track(.cloudSyncEnabled)
+        }
+        // Reported on the way INTO the storage-full state and not again while it lasts, so the
+        // number counts users who hit the cap rather than uploads they attempted afterwards.
+        let blocked = ledger.parked.values.contains { $0.code == "quota_exceeded" }
+        if blocked != ledger.isReportedQuotaBlocked {
+            ledger.isReportedQuotaBlocked = blocked
+            if blocked { analytics?.track(.cloudSyncQuotaBlocked) }
+        }
+
         await store.save(ledger)
         refreshCounts(from: ledger)
     }
@@ -278,6 +311,7 @@ final class FindingsSyncCoordinator: ObservableObject {
 
             ledger.uploaded[key] = commit.finding.modifiedAt
             ledger.parked[key] = nil
+            uploaded += 1
             adopt(commit.finding.modifiedAt, sent: sent, on: finding)
             usage = commit.usage
         } catch let error as FindingsCloudError where error.isRetryable {
@@ -373,6 +407,7 @@ final class FindingsSyncCoordinator: ObservableObject {
         // while it was still in flight, and a download that then failed would never be retried --
         // the finding would be missing from this device for ever.
         guard await download(row, transport: transport) else { return }
+        applied += 1
         // Recording what was just applied is what stops a fresh install downloading N findings and
         // immediately pushing all N back, each with a new receipt, which every other device would
         // then pull again.
