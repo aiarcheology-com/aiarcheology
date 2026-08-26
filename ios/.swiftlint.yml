@@ -5,6 +5,10 @@
 excluded:
   - "**/Generated"
   - "**/DerivedData"
+  # Xcode on this project builds into `ios/.deriveddata`, which the capitalised pattern
+  # above does not match -- so a lint run after any build walked 5,700 files of SPM
+  # checkouts and reported thousands of violations in other people's code.
+  - "**/.deriveddata"
   - "**/.build"
   - "**/Pods"
   - "**/Carthage"

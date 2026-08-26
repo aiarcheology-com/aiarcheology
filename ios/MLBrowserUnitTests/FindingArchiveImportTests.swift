@@ -255,7 +255,11 @@ final class FindingArchiveImportTests: XCTestCase {
 
 	/// A row that cannot be valid must not land as `.ready`, and must not take the rest of the
 	/// import down with it — `Finding.save(in:)` commits the whole context.
-	func testImport_invalidRowIsCountedFailed_andTheValidOnesStillLand() throws {
+	///
+	/// Counted as `rejected`, not `failed`. The two are kept apart because sync retries a page: a
+	/// row whose own content is invalid reproduces the same refusal every time, so counting it as a
+	/// failure pinned the cursor on it and lost every finding behind it (AIA-0752).
+	func testImport_invalidRowIsCountedRejected_andTheValidOnesStillLand() throws {
 		let good = UUID()
 		let bad = UUID()
 		let archive = try makeArchive(manifest: """
@@ -272,7 +276,8 @@ final class FindingArchiveImportTests: XCTestCase {
 
 		let summary = try importArchive(archive)
 		XCTAssertEqual(summary.restored, 1)
-		XCTAssertEqual(summary.failed, 1)
+		XCTAssertEqual(summary.rejected, 1, "invalid content is a rejection, which a retry cannot cure")
+		XCTAssertEqual(summary.failed, 0, "nothing about this device failed")
 		XCTAssertNotNil(Finding.select(good, in: moc), "the valid row must survive its bad neighbour")
 		XCTAssertNil(Finding.select(bad, in: moc), "the invalid row must not be persisted")
 	}

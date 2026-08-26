@@ -94,7 +94,9 @@ struct FindingArchiveContents: Equatable {
 /// it simply fails to match the canonical `images/<id>.<ext>` a row is allowed to reference.
 enum FindingArchiveImport {
 	/// Ceilings, all applied before anything is allocated or written.
-	static let maximumEntryCount = 4_096
+	/// Findings plus the two manifests an export always writes. Equal to `maximumFindingCount`, an
+	/// archive holding the stated maximum number of findings was refused by its own entry count.
+	static let maximumEntryCount = 4_096 + 8
 	static let maximumFindingCount = 4_096
 	static let maximumManifestByteCount = 8 * 1024 * 1024
 	static let maximumImageByteCount = 16 * 1024 * 1024
@@ -105,15 +107,28 @@ enum FindingArchiveImport {
 	/// bound: 4,096 findings at 16 MB each satisfies every other limit and still asks for ~64 GB,
 	/// and a highly compressible payload makes the ZIP itself small enough to look harmless.
 	static let maximumTotalImageByteCount = 256 * 1024 * 1024
+	/// The archive file itself, checked before a byte of it is copied into memory.
+	///
+	/// Every cap above bounds what the archive *declares*; none of them bounds the file. Turning a
+	/// multi-gigabyte pick -- a wrong file as easily as a hostile one -- into `[UInt8]` costs its
+	/// full size in RAM before any of them can apply, and the app is killed rather than refusing.
+	static let maximumArchiveByteCount = 320 * 1024 * 1024
 
 	private static let manifestName = "findings.json"
 
 	static func read(archiveAt url: URL) throws -> FindingArchiveContents {
+		let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+		guard size <= maximumArchiveByteCount else {
+			throw FindingArchiveImportError.archiveTooLarge(byteCount: size)
+		}
 		let data: Data
 		do {
 			data = try Data(contentsOf: url, options: .mappedIfSafe)
 		} catch {
 			throw FindingArchiveImportError.unreadableArchive(error.localizedDescription)
+		}
+		guard data.count <= maximumArchiveByteCount else {
+			throw FindingArchiveImportError.archiveTooLarge(byteCount: data.count)
 		}
 		return try read(archiveBytes: [UInt8](data))
 	}

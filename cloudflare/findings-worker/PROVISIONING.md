@@ -1,8 +1,9 @@
 # Findings sync — Cloudflare provisioning
 
-One-time account setup for the findings-sync Worker (AIA-713 Phase 2). The Worker itself does not
-exist yet; this records the provisioning steps so they are not re-derived — and, more importantly,
-so the **irreversible** ones are not got wrong.
+One-time account setup for the findings-sync Worker (AIA-713 Phase 2). Both environments now exist
+(staging since Phase 2, production since AIA-741); this records the provisioning steps so they are
+not re-derived — and, more importantly, so the **irreversible** ones are not got wrong if they ever
+have to be run again.
 
 This is a **separate Worker** from `sentry-github-relay` in the parent folder. That one holds a
 GitHub PAT and must not share a public endpoint's blast radius.
@@ -118,7 +119,7 @@ writing into production storage.
 | | |
 |-|-|
 | Staging | `https://aia-findings-staging.vladimir-slavik.workers.dev` |
-| Production | not deployed, and not to be deployed until it has a real Clerk issuer |
+| Production | `https://aia-findings-production.vladimir-slavik.workers.dev` — deployed 2026-08-26 against the real Clerk issuer (AIA-741) |
 
 ## Clerk
 

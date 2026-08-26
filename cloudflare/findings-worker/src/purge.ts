@@ -53,6 +53,24 @@ export async function purgeAccount(env: Env, userId: string): Promise<PurgeResul
     if (listing.truncated === false && batch + 1 < MAXIMUM_BATCHES) break;
   }
 
+  // The index goes before the confirming listing, not after it. Between a clean listing and the
+  // D1 wipe an upload whose reservation predates the fence could still land, and this order shrinks
+  // that window to nothing that reports success: anything that arrives is caught by the re-list
+  // below and turned into "call again". Deleting the rows first is safe because the fence refuses
+  // every later write, so the retry has only R2 stragglers left to sweep.
+  //
+  // One transaction. The per-user row is dropped and the account-wide total recomputed from the
+  // rows that remain, so the retry the webhook race makes routine cannot double-decrement.
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM counter WHERE key = 'user:' || ?1").bind(userId),
+    env.DB.prepare(
+      `UPDATE counter SET value =
+         (SELECT COALESCE(SUM(value), 0) FROM counter WHERE key LIKE 'user:%') WHERE key = 'global_bytes'`,
+    ),
+    env.DB.prepare('DELETE FROM object_bytes WHERE user_id = ?1').bind(userId),
+    env.DB.prepare('DELETE FROM finding WHERE user_id = ?1').bind(userId),
+  ]);
+
   const remaining = await env.FINDINGS.list({ prefix, limit: 1 });
   if (remaining.objects.length > 0) {
     // Deliberately retryable, and deliberately NOT complete. The caller must not delete the Clerk
@@ -62,19 +80,6 @@ export async function purgeAccount(env: Env, userId: string): Promise<PurgeResul
       complete: false,
     });
   }
-
-  // One transaction. Reading the user's total and writing the global counter separately would
-  // double-decrement on the retry that the webhook race makes routine.
-  await env.DB.batch([
-    env.DB.prepare(
-      `UPDATE counter SET value = MAX(0, value - COALESCE(
-         (SELECT value FROM counter WHERE key = 'user:' || ?1), 0))
-        WHERE key = 'global_bytes'`,
-    ).bind(userId),
-    env.DB.prepare("DELETE FROM counter WHERE key = 'user:' || ?1").bind(userId),
-    env.DB.prepare('DELETE FROM object_bytes WHERE user_id = ?1').bind(userId),
-    env.DB.prepare('DELETE FROM finding WHERE user_id = ?1').bind(userId),
-  ]);
 
   return { complete: true, objects: deleted };
 }

@@ -79,6 +79,43 @@ describe('erasing an account', () => {
     expect(body.error.retryable).toBe(false);
   });
 
+  it('refuses a same-size re-upload behind the fence, and leaves nothing in the bucket', async () => {
+    // The dangerous write is not a new finding, it is the retry the outbox makes routinely: the
+    // same object at the same size. That changed no bytes, and a size-delta exemption let it skip
+    // the fence entirely -- putting a screenshot into R2 behind a completed purge, unindexed and
+    // beyond any later erasure (AIA-751).
+    const user = nextUser();
+    const token = await tokenFor(user);
+    const id = findingId('10');
+    const modifiedAt = Date.now();
+    await SELF.fetch(`${BASE}/v1/findings/${id}/image?modifiedAt=${modifiedAt}`, {
+      method: 'PUT',
+      headers: auth(token),
+      body: bytes(256),
+    });
+
+    // The fence alone, with the sizes still recorded -- the state a purge occupies for its whole
+    // list-and-delete loop, which is where a late retry actually arrives. Purging first would drop
+    // `object_bytes` and give the retry a non-zero delta, hiding the exemption this pins.
+    await env.DB.prepare(
+      `INSERT INTO user_state (user_id, deleting) VALUES (?1, 1)
+         ON CONFLICT (user_id) DO UPDATE SET deleting = 1`,
+    )
+      .bind(user)
+      .run();
+
+    const late = await SELF.fetch(`${BASE}/v1/findings/${id}/image?modifiedAt=${modifiedAt}`, {
+      method: 'PUT',
+      headers: auth(token),
+      body: bytes(256),
+    });
+    expect(late.status).toBe(410);
+    expect(((await late.json()) as { error: { code: string } }).error.code).toBe('account_deleting');
+
+    await SELF.fetch(`${BASE}/v1/me/data`, { method: 'DELETE', headers: auth(token) });
+    expect((await env.FINDINGS.list({ prefix: `findings/${user}/` })).objects).toEqual([]);
+  });
+
   it('can be run twice without deleting anyone else or double-counting', async () => {
     // Not a nicety: deleting a user in the app fires Clerk's `user.deleted` webhook, so the app's
     // own purge and the webhook's purge normally run against the same account at the same time.

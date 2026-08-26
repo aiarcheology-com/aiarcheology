@@ -700,4 +700,299 @@ extension FindingsSyncCycleTests {
 			"the finding saved after the rebuild never reached the cloud: \(uploads)"
 		)
 	}
+	// MARK: - AIA-0752 — what the epic review found
+
+	/// A delete has to reach the cloud even with backing up switched off.
+	///
+	/// Gating tombstones behind the switch left a user who had turned back-up off unable to remove
+	/// anything from the account at all — while "Remove all findings" promises permanent deletion,
+	/// and the privacy policy says a deleted finding is deleted from the backup too.
+	func testATombstoneIsSentEvenWhenBackingUpIsSwitchedOff() async throws {
+		let finding = try saveFinding(title: "Gone, and it must stay gone")
+		let id = finding.entityId
+		StubWorkerProtocol.handler = { request in
+			if request.httpMethod == "DELETE" {
+				return (200, StubWorkerProtocol.json([
+					"finding": [
+						"id": id.uuidString, "modifiedAt": 9, "receivedAt": 9,
+						"deleted": true, "bytes": 0, "hasImage": false
+					],
+					"usage": ["used": 0, "limit": 52_428_800]
+				]))
+			}
+			if request.httpMethod == "PUT" {
+				return (200, StubWorkerProtocol.json([
+					"finding": [
+						"id": id.uuidString, "modifiedAt": 1, "receivedAt": 2,
+						"deleted": false, "bytes": 1, "hasImage": false
+					],
+					"usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+		let account = try XCTUnwrap(auth.accountIdentifier)
+		await sut.syncNow()?.value
+
+		await sut.setBackUpEnabled(false, expectedAccount: account)?.value
+		StubWorkerProtocol.requests = []
+		try repository.delete(finding)
+		await sut.syncNow()?.value
+
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.contains { $0.hasPrefix("DELETE") },
+			"Turning backing up off must not strand a delete on the device: \(StubWorkerProtocol.requests)"
+		)
+	}
+
+	/// Freeing room has to lift the block, because that is the advice the app gives.
+	func testDeletingAFindingLiftsTheStorageFullBlock() async throws {
+		let doomed = try saveFinding(title: "Takes the last of the room")
+		let doomedId = doomed.entityId
+		StubWorkerProtocol.handler = { request in
+			if request.httpMethod == "DELETE" {
+				return (200, StubWorkerProtocol.json([
+					"finding": [
+						"id": doomedId.uuidString, "modifiedAt": 9, "receivedAt": 9,
+						"deleted": true, "bytes": 0, "hasImage": false
+					],
+					"usage": ["used": 0, "limit": 52_428_800]
+				]))
+			}
+			if request.httpMethod == "PUT" {
+				return (507, StubWorkerProtocol.json([
+					"error": ["code": "quota_exceeded", "message": "full", "retryable": false]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 52_428_800, "limit": 52_428_800]
+			]))
+		}
+		await sut.syncNow()?.value
+		XCTAssertTrue(sut.isQuotaBlocked, "The upload was refused for room, so the block should be up")
+
+		try repository.delete(doomed)
+		await sut.syncNow()?.value
+
+		XCTAssertFalse(
+			sut.isQuotaBlocked,
+			"Removing a finding is exactly what the app tells the user to do, so it has to clear the block"
+		)
+		XCTAssertEqual(sut.parkedCount, 0, "A park recorded against a deleted finding is a ghost")
+	}
+
+	/// The answer to the consent card must survive the cycle that raised it.
+	///
+	/// The card is raised from inside a running cycle, so the user answers while that cycle still
+	/// holds a copy of the ledger from before the answer existed. Writing the answer straight to
+	/// disk let that cycle's own save put the exclusions back — decline came round asking again,
+	/// and accept uploaded nothing.
+	func testDecliningTheCardSurvivesACycleThatWasAlreadyRunning() async throws {
+		try saveFindingBelongingToNobody(title: "Not mine to upload")
+		StubWorkerProtocol.handler = { _ in
+			(200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+		await sut.syncNow()?.value
+		XCTAssertNotNil(sut.backupConsentRequest, "The stranger's finding should have raised the card")
+
+		// Answer, and start another cycle in the same breath — the interleaving the bug needed.
+		let answering = sut.answerBackupConsent(accepted: false)
+		let racing = sut.syncNow()
+		await answering?.value
+		await racing?.value
+		await sut.syncNow()?.value
+
+		XCTAssertNil(
+			sut.backupConsentRequest,
+			"The decline was recorded, so nothing should ask about those findings again"
+		)
+		XCTAssertFalse(
+			StubWorkerProtocol.requests.contains { $0.hasPrefix("PUT") },
+			"A declined finding must never be uploaded: \(StubWorkerProtocol.requests)"
+		)
+	}
+
+	/// Sync must not carry one account's fieldwork into the session that replaced it.
+	///
+	/// The credential fence stops an upload going to the wrong account. This is the other
+	/// direction: a download authorised for A, landing after B has signed in.
+	func testAFindingDownloadedForOneAccountIsNotImportedAfterAnotherSignsIn() async throws {
+		let incoming = UUID()
+		let body = try manifest(id: incoming, title: "A's dig", modifiedAt: 1_000)
+		let auth = try XCTUnwrap(self.auth)
+		// The switch has to land WHILE the metadata request is in flight, which is the only moment
+		// the bug needed. The stub runs off the main actor, so it hands the change to the main actor
+		// and waits for it — deterministic, where firing and hoping would be a flaky test.
+		let switched = DispatchSemaphore(value: 0)
+		StubWorkerProtocol.handler = { [body] request in
+			if request.url?.path.contains("/meta") == true {
+				Task { @MainActor in
+					auth.setOutcomeForTesting(.signedOut)
+					switched.signal()
+				}
+				switched.wait()
+				return (200, body)
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [[
+					"id": incoming.uuidString, "modifiedAt": 1_000, "receivedAt": 1,
+					"deleted": false, "bytes": 10, "hasImage": false
+				]],
+				"nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 10, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.syncNow()?.value
+
+		XCTAssertNil(
+			storedFinding(incoming),
+			"A finding fetched for one account must not land in the store once another is signed in"
+		)
+	}
+
+	/// An account switch mid-download must not spend this account's cursor.
+	///
+	/// Refusing the import was only half of it: reporting the row as "dealt with" moved the cursor
+	/// past a finding this device never received, so signing back in would never fetch it again —
+	/// the cross-account leak swapped for permanent per-device loss.
+	func testAnAccountSwitchMidDownloadLeavesTheCursorWhereItWas() async throws {
+		let incoming = UUID()
+		let body = try manifest(id: incoming, title: "A's dig", modifiedAt: 1_000)
+		let auth = try XCTUnwrap(self.auth)
+		let switched = DispatchSemaphore(value: 0)
+		StubWorkerProtocol.handler = { [body] request in
+			if request.url?.path.contains("/meta") == true {
+				Task { @MainActor in
+					auth.setOutcomeForTesting(.signedOut)
+					switched.signal()
+				}
+				switched.wait()
+				return (200, body)
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [[
+					"id": incoming.uuidString, "modifiedAt": 1_000, "receivedAt": 77,
+					"deleted": false, "bytes": 10, "hasImage": false
+				]],
+				"nextCursor": "77.\(incoming.uuidString)", "hasMore": false,
+				"usage": ["used": 10, "limit": 52_428_800]
+			]))
+		}
+		let account = try XCTUnwrap(auth.accountIdentifier)
+
+		await sut.syncNow()?.value
+
+		auth.setOutcomeForTesting(.ready)
+		let ledger = await FindingsSyncLedgerStore(accountIdentifier: account, directory: scratch).loadLedger()
+		XCTAssertNil(
+			ledger.cursor,
+			"The row was never applied, so the cursor must not have moved past it: \(String(describing: ledger.cursor))"
+		)
+	}
+
+	/// A row this build cannot decode must not block every finding behind it.
+	///
+	/// The counterpart — a Core Data save that failed because the disk is full — is deliberately
+	/// NOT skipped, because it is about this device rather than this finding and it clears. That
+	/// half has no test: inducing a store failure under the real repository is not something this
+	/// harness can do, so it rests on the catch clauses being exhaustive by type.
+	func testARowThisBuildCannotDecodeDoesNotBlockEveryFindingBehindIt() async throws {
+		let incoming = UUID()
+		// Metadata that parses as JSON but is not a findings manifest. `decodeRows` wraps the
+		// decoding failure into `FindingArchiveImportError.malformedManifest`, which is
+		// deterministic, so this row is allowed to be skipped and the cursor to move past it.
+		let body = StubWorkerProtocol.json(["not": "a manifest"])
+		StubWorkerProtocol.handler = { [body] request in
+			if request.url?.path.contains("/meta") == true { return (200, body) }
+			return (200, StubWorkerProtocol.json([
+				"findings": [[
+					"id": incoming.uuidString, "modifiedAt": 1_000, "receivedAt": 88,
+					"deleted": false, "bytes": 10, "hasImage": false
+				]],
+				"nextCursor": "88.\(incoming.uuidString)", "hasMore": false,
+				"usage": ["used": 10, "limit": 52_428_800]
+			]))
+		}
+		let account = try XCTUnwrap(auth.accountIdentifier)
+
+		await sut.syncNow()?.value
+
+		let ledger = await FindingsSyncLedgerStore(accountIdentifier: account, directory: scratch).loadLedger()
+		XCTAssertNotNil(
+			ledger.cursor,
+			"A row this build can never decode must not block every finding behind it for ever"
+		)
+		XCTAssertNil(storedFinding(incoming), "Nothing decodable arrived, so nothing should be stored")
+	}
+
+	/// A decline survives a cycle that is interrupted before it can persist anything.
+	///
+	/// Signing out mid-cycle makes the cycle return at its account guard, so the answer it claimed
+	/// goes back on the queue rather than being discarded — the finding must still not upload when
+	/// the account comes back.
+	///
+	/// NOTE ON WHAT THIS DOES NOT COVER. The dangerous case is two answers of OPPOSITE polarity
+	/// meeting in that re-queue: an entry carries a single `accepted`, so merging an older decline
+	/// into a newer acceptance would stamp the acceptance onto the declined findings and upload a
+	/// name, coordinates and a photograph the user had refused. `requeue` therefore drops the older
+	/// claim on a mismatch instead of merging. Three attempts to drive that branch from here failed
+	/// — the second card is not raised at the moment the stub can answer it — so that branch is
+	/// argued, not pinned. If you touch `requeue`, read it rather than trusting this suite.
+	func testADeclineSurvivesACycleInterruptedBeforeItCouldSave() async throws {
+		let declined = try saveFindingBelongingToNobody(title: "Declined, and it must stay declined")
+		let declinedId = declined.entityId
+		let emptyPage = StubWorkerProtocol.json([
+			"findings": [], "nextCursor": NSNull(), "hasMore": false,
+			"usage": ["used": 0, "limit": 52_428_800]
+		])
+		StubWorkerProtocol.handler = { [emptyPage] _ in (200, emptyPage) }
+
+		await sut.syncNow()?.value
+		XCTAssertEqual(sut.backupConsentRequest?.ids, [declinedId])
+		sut.answerBackupConsent(accepted: false)
+
+		// A second unclaimed finding, so the next cycle raises a card of its own.
+		try saveFindingBelongingToNobody(title: "This one is fine to upload")
+
+		let sut = try XCTUnwrap(self.sut)
+		let auth = try XCTUnwrap(self.auth)
+		let interrupted = DispatchSemaphore(value: 0)
+		StubWorkerProtocol.handler = { [emptyPage] request in
+			guard request.httpMethod == "GET", request.url?.path.hasSuffix("/findings") == true else {
+				return (200, emptyPage)
+			}
+			// Push has already raised the card for the second finding. Answer it — queuing the
+			// newer, opposite answer — and then sign out, so the cycle leaves without saving and
+			// the decline it claimed goes back on the queue beside it.
+			Task { @MainActor in
+				sut.answerBackupConsent(accepted: true)
+				auth.setOutcomeForTesting(.signedOut)
+				interrupted.signal()
+			}
+			interrupted.wait()
+			return (200, emptyPage)
+		}
+		await sut.syncNow()?.value
+
+		auth.setOutcomeForTesting(.ready)
+		StubWorkerProtocol.handler = { [emptyPage] _ in (200, emptyPage) }
+		StubWorkerProtocol.requests = []
+		await sut.syncNow()?.value
+		await sut.syncNow()?.value
+
+		let uploaded = StubWorkerProtocol.requests.filter { $0.hasPrefix("PUT") }
+		XCTAssertFalse(
+			uploaded.contains { $0.contains(declinedId.uuidString) },
+			"A declined finding must never be uploaded by a later, opposite answer: \(uploaded)"
+		)
+	}
+
 }

@@ -79,14 +79,37 @@ export async function readBodyWithCap(request: Request, cap: number): Promise<Ui
   return buffer;
 }
 
-/// Per-user byte totals live in `counter` under `user:<id>`, not as a SUM over `object_bytes`.
+/// Per-user byte totals are DERIVED from `object_bytes` inside the writing transaction, and cached
+/// in `counter` under `user:<id>` so a read does not have to sum anything.
 ///
-/// A SUM cannot be made part of an atomic reservation: reading it, checking it, then writing is a
-/// race two devices on one account will lose -- and two devices on one account is the entire
-/// reason this Worker exists.
+/// Deriving rather than incrementing is what makes the accounting race-proof. An increment has to
+/// be guarded on "did my own size write land", and SQLite offers no portable way for one statement
+/// in a batch to ask that about the one before it -- so two devices writing the same object at the
+/// same size both passed the post-image guard and both added their bytes, for ever, with no
+/// reconciliation path (AIA-751). A recomputation cannot double-count: it does not care how many
+/// writers raced, only what `object_bytes` now holds. Any drift already on the account heals on the
+/// next write.
+///
+/// The cost the original counter existed to avoid is bounded by the quota itself: a user cannot own
+/// more rows than `USER_BYTE_LIMIT` worth of findings, and the global total sums one row per user,
+/// not one per object.
 function userCounterKey(userId: string): string {
   return `user:${userId}`;
 }
+
+/// Recomputes one user's cached total from the sizes actually recorded.
+const RECOMPUTE_USER = `UPDATE counter SET value =
+  (SELECT COALESCE(SUM(bytes), 0) FROM object_bytes WHERE user_id = ?2) WHERE key = ?1`;
+
+/// Recomputes the account-wide total from the per-user rows. `LIKE 'user:%'` rather than
+/// `<> 'global_bytes'` so a counter added later for anything else cannot silently join the sum.
+///
+/// The guard that reads this sum replaces the ACTING user's row with a live sum over their own
+/// `object_bytes`, because their cached row is the one that could still be carrying drift from
+/// before this file derived its totals -- and a guard reading a stale low value fails open.
+/// Everyone else's row is corrected by their own next write.
+const RECOMPUTE_GLOBAL = `UPDATE counter SET value =
+  (SELECT COALESCE(SUM(value), 0) FROM counter WHERE key LIKE 'user:%') WHERE key = 'global_bytes'`;
 
 export async function usageFor(env: Env, userId: string): Promise<Usage> {
   const row = await env.DB.prepare('SELECT value FROM counter WHERE key = ?1')
@@ -113,20 +136,16 @@ async function bytesForObject(env: Env, userId: string, findingId: string, kind:
 
 /// Reserves storage for an object that is about to be written, and records its size.
 ///
-/// The size record and both counters move in ONE D1 batch, which is one transaction. Splitting them
-/// is what makes a counter drift: if the counter rises and the size record does not, the next retry
-/// of the same upload computes its delta against a stale size and adds the bytes again -- for ever,
-/// account-wide, with no reconciliation path. Inside one transaction a retry recomputes a delta of
-/// zero and changes nothing.
+/// The size record and both cached totals move in ONE D1 batch, which is one transaction. Splitting
+/// them is what makes a total drift: if a total moves and the size record does not, nothing
+/// reconciles the two again.
 ///
-/// All four statements share one guard, so they apply together or not at all:
-/// - the object's recorded size must still be what this call measured (optimistic concurrency, so
-///   two writers racing the same object cannot both apply their delta), and
-/// - neither the user's total nor the account's may cross its limit.
-///
-/// The guard is written so ordering inside the transaction keeps it consistent: the size row is
-/// written first while the counters still hold their pre-update values, and the counter statements
-/// then key off the size row already carrying the new value.
+/// One statement decides -- the `object_bytes` upsert. It applies only if the object's recorded
+/// size is still what this call measured (optimistic concurrency, so a second writer racing the
+/// same object is refused and retries), the account is not being erased, and neither the user's
+/// projected total nor the account's crosses its limit. The two statements after it recompute the
+/// cached totals from `object_bytes`, so they agree with that decision whichever way it went, and
+/// any drift an earlier version left behind heals here.
 ///
 /// Accounting still runs BEFORE the R2 write. A failed write over-counts, which is the safe
 /// direction for a cost guard and is corrected by the next successful write or delete; accounting
@@ -145,37 +164,41 @@ export async function reserveBytes(
   const currentBytes = `COALESCE((SELECT bytes FROM object_bytes WHERE user_id = ?1 AND finding_id = ?2 AND kind = ?3), 0)`;
 
   const results = await env.DB.batch([
-    // A user's counter row is created on first sight. It has to exist before the guard reads it:
-    // a missing row makes the comparison NULL, and the write would be refused rather than allowed.
+    // A user's counter row is created on first sight, so the global recomputation below has
+    // something to sum even for an account's very first object.
     env.DB.prepare('INSERT INTO counter (key, value) VALUES (?1, 0) ON CONFLICT (key) DO NOTHING').bind(key),
 
+    // The one gate. Everything after it merely reflects what this statement decided: if it is
+    // refused, the recomputations below read unchanged sizes and change nothing.
+    //
+    // Both ceilings are projected from the sizes themselves -- current total, minus what this
+    // object was, plus what it is about to be -- so the check and the write cannot disagree.
     env.DB
       .prepare(
         `INSERT INTO object_bytes (user_id, finding_id, kind, bytes)
            SELECT ?1, ?2, ?3, ?4
             WHERE ${currentBytes} = ?5
               AND NOT EXISTS (SELECT 1 FROM user_state WHERE user_id = ?1 AND deleting = 1)
-              AND COALESCE((SELECT value FROM counter WHERE key = ?6), 0) + ?7 <= ?8
-              AND COALESCE((SELECT value FROM counter WHERE key = 'global_bytes'), -1) + ?7 <= ?9
+              AND (SELECT COALESCE(SUM(bytes), 0) FROM object_bytes WHERE user_id = ?1) - ?5 + ?4 <= ?6
+              AND (SELECT COALESCE(SUM(value), 0) FROM counter WHERE key LIKE 'user:%' AND key <> ?8)
+                  + (SELECT COALESCE(SUM(bytes), 0) FROM object_bytes WHERE user_id = ?1) - ?5 + ?4 <= ?7
            ON CONFLICT (user_id, finding_id, kind) DO UPDATE SET bytes = excluded.bytes`,
       )
-      .bind(userId, findingId, kind, incoming, existing, key, delta, env.USER_BYTE_LIMIT, env.GLOBAL_BYTE_CEILING),
+      .bind(userId, findingId, kind, incoming, existing, env.USER_BYTE_LIMIT, env.GLOBAL_BYTE_CEILING, key),
 
-    env.DB
-      .prepare(`UPDATE counter SET value = value + ?4 WHERE key = ?5 AND ${currentBytes} = ?6`)
-      .bind(userId, findingId, kind, delta, key, incoming),
-
-    env.DB
-      .prepare(
-        `UPDATE counter SET value = value + ?4 WHERE key = 'global_bytes' AND ${currentBytes} = ?5`,
-      )
-      .bind(userId, findingId, kind, delta, incoming),
+    env.DB.prepare(RECOMPUTE_USER).bind(key, userId),
+    env.DB.prepare(RECOMPUTE_GLOBAL),
   ]);
 
   const stored = results[1]?.meta.changes ?? 0;
-  if (stored !== 1 && delta !== 0) {
+  if (stored !== 1) {
     // Nothing was written. Report which limit refused it, reading the counters rather than
     // guessing, so the client gets an error it can act on.
+    //
+    // The fence is checked with no size-delta exemption: a re-upload of an identical object is
+    // exactly the retry a client makes routinely, and letting one through because it changed no
+    // bytes would put a screenshot in the bucket behind a purge that had already listed it --
+    // unindexed, unreachable, and beyond any later erasure (AIA-751).
     if (await isDeleting(env, userId)) {
       throw new ApiError('account_deleting', 'This account is being deleted.');
     }
@@ -199,20 +222,12 @@ export async function reserveBytes(
 /// Releases every byte recorded for a finding. Without this a delete would free space in the bucket
 /// but not in the quota, and "storage full -- prune findings" would be advice that does not work.
 export async function releaseBytes(env: Env, userId: string, findingId: string): Promise<void> {
-  const row = await env.DB.prepare(
-    'SELECT COALESCE(SUM(bytes), 0) AS total FROM object_bytes WHERE user_id = ?1 AND finding_id = ?2',
-  )
-    .bind(userId, findingId)
-    .first<{ total: number }>();
-  const total = row?.total ?? 0;
-  if (total === 0) return;
-
+  // The sizes are dropped and both totals recomputed in ONE transaction, so a second concurrent
+  // delete of the same finding recomputes the same totals instead of subtracting its bytes twice.
   await env.DB.batch([
-    env.DB
-      .prepare('UPDATE counter SET value = MAX(0, value - ?2) WHERE key = ?1')
-      .bind(userCounterKey(userId), total),
-    env.DB.prepare("UPDATE counter SET value = MAX(0, value - ?1) WHERE key = 'global_bytes'").bind(total),
     env.DB.prepare('DELETE FROM object_bytes WHERE user_id = ?1 AND finding_id = ?2').bind(userId, findingId),
+    env.DB.prepare(RECOMPUTE_USER).bind(userCounterKey(userId), userId),
+    env.DB.prepare(RECOMPUTE_GLOBAL),
   ]);
 }
 
@@ -274,13 +289,26 @@ export async function commitFinding(
        ON CONFLICT (user_id, id) DO UPDATE SET
          modified_at = excluded.modified_at,
          received_at = excluded.received_at,
-         deleted     = excluded.deleted`,
+         deleted     = excluded.deleted
+       WHERE excluded.modified_at >= finding.modified_at`,
   )
     .bind(userId, findingId, modifiedAt, now, deleted ? 1 : 0)
     .run();
 
   if (committed.meta.changes !== 1) {
-    throw new ApiError('account_deleting', 'This account is being deleted.');
+    // The staleness check the caller ran is a read, and a read cannot hold anything still: a newer
+    // edit or a delete can commit between it and this write. Without the condition above, the
+    // older request's `ON CONFLICT` wrote its timestamp back as live -- losing the newer version,
+    // and resurrecting a finding the user had deleted (AIA-751). Equal timestamps still apply, so
+    // an idempotent retry is unaffected.
+    if (await isDeleting(env, userId)) {
+      throw new ApiError('account_deleting', 'This account is being deleted.');
+    }
+    const winner = await findingRow(env, userId, findingId);
+    if (winner !== null) {
+      throw new ApiError('stale', 'A newer version of this finding is already stored.', { winner });
+    }
+    throw new ApiError('internal', 'The finding could not be committed.');
   }
 
   const stored = await findingRow(env, userId, findingId);

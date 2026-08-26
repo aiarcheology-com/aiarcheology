@@ -51,6 +51,47 @@ describe('byte accounting under concurrency and retries', () => {
     expect(await usedBytes(token)).toBeLessThanOrEqual(env.USER_BYTE_LIMIT);
   });
 
+  it('charges concurrent writes of the SAME object once, not once per writer', async () => {
+    // The retry test below is sequential, and a sequential retry cannot expose this: two writers
+    // that both measure the same pre-image and the same size used to pass the post-image guard
+    // together and both add their bytes, permanently, with nothing to reconcile them (AIA-751).
+    const token = await tokenFor(nextUser());
+    const id = findingId('30');
+    const modifiedAt = Date.now();
+    const before = await globalBytes();
+
+    await Promise.all([
+      putImage(token, id, 512, modifiedAt),
+      putImage(token, id, 512, modifiedAt),
+      putImage(token, id, 512, modifiedAt),
+    ]);
+
+    expect(await usedBytes(token)).toBe(512);
+    expect(await globalBytes()).toBe(before + 512);
+  });
+
+  it('releases a finding\'s bytes once when two devices delete it at the same time', async () => {
+    // Both deletes read the same total outside the transaction and both subtracted it; the user's
+    // counter floored at zero and hid it, while the account-wide total silently drifted open.
+    const token = await tokenFor(nextUser());
+    const kept = findingId('31');
+    const doomed = findingId('32');
+    const modifiedAt = Date.now();
+    expect((await putImage(token, kept, 512, modifiedAt)).status).toBe(200);
+    expect((await putImage(token, doomed, 512, modifiedAt)).status).toBe(200);
+    const before = await globalBytes();
+
+    const remove = (): Promise<Response> =>
+      SELF.fetch(`${BASE}/v1/findings/${doomed}?modifiedAt=${modifiedAt + 1}`, {
+        method: 'DELETE',
+        headers: auth(token),
+      });
+    await Promise.all([remove(), remove(), remove()]);
+
+    expect(await usedBytes(token)).toBe(512);
+    expect(await globalBytes()).toBe(before - 512);
+  });
+
   it('charges a retried upload exactly once, however many times it is retried', async () => {
     // The failure this guards is permanent and account-wide: if the counter moves without the size
     // record, every retry adds the bytes again, nothing reconciles it, and the ceiling eventually
@@ -127,12 +168,42 @@ describe('response hygiene', () => {
     expect(response.headers.get('vary')).toBe('Authorization');
   });
 
+  it('keeps the finding\'s own content out of every shared cache', async () => {
+    // These two responses carry the coordinates, the finder's name and the photograph, and their
+    // URL is identical for every account -- so they are the ones a URL-keyed cache would confuse.
+    const token = await tokenFor(nextUser());
+    const id = findingId('33');
+    const modifiedAt = Date.now();
+    expect((await putImage(token, id, 64, modifiedAt)).status).toBe(200);
+    const meta = await SELF.fetch(`${BASE}/v1/findings/${id}/meta?modifiedAt=${modifiedAt}`, {
+      method: 'PUT',
+      headers: auth(token),
+      body: JSON.stringify({ id }),
+    });
+    expect(meta.status).toBe(200);
+
+    for (const kind of ['meta', 'image']) {
+      const response = await SELF.fetch(`${BASE}/v1/findings/${id}/${kind}`, { headers: auth(token) });
+      expect(response.status).toBe(200);
+      expect(response.headers.get('cache-control')).toBe('private, no-store');
+      expect(response.headers.get('vary')).toBe('Authorization');
+    }
+  });
+
+  it('answers a malformed finding id with a client error, not a retryable 500', async () => {
+    const token = await tokenFor(nextUser());
+    const response = await SELF.fetch(`${BASE}/v1/findings/%zz/meta`, { headers: auth(token) });
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as { error: { code: string } }).error.code).toBe('bad_request');
+  });
+
   it('tells a client that running out of shared capacity is worth retrying', async () => {
     // Unlike the user's own quota, this is not their condition and it clears without them doing
     // anything. Parking on it would strand every outbox on the service.
     const token = await tokenFor(nextUser());
-    const restore = await globalBytes();
-    await env.DB.prepare("UPDATE counter SET value = ?1 WHERE key = 'global_bytes'")
+    // The account-wide total is derived from the per-user rows, so a full account is simulated the
+    // way it actually happens: other users already holding the bytes.
+    await env.DB.prepare("INSERT INTO counter (key, value) VALUES ('user:crowd', ?1)")
       .bind(env.GLOBAL_BYTE_CEILING - 10)
       .run();
     try {
@@ -142,7 +213,7 @@ describe('response hygiene', () => {
       expect(body.error.code).toBe('global_capacity');
       expect(body.error.retryable).toBe(true);
     } finally {
-      await env.DB.prepare("UPDATE counter SET value = ?1 WHERE key = 'global_bytes'").bind(restore).run();
+      await env.DB.prepare("DELETE FROM counter WHERE key = 'user:crowd'").run();
     }
   });
 });

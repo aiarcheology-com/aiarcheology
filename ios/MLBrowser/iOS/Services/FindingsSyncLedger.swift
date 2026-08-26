@@ -176,7 +176,10 @@ actor FindingsSyncLedgerStore {
         return decoded
     }
 
-    func save(_ ledger: FindingsSyncLedger) {
+    /// Returns whether the ledger reached the disk. Callers that claimed the user's queued intents
+    /// must put them back when it did not.
+    @discardableResult
+    func save(_ ledger: FindingsSyncLedger) -> Bool {
         write(ledger, to: ledgerURL, describing: "ledger")
     }
 
@@ -206,14 +209,23 @@ actor FindingsSyncLedgerStore {
         }
     }
 
-    private func write<T: Encodable>(_ value: T, to url: URL?, describing what: String) {
-        guard let url, let directory else { return }
+    /// Returns whether the write actually landed.
+    ///
+    /// The result is not decoration. A cycle folds the user's queued intents into its copy of the
+    /// ledger and puts them back if it never saved; a write that failed but reported nothing left
+    /// those intents claimed and discarded — a disk-full device could quietly turn backing up on
+    /// again after the user had switched it off.
+    @discardableResult
+    private func write<T: Encodable>(_ value: T, to url: URL?, describing what: String) -> Bool {
+        guard let url, let directory else { return false }
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             let encoded = try JSONEncoder().encode(value)
             try encoded.write(to: url, options: .atomic)
+            return true
         } catch {
             LoggingPolicy.error("Findings sync could not persist \(what): \(error.localizedDescription)", logger: .storage)
+            return false
         }
     }
 }
