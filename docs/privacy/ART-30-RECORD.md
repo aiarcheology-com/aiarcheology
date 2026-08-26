@@ -18,7 +18,7 @@ No DPO is appointed — the controller is a sole trader, and none of Art. 37(1)(
 | **Data subjects** | App users who choose to create an account |
 | **Categories of data** | Email address, name, user identifier; for SSO, the identifier returned by Apple, Google or Meta |
 | **Recipients** | Clerk, Inc. (processor); Apple / Google / Meta where the user chooses that sign-in |
-| **Transfers** | See §Transfers — Clerk residency is an **open item** |
+| **Transfers** | US. Clerk offers no EU residency; covered by their EU–US Data Privacy Framework certification — see §Transfers |
 | **Retention** | For the life of the account. Deletion is user-initiated in the app and propagates to A5 |
 | **Security** | TLS in transit; session tokens verified against Clerk's public JWKS with an RS256 allowlist and a 5-second clock tolerance; impersonation (`act`) tokens rejected |
 
@@ -87,18 +87,41 @@ An erasure request under Art. 17 is satisfied by account deletion, with these th
 
 ## Transfers
 
-| Processor | Role | Location / mechanism | Status |
-|-|-|-|-|
-| Cloudflare, Inc. | R2 + D1 (A5) | R2 **EU-pinned**; D1 **not region-pinned** — SCCs via the Cloudflare DPA | R2 verified 2026-08-26; **DPA version/date to record** |
-| Clerk, Inc. | Identity (A1) | **Open item** — see below | **To verify** |
-| Apple | Distribution, payments, SSO | Apple's own terms | — |
-| Sentry | Diagnostics (A3) | SCCs | **DPA version/date to record** |
-| TelemetryDeck | Analytics (A4), consent-gated | EU-based | — |
+| Processor | Role | Location / mechanism | DPA | Status |
+|-|-|-|-|-|
+| Cloudflare, Inc. | R2 + D1 (A5) | R2 **EU-pinned**; D1 **not region-pinned** — SCCs via the Cloudflare DPA | [cloudflare.com/cloudflare-customer-dpa](https://www.cloudflare.com/cloudflare-customer-dpa/) — self-serve, incorporated by accepting the terms; carries no version date in the page itself | R2 jurisdiction verified 2026-08-26 |
+| Clerk, Inc. | Identity (A1) | **US-hosted.** Clerk offers no EU data residency; transfers rely on Clerk's **EU–US Data Privacy Framework certification**, not SCCs | [clerk.com/legal/dpa](https://clerk.com/legal/dpa) — **26 November 2024** | Verified 2026-08-26 |
+| Apple | Distribution, payments, SSO | Apple's own terms | Apple Developer Program agreement | — |
+| Sentry | Diagnostics (A3) | SCCs | [sentry.io/legal/dpa](https://sentry.io/legal/dpa/) — self-serve; carries no version date in the page itself | — |
+| TelemetryDeck | Analytics (A4), consent-gated | EU-based | Included in their terms | — |
+
+All three self-serve DPAs are incorporated by accepting the provider's terms — none requires a signature, which is why there is nothing "executed" to file. What this record needs is the URL and the version in force, checked 2026-08-26.
 
 ## Open items — do not treat as answered
 
-1. **Clerk data residency / DPF status.** The staging Worker points at `advanced-tetra-5.clerk.accounts.dev`, a **development** instance; the production issuer is still `REPLACE_BEFORE_PRODUCTION_DEPLOY`. Before production launch, record which Clerk instance production uses, whether EU residency is enabled on it, and whether Clerk is certified under the EU–US Data Privacy Framework. Write the answer here even if it is "US-hosted under SCCs".
-2. **DPA versions and dates** for Cloudflare, Clerk and Sentry. Reference the executed version, not "they have one".
+1. ~~**Clerk data residency.**~~ **Answered 2026-08-26 — no residency setting exists to enable.**
+
+   The production instance is **`clerk.aiarcheology.com`**, confirmed against its own
+   `/.well-known/openid-configuration`; it is what the production Worker trusts and what the shipping
+   `pk_live_` key resolves to (AIA-741).
+
+   Clerk does **not** offer EU data residency. Their privacy policy states information "may be
+   transferred, processed, and stored anywhere in the world, including … the United States", and
+   nothing in their docs index, pricing or dashboard offers a data region. Their DPA states it "has
+   been modified to reflect Clerk's certification under the EU-U.S. Data Privacy Framework", and that
+   transfers to DPF-certified US entities need no additional mechanism "such as the Standard
+   Contractual Clauses".
+
+   **So the transfer mechanism for identity data is the DPF, not SCCs.** That is a stronger basis
+   than SCCs, resting on the European Commission's adequacy decision — but it is also a dependency
+   worth naming: if the DPF adequacy decision were annulled, as Safe Harbour and Privacy Shield both
+   were, this processing would need a new mechanism. Sign-in would keep working; the lawful basis for
+   the transfer would not.
+
+   Identity data is email, name and a user id (A1). The findings themselves are unaffected — their
+   content is EU-pinned in R2 (A5).
+
+2. ~~**DPA versions and dates** for Cloudflare, Clerk and Sentry.~~ **Done 2026-08-26** — recorded in the Transfers table above. Cloudflare and Sentry publish no version date on the page; if a dated copy is ever needed for an audit, request it from the provider.
 3. **D1 region.** If Cloudflare later offers a jurisdiction for D1, revisit — pinning the index would close the only remaining EU-boundary gap in A5.
 
 ## Art. 33 — personal data breach

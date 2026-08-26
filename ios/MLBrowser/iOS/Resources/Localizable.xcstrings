@@ -27876,10 +27876,106 @@
       "comment" : "Always-visible button at the bottom of the findings list that backs findings up to the signed-in account",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "نسخ اكتشافاتي احتياطيًا"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আমার আবিষ্কারের ব্যাকআপ নিন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zálohovat mé nálezy"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Meine Funde sichern"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Back Up My Findings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Copiar mis hallazgos"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "پشتیبان‌گیری از یافته‌های من"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sauvegarder mes trouvailles"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "גבה את הממצאים שלי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मेरी खोजों का बैकअप लें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Leleteim mentése"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Utwórz kopię moich znalezisk"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Сохранить мои находки"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Зберегти мої знахідки"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "备份我的发现"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "備份我的發現"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "備份我嘅發現"
           }
         }
       }
@@ -27888,10 +27984,106 @@
       "comment" : "Settings switch that turns cloud back-up on or off for the signed-in account",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "نسخ اكتشافاتي احتياطيًا"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আমার আবিষ্কারের ব্যাকআপ নিন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zálohovat mé nálezy"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Meine Funde sichern"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Back Up My Findings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Copiar mis hallazgos"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "پشتیبان‌گیری از یافته‌های من"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sauvegarder mes trouvailles"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "גבה את הממצאים שלי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मेरी खोजों का बैकअप लें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Leleteim mentése"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Utwórz kopię moich znalezisk"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Сохранять мои находки"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Зберігати мої знахідки"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "备份我的发现"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "備份我的發現"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "備份我嘅發現"
           }
         }
       }
@@ -27900,10 +28092,106 @@
       "comment" : "Explains what turning the back-up switch off does, and what it does not do",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "عند إيقاف التشغيل، لا يغادر هذا الجهاز أي شيء جديد. تبقى الاكتشافات المنسوخة سابقًا في حسابك ويمكن استعادتها على جهاز جديد."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "বন্ধ থাকলে নতুন কিছুই এই ডিভাইস ছাড়ে না। আগে ব্যাকআপ নেওয়া আবিষ্কারগুলি আপনার অ্যাকাউন্টে থাকে এবং নতুন ডিভাইসে পুনরুদ্ধার হয়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Když je vypnuto, nic nového toto zařízení neopustí. Již zálohované nálezy zůstanou ve vašem účtu a stále se obnoví v novém zařízení."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wenn ausgeschaltet, verlässt nichts Neues dieses Gerät. Bereits gesicherte Funde bleiben in deinem Konto und werden weiterhin auf einem neuen Gerät wiederhergestellt."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "When off, nothing new leaves this device. Findings already backed up stay in your account and are still restored on a new device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cuando está desactivado, nada nuevo sale de este dispositivo. Los hallazgos ya copiados permanecen en tu cuenta y se siguen restaurando en un dispositivo nuevo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "وقتی خاموش است، هیچ چیز تازه‌ای از این دستگاه خارج نمی‌شود. یافته‌هایی که قبلاً پشتیبان‌گیری شده‌اند در حساب شما می‌مانند و همچنان روی دستگاه جدید بازیابی می‌شوند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lorsque cette option est désactivée, rien de nouveau ne quitte cet appareil. Les trouvailles déjà sauvegardées restent dans votre compte et sont toujours restaurées sur un nouvel appareil."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "כשההגדרה כבויה, שום דבר חדש לא יוצא מהמכשיר הזה. ממצאים שכבר גובו נשארים בחשבון שלך וממשיכים להשתחזר במכשיר חדש."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "बंद होने पर इस डिवाइस से कुछ भी नया बाहर नहीं जाता। पहले से बैकअप की गई खोजें आपके खाते में रहती हैं और नए डिवाइस पर बहाल होती रहती हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Kikapcsolva semmi új nem hagyja el ezt az eszközt. A már mentett leletek a fiókodban maradnak, és továbbra is visszaállnak egy új eszközön."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gdy wyłączone, nic nowego nie opuszcza tego urządzenia. Znaleziska już skopiowane pozostają na koncie i nadal są przywracane na nowym urządzeniu."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Когда выключено, ничего нового с этого устройства не уходит. Уже сохранённые находки остаются в вашем аккаунте и по-прежнему восстанавливаются на новом устройстве."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Коли вимкнено, ніщо нове не залишає цей пристрій. Уже збережені знахідки лишаються у вашому обліковому записі й надалі відновлюються на новому пристрої."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "关闭后，本设备不会再上传任何新内容。已备份的发现仍保留在您的账户中，并且仍可在新设备上恢复。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "關閉後，此裝置不會再上傳任何新內容。已備份的發現仍保留在您的帳戶中，並且仍可在新裝置上還原。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "閂咗之後，呢部裝置唔會再上傳任何新嘢。已經備份嘅發現仍然留喺你個帳戶，喺新裝置上面一樣可以還原。"
           }
         }
       }
@@ -27912,10 +28200,106 @@
       "comment" : "Shown on the back-up button while a back-up is running",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "جارٍ النسخ الاحتياطي…"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ব্যাকআপ হচ্ছে…"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zálohuji…"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sichern…"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Backing up…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Copiando…"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "در حال پشتیبان‌گیری…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sauvegarde…"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מגבה…"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "बैकअप हो रहा है…"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mentés…"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tworzenie kopii…"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Сохранение…"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Збереження…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "正在备份…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "正在備份…"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "正在備份…"
           }
         }
       }
@@ -27924,10 +28308,106 @@
       "comment" : "Declines the back-up question. Says what it does -- these findings stay local -- rather than \"Not Now\", which read as a promise to ask again and as a global stop (AIA-740).",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "الاحتفاظ على هذا الجهاز"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই ডিভাইসেই রাখুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ponechat v tomto zařízení"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Auf diesem Gerät behalten"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Keep on This Device"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mantener en este dispositivo"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "نگه‌داشتن روی این دستگاه"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Conserver sur cet appareil"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "להשאיר במכשיר הזה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "इसी डिवाइस पर रखें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Megtartás ezen az eszközön"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zachowaj na tym urządzeniu"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Оставить на этом устройстве"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Залишити на цьому пристрої"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "仅保留在本设备"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "僅保留在此裝置"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "淨係留喺呢部裝置"
           }
         }
       }
@@ -27936,10 +28416,106 @@
       "comment" : "Shown when a user-initiated back-up did not finish because of an error",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لم يكتمل النسخ الاحتياطي. ستتم إعادة المحاولة."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ব্যাকআপ সম্পূর্ণ হয়নি। আবার চেষ্টা করা হবে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zálohování se nedokončilo. Zkusí se znovu."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sicherung nicht abgeschlossen. Es wird erneut versucht."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Back-up didn’t finish. It will try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "La copia no se completó. Se volverá a intentar."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "پشتیبان‌گیری کامل نشد. دوباره تلاش می‌شود."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "La sauvegarde ne s’est pas terminée. Une nouvelle tentative aura lieu."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הגיבוי לא הושלם. יתבצע ניסיון נוסף."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "बैकअप पूरा नहीं हुआ। दोबारा कोशिश की जाएगी।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A mentés nem fejeződött be. Újra megpróbáljuk."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Kopia nie została ukończona. Nastąpi ponowna próba."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Резервное копирование не завершилось. Попытка повторится."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Резервне копіювання не завершилося. Спробу буде повторено."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "备份未完成，稍后将重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "備份未完成，稍後將重試。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "備份未完成，稍後會再試。"
           }
         }
       }
@@ -27948,10 +28524,106 @@
       "comment" : "Shown when a user-initiated back-up could not run because the device is offline",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لا يوجد اتصال. ستُرفع اكتشافاتك عند عودتك للاتصال."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সংযোগ নেই। অনলাইনে ফিরলে আপনার আবিষ্কারগুলি পাঠানো হবে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bez připojení. Vaše nálezy se odešlou, až budete znovu online."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Keine Verbindung. Deine Funde werden übertragen, sobald du wieder online bist."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No connection. Your findings will go up when you’re back online."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sin conexión. Tus hallazgos se enviarán cuando vuelvas a estar en línea."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "اتصالی نیست. یافته‌های شما پس از بازگشت به اینترنت ارسال می‌شوند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pas de connexion. Vos trouvailles seront envoyées dès votre retour en ligne."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "אין חיבור. הממצאים שלך יישלחו כשתחזור לרשת."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "कोई कनेक्शन नहीं। ऑनलाइन लौटने पर आपकी खोजें भेज दी जाएँगी।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nincs kapcsolat. A leleteid akkor kerülnek fel, amikor ismét online leszel."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Brak połączenia. Twoje znaleziska zostaną wysłane po powrocie do sieci."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Нет соединения. Ваши находки будут отправлены, когда связь восстановится."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Немає зʼєднання. Ваші знахідки надішлються, щойно ви знову будете онлайн."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "无网络连接。恢复联网后将上传您的发现。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "沒有網路連線。恢復連線後將上傳您的發現。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "冇網絡連線。回復連線之後就會上傳你嘅發現。"
           }
         }
       }
@@ -27960,10 +28632,106 @@
       "comment" : "Shown when a user-initiated back-up completed and every finding is in the account",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تم نسخ اكتشافاتك احتياطيًا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার আবিষ্কারের ব্যাকআপ নেওয়া হয়েছে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vaše nálezy jsou zálohovány."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Deine Funde sind gesichert."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your findings are backed up."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tus hallazgos están copiados."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "از یافته‌های شما پشتیبان گرفته شد."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vos trouvailles sont sauvegardées."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הממצאים שלך מגובים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपकी खोजों का बैकअप हो गया है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A leleteid mentve vannak."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Twoje znaleziska mają kopię zapasową."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваши находки сохранены."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваші знахідки збережено."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "您的发现已备份。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "您的發現已備份。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你嘅發現已經備份咗。"
           }
         }
       }
