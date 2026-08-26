@@ -87,18 +87,22 @@ An erasure request under Art. 17 is satisfied by account deletion, with these th
 
 ## Transfers
 
-| Processor | Role | Location / mechanism | Status |
-|-|-|-|-|
-| Cloudflare, Inc. | R2 + D1 (A5) | R2 **EU-pinned**; D1 **not region-pinned** — SCCs via the Cloudflare DPA | R2 verified 2026-08-26; **DPA version/date to record** |
-| Clerk, Inc. | Identity (A1) | **Open item** — see below | **To verify** |
-| Apple | Distribution, payments, SSO | Apple's own terms | — |
-| Sentry | Diagnostics (A3) | SCCs | **DPA version/date to record** |
-| TelemetryDeck | Analytics (A4), consent-gated | EU-based | — |
+| Processor | Role | Location / mechanism | DPA | Status |
+|-|-|-|-|-|
+| Cloudflare, Inc. | R2 + D1 (A5) | R2 **EU-pinned**; D1 **not region-pinned** — SCCs via the Cloudflare DPA | [cloudflare.com/cloudflare-customer-dpa](https://www.cloudflare.com/cloudflare-customer-dpa/) — self-serve, incorporated by accepting the terms; carries no version date in the page itself | R2 jurisdiction verified 2026-08-26 |
+| Clerk, Inc. | Identity (A1) | **Open item** — see below | [clerk.com/legal/dpa](https://clerk.com/legal/dpa) — **26 November 2024**, references the EU–US Data Privacy Framework | **Residency to verify** |
+| Apple | Distribution, payments, SSO | Apple's own terms | Apple Developer Program agreement | — |
+| Sentry | Diagnostics (A3) | SCCs | [sentry.io/legal/dpa](https://sentry.io/legal/dpa/) — self-serve; carries no version date in the page itself | — |
+| TelemetryDeck | Analytics (A4), consent-gated | EU-based | Included in their terms | — |
+
+All three self-serve DPAs are incorporated by accepting the provider's terms — none requires a signature, which is why there is nothing "executed" to file. What this record needs is the URL and the version in force, checked 2026-08-26.
 
 ## Open items — do not treat as answered
 
-1. **Clerk data residency / DPF status.** The staging Worker points at `advanced-tetra-5.clerk.accounts.dev`, a **development** instance; the production issuer is still `REPLACE_BEFORE_PRODUCTION_DEPLOY`. Before production launch, record which Clerk instance production uses, whether EU residency is enabled on it, and whether Clerk is certified under the EU–US Data Privacy Framework. Write the answer here even if it is "US-hosted under SCCs".
-2. **DPA versions and dates** for Cloudflare, Clerk and Sentry. Reference the executed version, not "they have one".
+1. **Clerk data residency.** *Half answered.* The production instance is **`clerk.aiarcheology.com`** — confirmed 2026-08-26 against its own `/.well-known/openid-configuration`, and it is the instance the production Worker trusts and the shipping `pk_live_` key resolves to (AIA-741).
+
+   Still open: **whether EU data residency is enabled on it.** This cannot be determined from outside — the Frankfurt edge seen when probing the Frontend API is Cloudflare's nearest PoP to the caller, not where Clerk stores data, and must not be read as evidence. It is a plan feature: if it was never explicitly enabled, the answer is US-hosted under SCCs plus Clerk's DPF certification, which the DPA above references. **Get it in writing from Clerk support and record the answer here either way** — "US-hosted under SCCs" is a perfectly acceptable entry; an assumed one is not.
+2. ~~**DPA versions and dates** for Cloudflare, Clerk and Sentry.~~ **Done 2026-08-26** — recorded in the Transfers table above. Cloudflare and Sentry publish no version date on the page; if a dated copy is ever needed for an audit, request it from the provider.
 3. **D1 region.** If Cloudflare later offers a jurisdiction for D1, revisit — pinning the index would close the only remaining EU-boundary gap in A5.
 
 ## Art. 33 — personal data breach
