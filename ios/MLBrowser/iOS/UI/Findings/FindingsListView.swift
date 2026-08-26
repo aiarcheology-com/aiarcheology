@@ -96,7 +96,12 @@ struct FindingsListView: View {
 				}
 				.listStyle(.plain)
 			}
-			.safeAreaInset(edge: .bottom) { backUpBar }
+			.safeAreaInset(edge: .bottom) {
+				// Hidden outright when this build has no Worker to talk to: `backUpNow` returns
+				// without doing anything there, and a green button that does nothing is worse than
+				// no button.
+				if findingsSync.isCloudConfigured { backUpBar }
+			}
 			.navigationTitle(L10n.Findings.title)
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
@@ -139,7 +144,15 @@ struct FindingsListView: View {
 			signInWasForBackUp = false
 			findingsSync.backUpNow(expectedAccount: account)
 		}
-		.sheet(isPresented: $showSignIn) {
+		.sheet(isPresented: $showSignIn, onDismiss: {
+			// The sheet closes itself only once `refresh()` has succeeded, so anything else is an
+			// abandoned sign-in and the intent goes with it. Left standing, the flag outlived the
+			// sheet and a much later session validation -- a foreground after a cold offline
+			// launch, say -- would fire a full back-up that lifts every "Keep on This Device" the
+			// user had recorded. Erring towards forgetting is the safe direction: the button is
+			// right there.
+			if authState.gate != .ready { signInWasForBackUp = false }
+		}) {
 			SignInSheet(authState: authState)
 				// Custom environment values do not reliably cross a sheet boundary on Mac
 				// (Designed for iPad) — AGENTS.md §3, same as the drawer's own sign-in sheet.
@@ -470,6 +483,12 @@ struct FindingsListView: View {
 				if let account = authState.accountIdentifier {
 					// The account the user is looking at travels with the request; the coordinator
 					// refuses it if the provider has moved on.
+					findingsSync.backUpNow(expectedAccount: account)
+				} else if let account = findingsSync.syncingAccount {
+					// Signed in as far as sync is concerned, but `AuthState` has not caught up --
+					// a cold launch with no signal is the ordinary case. Offering a sign-in that
+					// cannot complete offline, for an account already signed in, was the wrong
+					// answer; asking for the back-up gets the honest "you are offline" instead.
 					findingsSync.backUpNow(expectedAccount: account)
 				} else {
 					// Signing in is what makes a back-up possible, so the button opens that door rather

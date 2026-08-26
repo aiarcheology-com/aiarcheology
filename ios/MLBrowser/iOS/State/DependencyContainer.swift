@@ -472,10 +472,14 @@ class DependencyContainer {
 		// this skips.
 		if usesMockAuth == false {
 			account.authState.purgeCloudData = { [findingsSync] in try await findingsSync.purgeCloudData() }
+		}
 		// Signing in is its own trigger. It is none of the three the coordinator watches for, so
 		// without this the first thing a new user does -- sign in -- produces silence (AIA-727).
+		//
+		// Wired on every path, unlike the purge above: the mock provider has no cloud data to
+		// erase, but it does change accounts, and a trigger that only exists in release builds is
+		// one no test can reach.
 		account.authState.accountDidChange = { [findingsSync] _ in _ = findingsSync.syncNow() }
-		}
 		_ = messageReplyCoordinator
 		// Arm notification scheduling (AIA-0115, S7): hooks messageCenterState's reevaluation
 		// observer on init so every visibility recompute reconciles scheduled notifications.

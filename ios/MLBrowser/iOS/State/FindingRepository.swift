@@ -182,6 +182,13 @@ final class FindingRepository {
 		var summary = ImportSummary()
 		var replacedImages: [(filename: String, data: Data?)] = []
 		var writtenFilenames: [String] = []
+		// Which rows this import created and which it replaced, so a failed commit can be undone in
+		// the PARENT context too. `importContext.reset()` only abandons the child: by then the child
+		// save has already pushed every row into the parent, where they sit pending and get written
+		// by the next unrelated save -- as findings the user was told had failed to import, with
+		// their images already deleted.
+		var createdIds: [UUID] = []
+		var replacedIds: [UUID] = []
 
 		// All import work happens in a CHILD context, never directly in the viewContext.
 		//
@@ -229,6 +236,7 @@ final class FindingRepository {
 				let finding = existing ?? Finding.create(in: importContext)
 				suppressed.append(finding)
 				try apply(row, to: finding, screenshotFilename: filename)
+				if existing == nil { createdIds.append(row.id) } else { replacedIds.append(row.id) }
 				summary.restored += 1
 			} catch {
 				LoggingPolicy.warning(
@@ -250,14 +258,25 @@ final class FindingRepository {
 			}
 		}
 
+		var reachedParent = false
 		do {
 			// Child first (validates and pushes into the parent), then the parent to the store.
 			try importContext.save()
+			reachedParent = true
 			try Finding.save(in: context)
 		} catch {
-			// The child is abandoned rather than rolled back; the parent's unrelated pending edits
-			// are deliberately left alone. Every file this import wrote must still go, and every
-			// image it replaced must come back.
+			// Undo this import's own rows in the parent, by id, and nothing else -- the parent's
+			// unrelated pending edits are deliberately left alone. Only when the child save
+			// actually pushed them: if it was the one that threw, the parent never saw them, and
+			// refreshing a pre-existing finding here would discard edits that are not ours.
+			if reachedParent {
+				for id in createdIds {
+					if let row = Finding.select(id, in: context) { context.delete(row) }
+				}
+				for id in replacedIds {
+					if let row = Finding.select(id, in: context) { context.refresh(row, mergeChanges: false) }
+				}
+			}
 			importContext.reset()
 			for filename in writtenFilenames {
 				FindingScreenshotStore.delete(filename: filename)

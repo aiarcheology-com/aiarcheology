@@ -315,12 +315,19 @@ enum FindingExporter {
 
 	/// RFC-4180 field escaping: nil → empty field; a field containing a comma,
 	/// double-quote, CR or LF is wrapped in double-quotes with internal quotes doubled.
+	///
+	/// A leading `=`, `+`, `-`, `@` or tab is additionally prefixed with an apostrophe. Those start
+	/// a formula in Excel, Numbers and Sheets, and a title or note is free text the user typed --
+	/// or, after an import, text that arrived in somebody else's archive. `=HYPERLINK(...)` as a
+	/// finding's title is a working attack on whoever opens the export, not a display quirk. The
+	/// apostrophe is the convention every spreadsheet reads as "this is literal text".
 	static func csvField(_ value: String?) -> String {
 		guard let value else { return "" }
-		guard value.contains(where: { $0 == "," || $0 == "\"" || $0 == "\r" || $0 == "\n" }) else {
-			return value
+		let guarded = value.first.map { "=+-@\t".contains($0) } == true ? "'" + value : value
+		guard guarded.contains(where: { $0 == "," || $0 == "\"" || $0 == "\r" || $0 == "\n" }) else {
+			return guarded
 		}
-		return "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
+		return "\"\(guarded.replacingOccurrences(of: "\"", with: "\"\""))\""
 	}
 
 	// MARK: - Helpers
