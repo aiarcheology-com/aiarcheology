@@ -25,6 +25,10 @@ struct FindingsListView: View {
 	/// site keeps its trailing-closure form.
 	let findingRepository: FindingRepository
 
+	/// Cloud sync, when the build has it. Declared BEFORE `onOpenPage` for the same reason
+	/// `findingRepository` is: the memberwise initializer must end on the closure.
+	@ObservedObject var findingsSync: FindingsSync
+
 	/// "Open page" routes through the presenting drawer: it must dismiss this
 	/// sheet and the drawer before the web screen loads the URL.
 	let onOpenPage: (URL) -> Void
@@ -63,6 +67,7 @@ struct FindingsListView: View {
 	var body: some View {
 		NavigationStack {
 			VStack(spacing: 0) {
+				syncStatus
 				if distinctLabels.isEmpty.not {
 					filterChips
 				}
@@ -100,6 +105,23 @@ struct FindingsListView: View {
 			// failed file deletes. Runs on the viewContext/MainActor; the save sheet
 			// is dismissed before this list can open, so it never races a save.
 			FindingScreenshotStore.sweepOrphans(in: moc)
+		}
+		.alert(
+			L10n.Findings.Sync.Backup.title,
+			isPresented: Binding(
+				get: { findingsSync.findingsAwaitingBackupConsent != nil },
+				set: { if $0 == false { findingsSync.answerBackupConsent(accepted: false) } }
+			)
+		) {
+			Button(L10n.Findings.Sync.Backup.confirm) { findingsSync.answerBackupConsent(accepted: true) }
+			Button(L10n.Findings.Sync.Backup.decline, role: .cancel) {
+				findingsSync.answerBackupConsent(accepted: false)
+			}
+		} message: {
+			// Asked once, and never answered on the user's behalf. On a shared device the store may
+			// hold work belonging to whoever used the app last, and quietly copying it into the
+			// account signing in now would put one person's dig sites in another person's cloud.
+			Text(L10n.Findings.Sync.Backup.message(findingsSync.findingsAwaitingBackupConsent ?? 0))
 		}
 		.activityShareSheet($sharePayload)
 		.sheet(item: $shareSubject) { subject in
@@ -410,19 +432,50 @@ struct FindingsListView: View {
 		.padding(.vertical, 32)
 	}
 
-	/// Entity first (committed), then best-effort file delete: a leftover file is
-	/// exactly the direction the orphan sweep self-heals. The filename is captured
-	/// before deletion — Core Data nullifies attributes on delete.
+	/// What sync owes, and what it needs from the user.
+	///
+	/// Deliberately quiet: the common state is nothing to say. A count appears only when findings
+	/// are actually waiting, and the storage band only once the account is most of the way full,
+	/// because a permanent banner about a working feature is noise the user learns to ignore.
+	@ViewBuilder
+	private var syncStatus: some View {
+		let usage = findingsSync.usage
+		let fraction = usage?.fraction ?? 0
+		VStack(alignment: .leading, spacing: 4) {
+			if findingsSync.pendingUploadCount > 0 {
+				label(L10n.Findings.Sync.pending(findingsSync.pendingUploadCount), icon: "arrow.up.circle", tint: .secondary)
+			}
+			if findingsSync.parkedCount > 0 {
+				label(L10n.Findings.Sync.parked(findingsSync.parkedCount), icon: "exclamationmark.circle", tint: .orange)
+			}
+			if fraction >= 1 {
+				// Says what to do, not merely that something is wrong. Exporting keeps working at
+				// 100% on purpose — it is both a data-portability right and the only way out of a
+				// full account.
+				label(L10n.Findings.Sync.Storage.full, icon: "externaldrive.fill.badge.xmark", tint: .red)
+			} else if fraction >= 0.8 {
+				label(L10n.Findings.Sync.Storage.warning(Int(fraction * 100)), icon: "externaldrive.fill", tint: .orange)
+			}
+		}
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.padding(.horizontal)
+		.padding(.vertical, findingsSync.pendingUploadCount > 0 || fraction >= 0.8 ? 8 : 0)
+	}
+
+	private func label(_ text: String, icon: String, tint: Color) -> some View {
+		Label(text, systemImage: icon)
+			.font(.footnote)
+			.foregroundStyle(tint)
+	}
+
+	/// Deleting goes through the repository so the tombstone reaches the cloud (AIA-727). Doing it
+	/// inline here would delete the finding on this device and leave every other device holding it.
 	private func delete(_ finding: Finding) {
-		let filename = finding.screenshotFilename
-		moc.delete(finding)
 		do {
-			try Finding.save(in: moc)
+			try findingRepository.delete(finding)
 		} catch {
 			LoggingPolicy.error("Failed to delete the finding", error: error, logger: .storage)
-			return
 		}
-		FindingScreenshotStore.delete(filename: filename)
 	}
 }
 

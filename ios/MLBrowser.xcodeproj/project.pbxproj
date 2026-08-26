@@ -14,6 +14,7 @@
 		10C7A2E888F44A46B69E150E /* ClassificationDemoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86D0C80027004283842AFBDF /* ClassificationDemoUITests.swift */; };
 		1337A453EA414FC9BECEC618 /* Classifying.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4D6DDA52ECA43FCBADD6A05 /* Classifying.swift */; };
 		15A2A9B169BF17E5F22D64B3 /* ClerkAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE763C674E423AFA68061960 /* ClerkAuthProvider.swift */; };
+		AC0FE77270000000000BAFB /* FindingsSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0FE77270000000000AAFB /* FindingsSync.swift */; };
 		19B58655B75A45CFBA520E82 /* FindingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A2CA562207959549FC331DA /* FindingRepository.swift */; };
 		1C2C07EA2917960C501206AB /* SubscriptionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D8A8FA0182207F209BD6EF /* SubscriptionState.swift */; };
 		1EE996F7FF225DAB591EC7B3 /* BrowserSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ED702A061548A1DE38F772D /* BrowserSession.swift */; };
@@ -33,6 +34,8 @@
 		61B3C02BC674F0B78E380B52 /* EntitlementResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFCC1FAB6E927E7D65B90A8B /* EntitlementResolver.swift */; };
 		63CDF1E9BC41E124832411D6 /* TourStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AE619C61BACCB171E8FA2E /* TourStateTests.swift */; };
 		6C88C94FB6809E47259A6351 /* FindingRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFBCA480CAD7F7F6571A7824 /* FindingRepositoryTests.swift */; };
+		AC4C377270000000000BEA2 /* FindingsSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC4C377270000000000AEA2 /* FindingsSyncTests.swift */; };
+		AC58187270000000000B679 /* FindingsSyncCycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC58187270000000000A679 /* FindingsSyncCycleTests.swift */; };
 		AB71300000000000000B002 /* FindingArchiveImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71300000000000000B001 /* FindingArchiveImportTests.swift */; };
 		6E2B84F19CD3407AB5710D63 /* EffectiveAuthContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7C1D0E5B92460F8E14A2C7 /* EffectiveAuthContext.swift */; };
 		6F31DAC55F2B4ACABB5FBBE1 /* FastViTT8F16.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 58F0B2DED415479BBF3199FD /* FastViTT8F16.mlpackage */; };
@@ -320,6 +323,8 @@
 		ABAA0115000000000000B016 /* MessageNotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A016 /* MessageNotificationCoordinator.swift */; };
 		ABAA0115000000000000B017 /* MessageNotificationPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A017 /* MessageNotificationPlannerTests.swift */; };
 		ABAA0115000000000000B018 /* AppMessagesUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A018 /* AppMessagesUITests.swift */; };
+		AC00017270000000000B001 /* FindingsCloudTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC00017270000000000A001 /* FindingsCloudTransport.swift */; };
+		ACE1DD7270000000000BB69 /* FindingsSyncLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE1DD7270000000000AB69 /* FindingsSyncLedger.swift */; };
 		ABAA0650000000000000B001 /* FindingShareLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A001 /* FindingShareLink.swift */; };
 		ABAA0650000000000000B002 /* FindingShareLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A002 /* FindingShareLinkTests.swift */; };
 		ABAA0650000000000000B003 /* SharedFindingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A003 /* SharedFindingState.swift */; };
@@ -418,6 +423,7 @@
 		3190EA75B1839A049188B3D7 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		347CED5074B64105979052CC /* FindingFlashTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingFlashTests.swift; sourceTree = "<group>"; };
 		37FF65EDA41F1D0083A25351 /* SubscriptionGateUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionGateUITests.swift; sourceTree = "<group>"; };
+		AC0FE77270000000000AAFB /* FindingsSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsSync.swift; sourceTree = "<group>"; };
 		3A2CA562207959549FC331DA /* FindingRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingRepository.swift; sourceTree = "<group>"; };
 		3A7C1D0E5B92460F8E14A2C7 /* EffectiveAuthContext.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EffectiveAuthContext.swift; sourceTree = "<group>"; };
 		3BAC19D9401CB90035335C86 /* UnderConstructionBadgeModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UnderConstructionBadgeModifier.swift; sourceTree = "<group>"; };
@@ -718,6 +724,8 @@
 		ABAA0115000000000000A016 /* MessageNotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageNotificationCoordinator.swift; sourceTree = "<group>"; };
 		ABAA0115000000000000A017 /* MessageNotificationPlannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MessageNotificationPlannerTests.swift; sourceTree = "<group>"; };
 		ABAA0115000000000000A018 /* AppMessagesUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppMessagesUITests.swift; sourceTree = "<group>"; };
+		AC00017270000000000A001 /* FindingsCloudTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsCloudTransport.swift; sourceTree = "<group>"; };
+		ACE1DD7270000000000AB69 /* FindingsSyncLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsSyncLedger.swift; sourceTree = "<group>"; };
 		ABAA0650000000000000A001 /* FindingShareLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingShareLink.swift; sourceTree = "<group>"; };
 		ABAA0650000000000000A002 /* FindingShareLinkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingShareLinkTests.swift; sourceTree = "<group>"; };
 		ABAA0650000000000000A003 /* SharedFindingState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedFindingState.swift; sourceTree = "<group>"; };
@@ -774,6 +782,8 @@
 		D6AA75E8303E191D00804817 /* MLBrowser_0.0.1_0.0.2.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = MLBrowser_0.0.1_0.0.2.xcmappingmodel; sourceTree = "<group>"; };
 		DDCA151D54FB4492B8A89AB4 /* AuthGateUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthGateUITests.swift; sourceTree = "<group>"; };
 		DFBCA480CAD7F7F6571A7824 /* FindingRepositoryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingRepositoryTests.swift; sourceTree = "<group>"; };
+		AC4C377270000000000AEA2 /* FindingsSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsSyncTests.swift; sourceTree = "<group>"; };
+		AC58187270000000000A679 /* FindingsSyncCycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsSyncCycleTests.swift; sourceTree = "<group>"; };
 		AB71300000000000000B001 /* FindingArchiveImportTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingArchiveImportTests.swift; sourceTree = "<group>"; };
 		E4D6DDA52ECA43FCBADD6A05 /* Classifying.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Classifying.swift; sourceTree = "<group>"; };
 		E7D7719BFF527B0F988CB497 /* Configuration.storekit */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = Configuration.storekit; sourceTree = "<group>"; };
@@ -1044,6 +1054,7 @@
 				04CC35810A5A24A66927181A /* StoreKitSubscriptionProvider.swift */,
 				2584DEF459E2929567E5582F /* ModelAssetStore.swift */,
 				D4644DE7995D4B5B57C7B44F /* ModelConfigurationRepository.swift */,
+				AC0FE77270000000000AAFB /* FindingsSync.swift */,
 				3A2CA562207959549FC331DA /* FindingRepository.swift */,
 				D3885A2E1FF15193BEAD07C6 /* DetectionSession.swift */,
 				9ED702A061548A1DE38F772D /* BrowserSession.swift */,
@@ -1348,6 +1359,8 @@
 				EEC4484CCDFA87F9DABF7757 /* ModelConfigurationRepositoryTests.swift */,
 				787F8B294224A4AD8CEC14DF /* ModelAssetStoreTests.swift */,
 				DFBCA480CAD7F7F6571A7824 /* FindingRepositoryTests.swift */,
+				AC4C377270000000000AEA2 /* FindingsSyncTests.swift */,
+				AC58187270000000000A679 /* FindingsSyncCycleTests.swift */,
 				AB71300000000000000B001 /* FindingArchiveImportTests.swift */,
 				AA0303010000000000000001 /* RemoveAllFindingsTests.swift */,
 				F012B0A5CCF9F8190B8D1667 /* FeatureSessionTests.swift */,
@@ -1532,6 +1545,8 @@
 				AC055600000000000000A002 /* FreeAccessAnchorService.swift */,
 				ABAA0115000000000000A008 /* MessageReplyPatchBuilder.swift */,
 				ABAA0115000000000000A014 /* MessageNotificationPlanner.swift */,
+				AC00017270000000000A001 /* FindingsCloudTransport.swift */,
+				ACE1DD7270000000000AB69 /* FindingsSyncLedger.swift */,
 				ABAA0650000000000000A001 /* FindingShareLink.swift */,
 				ABAA0115000000000000A015 /* UserNotificationScheduling.swift */,
 				A41320010000000000000001 /* Catalog */,
@@ -2129,6 +2144,8 @@
 				ABAA0115000000000000B008 /* MessageReplyPatchBuilder.swift in Sources */,
 				ABAA0115000000000000B009 /* MessageReplyCoordinator.swift in Sources */,
 				ABAA0115000000000000B014 /* MessageNotificationPlanner.swift in Sources */,
+				AC00017270000000000B001 /* FindingsCloudTransport.swift in Sources */,
+				ACE1DD7270000000000BB69 /* FindingsSyncLedger.swift in Sources */,
 				ABAA0650000000000000B001 /* FindingShareLink.swift in Sources */,
 				ABAA0115000000000000B015 /* UserNotificationScheduling.swift in Sources */,
 				ABAA0115000000000000B016 /* MessageNotificationCoordinator.swift in Sources */,
@@ -2158,6 +2175,7 @@
 				F123020452F330E251BF7ACD /* DetectionCoordinator.swift in Sources */,
 				B2B33189971A3706CE930103 /* ModelAssetStore.swift in Sources */,
 				84CE788174C6B2AEC9CBE2BA /* ModelConfigurationRepository.swift in Sources */,
+				AC0FE77270000000000BAFB /* FindingsSync.swift in Sources */,
 				19B58655B75A45CFBA520E82 /* FindingRepository.swift in Sources */,
 				748E3D90195FB066DA015DB7 /* DetectionSession.swift in Sources */,
 				1EE996F7FF225DAB591EC7B3 /* BrowserSession.swift in Sources */,
@@ -2272,6 +2290,8 @@
 				342A0615E887565E924208A2 /* ModelConfigurationRepositoryTests.swift in Sources */,
 				C49A5DF86CBBD885D5C79977 /* ModelAssetStoreTests.swift in Sources */,
 				6C88C94FB6809E47259A6351 /* FindingRepositoryTests.swift in Sources */,
+				AC4C377270000000000BEA2 /* FindingsSyncTests.swift in Sources */,
+				AC58187270000000000B679 /* FindingsSyncCycleTests.swift in Sources */,
 				AB71300000000000000B002 /* FindingArchiveImportTests.swift in Sources */,
 				AA0303020000000000000002 /* RemoveAllFindingsTests.swift in Sources */,
 				ADD67EF9365608B7EB3729D5 /* FeatureSessionTests.swift in Sources */,

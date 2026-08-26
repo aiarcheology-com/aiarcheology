@@ -39,6 +39,16 @@ struct FindingMetadata {
 /// `ArchitectureTests.testOnlyFindingRepositoryWritesScreenshots`.
 @MainActor
 final class FindingRepository {
+
+	/// Called with a finding's id immediately BEFORE a user-initiated delete commits, so sync can
+	/// record the tombstone first. Wired by `DependencyContainer`; `nil` leaves deletes purely
+	/// local, which is exactly what a build with no sync should do.
+	var willDeleteFinding: ((UUID) -> Void)?
+
+	/// Called after findings change locally, so sync can offer them to the cloud without waiting for
+	/// the app to be backgrounded and reopened. `nil` in a build with no sync.
+	var didChangeFindings: (() -> Void)?
+
 	private let dataController: DataController
 
 	init(dataController: DataController) {
@@ -96,6 +106,7 @@ final class FindingRepository {
 			throw error
 		}
 
+		didChangeFindings?()
 		return finding
 	}
 
@@ -231,6 +242,7 @@ final class FindingRepository {
 			throw error
 		}
 
+		didChangeFindings?()
 		return summary
 	}
 
@@ -339,6 +351,40 @@ final class FindingRepository {
 		// Reached only when the delete succeeded. After the merge above no finding references any
 		// file, so every screenshot is now an orphan and is removed here (MainActor / viewContext).
 		FindingScreenshotStore.sweepOrphans(in: viewContext)
+	}
+
+	/// Deletes one finding at the user's request.
+	///
+	/// Lives here rather than in the list view because a delete now has to reach the cloud: the
+	/// tombstone is recorded through ``willDeleteFinding`` **before** the delete commits, so a
+	/// crash in between completes the delete on the next sync. The other order would lose it, and a
+	/// finding the user deleted would come back from another device -- for this app that means site
+	/// coordinates reappearing after someone chose to remove them.
+	///
+	/// Entity first (committed), then a best-effort file delete: a leftover file is exactly the
+	/// direction the orphan sweep self-heals. The filename is captured before deletion, because
+	/// Core Data nullifies attributes on delete.
+	func delete(_ finding: Finding) throws {
+		let entityId = finding.entityId
+		let filename = finding.screenshotFilename
+		willDeleteFinding?(entityId)
+		context.delete(finding)
+		try Finding.save(in: context)
+		FindingScreenshotStore.delete(filename: filename)
+		didChangeFindings?()
+	}
+
+	/// Applies a delete that came FROM the cloud.
+	///
+	/// Deliberately does not call ``willDeleteFinding``: this device is being told about a delete,
+	/// not making one, and echoing it back as a fresh tombstone would restamp it with a newer
+	/// timestamp and let it win a conflict it had already lost.
+	func deleteReceivedFromCloud(_ entityId: UUID) throws {
+		guard let finding = Finding.select(entityId, in: context) else { return }
+		let filename = finding.screenshotFilename
+		context.delete(finding)
+		try Finding.save(in: context)
+		FindingScreenshotStore.delete(filename: filename)
 	}
 
 	/// Snapshots every stored finding for the export-before-delete flow (AIA-0303). Unlike

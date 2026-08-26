@@ -146,7 +146,12 @@ enum FindingArchiveImport {
 
 	// MARK: - Manifest
 
-	private static func decodeRows(_ data: Data) throws -> [ImportedFindingRow] {
+	/// Decodes a manifest, whether it came out of an archive or off the network.
+	///
+	/// Not private because cloud sync stores each finding's `meta.json` in exactly this shape, with
+	/// a single row. Sharing the codec is the point: one place decides what a finding's fields mean
+	/// on the wire, so an archive and a synced copy cannot drift into disagreeing.
+	static func decodeRows(_ data: Data) throws -> [ImportedFindingRow] {
 		// Sniff the top level rather than try-decoding both shapes: a v1 envelope containing one bad
 		// row must report THAT, not fall through to "this is not an array either".
 		let top: Any

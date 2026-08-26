@@ -18156,10 +18156,106 @@
       "comment" : "Warning shown on the annotation sound screen when the device media volume is zero, so no sound can be heard.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "مستوى صوت الوسائط في جهازك مغلق، لذا لن تُسمع هذه الأصوات."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার ডিভাইসের মিডিয়া ভলিউম বন্ধ, তাই এই শব্দগুলি শোনা যাবে না।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Hlasitost médií na zařízení je vypnutá, takže tyto zvuky nebudou slyšet."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Die Medienlautstärke deines Geräts ist aus, daher sind diese Töne nicht zu hören."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your device's media volume is off, so these sounds will not be heard."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "El volumen multimedia de tu dispositivo está desactivado, así que no se oirán estos sonidos."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "بلندی صدای رسانه دستگاه شما خاموش است، بنابراین این صداها شنیده نمی‌شوند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Le volume multimédia de votre appareil est coupé, ces sons ne seront donc pas audibles."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "עוצמת המדיה במכשיר שלך כבויה, ולכן הצלילים האלה לא יישמעו."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपके डिवाइस का मीडिया वॉल्यूम बंद है, इसलिए ये ध्वनियाँ सुनाई नहीं देंगी।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az eszköz médiahangereje ki van kapcsolva, így ezek a hangok nem hallhatók."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Głośność multimediów w urządzeniu jest wyłączona, więc tych dźwięków nie będzie słychać."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Громкость мультимедиа на устройстве отключена, поэтому эти звуки не будут слышны."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Гучність мультимедіа на пристрої вимкнено, тож ці звуки не буде чути."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "设备的媒体音量已关闭，因此听不到这些声音。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "裝置的媒體音量已關閉，因此聽不到這些聲音。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "裝置的媒體音量已關閉，所以聽唔到呢啲聲音。"
           }
         }
       }
@@ -18168,10 +18264,106 @@
       "comment" : "Footnote on the annotation sound screen explaining that playback follows the device Silent mode and media volume.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تتبع أصوات الاكتشاف الوضع الصامت. إذا كان جهازك صامتًا فلن تسمعها، ولا حتى المعاينات أعلاه."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "শনাক্তকরণের শব্দ সাইলেন্ট মোড অনুসরণ করে। ডিভাইস সাইলেন্ট থাকলে আপনি সেগুলি শুনবেন না, উপরের নমুনাগুলিও নয়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zvuky detekce se řídí tichým režimem. Pokud je zařízení ztlumené, neuslyšíte je, ani ukázky výše."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Erkennungstöne folgen dem Lautlos-Modus. Ist dein Gerät stummgeschaltet, hörst du sie nicht, auch nicht die Vorschauen oben."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Detection sounds follow Silent mode. If your device is silenced you will not hear them, not even the previews above."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Los sonidos de detección siguen el modo silencio. Si el dispositivo está silenciado no los oirás, ni siquiera las muestras de arriba."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "صداهای تشخیص از حالت بی‌صدا پیروی می‌کنند. اگر دستگاه شما بی‌صدا باشد آن‌ها را نمی‌شنوید، حتی پیش‌نمایش‌های بالا را."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Les sons de détection suivent le mode Silencieux. Si votre appareil est en silencieux, vous ne les entendrez pas, pas même les aperçus ci-dessus."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "צלילי הזיהוי פועלים לפי מצב שקט. אם המכשיר במצב שקט לא תשמע אותם, גם לא את התצוגות המקדימות שלמעלה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "पहचान ध्वनियाँ साइलेंट मोड का पालन करती हैं। अगर आपका डिवाइस साइलेंट है तो आप उन्हें नहीं सुनेंगे, ऊपर के नमूने भी नहीं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az észlelési hangok a néma módot követik. Ha az eszköz néma, nem fogod hallani őket, a fenti mintákat sem."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dźwięki wykrywania podlegają trybowi cichemu. Jeśli urządzenie jest wyciszone, nie usłyszysz ich, nawet powyższych podglądów."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Звуки обнаружения подчиняются беззвучному режиму. Если устройство переведено в беззвучный режим, вы их не услышите, даже примеры выше."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Звуки виявлення підпорядковані беззвучному режиму. Якщо пристрій у беззвучному режимі, ви їх не почуєте, навіть зразки вище."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "检测声音遵循静音模式。如果设备已静音，你将听不到它们，包括上面的试听。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "偵測音效遵循靜音模式。若裝置已靜音，你將聽不到這些音效，包括上方的試聽。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "偵測音效會跟隨靜音模式。如果裝置已靜音，你就聽唔到，連上面嘅試聽都聽唔到。"
           }
         }
       }
@@ -26736,6 +26928,12 @@
             "value" : "Importieren"
           }
         },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import"
+          }
+        },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
@@ -26790,12 +26988,6 @@
             "value" : "Імпорт"
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "匯入"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
@@ -26808,10 +27000,10 @@
             "value" : "匯入"
           }
         },
-        "en" : {
+        "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Import"
+            "value" : "匯入"
           }
         }
       }
@@ -26842,6 +27034,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Meine behalten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Mine"
           }
         },
         "es" : {
@@ -26898,12 +27096,6 @@
             "value" : "Залишити мої"
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保留我的"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
@@ -26916,10 +27108,10 @@
             "value" : "保留我的"
           }
         },
-        "en" : {
+        "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Keep Mine"
+            "value" : "保留我的"
           }
         }
       }
@@ -26950,6 +27142,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld dieser Funde sind bereits auf diesem Gerät."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld of these findings are already on this device."
           }
         },
         "es" : {
@@ -27006,12 +27204,6 @@
             "value" : "%lld із цих знахідок уже є на пристрої."
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "其中 %lld 項發現已在此裝置上。"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
@@ -27024,10 +27216,10 @@
             "value" : "其中 %lld 項發現已在此裝置上。"
           }
         },
-        "en" : {
+        "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld of these findings are already on this device."
+            "value" : "其中 %lld 項發現已在此裝置上。"
           }
         }
       }
@@ -27058,6 +27250,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ersetzen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replace"
           }
         },
         "es" : {
@@ -27114,12 +27312,6 @@
             "value" : "Замінити"
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "取代"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
@@ -27132,10 +27324,10 @@
             "value" : "取代"
           }
         },
-        "en" : {
+        "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Replace"
+            "value" : "取代"
           }
         }
       }
@@ -27166,6 +27358,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Einige Funde sind bereits vorhanden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some findings are already here"
           }
         },
         "es" : {
@@ -27222,12 +27420,6 @@
             "value" : "Деякі знахідки вже тут"
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "部分發現已存在"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
@@ -27240,10 +27432,10 @@
             "value" : "部分發現已存在"
           }
         },
-        "en" : {
+        "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Some findings are already here"
+            "value" : "部分發現已存在"
           }
         }
       }
@@ -27274,6 +27466,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Diese Datei ist kein Fundarchiv."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That file is not a findings archive."
           }
         },
         "es" : {
@@ -27330,12 +27528,6 @@
             "value" : "Цей файл не є архівом знахідок."
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "該檔案不是發現封存檔。"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
@@ -27348,10 +27540,10 @@
             "value" : "該檔案不是發現封存檔。"
           }
         },
-        "en" : {
+        "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "That file is not a findings archive."
+            "value" : "該檔案不是發現封存檔。"
           }
         }
       }
@@ -27382,6 +27574,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$lld wiederhergestellt. %2$lld übersprungen, die bereits hier waren. %3$lld konnten nicht gelesen werden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restored %1$lld. Skipped %2$lld already here. %3$lld could not be read."
           }
         },
         "es" : {
@@ -27438,12 +27636,6 @@
             "value" : "Відновлено %1$lld. Пропущено %2$lld. Не вдалося прочитати %3$lld."
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已復原 %1$lld 項。略過 %2$lld 項。%3$lld 項無法讀取。"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
@@ -27456,10 +27648,10 @@
             "value" : "已復原 %1$lld 項。略過 %2$lld 項。%3$lld 項無法讀取。"
           }
         },
-        "en" : {
+        "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Restored %1$lld. Skipped %2$lld already here. %3$lld could not be read."
+            "value" : "已復原 %1$lld 項。略過 %2$lld 項。%3$lld 項無法讀取。"
           }
         }
       }
@@ -27490,6 +27682,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Import abgeschlossen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import finished"
           }
         },
         "es" : {
@@ -27546,12 +27744,6 @@
             "value" : "Імпорт завершено"
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "匯入完成"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
@@ -27564,10 +27756,10 @@
             "value" : "匯入完成"
           }
         },
-        "en" : {
+        "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Import finished"
+            "value" : "匯入完成"
           }
         }
       }
@@ -27676,6 +27868,870 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "開啟頁面"
+          }
+        }
+      }
+    },
+    "findings.sync.backup.confirm" : {
+      "comment" : "Button that agrees to back up findings already on the device to the signed-in account",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "نسخ احتياطي"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ব্যাকআপ নিন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zálohovat"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sichern"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back Up"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Hacer copia"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "پشتیبان‌گیری"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sauvegarder"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "גיבוי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "बैकअप लें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mentés"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Utwórz kopię"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Сохранить копию"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Зберегти копію"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "备份"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "備份"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "備份"
+          }
+        }
+      }
+    },
+    "findings.sync.backup.decline" : {
+      "comment" : "Button that declines backing up findings already on the device",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ليس الآن"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এখন নয়"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Teď ne"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Jetzt nicht"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ahora no"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "الان نه"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pas maintenant"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לא עכשיו"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "अभी नहीं"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Most nem"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nie teraz"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не сейчас"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не зараз"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "暂不"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "暫不"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "暫時唔使"
+          }
+        }
+      }
+    },
+    "findings.sync.backup.message" : {
+      "comment" : "Explains what the back-up question is about; %d is the number of findings",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "‏%d من الاكتشافات على هذا الجهاز ليست في هذا الحساب بعد."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই ডিভাইসের %d আবিষ্কার এখনও এই অ্যাকাউন্টে নেই।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d nálezů v tomto zařízení zatím v tomto účtu není."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d Funde auf diesem Gerät sind noch nicht in diesem Account."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d findings on this device are not in this account yet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d hallazgos de este dispositivo aún no están en esta cuenta."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "‏%d یافته در این دستگاه هنوز در این حساب نیست."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d trouvailles de cet appareil ne sont pas encore dans ce compte."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "‏%d ממצאים במכשיר הזה עדיין לא נמצאים בחשבון הזה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "इस डिवाइस पर %d खोजें अभी इस खाते में नहीं हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d lelet ezen az eszközön még nincs ebben a fiókban."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d znalezisk na tym urządzeniu nie ma jeszcze na tym koncie."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d находок на этом устройстве ещё нет в этом аккаунте."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d знахідок на цьому пристрої ще немає в цьому обліковому записі."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此设备上有 %d 项发现尚未存入此账户。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此裝置上有 %d 項發現尚未存入此帳戶。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "呢部裝置有 %d 項發現仲未存入呢個帳戶。"
+          }
+        }
+      }
+    },
+    "findings.sync.backup.title" : {
+      "comment" : "Title of the one-time question asked before existing findings are copied to an account",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "نسخ الاكتشافات الحالية احتياطيًا؟"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "বিদ্যমান আবিষ্কারগুলির ব্যাকআপ নেবেন?"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zálohovat stávající nálezy?"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vorhandene Funde sichern?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back up existing findings?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "¿Copiar los hallazgos existentes?"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "از یافته‌های موجود پشتیبان گرفته شود؟"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sauvegarder les trouvailles existantes ?"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לגבות ממצאים קיימים?"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मौजूदा खोजों का बैकअप लें?"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mentsük a meglévő leleteket?"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Utworzyć kopię istniejących znalezisk?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Сохранить существующие находки?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Зберегти наявні знахідки?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "备份现有发现？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "備份現有的發現？"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "備份現有嘅發現？"
+          }
+        }
+      }
+    },
+    "findings.sync.parked" : {
+      "comment" : "Count of findings the cloud refused for a reason retrying will not fix",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تعذّر نسخ %d احتياطيًا"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d ব্যাকআপ করা যায়নি"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d se nepodařilo zálohovat"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d konnten nicht gesichert werden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d could not be backed up"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No se pudo copiar %d"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "‏%d مورد پشتیبان‌گیری نشد"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d n’ont pas pu être sauvegardées"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לא ניתן היה לגבות %d"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d का बैकअप नहीं हो सका"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d mentése nem sikerült"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nie udało się zarchiwizować %d"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не удалось сохранить: %d"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не вдалося зберегти: %d"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d 项无法备份"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d 項無法備份"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d 項備份唔到"
+          }
+        }
+      }
+    },
+    "findings.sync.pending" : {
+      "comment" : "Count of findings this device still owes the cloud",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "‏%d بلا نسخة احتياطية بعد"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d এখনও ব্যাকআপ হয়নি"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d zatím nezálohováno"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d noch nicht gesichert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d not backed up yet"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d sin copia de seguridad"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "‏%d هنوز پشتیبان‌گیری نشده"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d pas encore sauvegardées"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "‏%d עדיין ללא גיבוי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d का अभी बैकअप नहीं हुआ"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d még nincs mentve"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d bez kopii zapasowej"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d без резервной копии"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d без резервної копії"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d 项尚未备份"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d 項尚未備份"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d 項仲未備份"
+          }
+        }
+      }
+    },
+    "findings.sync.storage.full" : {
+      "comment" : "Shown when the account's cloud storage is completely full; exporting always works",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "التخزين السحابي ممتلئ — احذف الاكتشافات التي لم تعد بحاجة إليها أو صدّرها"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ক্লাউড স্টোরেজ পূর্ণ — অপ্রয়োজনীয় আবিষ্কার মুছুন বা সেগুলি রপ্তানি করুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Úložiště v cloudu je plné — smažte nálezy, které už nepotřebujete, nebo je exportujte"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cloud-Speicher voll — lösche nicht mehr benötigte Funde oder exportiere sie"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cloud storage full — delete findings you no longer need, or export them"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Almacenamiento en la nube lleno: elimina los hallazgos que ya no necesites o expórtalos"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "فضای ابری پر است — یافته‌هایی را که دیگر لازم ندارید حذف یا آن‌ها را برون‌بری کنید"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Stockage cloud plein — supprimez les trouvailles inutiles ou exportez-les"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "אחסון הענן מלא — מחק ממצאים שאינך צריך עוד, או ייצא אותם"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "क्लाउड स्टोरेज भरा है — जिन खोजों की ज़रूरत नहीं, उन्हें हटाएँ या निर्यात करें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A felhőtárhely megtelt — töröld a már nem szükséges leleteket, vagy exportáld őket"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pamięć w chmurze pełna — usuń niepotrzebne znaleziska lub je wyeksportuj"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Облачное хранилище заполнено — удалите ненужные находки или экспортируйте их"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Хмарне сховище заповнене — видаліть непотрібні знахідки або експортуйте їх"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "云存储已满 — 请删除不再需要的发现，或将其导出"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "雲端儲存空間已滿 — 請刪除不再需要的發現，或將其匯出"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "雲端儲存空間已滿 — 請刪除唔再需要嘅發現，或者將佢哋匯出"
+          }
+        }
+      }
+    },
+    "findings.sync.storage.warning" : {
+      "comment" : "Warning shown as the account approaches its cloud storage limit; %d is a percentage",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "التخزين السحابي ممتلئ بنسبة %d%%"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ক্লাউড স্টোরেজ %d%% পূর্ণ"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Úložiště v cloudu je z %d %% plné"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cloud-Speicher zu %d %% belegt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cloud storage %d%% full"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Almacenamiento en la nube al %d %%"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "فضای ابری %d%% پر است"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Stockage cloud rempli à %d %%"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "אחסון הענן מלא ב-%d%%"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "क्लाउड स्टोरेज %d%% भरा"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A felhőtárhely %d%%-ban tele van"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pamięć w chmurze zapełniona w %d%%"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Облачное хранилище заполнено на %d %%"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Хмарне сховище заповнене на %d %%"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "云存储已用 %d%%"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "雲端儲存空間已使用 %d%%"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "雲端儲存空間已用 %d%%"
           }
         }
       }
