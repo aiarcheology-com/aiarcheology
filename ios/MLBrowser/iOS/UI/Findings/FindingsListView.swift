@@ -109,7 +109,9 @@ struct FindingsListView: View {
 		.alert(
 			L10n.Findings.Sync.Backup.title,
 			isPresented: Binding(
-				get: { findingsSync.findingsAwaitingBackupConsent != nil },
+				get: { findingsSync.backupConsentRequest != nil },
+				// Answering is idempotent: the coordinator clears the request before acting, so this
+				// dismissal cannot race — or override — the button the user actually pressed.
 				set: { if $0 == false { findingsSync.answerBackupConsent(accepted: false) } }
 			)
 		) {
@@ -121,7 +123,7 @@ struct FindingsListView: View {
 			// Asked once, and never answered on the user's behalf. On a shared device the store may
 			// hold work belonging to whoever used the app last, and quietly copying it into the
 			// account signing in now would put one person's dig sites in another person's cloud.
-			Text(L10n.Findings.Sync.Backup.message(findingsSync.findingsAwaitingBackupConsent ?? 0))
+			Text(L10n.Findings.Sync.Backup.message(findingsSync.backupConsentRequest?.count ?? 0))
 		}
 		.activityShareSheet($sharePayload)
 		.sheet(item: $shareSubject) { subject in

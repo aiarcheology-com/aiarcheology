@@ -259,8 +259,7 @@ final class FindingsSyncCycleTests: XCTestCase {
 		}
 
 		await sut.syncNow()?.value
-		XCTAssertEqual(sut.findingsAwaitingBackupConsent, 1, "the pre-existing finding should be held for consent")
-		await sut.answerBackupConsent(accepted: true)?.value
+		XCTAssertNil(sut.backupConsentRequest, "the account made this finding here; nothing to ask")
 
 		let stored = try XCTUnwrap(storedFinding(id))
 		XCTAssertEqual(FindingsSyncCoordinator.milliseconds(stored.modifiedAt ?? .distantPast), clamped)
@@ -347,7 +346,6 @@ extension FindingsSyncCycleTests {
 		}
 
 		await sut.syncNow()?.value
-		await sut.answerBackupConsent(accepted: true)?.value
 		XCTAssertEqual(tracker.events.filter { $0 == .cloudSyncQuotaBlocked }.count, 1)
 
 		await sut.syncNow()?.value
@@ -355,5 +353,96 @@ extension FindingsSyncCycleTests {
 			tracker.events.filter { $0 == .cloudSyncQuotaBlocked }.count, 1,
 			"the account being full is one event, not one per attempt"
 		)
+	}
+}
+
+
+// MARK: - Whose findings are these
+
+extension FindingsSyncCycleTests {
+
+	/// Saves a finding while nobody is signed in, so the store holds work this account did not make
+	/// — the shared-device case.
+	private func saveFindingBelongingToNobody(title: String) throws -> Finding {
+		auth.setOutcomeForTesting(.signedOut)
+		defer { auth.setOutcomeForTesting(.ready) }
+		return try saveFinding(title: title)
+	}
+
+	func testAFindingThisAccountDidNotMakeIsNotUploadedWithoutAnAnswer() async throws {
+		let stranger = try saveFindingBelongingToNobody(title: "Somebody else's dig")
+		StubWorkerProtocol.handler = { _ in
+			(200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.syncNow()?.value
+
+		XCTAssertEqual(sut.backupConsentRequest?.ids, [stranger.entityId])
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.filter { $0.hasPrefix("PUT") }.isEmpty,
+			"nothing may leave the device before the question is answered"
+		)
+	}
+
+	func testAnAnswerAppliesOnlyToTheFindingsItWasGivenFor() async throws {
+		// The hole this closes: one "yes" used to authorise every finding that ever appeared on the
+		// device afterwards, including another account's.
+		let first = try saveFindingBelongingToNobody(title: "The one that was asked about")
+		StubWorkerProtocol.handler = { request in
+			if request.httpMethod == "PUT", request.url?.path.hasSuffix("/meta") == true {
+				return (200, StubWorkerProtocol.json([
+					"finding": [
+						"id": UUID().uuidString, "modifiedAt": 1, "receivedAt": 2,
+						"deleted": false, "bytes": 1, "hasImage": false
+					],
+					"usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			if request.url?.path.hasSuffix("/image") == true {
+				return (200, StubWorkerProtocol.json([
+					"modifiedAt": 1, "bytes": 1, "usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.syncNow()?.value
+		XCTAssertEqual(sut.backupConsentRequest?.ids, [first.entityId])
+		await sut.answerBackupConsent(accepted: true)?.value
+
+		// A second stranger arrives afterwards. The earlier yes says nothing about it.
+		let second = try saveFindingBelongingToNobody(title: "Arrived after the answer")
+		StubWorkerProtocol.requests = []
+		await sut.syncNow()?.value
+
+		XCTAssertEqual(sut.backupConsentRequest?.ids, [second.entityId])
+		let uploadedIds = StubWorkerProtocol.requests.filter { $0.hasPrefix("PUT") }
+		XCTAssertTrue(
+			uploadedIds.allSatisfy { $0.contains(second.entityId.uuidString) == false },
+			"the second finding must not ride in on the first one's answer: \(uploadedIds)"
+		)
+	}
+
+	func testDecliningIsRememberedRatherThanAskedAgainEveryLaunch() async throws {
+		let stranger = try saveFindingBelongingToNobody(title: "Not mine")
+		StubWorkerProtocol.handler = { _ in
+			(200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.syncNow()?.value
+		XCTAssertEqual(sut.backupConsentRequest?.ids, [stranger.entityId])
+		await sut.answerBackupConsent(accepted: false)?.value
+
+		await sut.syncNow()?.value
+		XCTAssertNil(sut.backupConsentRequest, "declining is an answer, not a deferral")
 	}
 }

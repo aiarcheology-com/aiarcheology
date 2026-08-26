@@ -43,7 +43,18 @@ final class FindingRepository {
 	/// Called with a finding's id immediately BEFORE a user-initiated delete commits, so sync can
 	/// record the tombstone first. Wired by `DependencyContainer`; `nil` leaves deletes purely
 	/// local, which is exactly what a build with no sync should do.
-	var willDeleteFinding: ((UUID) -> Void)?
+	/// Throws to STOP the delete. A tombstone that could not be recorded means the cloud copy would
+	/// survive on every other device while the user was told the finding was gone.
+	var willDeleteFinding: ((UUID) throws -> Void)?
+
+	/// Called with a finding's id right after it is created here, so sync can record that this
+	/// account made it — which is what separates the user's own work from whatever else happens to
+	/// be in a shared device's store.
+	var didCreateFinding: ((UUID) -> Void)?
+
+	/// Called with every finding's id before a wholesale removal commits. Throws to stop it, for
+	/// the same reason ``willDeleteFinding`` does.
+	var willDeleteAllFindings: (([UUID]) throws -> Void)?
 
 	/// Called after findings change locally, so sync can offer them to the cloud without waiting for
 	/// the app to be backgrounded and reopened. `nil` in a build with no sync.
@@ -106,6 +117,7 @@ final class FindingRepository {
 			throw error
 		}
 
+		didCreateFinding?(entityId)
 		didChangeFindings?()
 		return finding
 	}
@@ -334,6 +346,11 @@ final class FindingRepository {
 	/// background context's merge policy never actually fires.
 	func removeAllFindings() async throws {
 		LoggingPolicy.info("Removing all findings", logger: .storage)
+		// Tombstones first, and for every finding: this action promises permanent deletion, and
+		// without them the local rows would go while every cloud copy stayed, ready to come back on
+		// the next sync. Recorded before the batch delete for the same reason a single delete is:
+		// a crash in between must complete the deletion, not lose it.
+		try willDeleteAllFindings?(Finding.selectAll(in: context).map(\.entityId))
 		let viewContext = context
 		try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
 			// The viewContext reference is only handed to mergeChanges(fromRemoteContextSave:into:),
@@ -367,7 +384,7 @@ final class FindingRepository {
 	func delete(_ finding: Finding) throws {
 		let entityId = finding.entityId
 		let filename = finding.screenshotFilename
-		willDeleteFinding?(entityId)
+		try willDeleteFinding?(entityId)
 		context.delete(finding)
 		try Finding.save(in: context)
 		FindingScreenshotStore.delete(filename: filename)

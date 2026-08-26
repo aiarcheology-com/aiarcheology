@@ -81,6 +81,21 @@ struct FindingSnapshot: Sendable, Equatable {
 
 	/// Reads the managed object's attributes. Must be called on the context's
 	/// queue (the viewContext is MainActor-bound), hence the isolation.
+	/// A snapshot whose ordering key is stated rather than read off the finding.
+	///
+	/// Cloud sync needs this: the wire carries whole milliseconds and the server may clamp a
+	/// future-dated clock, so the metadata it stores has to say exactly what the index says. A
+	/// snapshot carrying the raw local `Date` would restore a timestamp the index disagrees with.
+	@MainActor init(_ finding: Finding, modifiedAt: Date) {
+		self.init(finding)
+		self = FindingSnapshot(
+			id: id, title: title, label: label, note: note, author: author, gps: gps, page: page,
+			detectionClass: detectionClass, confidence: confidence, date: date, box: box,
+			modifiedAt: modifiedAt, modelId: modelId, lifeCycle: lifeCycle,
+			screenshotSourceURL: screenshotSourceURL
+		)
+	}
+
 	@MainActor init(_ finding: Finding) {
 		id = finding.entityId
 		title = finding.title

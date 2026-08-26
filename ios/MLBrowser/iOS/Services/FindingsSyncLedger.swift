@@ -40,9 +40,14 @@ struct FindingsSyncLedger: Codable, Sendable, Equatable {
     var cursor: String?
     /// Finding id → the `modifiedAt` the cloud confirmed storing.
     var uploaded: [String: Int64] = [:]
-    /// Whether the user has been asked about backing up findings that were already on this device
-    /// when the account signed in. Asked once, then never again for this account.
-    var hasAnsweredBackupPrompt = false
+    /// Findings this account created on this device, and findings it has explicitly agreed to back
+    /// up. Positive provenance, per finding.
+    ///
+    /// This used to be one "already answered" flag for the account. That was a hole on a shared
+    /// device: B answers yes, signs out, A creates findings into the same local store, B signs back
+    /// in -- and A's fieldwork uploads to B's account without anyone being asked. An answer applies
+    /// only to the findings it was given for.
+    var owned: Set<String> = []
     /// Findings the user declined to back up. Persisted, or the outbox would re-derive them and
     /// ask again on every launch.
     var excluded: Set<String> = []
@@ -56,9 +61,19 @@ struct FindingsSyncLedger: Codable, Sendable, Equatable {
     /// transition into it, not on every upload that is refused while it lasts.
     var isReportedQuotaBlocked = false
 
-    func needsUpload(id: UUID, localModifiedAt: Int64) -> Bool {
+    /// Whether this account may upload the finding at all.
+    ///
+    /// A finding the account did not create here, has not agreed to back up, and has never sent is
+    /// somebody else's until the user says otherwise.
+    func mayUpload(id: UUID) -> Bool {
         let key = id.uuidString
         if excluded.contains(key) { return false }
+        return owned.contains(key) || uploaded[key] != nil
+    }
+
+    func needsUpload(id: UUID, localModifiedAt: Int64) -> Bool {
+        guard mayUpload(id: id) else { return false }
+        let key = id.uuidString
         if let parked = parked[key], parked.modifiedAt >= localModifiedAt { return false }
         guard let confirmed = uploaded[key] else { return true }
         return localModifiedAt > confirmed
@@ -81,13 +96,45 @@ actor FindingsSyncLedgerStore {
 
     init(accountIdentifier: String, directory: URL? = FindingsSyncLedgerStore.defaultDirectory) {
         self.directory = directory
-        var hasher = SHA256()
-        hasher.update(data: Data(accountIdentifier.utf8))
-        self.accountKey = hasher.finalize().prefix(8).map { String(format: "%02x", $0) }.joined()
+        // Already a filename key when it came from `accountsHolding`, which addresses ledgers it
+        // found on disk rather than accounts it can name.
+        let isFileKey = accountIdentifier.count == 16
+            && accountIdentifier.allSatisfy { $0.isHexDigit && !$0.isUppercase }
+        if isFileKey {
+            self.accountKey = accountIdentifier
+        } else {
+            var hasher = SHA256()
+            hasher.update(data: Data(accountIdentifier.utf8))
+            self.accountKey = hasher.finalize().prefix(8).map { String(format: "%02x", $0) }.joined()
+        }
     }
 
     static var defaultDirectory: URL? {
-        FileManager.default.documentDirectory?.appendingPathComponent("FindingsSyncCoordinator")
+        FileManager.default.documentDirectory?.appendingPathComponent("FindingsSync")
+    }
+
+    /// Every account whose ledger says it holds this finding.
+    ///
+    /// A user can delete a finding while signed out, or while signed in as somebody else. The
+    /// account that actually has the cloud copy still needs the tombstone, or the finding comes
+    /// back the next time that account syncs -- and the user was told it was deleted.
+    nonisolated static func accountsHolding(_ entityId: UUID, in directory: URL?) -> Set<String> {
+        guard let directory,
+              let files = try? FileManager.default.contentsOfDirectory(atPath: directory.path)
+        else { return [] }
+
+        var accounts: Set<String> = []
+        let key = entityId.uuidString
+        for file in files where file.hasPrefix("ledger-") && file.hasSuffix(".json") {
+            guard let data = try? Data(contentsOf: directory.appendingPathComponent(file)),
+                  let ledger = try? JSONDecoder().decode(FindingsSyncLedger.self, from: data),
+                  ledger.uploaded[key] != nil
+            else { continue }
+            // The ledger filename carries the account's hash, not the account -- which is the
+            // point -- so what comes back addresses a ledger rather than naming a person.
+            accounts.insert(String(file.dropFirst("ledger-".count).dropLast(".json".count)))
+        }
+        return accounts
     }
 
     private var ledgerURL: URL? { directory?.appendingPathComponent("ledger-\(accountKey).json") }
@@ -125,9 +172,9 @@ actor FindingsSyncLedgerStore {
 
     func loadPendingDeletes() -> [PendingDelete] { tombstones.load() }
 
-    func savePendingDeletes(_ deletes: [PendingDelete]) { tombstones.save(deletes) }
+    func savePendingDeletes(_ deletes: [PendingDelete]) throws { try tombstones.save(deletes) }
 
-    func enqueueDelete(_ delete: PendingDelete) { tombstones.enqueue(delete) }
+    func enqueueDelete(_ delete: PendingDelete) throws { try tombstones.enqueue(delete) }
 
     func removePendingDelete(_ id: UUID) { tombstones.remove(id) }
 
@@ -148,6 +195,10 @@ actor FindingsSyncLedgerStore {
 /// Synchronous on purpose. Recording a delete has to happen before the Core Data delete commits,
 /// and any suspension point between the two is a window where a crash loses the delete for ever --
 /// the one piece of sync state that cannot be reconstructed by syncing again.
+enum FindingsTombstoneError: Error {
+    case noStorageLocation
+}
+
 struct FindingsTombstoneFile: Sendable {
     let url: URL?
 
@@ -160,24 +211,25 @@ struct FindingsTombstoneFile: Sendable {
         return decoded
     }
 
-    func save(_ deletes: [PendingDelete]) {
-        guard let url else { return }
-        do {
-            try FileManager.default.createDirectory(
-                at: url.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            try JSONEncoder().encode(deletes).write(to: url, options: .atomic)
-        } catch {
-            LoggingPolicy.error("Findings sync could not record a delete: \(error.localizedDescription)", logger: .storage)
-        }
+    /// Throws rather than logging. The caller is about to delete the finding, and a delete that
+    /// could not be recorded must not happen at all: the cloud copy would survive on every other
+    /// device, and the user was told the finding was gone.
+    func save(_ deletes: [PendingDelete]) throws {
+        guard let url else { throw FindingsTombstoneError.noStorageLocation }
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try JSONEncoder().encode(deletes).write(to: url, options: .atomic)
     }
 
-    func enqueue(_ delete: PendingDelete) {
-        save(load().filter { $0.id != delete.id } + [delete])
+    func enqueue(_ delete: PendingDelete) throws {
+        try save(load().filter { $0.id != delete.id } + [delete])
     }
 
+    /// Removing an already-sent tombstone is best effort: the worst case is that it is sent again,
+    /// and the Worker treats a repeated delete as the same delete.
     func remove(_ id: UUID) {
-        save(load().filter { $0.id != id })
+        try? save(load().filter { $0.id != id })
     }
 }

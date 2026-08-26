@@ -20,9 +20,31 @@ final class FindingsSyncLedgerTests: XCTestCase {
 		return (FindingsSyncLedgerStore(accountIdentifier: account, directory: directory), directory)
 	}
 
-	func testAFindingTheCloudHasNeverSeenIsOwed() {
+	func testAFindingThisAccountCreatedHereIsOwed() {
+		let id = UUID()
+		var ledger = FindingsSyncLedger()
+		ledger.owned.insert(id.uuidString)
+		XCTAssertTrue(ledger.needsUpload(id: id, localModifiedAt: 1_000))
+	}
+
+	func testAFindingThisAccountNeitherMadeNorSentIsNotUploadedOnAGuess() {
+		// The shared-device case. The local store may hold work belonging to whoever used the app
+		// last, and an account that has never seen a finding has no business copying it into its
+		// own cloud storage without being told to.
 		let ledger = FindingsSyncLedger()
-		XCTAssertTrue(ledger.needsUpload(id: UUID(), localModifiedAt: 1_000))
+		XCTAssertFalse(ledger.needsUpload(id: UUID(), localModifiedAt: 1_000))
+	}
+
+	func testAgreeingToBackUpOneFindingSaysNothingAboutAnother() {
+		// This used to be a single "already answered" flag for the whole account, which meant one
+		// yes authorised every finding that ever appeared on the device afterwards -- including
+		// another account's.
+		let agreed = UUID()
+		let stranger = UUID()
+		var ledger = FindingsSyncLedger()
+		ledger.owned.insert(agreed.uuidString)
+		XCTAssertTrue(ledger.needsUpload(id: agreed, localModifiedAt: 1_000))
+		XCTAssertFalse(ledger.needsUpload(id: stranger, localModifiedAt: 1_000))
 	}
 
 	func testAFindingTheCloudConfirmedAtTheSameTimestampIsNotOwedAgain() {
@@ -32,6 +54,8 @@ final class FindingsSyncLedgerTests: XCTestCase {
 		ledger.uploaded[id.uuidString] = 1_000
 		XCTAssertFalse(ledger.needsUpload(id: id, localModifiedAt: 1_000))
 		XCTAssertTrue(ledger.needsUpload(id: id, localModifiedAt: 1_001))
+		// Having sent it once is itself provenance: no further consent is needed to send an edit.
+		XCTAssertTrue(ledger.mayUpload(id: id))
 	}
 
 	func testADeclinedFindingIsNeverOwed() {
@@ -47,6 +71,7 @@ final class FindingsSyncLedgerTests: XCTestCase {
 		// Parking is not permanent: the user has changed the thing the cloud refused.
 		let id = UUID()
 		var ledger = FindingsSyncLedger()
+		ledger.owned.insert(id.uuidString)
 		ledger.parked[id.uuidString] = ParkedUpload(code: "quota_exceeded", modifiedAt: 1_000)
 		XCTAssertFalse(ledger.needsUpload(id: id, localModifiedAt: 1_000))
 		XCTAssertTrue(ledger.needsUpload(id: id, localModifiedAt: 1_001))
@@ -103,7 +128,7 @@ final class FindingsSyncLedgerTests: XCTestCase {
 		// someone chose to delete them. That is why they are separate files.
 		let (store, directory) = makeStore(account: "user_deletes")
 		let doomed = UUID()
-		await store.enqueueDelete(PendingDelete(id: doomed, modifiedAt: 500))
+		try await store.enqueueDelete(PendingDelete(id: doomed, modifiedAt: 500))
 		await store.save(FindingsSyncLedger(schemaVersion: 1, cursor: "9.z", uploaded: [:]))
 
 		let ledgerFile = try XCTUnwrap(
@@ -115,23 +140,23 @@ final class FindingsSyncLedgerTests: XCTestCase {
 		XCTAssertEqual(survivors.map(\.id), [doomed])
 	}
 
-	func testADeleteIsForgottenOnlyOnceTheCloudHasIt() async {
+	func testADeleteIsForgottenOnlyOnceTheCloudHasIt() async throws {
 		let (store, _) = makeStore(account: "user_ack")
 		let first = UUID()
 		let second = UUID()
-		await store.enqueueDelete(PendingDelete(id: first, modifiedAt: 1))
-		await store.enqueueDelete(PendingDelete(id: second, modifiedAt: 2))
+		try await store.enqueueDelete(PendingDelete(id: first, modifiedAt: 1))
+		try await store.enqueueDelete(PendingDelete(id: second, modifiedAt: 2))
 
 		await store.removePendingDelete(first)
 		let remaining = await store.loadPendingDeletes()
 		XCTAssertEqual(remaining.map(\.id), [second])
 	}
 
-	func testEnqueueingTheSameDeleteTwiceKeepsOneEntry() async {
+	func testEnqueueingTheSameDeleteTwiceKeepsOneEntry() async throws {
 		let (store, _) = makeStore(account: "user_repeat")
 		let id = UUID()
-		await store.enqueueDelete(PendingDelete(id: id, modifiedAt: 1))
-		await store.enqueueDelete(PendingDelete(id: id, modifiedAt: 9))
+		try await store.enqueueDelete(PendingDelete(id: id, modifiedAt: 1))
+		try await store.enqueueDelete(PendingDelete(id: id, modifiedAt: 9))
 
 		let pending = await store.loadPendingDeletes()
 		XCTAssertEqual(pending.count, 1)

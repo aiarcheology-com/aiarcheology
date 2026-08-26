@@ -29,15 +29,24 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// The account's storage, as the server last reported it. `nil` until a sync has run.
     @Published private(set) var usage: CloudUsage?
 
-    @Published private(set) var isSyncing = false
-
     /// Findings that were on this device before this account signed in, waiting for the user to say
     /// whether they should be backed up. `nil` when there is nothing to ask.
     ///
     /// They are never uploaded on a guess: on a shared device the store may hold work belonging to
     /// whoever used the app last, and quietly copying it into the account signing in now would put
     /// one person's dig sites in another person's cloud.
-    @Published private(set) var findingsAwaitingBackupConsent: Int?
+    @Published private(set) var backupConsentRequest: BackupConsentRequest?
+
+    /// A question about specific findings, for a specific account.
+    ///
+    /// It carries the ids and the account rather than a count, because the answer is acted on later
+    /// and the world can change in between: an answer given for account A's prompt must not upload
+    /// anything once B is signed in.
+    struct BackupConsentRequest: Equatable {
+        let account: String
+        let ids: [UUID]
+        var count: Int { ids.count }
+    }
 
     /// Findings the cloud refused for a reason retrying cannot fix, so the user can be told rather
     /// than left watching a counter that never moves.
@@ -55,10 +64,20 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// Serialises cycles. Two overlapping syncs would race each other's ledger writes and upload
     /// the same finding twice.
     private var runningCycle: Task<Void, Never>?
+    /// Set when a trigger arrives mid-cycle, so the work it was about is not simply lost.
+    private var wantsAnotherCycle = false
 
     /// Counted per cycle, for the one log line it emits.
     private var uploaded = 0
     private var applied = 0
+
+    /// Findings created on this device while an account was signed in, per account, waiting to be
+    /// folded into that account's ledger at the start of the next cycle.
+    ///
+    /// Held in memory rather than written on the spot, so it cannot race the cycle's own copy of
+    /// the ledger. Losing it costs an extra question -- the finding becomes unclaimed and the user
+    /// is asked -- which is the safe direction: being asked is harmless, uploading unasked is not.
+    private var createdWhileSignedIn: [String: Set<String>] = [:]
 
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.aiarcheology.findings-sync.path")
@@ -80,7 +99,14 @@ final class FindingsSyncCoordinator: ObservableObject {
         self.transportFactory = transportFactory
         self.ledgerDirectory = ledgerDirectory
         findingRepository.willDeleteFinding = { [weak self] entityId in
-            self?.recordDelete(entityId)
+            try self?.recordDelete(entityId)
+        }
+        findingRepository.willDeleteAllFindings = { [weak self] ids in
+            try self?.recordBulkDelete(ids)
+        }
+        findingRepository.didCreateFinding = { [weak self] entityId in
+            guard let self, let account = self.authProvider.accountIdentifier else { return }
+            self.createdWhileSignedIn[account, default: []].insert(entityId.uuidString)
         }
     }
 
@@ -90,17 +116,37 @@ final class FindingsSyncCoordinator: ObservableObject {
 
     /// Built per cycle rather than held, so the token closure can capture `self` — a `@MainActor`
     /// class, which is `Sendable` — instead of the auth provider, which is not.
-    private func transport(for baseURL: URL) -> FindingsCloudTransport {
+    private func transport(for baseURL: URL, account: String) -> FindingsCloudTransport {
         if let transportFactory { return transportFactory(baseURL) }
-        return FindingsCloudTransport(baseURL: baseURL) { [weak self] in
-            try await self?.currentSessionToken()
+        return FindingsCloudTransport(baseURL: baseURL, session: Self.session) { [weak self] in
+            try await self?.currentSessionToken(for: account)
         }
     }
 
-    /// Asked for per request. Session tokens live about a minute, and the SDK caches and refreshes
-    /// behind this, so holding one is a bug that only shows up on a slow upload.
-    private func currentSessionToken() async throws -> String? {
-        try await authProvider.sessionToken()
+    /// A session that keeps nothing.
+    ///
+    /// `URLSession.shared` writes to a shared on-disk cache, and the `Authorization` header is not
+    /// part of a cache lookup once an entry exists -- so a finding's coordinates could outlive the
+    /// sign-out, the account deletion, or the user who fetched them.
+    private static let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.urlCache = nil
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: configuration)
+    }()
+
+    /// Asked for per request, and refused if the signed-in account has changed since the cycle
+    /// started.
+    ///
+    /// Fetching "the current token" was a cross-account leak: a sign-out between a finding's image
+    /// and its metadata would send the second half under the new account's credential, filing one
+    /// person's coordinates in another person's storage. The guards around awaits cannot undo a
+    /// remote write, so the credential itself has to carry the fence.
+    private func currentSessionToken(for account: String) async throws -> String? {
+        guard stillSignedIn(as: account) else { throw FindingsCloudError.notSignedIn }
+        let token = try await authProvider.sessionToken()
+        guard stillSignedIn(as: account) else { throw FindingsCloudError.notSignedIn }
+        return token
     }
 
     // MARK: - Triggers
@@ -138,10 +184,20 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// something the app starts, not something it waits on.
     @discardableResult
     func syncNow() -> Task<Void, Never>? {
-        guard runningCycle == nil else { return runningCycle }
+        guard runningCycle == nil else {
+            // Something changed while a cycle was already running, and that cycle may have read the
+            // store before it did. Dropping the trigger is how a saved finding sits unsynced until
+            // some unrelated event happens to fire.
+            wantsAnotherCycle = true
+            return runningCycle
+        }
         let task = Task { [weak self] in
             await self?.cycle()
             self?.runningCycle = nil
+            if self?.wantsAnotherCycle == true {
+                self?.wantsAnotherCycle = false
+                self?.syncNow()
+            }
         }
         runningCycle = task
         return task
@@ -151,19 +207,28 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// records that decision so the outbox stops re-deriving those findings and asking again.
     @discardableResult
     func answerBackupConsent(accepted: Bool) -> Task<Void, Never>? {
-        guard let account = authProvider.accountIdentifier else { return nil }
+        // Answers exactly one outstanding request, for the account it was asked about. Clearing it
+        // first makes a second call a no-op, which is what stops the alert's own dismissal from
+        // racing the button the user actually pressed.
+        guard let request = backupConsentRequest else { return nil }
+        backupConsentRequest = nil
+        guard authProvider.accountIdentifier == request.account else { return nil }
+
         return Task { [weak self] in
             guard let self else { return }
-            let store = self.ledgerStore(for: account)
+            let store = self.ledgerStore(for: request.account)
             var ledger = await store.loadLedger()
-            ledger.hasAnsweredBackupPrompt = true
-            if accepted == false {
-                // Only what was actually waiting. Excluding every id would also cover findings the
-                // cloud already holds, and a later edit to one of those would then never upload.
-                ledger.excluded.formUnion(self.uploadCandidates(ledger: ledger).map(\.entityId.uuidString))
+            let keys = request.ids.map(\.uuidString)
+            if accepted {
+                ledger.owned.formUnion(keys)
+                ledger.excluded.subtract(keys)
+            } else {
+                // Only what was actually asked about. A blanket exclusion would also cover findings
+                // the cloud already holds, and a later edit to one of those would never upload.
+                ledger.excluded.formUnion(keys)
             }
+            guard self.stillSignedIn(as: request.account) else { return }
             await store.save(ledger)
-            self.findingsAwaitingBackupConsent = nil
             await self.syncNow()?.value
         }
     }
@@ -174,7 +239,7 @@ final class FindingsSyncCoordinator: ObservableObject {
         guard let account = authProvider.accountIdentifier else {
             // Signed out: leave local data and the ledger exactly as they are.
             pendingUploadCount = 0
-            findingsAwaitingBackupConsent = nil
+            backupConsentRequest = nil
             return
         }
         guard let baseURL = FindingsCloudEndpoint.baseURL(for: ClerkAuthProvider.selectedEnvironment) else {
@@ -182,15 +247,16 @@ final class FindingsSyncCoordinator: ObservableObject {
             return
         }
 
-        isSyncing = true
-        defer { isSyncing = false }
         let started = Date()
         uploaded = 0
         applied = 0
 
         let store = ledgerStore(for: account)
-        let cloud = transport(for: baseURL)
+        let cloud = transport(for: baseURL, account: account)
         var ledger = await store.loadLedger()
+        if let mine = createdWhileSignedIn.removeValue(forKey: account) {
+            ledger.owned.formUnion(mine)
+        }
 
         do {
             try await push(account: account, store: store, transport: cloud, ledger: &ledger)
@@ -268,19 +334,17 @@ final class FindingsSyncCoordinator: ObservableObject {
             }
         }
 
-        let candidates = uploadCandidates(ledger: ledger)
-        if ledger.hasAnsweredBackupPrompt == false {
-            if candidates.isEmpty == false {
-                // Every finding here predates this account's first sync on this device, so the user
-                // is asked once before any of it leaves the device.
-                findingsAwaitingBackupConsent = candidates.count
-                return
-            }
-            // Nothing pre-existing to ask about, so there is nothing to consent to.
-            ledger.hasAnsweredBackupPrompt = true
+        // Anything this account did not create here, has not agreed to back up, and has never sent
+        // is somebody else's until the user says otherwise. On a shared device the store may hold
+        // work belonging to whoever used the app last.
+        let unclaimed = Finding.selectAll(in: context)
+            .map(\.entityId)
+            .filter { ledger.mayUpload(id: $0) == false && ledger.excluded.contains($0.uuidString) == false }
+        if unclaimed.isEmpty == false {
+            backupConsentRequest = BackupConsentRequest(account: account, ids: unclaimed)
         }
 
-        for finding in candidates {
+        for finding in uploadCandidates(ledger: ledger) {
             guard stillSignedIn(as: account) else { throw CancellationError() }
             try await upload(finding, transport: transport, ledger: &ledger)
         }
@@ -293,8 +357,11 @@ final class FindingsSyncCoordinator: ObservableObject {
     ) async throws {
         let entityId = finding.entityId
         let key = entityId.uuidString
-        let sent = Self.milliseconds(finding.modifiedAt ?? finding.creationDate_ ?? now())
-        let snapshot = FindingSnapshot(finding)
+        let sent = effectiveMilliseconds(of: finding)
+        // The snapshot's own `modifiedAt` is the local `Date`, which is neither truncated to whole
+        // milliseconds nor clamped by the server. Sending it would mean a downloaded copy restored
+        // a timestamp the index disagrees with, and the finding would look permanently unsettled.
+        let snapshot = FindingSnapshot(finding, modifiedAt: Date(timeIntervalSince1970: Double(sent) / 1000))
 
         do {
             var imageNames: [UUID: String] = [:]
@@ -319,12 +386,20 @@ final class FindingsSyncCoordinator: ObservableObject {
             // Nothing is recorded, so the next cycle finds this finding still owed.
             throw error
         } catch let error as FindingsCloudError {
-            if error.code == "stale" {
-                // The cloud already holds something newer. Recording it as uploaded stops this
-                // device pushing a copy it has already lost; the winner arrives on the pull.
-                ledger.uploaded[key] = error.winner?.modifiedAt ?? sent
-            } else {
+            if let winner = error.winner, error.code == "stale" {
+                // The winner is fetched now rather than waited for. A rejected write creates no new
+                // receipt, so if this device's cursor is already past the winner it would never
+                // come round on a pull -- the losing copy would simply stay wrong for ever.
+                ledger.uploaded[key] = winner.modifiedAt
+                _ = await download(winner, transport: transport)
+            } else if Self.isTerminalForOneFinding(error.code) {
                 ledger.parked[key] = ParkedUpload(code: error.code ?? "unknown", modifiedAt: sent)
+            } else {
+                // Anything else -- an unrecognised code, a malformed body, a stale response with no
+                // winner -- is treated as worth retrying. Parking is what strands a finding, so it
+                // is reserved for failures that are verifiably about this finding and cannot be
+                // cured by trying again.
+                throw error
             }
         }
     }
@@ -358,11 +433,19 @@ final class FindingsSyncCoordinator: ObservableObject {
         repeat {
             guard stillSignedIn(as: account) else { throw CancellationError() }
             let page = try await transport.list(cursor: cursor)
+            var pageApplied = true
             for row in page.findings {
                 guard stillSignedIn(as: account) else { throw CancellationError() }
-                await apply(row, transport: transport, ledger: &ledger)
+                if await apply(row, transport: transport, store: store, ledger: &ledger) == false {
+                    // One row that did not land stops the page. Advancing over it would move the
+                    // cursor past a finding this device never received, and no later cycle would
+                    // ever look at it again.
+                    pageApplied = false
+                    break
+                }
             }
             usage = page.usage
+            guard pageApplied else { break }
             cursor = page.nextCursor
             // The cursor moves only after a page has been applied, so an interrupted pull resumes
             // rather than skipping what it did not get to.
@@ -373,14 +456,25 @@ final class FindingsSyncCoordinator: ObservableObject {
         } while guardRail < 200
     }
 
+    /// Returns whether the row was dealt with. A `false` stops the page.
     private func apply(
         _ row: CloudFindingRow,
         transport: FindingsCloudTransport,
+        store: FindingsSyncLedgerStore,
         ledger: inout FindingsSyncLedger
-    ) async {
+    ) async -> Bool {
         let key = row.id.uuidString
+
+        // A delete the user has made but this device has not yet sent outranks a live cloud row it
+        // has not seen: applying the row would put the finding back on this device, and the next
+        // push would then be deleting something it had just re-downloaded.
+        if row.deleted == false,
+           let pending = store.tombstones.load().first(where: { $0.id == row.id }),
+           pending.modifiedAt >= row.modifiedAt {
+            return true
+        }
         let local = Finding.select(row.id, in: context)
-        let localModifiedAt = local.map { Self.milliseconds($0.modifiedAt ?? $0.creationDate_ ?? Date(timeIntervalSince1970: 0)) }
+        let localModifiedAt = local.map { effectiveMilliseconds(of: $0) }
 
         if row.deleted {
             // A tombstone loses to a local edit that is newer than it, exactly like any other
@@ -388,11 +482,16 @@ final class FindingsSyncCoordinator: ObservableObject {
             // owes the cloud that newer version.
             if let localModifiedAt, localModifiedAt > row.modifiedAt {
                 ledger.uploaded[key] = nil
-                return
+                return true
             }
-            try? findingRepository.deleteReceivedFromCloud(row.id)
+            do {
+                try findingRepository.deleteReceivedFromCloud(row.id)
+            } catch {
+                LoggingPolicy.warning("Could not apply a synced delete: \(error.localizedDescription)", logger: .storage)
+                return false
+            }
             ledger.uploaded[key] = nil
-            return
+            return true
         }
 
         if let localModifiedAt, localModifiedAt >= row.modifiedAt {
@@ -400,18 +499,19 @@ final class FindingsSyncCoordinator: ObservableObject {
             // the timestamps are equal: it is this device's own write coming back, and without it
             // the finding would look permanently owed and be pushed again on every cycle.
             if localModifiedAt == row.modifiedAt { ledger.uploaded[key] = row.modifiedAt }
-            return
+            return true
         }
 
         // Awaited, not spawned. A detached download would let the cursor advance past this row
         // while it was still in flight, and a download that then failed would never be retried --
         // the finding would be missing from this device for ever.
-        guard await download(row, transport: transport) else { return }
+        guard await download(row, transport: transport) else { return false }
         applied += 1
         // Recording what was just applied is what stops a fresh install downloading N findings and
         // immediately pushing all N back, each with a new receipt, which every other device would
         // then pull again.
         ledger.uploaded[key] = row.modifiedAt
+        return true
     }
 
     /// Returns whether the finding was actually applied, so the caller only records what landed.
@@ -419,11 +519,20 @@ final class FindingsSyncCoordinator: ObservableObject {
         do {
             let meta = try await transport.downloadMeta(id: row.id)
             let rows = try FindingArchiveImport.decodeRows(meta)
-            guard let decoded = rows.first(where: { $0.id == row.id }) else { return false }
+            guard let stored = rows.first(where: { $0.id == row.id }) else { return false }
+            // The index is authoritative about ordering, so a metadata blob that disagrees -- an
+            // older client's rounding, or a value the server clamped after it was written -- does
+            // not get to set the local timestamp.
+            let decoded = stored.replacingModifiedAt(Date(timeIntervalSince1970: Double(row.modifiedAt) / 1000))
 
             var images: [UUID: Data] = [:]
             if row.hasImage {
-                images[row.id] = try await transport.downloadImage(id: row.id)
+                let bytes = try await transport.downloadImage(id: row.id)
+                // Downloaded bytes get the same bounds an archive's would. Sync bypasses the
+                // archive reader, so without this a small file declaring an enormous canvas would
+                // be stored unchecked and allocate wherever the list first draws it.
+                try FindingArchiveImport.validateDownloadedImage(bytes, id: row.id)
+                images[row.id] = bytes
             }
             // Applied through the repository's own import machinery: it is the only writer allowed
             // to put a screenshot on disk, and it is where `preservesModifiedAt` is handled, so a
@@ -455,23 +564,62 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// This used to hop onto a `Task`, which put a suspension point between recording the delete
     /// and performing it. A crash in that window lost the tombstone, and the finding came back from
     /// another device on the next sync -- coordinates reappearing after the user removed them.
-    private func recordDelete(_ entityId: UUID) {
-        guard let account = authProvider.accountIdentifier else { return }
-        ledgerStore(for: account).tombstones.enqueue(
-            PendingDelete(id: entityId, modifiedAt: Self.milliseconds(now()))
-        )
+    private func recordDelete(_ entityId: UUID) throws {
+        let delete = PendingDelete(id: entityId, modifiedAt: Self.milliseconds(now()))
+        // Whichever account is signed in gets the tombstone, and so does any account whose ledger
+        // says it holds this finding. A user can delete while signed out, or while signed in as
+        // someone else, and the cloud copy still has to go.
+        var accounts = Set<String>()
+        if let account = authProvider.accountIdentifier { accounts.insert(account) }
+        accounts.formUnion(FindingsSyncLedgerStore.accountsHolding(entityId, in: ledgerDirectory))
+        for account in accounts {
+            try ledgerStore(for: account).tombstones.enqueue(delete)
+        }
+    }
+
+    /// Records tombstones for a batch about to be removed wholesale.
+    ///
+    /// "Remove all findings" promises permanent deletion. Without this the local rows would go and
+    /// every cloud copy would stay, ready to come back on the next sync.
+    func recordBulkDelete(_ entityIds: [UUID]) throws {
+        for entityId in entityIds {
+            try recordDelete(entityId)
+        }
     }
 
     private func uploadCandidates(ledger: FindingsSyncLedger) -> [Finding] {
         Finding.selectAll(in: context).filter { finding in
-            let stamp = Self.milliseconds(finding.modifiedAt ?? finding.creationDate_ ?? Date(timeIntervalSince1970: 0))
-            return ledger.needsUpload(id: finding.entityId, localModifiedAt: stamp)
+            return ledger.needsUpload(id: finding.entityId, localModifiedAt: effectiveMilliseconds(of: finding))
         }
     }
 
     private func refreshCounts(from ledger: FindingsSyncLedger) {
         pendingUploadCount = uploadCandidates(ledger: ledger).count
         parkedCount = ledger.parked.count
+    }
+
+    /// Failures that are about this one finding and that retrying cannot cure.
+    ///
+    /// `quota_exceeded` is here because only pruning or exporting makes room; the others because
+    /// the payload itself is what was refused. Everything else backs off instead: an outbox that
+    /// parks on an ambiguous failure quietly stops backing a user up.
+    private static func isTerminalForOneFinding(_ code: String?) -> Bool {
+        ["quota_exceeded", "payload_too_large", "bad_request"].contains(code ?? "")
+    }
+
+    /// The ordering key for a finding, in whole milliseconds, and never the epoch.
+    ///
+    /// Rows migrated from 0.0.0/0.0.1 arrive with `modifiedAt == nil`, so the fallback is
+    /// `creationDate_`. When even that is missing the finding is stamped now and the stamp is
+    /// persisted, because treating nil as the epoch would lose every legacy finding to any cloud
+    /// copy at all -- which is the one outcome the epic rules out by name.
+    private func effectiveMilliseconds(of finding: Finding) -> Int64 {
+        if let modifiedAt = finding.modifiedAt { return Self.milliseconds(modifiedAt) }
+        if let created = finding.creationDate_ { return Self.milliseconds(created) }
+        let stamped = now()
+        finding.modifiedAt = stamped
+        try? Finding.save(in: context)
+        return Self.milliseconds(stamped)
     }
 
     /// Milliseconds since epoch, truncated.

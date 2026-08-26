@@ -56,6 +56,22 @@ struct ImportedFindingRow: Equatable {
 	let screenshotExtension: String?
 }
 
+extension ImportedFindingRow {
+	/// The same row with a stated ordering key.
+	///
+	/// Cloud sync needs it: the index is authoritative about `modifiedAt`, so a metadata blob that
+	/// disagrees -- an older client's rounding, or a value the server clamped after it was written
+	/// -- must not be the thing that sets the local timestamp.
+	func replacingModifiedAt(_ modifiedAt: Date) -> ImportedFindingRow {
+		ImportedFindingRow(
+			id: id, title: title, label: label, note: note, author: author, gps: gps, page: page,
+			detectionClass: detectionClass, confidence: confidence, creationDate: creationDate,
+			box: box, modifiedAt: modifiedAt, modelId: modelId, lifeCycle: lifeCycle,
+			screenshotExtension: screenshotExtension
+		)
+	}
+}
+
 /// What an archive turned out to contain: rows, and the image bytes belonging to them.
 struct FindingArchiveContents: Equatable {
 	let rows: [ImportedFindingRow]
@@ -320,6 +336,19 @@ enum FindingArchiveImport {
 	/// A byte-count bound is not enough on its own: a small JPEG can declare an enormous canvas, and
 	/// the allocation only happens later, wherever the findings list first draws it. Checking here
 	/// means the bytes are never stored in the first place.
+	/// The same bounds, for image bytes that arrived over the network rather than out of an archive.
+	///
+	/// Cloud sync downloads images straight into the repository's import machinery, which skips the
+	/// archive reader that would otherwise have applied these checks. A same-account device can be
+	/// compromised or simply buggy, and a small file declaring an enormous canvas costs nothing to
+	/// store and everything to draw.
+	static func validateDownloadedImage(_ data: Data, id: UUID) throws {
+		guard data.count <= maximumImageByteCount else {
+			throw FindingArchiveImportError.imageTooLarge(id: id)
+		}
+		try validateImageDimensions(data, id: id)
+	}
+
 	private static func validateImageDimensions(_ data: Data, id: UUID) throws {
 		guard let source = CGImageSourceCreateWithData(data as CFData, nil),
 			let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
