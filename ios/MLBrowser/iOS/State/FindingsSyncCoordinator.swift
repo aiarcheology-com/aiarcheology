@@ -591,15 +591,18 @@ final class FindingsSyncCoordinator: ObservableObject {
                 pendingConsentAnswer[account] = consent
                 return
             }
-            // A newer answer exists. It wins for the findings it actually names -- but it usually
-            // names different ones, and dropping the older claim outright discarded an answer the
-            // user had already given about a different set.
             if queued.accepted == consent.accepted {
+                // Same answer, different findings: merging is exactly right.
                 queued.keys.formUnion(consent.keys)
-            } else {
-                queued.keys.formUnion(consent.keys.subtracting(queued.keys))
+                pendingConsentAnswer[account] = queued
             }
-            pendingConsentAnswer[account] = queued
+            // Opposite answers cannot share one entry -- it carries a single `accepted` -- and
+            // merging the older keys into the newer one stamps the newer ANSWER on them. A "Keep on
+            // This Device" would have become a yes and uploaded a name, coordinates and a
+            // photograph the user had declined. So the older claim is dropped and those findings go
+            // back to unclaimed, which raises the card again. Being asked twice is harmless; the
+            // other outcome is not, and asking again is the safe direction this file already takes
+            // for every other lost intent.
         }
     }
 
@@ -963,6 +966,15 @@ final class FindingsSyncCoordinator: ObservableObject {
             // could not be written because the disk is full, say. Treating that as applied moved
             // the cursor past a finding this device never received, and freeing space later would
             // not bring it back.
+            // The import reports per-row outcomes rather than throwing them, and the two kinds
+            // have to be told apart. A rejected row is invalid content -- an older or newer build
+            // wrote something this one will not accept -- and retrying reproduces it exactly, so
+            // halting would strand every finding behind it for ever. A failed row is this device:
+            // no disk space, a store error, and that clears.
+            if summary.rejected > 0 {
+                Observability.captureError("A synced finding was refused by the store as invalid")
+                return .skipped
+            }
             guard summary.failed == 0, summary.restored == 1 else {
                 LoggingPolicy.warning("A synced finding could not be written to the store", logger: .storage)
                 return .failed
@@ -979,12 +991,10 @@ final class FindingsSyncCoordinator: ObservableObject {
             return .failed
         } catch let error as FindingArchiveImportError {
             // Deterministic: metadata this build cannot decode, or an image that fails validation.
-            // Retrying reproduces it exactly, so halting would strand every finding behind this one
-            // permanently and say nothing. Skipped and reported instead, once, as the cursor moves.
+            // `decodeRows` wraps every `DecodingError` into `.malformedManifest`, so this one arm
+            // covers both. Retrying reproduces it exactly, so halting would strand every finding
+            // behind this one for ever. Skipped and reported instead, once, as the cursor moves.
             Observability.captureError("Could not apply a synced finding", error: error)
-            return .skipped
-        } catch let error as DecodingError {
-            Observability.captureError("A synced finding's metadata could not be decoded", error: error)
             return .skipped
         } catch {
             // Everything else -- a Core Data save that failed, a disk with no room left -- is about

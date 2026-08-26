@@ -157,8 +157,28 @@ final class FindingRepository {
 	struct ImportSummary: Equatable {
 		var restored = 0
 		var skipped = 0
+		/// The device could not store the row — no disk space, a store error. Trying again may work.
 		var failed = 0
+		/// The row itself is not a valid finding, so trying again reproduces it exactly. Kept apart
+		/// from `failed` because a caller that retries the whole page — sync does — would otherwise
+		/// pin itself on one bad row for ever and lose every finding behind it.
+		var rejected = 0
+
+		mutating func count(_ error: Error) {
+			if error is ImportRejection { rejected += 1 } else { failed += 1 }
+		}
 	}
+
+	/// A row that will never import, however many times it is tried.
+	enum ImportRejection: Error {
+		case invalidContent
+	}
+
+	/// Which of the two counters a per-row failure belongs in.
+	///
+	/// The distinction is not cosmetic: sync retries a page, so a row whose own content is invalid
+	/// would pin the cursor on itself for ever and lose every finding behind it, while a row the
+	/// device merely could not write must be retried once there is room.
 
 	/// Restores findings decoded by ``FindingArchiveImport`` into the store.
 	///
@@ -260,7 +280,7 @@ final class FindingRepository {
 					FindingScreenshotStore.delete(filename: filename)
 					writtenFilenames.removeAll { $0 == filename }
 				}
-				summary.failed += 1
+				summary.count(error)
 			}
 		}
 
@@ -366,7 +386,15 @@ final class FindingRepository {
 		// rather than a per-pair table.
 		let target = row.lifeCycle.flatMap(CoreDataManageableState.init(rawValue:)) ?? .ready
 		Self.descendToDraft(finding)
-		try finding.throwIfInvalid()
+		do {
+			try finding.throwIfInvalid()
+		} catch {
+			// Typed rather than passed through, so a caller can tell "this row is wrong" from "this
+			// device could not write it". Sniffing the NSError domain would be the alternative, and
+			// a renamed domain would silently turn one into the other.
+			LoggingPolicy.warning("An imported finding failed validation: \(error.localizedDescription)", logger: .storage)
+			throw ImportRejection.invalidContent
+		}
 		if target != .draft {
 			finding.transition(to: target)
 		}

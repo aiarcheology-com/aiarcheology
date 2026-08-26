@@ -906,10 +906,9 @@ extension FindingsSyncCycleTests {
 	/// harness can do, so it rests on the catch clauses being exhaustive by type.
 	func testARowThisBuildCannotDecodeDoesNotBlockEveryFindingBehindIt() async throws {
 		let incoming = UUID()
-		// Metadata that parses as JSON but is not a findings manifest: `decodeRows` throws a
-		// decoding error, which IS deterministic, so this row is allowed to be skipped. The
-		// assertion below is that the cursor still moves for that case — the counterpart to the
-		// storage failure, which must not.
+		// Metadata that parses as JSON but is not a findings manifest. `decodeRows` wraps the
+		// decoding failure into `FindingArchiveImportError.malformedManifest`, which is
+		// deterministic, so this row is allowed to be skipped and the cursor to move past it.
 		let body = StubWorkerProtocol.json(["not": "a manifest"])
 		StubWorkerProtocol.handler = { [body] request in
 			if request.url?.path.contains("/meta") == true { return (200, body) }
@@ -932,6 +931,68 @@ extension FindingsSyncCycleTests {
 			"A row this build can never decode must not block every finding behind it for ever"
 		)
 		XCTAssertNil(storedFinding(incoming), "Nothing decodable arrived, so nothing should be stored")
+	}
+
+	/// A decline survives a cycle that is interrupted before it can persist anything.
+	///
+	/// Signing out mid-cycle makes the cycle return at its account guard, so the answer it claimed
+	/// goes back on the queue rather than being discarded — the finding must still not upload when
+	/// the account comes back.
+	///
+	/// NOTE ON WHAT THIS DOES NOT COVER. The dangerous case is two answers of OPPOSITE polarity
+	/// meeting in that re-queue: an entry carries a single `accepted`, so merging an older decline
+	/// into a newer acceptance would stamp the acceptance onto the declined findings and upload a
+	/// name, coordinates and a photograph the user had refused. `requeue` therefore drops the older
+	/// claim on a mismatch instead of merging. Three attempts to drive that branch from here failed
+	/// — the second card is not raised at the moment the stub can answer it — so that branch is
+	/// argued, not pinned. If you touch `requeue`, read it rather than trusting this suite.
+	func testADeclineSurvivesACycleInterruptedBeforeItCouldSave() async throws {
+		let declined = try saveFindingBelongingToNobody(title: "Declined, and it must stay declined")
+		let declinedId = declined.entityId
+		let emptyPage = StubWorkerProtocol.json([
+			"findings": [], "nextCursor": NSNull(), "hasMore": false,
+			"usage": ["used": 0, "limit": 52_428_800]
+		])
+		StubWorkerProtocol.handler = { [emptyPage] _ in (200, emptyPage) }
+
+		await sut.syncNow()?.value
+		XCTAssertEqual(sut.backupConsentRequest?.ids, [declinedId])
+		sut.answerBackupConsent(accepted: false)
+
+		// A second unclaimed finding, so the next cycle raises a card of its own.
+		try saveFindingBelongingToNobody(title: "This one is fine to upload")
+
+		let sut = try XCTUnwrap(self.sut)
+		let auth = try XCTUnwrap(self.auth)
+		let interrupted = DispatchSemaphore(value: 0)
+		StubWorkerProtocol.handler = { [emptyPage] request in
+			guard request.httpMethod == "GET", request.url?.path.hasSuffix("/findings") == true else {
+				return (200, emptyPage)
+			}
+			// Push has already raised the card for the second finding. Answer it — queuing the
+			// newer, opposite answer — and then sign out, so the cycle leaves without saving and
+			// the decline it claimed goes back on the queue beside it.
+			Task { @MainActor in
+				sut.answerBackupConsent(accepted: true)
+				auth.setOutcomeForTesting(.signedOut)
+				interrupted.signal()
+			}
+			interrupted.wait()
+			return (200, emptyPage)
+		}
+		await sut.syncNow()?.value
+
+		auth.setOutcomeForTesting(.ready)
+		StubWorkerProtocol.handler = { [emptyPage] _ in (200, emptyPage) }
+		StubWorkerProtocol.requests = []
+		await sut.syncNow()?.value
+		await sut.syncNow()?.value
+
+		let uploaded = StubWorkerProtocol.requests.filter { $0.hasPrefix("PUT") }
+		XCTAssertFalse(
+			uploaded.contains { $0.contains(declinedId.uuidString) },
+			"A declined finding must never be uploaded by a later, opposite answer: \(uploaded)"
+		)
 	}
 
 }

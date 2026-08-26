@@ -27,9 +27,12 @@ while signed in are uploaded as you make them. You can stop it at any time in Se
   not upload. Now delete a finding that WAS backed up — that delete must still reach the account,
   so it does not reappear on another device. Switch back on and confirm uploads resume.
 
-- Signing out leaves your findings alone. Sign out. Every finding must still be on the device.
-  Sign in as a different account on the same phone: that account must not see the first one's
-  findings, and the card should ask before anything of theirs is uploaded.
+- Signing out leaves your findings alone. Sign out. Every finding must still be on the device --
+  that is deliberate, and it stays true whoever signs in next: work you did before you had an
+  account is yours, and signing in must never make it disappear. What matters on a shared phone is
+  the backup, not the list. Sign in as a different account: the findings are still there, and the
+  card must ask before any of them go to the new account. Tap Keep on This Device; nothing should
+  upload. Use Settings to remove them if you want them gone.
 
 - Offline is not an error. Turn on Airplane Mode, make two findings, then tap Back Up My Findings.
   It should say you are offline rather than claiming success. Turn the network back on: they should
