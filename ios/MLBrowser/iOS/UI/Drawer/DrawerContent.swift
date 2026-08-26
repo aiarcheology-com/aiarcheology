@@ -134,7 +134,8 @@ struct DrawerContent: View {
         .sheet(isPresented: $showFindings) {
             FindingsListView(
                 findingRepository: appState.findingRepository,
-                findingsSync: appState.findingsSync
+                findingsSync: appState.findingsSync,
+                authState: authState
             ) { url in
                 // Open the captured page: tear down this sheet and the drawer,
                 // then hand the URL to the web screen via chromeState.pageToOpen.
@@ -149,6 +150,9 @@ struct DrawerContent: View {
             // Same reason (AIA-0650): the share composer two sheets down reads
             // `isFindingShareLinkEnabled` live, and this is where the chain starts.
             .environmentObject(appState.featureFlags)
+            // Same reason again (AIA-740): the back-up button raises its own `SignInSheet`, which
+            // branches on this to decide whether to build Clerk's `AuthView` at all.
+            .environment(\.usesRealAuth, usesRealAuth)
         }
         .sheet(isPresented: $showSignIn) {
             SignInSheet(authState: authState)

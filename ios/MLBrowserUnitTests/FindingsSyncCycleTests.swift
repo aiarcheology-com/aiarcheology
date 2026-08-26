@@ -443,6 +443,114 @@ extension FindingsSyncCycleTests {
 		await sut.syncNow()?.value
 		XCTAssertNil(sut.backupConsentRequest, "declining is an answer, not a deferral")
 	}
+
+	// MARK: - Saying yes later (AIA-740)
+
+	func testBackUpNowUploadsFindingsThatWereDeclinedEarlier() async throws {
+		let stranger = try saveFindingBelongingToNobody(title: "Declined in haste")
+		// The id, not the object: `Finding` is not Sendable and the stub handler is.
+		let strangerId = stranger.entityId.uuidString
+		StubWorkerProtocol.handler = { request in
+			// Each leg answers in its own shape. A response the transport cannot decode is a
+			// transport failure, which the outcome assertion below would then report as "offline"
+			// -- so an incomplete stub here fails this test for the wrong reason.
+			if request.httpMethod == "PUT", request.url?.path.hasSuffix("/meta") == true {
+				return (200, StubWorkerProtocol.json([
+					"finding": [
+						"id": strangerId, "modifiedAt": 1, "receivedAt": 2,
+						"deleted": false, "bytes": 1, "hasImage": false
+					],
+					"usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			if request.url?.path.hasSuffix("/image") == true {
+				return (200, StubWorkerProtocol.json([
+					"modifiedAt": 1, "bytes": 1, "usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.syncNow()?.value
+		await sut.answerBackupConsent(accepted: false)?.value
+
+		// Nothing may go up on its own after a decline -- that part must keep working.
+		StubWorkerProtocol.requests = []
+		await sut.syncNow()?.value
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.contains { $0.hasPrefix("PUT") } == false,
+			"a declined finding must not upload by itself: \(StubWorkerProtocol.requests)"
+		)
+
+		// ...until the user says so explicitly. Before AIA-740 this was unreachable: `excluded` was
+		// only ever cleared by accepting a prompt, and a prompt was only raised for findings that
+		// were not already excluded, so no route back existed at all.
+		StubWorkerProtocol.requests = []
+		await sut.backUpNow(expectedAccount: try XCTUnwrap(auth.accountIdentifier))?.value
+
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.contains {
+				$0.hasPrefix("PUT") && $0.contains(strangerId) && $0.contains("/meta")
+			},
+			// `contains`, not `hasSuffix`: the recorded request keeps its `?modifiedAt=` query.
+			"pressing Back Up must COMMIT the finding declined earlier -- the image leg alone does "
+				+ "not make it visible to another device: \(StubWorkerProtocol.requests)"
+		)
+		XCTAssertEqual(sut.lastManualBackup, .succeeded, "the user pressed a button and is owed an answer")
+		XCTAssertFalse(sut.isBackingUp, "the busy flag must clear when the back-up ends")
+	}
+
+	func testBackUpNowSaysTheAccountIsFullRatherThanBlamingTheNetwork() async throws {
+		try saveFinding(title: "No room for this one")
+		StubWorkerProtocol.handler = { request in
+			if request.httpMethod == "PUT" {
+				return (507, StubWorkerProtocol.json([
+					"error": ["code": "quota_exceeded", "message": "full", "retryable": false]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 52_428_800, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.backUpNow(expectedAccount: try XCTUnwrap(auth.accountIdentifier))?.value
+
+		// Running out of room is not a failed cycle and not a network problem: the upload is refused
+		// permanently and parked, and the cycle completes. Reporting either of the other two would
+		// send the user to check their signal, which cannot help.
+		XCTAssertEqual(sut.lastManualBackup, .quotaFull)
+		XCTAssertTrue(sut.isQuotaBlocked, "the button reads this to stop looking like it will work")
+	}
+
+	func testBackUpNowClearsTheStandingQuestionRatherThanLeavingItOnScreen() async throws {
+		_ = try saveFindingBelongingToNobody(title: "Asked about")
+		StubWorkerProtocol.handler = { request in
+			if request.httpMethod == "PUT" {
+				return (200, StubWorkerProtocol.json([
+					"finding": ["id": UUID().uuidString, "modifiedAt": 1, "deleted": false],
+					"usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.syncNow()?.value
+		XCTAssertNotNil(sut.backupConsentRequest, "the prompt is the precondition for this test")
+
+		await sut.backUpNow(expectedAccount: try XCTUnwrap(auth.accountIdentifier))?.value
+
+		XCTAssertNil(
+			sut.backupConsentRequest,
+			"pressing Back Up answers the question; leaving it up would ask something already agreed"
+		)
+	}
 }
 
 // MARK: - Reading the store that is actually there

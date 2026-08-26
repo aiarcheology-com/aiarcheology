@@ -164,6 +164,8 @@ extension TestabilityIdentification {
 		/// never agreed to send (AIA-727).
 		case backupConsentConfirm
 		case backupConsentDecline
+		/// The always-visible back-up button at the bottom of the findings sheet (AIA-740).
+		case findingsBackUp
 		// App Messages (AIA-0115)
 		case appMessageDismiss
 		case appMessageReply

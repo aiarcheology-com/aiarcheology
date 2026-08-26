@@ -29,6 +29,10 @@ struct FindingsListView: View {
 	/// `findingRepository` is: the memberwise initializer must end on the closure.
 	@ObservedObject var findingsSync: FindingsSyncCoordinator
 
+	/// Read for one bit -- whether anyone is signed in -- and to present the sign-in sheet the
+	/// back-up button raises when nobody is (AIA-740). Declared BEFORE `onOpenPage`, same reason.
+	@ObservedObject var authState: AuthState
+
 	/// "Open page" routes through the presenting drawer: it must dismiss this
 	/// sheet and the drawer before the web screen loads the URL.
 	let onOpenPage: (URL) -> Void
@@ -64,6 +68,17 @@ struct FindingsListView: View {
 	@State private var pendingDuplicateCount = 0
 	@State private var importSummary: FindingRepository.ImportSummary?
 
+	// MARK: Back up (AIA-740)
+
+	@State private var showSignIn = false
+	/// Set only when the sign-in sheet was raised *by the back-up button*, so a sign-in the user
+	/// started from somewhere else never triggers an upload they did not ask for.
+	@State private var signInWasForBackUp = false
+
+	/// Real Clerk-backed auth vs. the DEBUG mock. Re-injected across the sign-in sheet boundary
+	/// below, where `SignInSheet` branches on it -- losing it there traps rather than degrades.
+	@Environment(\.usesRealAuth) private var usesRealAuth
+
 	var body: some View {
 		NavigationStack {
 			VStack(spacing: 0) {
@@ -81,6 +96,7 @@ struct FindingsListView: View {
 				}
 				.listStyle(.plain)
 			}
+			.safeAreaInset(edge: .bottom) { backUpBar }
 			.navigationTitle(L10n.Findings.title)
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
@@ -109,6 +125,25 @@ struct FindingsListView: View {
 			// failed file deletes. Runs on the viewContext/MainActor; the save sheet
 			// is dismissed before this list can open, so it never races a save.
 			FindingScreenshotStore.sweepOrphans(in: moc)
+		}
+		// Driven by the account appearing, NOT by the sheet closing. `SignInSheet` validates the
+		// session asynchronously after Clerk's own sheet goes away, so at dismissal the identifier
+		// can still be nil for a session that is about to succeed -- reading it there dropped the
+		// user's intent and left the old exclusion in place for ever.
+		//
+		// Dismissing without signing in still uploads nothing: no account ever appears. The flag
+		// lives only as long as this sheet, and the button is the only way to raise a sign-in from
+		// here, so it cannot be spent on an unrelated one.
+		.onChange(of: authState.accountIdentifier) { _, account in
+			guard signInWasForBackUp, let account else { return }
+			signInWasForBackUp = false
+			findingsSync.backUpNow(expectedAccount: account)
+		}
+		.sheet(isPresented: $showSignIn) {
+			SignInSheet(authState: authState)
+				// Custom environment values do not reliably cross a sheet boundary on Mac
+				// (Designed for iPad) — AGENTS.md §3, same as the drawer's own sign-in sheet.
+				.environment(\.usesRealAuth, usesRealAuth)
 		}
 		.activityShareSheet($sharePayload)
 		.sheet(item: $shareSubject) { subject in
@@ -417,6 +452,83 @@ struct FindingsListView: View {
 		}
 		.frame(maxWidth: .infinity)
 		.padding(.vertical, 32)
+	}
+
+	// MARK: - Back up (AIA-740)
+
+	/// Pinned to the bottom of the sheet as a `safeAreaInset`, so the list scrolls *under* it and
+	/// the last finding is never hidden behind it.
+	///
+	/// Deliberately not a row in the list. A long list is exactly the situation in which someone
+	/// wants this, and a row would have scrolled out of reach by then.
+	private var backUpBar: some View {
+		VStack(spacing: 8) {
+			if let outcome = findingsSync.lastManualBackup {
+				label(backUpMessage(for: outcome), icon: backUpIcon(for: outcome), tint: backUpTint(for: outcome))
+			}
+			Button {
+				if let account = authState.accountIdentifier {
+					// The account the user is looking at travels with the request; the coordinator
+					// refuses it if the provider has moved on.
+					findingsSync.backUpNow(expectedAccount: account)
+				} else {
+					// Signing in is what makes a back-up possible, so the button opens that door rather
+					// than doing nothing. Nothing uploads unless the sign-in actually succeeds.
+					signInWasForBackUp = true
+					showSignIn = true
+				}
+			} label: {
+				HStack(spacing: 8) {
+					if findingsSync.isBackingUp {
+						ProgressView().controlSize(.small).tint(.white)
+					}
+					Text(findingsSync.isBackingUp ? L10n.Findings.Sync.Backup.busy : L10n.Findings.Sync.Backup.button)
+				}
+				// Sized to its label rather than edge to edge: full-bleed made it read as a
+				// modal's primary action rather than one control on a list of findings.
+				.padding(.horizontal, 12)
+			}
+			.buttonStyle(.borderedProminent)
+			.controlSize(.large)
+			// Green means "this will work". A full account is the one state where it will not, so
+			// the button stops claiming otherwise -- but stays ENABLED, because deleting a finding
+			// frees room and the retry has to be available the moment it does.
+			.tint(findingsSync.isQuotaBlocked ? .gray : .green)
+			.disabled(findingsSync.isBackingUp)
+			.testability(Testability.Button.findingsBackUp)
+		}
+		.padding(.horizontal)
+		.padding(.vertical, 18)
+		.background(.bar)
+	}
+
+	private func backUpMessage(for outcome: FindingsSyncCoordinator.ManualBackupOutcome) -> String {
+		switch outcome {
+		case .succeeded: return L10n.Findings.Sync.Backup.succeeded
+		case .offline: return L10n.Findings.Sync.Backup.offline
+		// Reuses the storage-full wording the header already shows: it names the way out --
+		// remove findings or export them -- which is the only thing that helps here.
+		case .quotaFull: return L10n.Findings.Sync.Storage.full
+		case .failed: return L10n.Findings.Sync.Backup.failed
+		}
+	}
+
+	private func backUpIcon(for outcome: FindingsSyncCoordinator.ManualBackupOutcome) -> String {
+		switch outcome {
+		case .succeeded: return "checkmark.icloud"
+		case .offline: return "icloud.slash"
+		case .quotaFull: return "externaldrive.fill.badge.xmark"
+		case .failed: return "exclamationmark.icloud"
+		}
+	}
+
+	private func backUpTint(for outcome: FindingsSyncCoordinator.ManualBackupOutcome) -> Color {
+		switch outcome {
+		case .succeeded: return .green
+		case .offline: return .secondary
+		case .quotaFull: return .red
+		case .failed: return .orange
+		}
 	}
 
 	/// What sync owes, and what it needs from the user.
