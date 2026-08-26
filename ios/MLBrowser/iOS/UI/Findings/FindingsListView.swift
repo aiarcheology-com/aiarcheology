@@ -97,7 +97,11 @@ struct FindingsListView: View {
 				}
 			}
 			.navigationDestination(for: Finding.self) { finding in
-				FindingDetailView(finding: finding, onOpenPage: onOpenPage)
+				FindingDetailView(
+					finding: finding,
+					findingRepository: findingRepository,
+					onOpenPage: onOpenPage
+				)
 			}
 		}
 		.onAppear {
@@ -473,6 +477,9 @@ private struct FindingDetailView: View {
 	/// Held only to hand on to the share composer's own sheet, which needs it live (AIA-0650).
 	@EnvironmentObject private var featureFlags: FeatureFlagsState
 	@ObservedObject var finding: Finding
+	/// Edits commit through the repository rather than straight to the context, so sync hears about
+	/// them the moment they land instead of on the next unrelated trigger (AIA-737).
+	let findingRepository: FindingRepository
 	let onOpenPage: (URL) -> Void
 
 	@State private var title = ""
@@ -688,7 +695,7 @@ private struct FindingDetailView: View {
 		finding.author = normalized(author)
 		finding.gps_ = normalized(gps)
 		do {
-			try Finding.save(in: moc)
+			try findingRepository.commitEdits()
 		} catch {
 			LoggingPolicy.error("Failed to save finding edits", error: error, logger: .storage)
 			// Reload from the store so the fields reflect the persisted state

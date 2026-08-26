@@ -70,6 +70,21 @@ final class FindingRepository {
 		dataController.container.viewContext
 	}
 
+	/// Commits edits the caller has already made to a stored finding.
+	///
+	/// The caller owns the field mapping -- an edit screen knows which fields it exposes and this
+	/// type should not -- so this is only the commit and the notification. It exists because the
+	/// notification was the part that kept getting missed: create, import and delete all ring
+	/// ``didChangeFindings``, and the edit screen called `Finding.save(in:)` directly, which
+	/// persisted the change and told sync nothing. An edited finding was still *marked* as owed
+	/// (`willSave()` stamps `modifiedAt` on that path too), so it did upload -- whenever some
+	/// unrelated trigger happened to fire next. Uploading a correction at an arbitrary later time is
+	/// its own kind of wrong (AIA-737).
+	func commitEdits() throws {
+		try Finding.save(in: context)
+		didChangeFindings?()
+	}
+
 	/// Persists one finding. Image first, then the entity: a file without a row is self-healed by the
 	/// orphan sweep, while a row without a file would be a broken finding. Any entity failure deletes
 	/// both the pending object (it must not linger in the context for a later unrelated save to
