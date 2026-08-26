@@ -250,6 +250,35 @@ final class FindingRepositoryTests: XCTestCase {
 		XCTAssertNil(anonymousSnapshot.author)
 	}
 
+	// MARK: - Editing (AIA-737)
+
+	func testCommitEdits_persistsTheEditAndTellsSyncAboutIt() throws {
+		let box = CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)
+		let finding = try sut.save(
+			capture: makeCapture(box: box),
+			image: makeImage(),
+			box: box,
+			metadata: FindingMetadata(title: "Before", label: "", note: "", author: "", gps: "")
+		)
+		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
+
+		let stampBeforeEdit = finding.modifiedAt
+		var changeNotifications = 0
+		sut.didChangeFindings = { changeNotifications += 1 }
+
+		finding.title = "After"
+		try sut.commitEdits()
+
+		XCTAssertEqual(finding.title, "After", "the edit is persisted")
+		XCTAssertFalse(moc.hasChanges, "the edit is committed, not left pending in the context")
+		// The two assertions that matter together. Editing used to call `Finding.save(in:)` directly:
+		// the row changed and its stamp moved, but nothing rang, so sync learned about the edit only
+		// when an unrelated trigger happened to fire next. Either half alone passes a broken build --
+		// a bell with no stamp change uploads nothing, a stamp change with no bell uploads late.
+		XCTAssertEqual(changeNotifications, 1, "an edit rings the bell create and delete ring")
+		XCTAssertNotEqual(finding.modifiedAt, stampBeforeEdit, "the edit re-stamps modifiedAt, so it is owed")
+	}
+
 	/// Current filenames in the shared `Documents/Findings` dir (the store's write target),
 	/// derived via the store's public URL helper so the test needn't know the absolute path.
 	private static func screenshotFilenames() -> Set<String> {

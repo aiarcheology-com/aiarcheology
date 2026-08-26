@@ -166,21 +166,24 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// front, connectivity coming back, and a local save. There is no timer — a sync that fires
     /// while nothing has changed and nothing has reconnected has nothing to do.
     func start() {
-        findingRepository.didChangeFindings = { [weak self] in self?.syncNow() }
+        findingRepository.didChangeFindings = { [weak self] in _ = self?.syncNow() }
 
         NotificationCenter.default.addObserver(
             forName: UIApplication.didBecomeActiveNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.syncNow() }
+            // The result is discarded explicitly. `syncNow()` returns the running cycle so a test
+            // can await it, and letting that value be the closure's result makes the generic
+            // parameter ambiguous on the Xcode the app ships with.
+            MainActor.assumeIsolated { _ = self?.syncNow() }
         }
 
         // The one that matters in the field: a finding saved in a valley with no signal uploads
         // itself when the phone finds a network again, without the user doing anything.
         monitor.pathUpdateHandler = { [weak self] path in
             guard path.status == .satisfied else { return }
-            Task { @MainActor in self?.syncNow() }
+            Task { @MainActor in _ = self?.syncNow() }
         }
         monitor.start(queue: monitorQueue)
 
@@ -205,7 +208,7 @@ final class FindingsSyncCoordinator: ObservableObject {
             self?.runningCycle = nil
             if self?.wantsAnotherCycle == true {
                 self?.wantsAnotherCycle = false
-                self?.syncNow()
+                _ = self?.syncNow()
             }
         }
         runningCycle = task
