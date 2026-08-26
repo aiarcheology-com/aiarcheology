@@ -119,7 +119,22 @@ final class AuthState: ObservableObject {
     /// Written at exactly the points that write the gate, and only there. `.ready` implies a
     /// validated account; `.signedOut` implies `nil`. `.offline` and `.checkingSession` leave it
     /// untouched — a transient loss of connectivity is not a change of account.
-    @Published private(set) var accountIdentifier: String?
+    @Published private(set) var accountIdentifier: String? {
+        didSet {
+            guard oldValue != accountIdentifier else { return }
+            // On the property rather than at each write site: the identity is written from several
+            // places, and a trigger that has to be remembered at each of them is a trigger that
+            // gets forgotten at one of them.
+            accountDidChange?(accountIdentifier)
+        }
+    }
+
+    /// Called when the signed-in account changes, including signing in and signing out.
+    ///
+    /// Cloud sync needs it (AIA-727): signing in is not the app coming to the front, not the
+    /// network reconnecting, and not a save, so without this a user signs in and *nothing happens*
+    /// until some unrelated event fires. Wired by `DependencyContainer`.
+    var accountDidChange: ((String?) -> Void)?
 
     /// The consent/attribution identity derived from ``gate`` and ``accountIdentifier`` (AIA-0536).
     ///

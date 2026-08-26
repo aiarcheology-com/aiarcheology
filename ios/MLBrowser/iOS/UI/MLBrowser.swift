@@ -382,6 +382,10 @@ struct MLBrowser: App {
 				freeAccess: appState.freeAccess,
 				isReady: appState.isReady
 			)
+			// Asked here rather than on the findings list, because a user who never opens that
+			// screen would never be asked -- and their findings would sit unsynced with nothing
+			// saying so (AIA-727).
+			.backupConsentPrompt(appState.findingsSync)
 			.task {
 				// Reconnect to background URLSession tasks after app launch.
 				// (No-op during XCTest runs; gated inside Downloader.)
