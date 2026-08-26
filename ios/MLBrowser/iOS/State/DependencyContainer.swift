@@ -87,8 +87,8 @@ class DependencyContainer {
     /// Constructed lazily like everything else here, but note that constructing it is what wires
     /// the repository's delete hook — so a delete only becomes a tombstone once something has
     /// asked for this. `AppState` does, at launch.
-    lazy var findingsSync: FindingsSync = {
-        FindingsSync(
+    lazy var findingsSync: FindingsSyncCoordinator = {
+        FindingsSyncCoordinator(
             authProvider: self.authProvider,
             findingRepository: self.findingRepository,
             context: self.dataController.container.viewContext

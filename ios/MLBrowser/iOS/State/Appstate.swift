@@ -38,7 +38,7 @@ final class AppState: ObservableObject {
 	/// Findings to the cloud and back (AIA-727). Held here because constructing it is what wires
 	/// the repository's delete hook, so a delete becomes a tombstone from launch rather than from
 	/// whenever a view happens to ask for sync.
-	let findingsSync: FindingsSync
+	let findingsSync: FindingsSyncCoordinator
 	/// Reconciles source-package removal after a converted Core ML model is durably registered.
 	let nativeConversionSourceCleanupService: NativeModelSourceCleanupService
 
@@ -117,7 +117,7 @@ final class AppState: ObservableObject {
 		catalogProviders: [any CatalogProvider],
 		demoDataManager: DemoDataManager,
 		findingRepository: FindingRepository,
-		findingsSync: FindingsSync,
+		findingsSync: FindingsSyncCoordinator,
 		nativeConversionSourceCleanupService: NativeModelSourceCleanupService,
 		detection: DetectionSession,
 		browser: BrowserSession,

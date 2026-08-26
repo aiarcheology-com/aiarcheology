@@ -66,7 +66,7 @@ final class FindingsSyncCycleTests: XCTestCase {
 	private var repository: FindingRepository!
 	private var auth: MockAuthProvider!
 	private var scratch: URL!
-	private var sut: FindingsSync!
+	private var sut: FindingsSyncCoordinator!
 	private var moc: NSManagedObjectContext { dataController.container.viewContext }
 
 	override func setUp() async throws {
@@ -77,7 +77,7 @@ final class FindingsSyncCycleTests: XCTestCase {
 		repository = FindingRepository(dataController: dataController)
 		auth = MockAuthProvider(outcome: .ready, accountID: "user_cycle_\(UUID().uuidString.prefix(8))")
 		scratch = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-		sut = FindingsSync(
+		sut = FindingsSyncCoordinator(
 			authProvider: auth,
 			findingRepository: repository,
 			context: moc,
@@ -173,7 +173,7 @@ final class FindingsSyncCycleTests: XCTestCase {
 		// copy over a newer local edit would silently discard the user's most recent work.
 		let finding = try saveFinding(title: "The local one")
 		let id = finding.entityId
-		let localMilliseconds = FindingsSync.milliseconds(finding.modifiedAt ?? Date())
+		let localMilliseconds = FindingsSyncCoordinator.milliseconds(finding.modifiedAt ?? Date())
 
 		StubWorkerProtocol.handler = { request in
 			let path = request.url?.path ?? ""
@@ -219,7 +219,7 @@ final class FindingsSyncCycleTests: XCTestCase {
 
 		// Findings that predate this account are held for an explicit answer, so the push these two
 		// tests are about only happens once the question has been answered.
-		let clamped = FindingsSync.milliseconds(Date())
+		let clamped = FindingsSyncCoordinator.milliseconds(Date())
 		StubWorkerProtocol.handler = { request in
 			let path = request.url?.path ?? ""
 			if path.hasSuffix("/meta"), request.httpMethod == "PUT" {
@@ -247,7 +247,7 @@ final class FindingsSyncCycleTests: XCTestCase {
 		await sut.answerBackupConsent(accepted: true)?.value
 
 		let stored = try XCTUnwrap(storedFinding(id))
-		XCTAssertEqual(FindingsSync.milliseconds(stored.modifiedAt ?? .distantPast), clamped)
+		XCTAssertEqual(FindingsSyncCoordinator.milliseconds(stored.modifiedAt ?? .distantPast), clamped)
 	}
 
 	func testDeletingAFindingSendsATombstone() async throws {

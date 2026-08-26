@@ -147,12 +147,12 @@ final class FindingsSyncTimestampTests: XCTestCase {
 		// Comparing a local 1000.7 against a stored 1000 is a difference that never closes: the
 		// finding would be re-uploaded on every single trigger.
 		let date = Date(timeIntervalSince1970: 1.0007)
-		XCTAssertEqual(FindingsSync.milliseconds(date), 1_000)
+		XCTAssertEqual(FindingsSyncCoordinator.milliseconds(date), 1_000)
 	}
 
 	func testAnEarlierDateIsNeverRoundedUpPastALaterOne() {
 		let earlier = Date(timeIntervalSince1970: 1.0009)
 		let later = Date(timeIntervalSince1970: 1.0011)
-		XCTAssertLessThan(FindingsSync.milliseconds(earlier), FindingsSync.milliseconds(later))
+		XCTAssertLessThan(FindingsSyncCoordinator.milliseconds(earlier), FindingsSyncCoordinator.milliseconds(later))
 	}
 }

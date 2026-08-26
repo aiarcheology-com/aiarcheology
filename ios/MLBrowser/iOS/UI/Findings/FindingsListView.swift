@@ -27,7 +27,7 @@ struct FindingsListView: View {
 
 	/// Cloud sync, when the build has it. Declared BEFORE `onOpenPage` for the same reason
 	/// `findingRepository` is: the memberwise initializer must end on the closure.
-	@ObservedObject var findingsSync: FindingsSync
+	@ObservedObject var findingsSync: FindingsSyncCoordinator
 
 	/// "Open page" routes through the presenting drawer: it must dismiss this
 	/// sheet and the drawer before the web screen loads the URL.

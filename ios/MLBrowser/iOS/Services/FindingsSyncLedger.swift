@@ -81,7 +81,7 @@ actor FindingsSyncLedgerStore {
     }
 
     static var defaultDirectory: URL? {
-        FileManager.default.documentDirectory?.appendingPathComponent("FindingsSync")
+        FileManager.default.documentDirectory?.appendingPathComponent("FindingsSyncCoordinator")
     }
 
     private var ledgerURL: URL? { directory?.appendingPathComponent("ledger-\(accountKey).json") }

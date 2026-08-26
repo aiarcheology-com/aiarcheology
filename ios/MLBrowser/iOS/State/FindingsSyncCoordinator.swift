@@ -1,5 +1,5 @@
 //
-//  FindingsSync.swift
+//  FindingsSyncCoordinator.swift
 //  AI Archeology
 //
 //  Findings to the cloud and back (AIA-727). Backend contract in AIA-726.
@@ -20,7 +20,7 @@ import UIKit
 /// `@MainActor` because it reads and writes `Finding` objects on the view context. The network work
 /// it does is in ``FindingsCloudTransport``, which is an actor and does not run here.
 @MainActor
-final class FindingsSync: ObservableObject {
+final class FindingsSyncCoordinator: ObservableObject {
 
     /// How many findings this device is still holding for the cloud. The "N not yet backed up"
     /// count the user sees.
