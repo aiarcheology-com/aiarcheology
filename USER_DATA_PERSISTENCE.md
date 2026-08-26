@@ -230,7 +230,65 @@ about 30 days; and the fence row keeps a Clerk user id after erasure.
   cannot be listed, so "prune findings" does not reach it. Known gap, written down rather than
   discovered later.
 
-## 11. Observability
+## 11. Environments
+
+Two of everything, paired. `PROVISIONING.md` holds the commands; what follows is why the shape is
+this way and what breaks when it is not.
+
+| | staging | production |
+|-|-|-|
+| Worker | `aia-findings-staging` | `aia-findings-production` |
+| Clerk instance | `advanced-tetra-5.clerk.accounts.dev` (development) | `clerk.aiarcheology.com` |
+| D1 | `aia-findings-staging` | `aia-findings-production` |
+| R2 | `aia-findings-staging` (EU) | `aia-findings-production` (EU) |
+
+**The pairing is an isolation boundary, not a convenience.** Each Worker trusts exactly one issuer
+and one key set, so a token minted by the other instance cannot be used against it — the two
+instances share no signing key (different `kid`, different RSA modulus, verified 2026-08-26), so
+verification fails at the signature before any claim is read.
+
+That is worth testing after every issuer change, because **it is the one property no other test
+observes**: unauthenticated requests are refused whether or not the issuer is right, so a Worker
+pointed at the wrong key set passes every check except this one.
+
+### What is a var and what is a secret
+
+`CLERK_ISSUER` and `CLERK_JWKS_URL` are **public URLs** and live in `wrangler.jsonc` as vars,
+committed. The Worker holds **no Clerk secret key** — verification needs only an issuer and a
+public key set (§8).
+
+`CLERK_WEBHOOK_SECRET` is a secret, and it is **per endpoint, not per project**: the development and
+production signing secrets are different values, and each rotates independently. Using the wrong one
+fails in the worst available way — Clerk deletes the user, the app reports success, the Worker
+rejects the webhook signature, and the findings stay in R2 for ever. A GDPR erasure that silently
+does not erase. After any rotation, push the new value to the environment that owns it.
+
+Cloudflare holds the runtime copy, 1Password is the source of truth, `.dev.vars` is local only and
+is never an app secret.
+
+### Two traps that cost time
+
+- **`wrangler` must run from `cloudflare/findings-worker/`.** From the repo root, `secret put`
+  prompts, accepts the paste, *then* fails with "Required Worker name missing" — it looks like it
+  worked and sets nothing. Note also that the argument is the secret's **name**; the value goes at
+  the prompt.
+- **A fresh D1 database has no tables.** `wrangler d1 migrations apply <db> --remote --env <env>`
+  is a separate step from `deploy`, and skipping it leaves a Worker that answers requests and fails
+  every write.
+
+### The client half
+
+`FindingsCloudEndpoint.baseURL(for:)` pairs each Clerk environment with its Worker. A `nil` there
+turns sync off rather than pointing it somewhere wrong, and the back-up button hides itself when it
+sees one — so an unconfigured environment is quiet rather than broken. The consequence is that
+flipping `nil` to a URL changes the failure mode from *hidden* to *visible*, which is why the
+deploy and the migrations are gates in `RELEASE_CHECK.md` rather than remembered.
+
+The shipping app must also carry the publishable key for the matching instance (`pk_live_` for
+production). A mismatch is invisible in testing: users sign in successfully and sync nothing,
+because the Worker rejects tokens from the other issuer.
+
+## 12. Observability
 
 | | |
 |-|-|
