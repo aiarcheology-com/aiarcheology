@@ -160,6 +160,10 @@ extension TestabilityIdentification {
 		// Optional analytics first-run choice
 		case analyticsChoiceEnable
 		case analyticsChoiceNotNow
+		/// The back-up question raised over any screen once findings exist that this account has
+		/// never agreed to send (AIA-727).
+		case backupConsentConfirm
+		case backupConsentDecline
 		// App Messages (AIA-0115)
 		case appMessageDismiss
 		case appMessageReply
