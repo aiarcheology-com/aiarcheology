@@ -49,11 +49,14 @@
         }
       ],
       "vars": {
-        // A production Clerk instance does not exist yet. These placeholders are not a valid
-        // issuer, and the Worker refuses every request with 503 while they stand, so a premature
-        // production deploy fails closed instead of trusting development-instance tokens.
-        "CLERK_ISSUER": "REPLACE_BEFORE_PRODUCTION_DEPLOY",
-        "CLERK_JWKS_URL": "REPLACE_BEFORE_PRODUCTION_DEPLOY",
+        // The production Clerk instance, verified live 2026-08-26: its own
+        // /.well-known/openid-configuration reports this issuer and this jwks_uri. Public URLs, so
+        // they are vars rather than secrets -- the same shape as the staging pair above.
+        //
+        // A token from the DEVELOPMENT instance must be rejected here. That is the check worth
+        // running after a deploy: every other test passes whether or not the issuer is enforced.
+        "CLERK_ISSUER": "https://clerk.aiarcheology.com",
+        "CLERK_JWKS_URL": "https://clerk.aiarcheology.com/.well-known/jwks.json",
         "USER_BYTE_LIMIT": 52428800,
         "GLOBAL_BYTE_CEILING": 8053063680,
         "IMAGE_BYTE_LIMIT": 16777216,
