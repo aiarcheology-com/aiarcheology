@@ -266,11 +266,22 @@ final class AuthState: ObservableObject {
         setSignedOut()
     }
 
-    /// Delete the account and return to the sign-in screen.
+    /// Erase the account's cloud data, then delete the account, then return to the sign-in screen.
+    ///
+    /// **The order is the whole point (AIA-728).** Deleting the Clerk user first destroys the
+    /// session token, and that token is the only credential that can reach the user's stored
+    /// findings -- they would sit in the bucket for ever with nothing able to name them. A purge
+    /// that throws leaves the account intact so the user can try again, rather than leaving them
+    /// deleted and their data behind.
     func deleteAccount() async throws {
+        try await purgeCloudData?()
         try await provider.deleteAccount()
         setSignedOut()
     }
+
+    /// Erases the signed-in account's cloud findings, or throws. Wired by `DependencyContainer`;
+    /// `nil` in a build with no sync, where there is nothing stored to erase.
+    var purgeCloudData: (() async throws -> Void)?
 
     /// The only way to reach `.signedOut`. Clears the identity *before* the gate so nothing can
     /// observe "signed out" while a stale account is still published. `signOut()` and

@@ -557,6 +557,32 @@ final class FindingsSyncCoordinator: ObservableObject {
         }
     }
 
+    /// Erases this account's cloud findings, and returns only when nothing is left.
+    ///
+    /// Throws if the purge did not finish. The caller must not delete the Clerk account on a throw:
+    /// the session token is the only credential that can reach the remaining data.
+    ///
+    /// Local findings are deliberately untouched. The cloud copy has just been erased, so they are
+    /// the only copy left, and this ticket is about deleting an account -- not somebody's fieldwork.
+    func purgeCloudData() async throws {
+        guard let account = authProvider.accountIdentifier else { return }
+        guard let baseURL = FindingsCloudEndpoint.baseURL(for: ClerkAuthProvider.selectedEnvironment) else {
+            return
+        }
+
+        let result = try await transport(for: baseURL, account: account).purgeAccountData()
+        guard result.purged.complete else {
+            throw FindingsCloudError.unreachable("The cloud purge did not finish.")
+        }
+        LoggingPolicy.info("Cloud findings purged: \(result.purged.objects) objects", logger: .networking)
+
+        // The account's own sync bookkeeping goes with it. The findings do not.
+        await ledgerStore(for: account).removeEverything()
+        usage = nil
+        pendingUploadCount = 0
+        backupConsentRequest = nil
+    }
+
     // MARK: - Local state
 
     /// Records a tombstone synchronously, because the caller is about to commit the delete.

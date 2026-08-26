@@ -178,6 +178,14 @@ actor FindingsSyncLedgerStore {
 
     func removePendingDelete(_ id: UUID) { tombstones.remove(id) }
 
+    /// Removes this account's sync bookkeeping. Used after the cloud data is gone, when the ledger
+    /// describes storage that no longer exists.
+    func removeEverything() {
+        for url in [ledgerURL, tombstonesURL].compactMap({ $0 }) {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
     private func write<T: Encodable>(_ value: T, to url: URL?, describing what: String) {
         guard let url, let directory else { return }
         do {

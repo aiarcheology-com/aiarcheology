@@ -23,6 +23,7 @@ export default defineConfig({
           GLOBAL_BYTE_CEILING: 1000000,
           IMAGE_BYTE_LIMIT: 2048,
           META_BYTE_LIMIT: 1024,
+          CLERK_WEBHOOK_SECRET: 'whsec_dGVzdC1zZWNyZXQtZm9yLXVuaXQtdGVzdHM=',
         },
       },
     }),

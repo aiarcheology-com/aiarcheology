@@ -190,7 +190,35 @@ spend cap: 10 GB free ÷ 50 MB is exactly 200 users and nothing stops user 201.
 - Worker invocation logs are disabled: their URLs contain finding ids.
 - The client logs one line per cycle — counts and a duration, no ids, titles or coordinates.
 
-## 9. What is deliberately not built
+## 9. Erasing an account
+
+**Purge the cloud data, verify it finished, and only then delete the Clerk user.** The other order
+destroys the session token, and that token is the only credential that can name this user's objects:
+their findings would sit in the bucket for ever with nothing able to reach them. A purge that did
+not finish leaves the account intact so the user can try again.
+
+Local findings are **not** deleted. The cloud copy has just been erased, so what is on the device is
+the only copy left; this deletes an account, not somebody's fieldwork. The account's own sync
+bookkeeping goes with it.
+
+The first thing a purge does is set a write fence, and it is never cleared — Clerk does not reuse
+user ids, so there is nothing an un-fence would be for. The fence lives **inside** the write
+statements rather than as a check before them, because a check that runs first is a race the purge
+wins. A fenced write is refused with `account_deleting`, which is terminal.
+
+Keeping the fence row is also what makes the endpoint idempotent, and that matters: `user.delete()`
+fires Clerk's `user.deleted` webhook, so an in-app deletion normally runs the purge twice at once.
+
+The svix-verified webhook is the backstop for deletions that never touch the app — the Clerk
+dashboard, or support acting on a request. A verified event it does not handle is acknowledged
+rather than refused, because a non-2xx makes svix retry indefinitely and can get the endpoint
+disabled, silently removing the backstop.
+
+Known limits, recorded rather than implied: after the Clerk user is gone, svix's finite retry
+schedule is the only thing that retries a failing purge; D1 Time Travel retains purged rows for
+about 30 days; and the fence row keeps a Clerk user id after erasure.
+
+## 10. What is deliberately not built
 
 - **No end-to-end encryption.** Compromise of the Cloudflare account yields plaintext, by design.
   The trade is stated plainly rather than implied: it is why there is no Art. 34 exemption.
@@ -202,7 +230,7 @@ spend cap: 10 GB free ÷ 50 MB is exactly 200 users and nothing stops user 201.
   cannot be listed, so "prune findings" does not reach it. Known gap, written down rather than
   discovered later.
 
-## 10. Observability
+## 11. Observability
 
 | | |
 |-|-|

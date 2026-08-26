@@ -36,6 +36,7 @@
 		6C88C94FB6809E47259A6351 /* FindingRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFBCA480CAD7F7F6571A7824 /* FindingRepositoryTests.swift */; };
 		AC4C377270000000000BEA2 /* FindingsSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC4C377270000000000AEA2 /* FindingsSyncTests.swift */; };
 		AC58187270000000000B679 /* FindingsSyncCycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC58187270000000000A679 /* FindingsSyncCycleTests.swift */; };
+		ACF57F7270000000000BE94 /* AccountDeletionOrderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACF57F7270000000000AE94 /* AccountDeletionOrderTests.swift */; };
 		AB71300000000000000B002 /* FindingArchiveImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71300000000000000B001 /* FindingArchiveImportTests.swift */; };
 		6E2B84F19CD3407AB5710D63 /* EffectiveAuthContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7C1D0E5B92460F8E14A2C7 /* EffectiveAuthContext.swift */; };
 		6F31DAC55F2B4ACABB5FBBE1 /* FastViTT8F16.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 58F0B2DED415479BBF3199FD /* FastViTT8F16.mlpackage */; };
@@ -784,6 +785,7 @@
 		DFBCA480CAD7F7F6571A7824 /* FindingRepositoryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingRepositoryTests.swift; sourceTree = "<group>"; };
 		AC4C377270000000000AEA2 /* FindingsSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsSyncTests.swift; sourceTree = "<group>"; };
 		AC58187270000000000A679 /* FindingsSyncCycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsSyncCycleTests.swift; sourceTree = "<group>"; };
+		ACF57F7270000000000AE94 /* AccountDeletionOrderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionOrderTests.swift; sourceTree = "<group>"; };
 		AB71300000000000000B001 /* FindingArchiveImportTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingArchiveImportTests.swift; sourceTree = "<group>"; };
 		E4D6DDA52ECA43FCBADD6A05 /* Classifying.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Classifying.swift; sourceTree = "<group>"; };
 		E7D7719BFF527B0F988CB497 /* Configuration.storekit */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = Configuration.storekit; sourceTree = "<group>"; };
@@ -1361,6 +1363,7 @@
 				DFBCA480CAD7F7F6571A7824 /* FindingRepositoryTests.swift */,
 				AC4C377270000000000AEA2 /* FindingsSyncTests.swift */,
 				AC58187270000000000A679 /* FindingsSyncCycleTests.swift */,
+				ACF57F7270000000000AE94 /* AccountDeletionOrderTests.swift */,
 				AB71300000000000000B001 /* FindingArchiveImportTests.swift */,
 				AA0303010000000000000001 /* RemoveAllFindingsTests.swift */,
 				F012B0A5CCF9F8190B8D1667 /* FeatureSessionTests.swift */,
@@ -2292,6 +2295,7 @@
 				6C88C94FB6809E47259A6351 /* FindingRepositoryTests.swift in Sources */,
 				AC4C377270000000000BEA2 /* FindingsSyncTests.swift in Sources */,
 				AC58187270000000000B679 /* FindingsSyncCycleTests.swift in Sources */,
+				ACF57F7270000000000BE94 /* AccountDeletionOrderTests.swift in Sources */,
 				AB71300000000000000B002 /* FindingArchiveImportTests.swift in Sources */,
 				AA0303020000000000000002 /* RemoveAllFindingsTests.swift in Sources */,
 				ADD67EF9365608B7EB3729D5 /* FeatureSessionTests.swift in Sources */,

@@ -11,6 +11,7 @@ export type ErrorCode =
   | 'quota_exceeded'
   | 'global_capacity'
   | 'stale'
+  | 'account_deleting'
   | 'config_error'
   | 'internal';
 
@@ -22,6 +23,7 @@ const STATUS: Record<ErrorCode, number> = {
   quota_exceeded: 507,
   global_capacity: 507,
   stale: 409,
+  account_deleting: 410,
   config_error: 503,
   internal: 500,
 };
@@ -44,6 +46,9 @@ const RETRYABLE: Record<ErrorCode, boolean> = {
   quota_exceeded: false,
   global_capacity: true,
   stale: false,
+  // Terminal, and the only error where that is the point: the account is being erased, so there
+  // will never be somewhere for this finding to go.
+  account_deleting: false,
   config_error: true,
   internal: true,
 };
@@ -92,5 +97,7 @@ export function errorResponse(error: unknown): Response {
   return json(
     { error: { code: api.code, message: api.message, retryable: api.retryable, ...api.detail } },
     api.status,
+    // Read back by the request log so a failure is countable by kind without the body being read.
+    { 'x-error-code': api.code },
   );
 }

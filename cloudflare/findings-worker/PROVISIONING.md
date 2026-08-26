@@ -155,6 +155,21 @@ Resolve with `op read` at runtime and feed it through `wrangler secret put --env
 as `ios/asc.env.template` does for App Store Connect. It is a **development** instance key: it must
 never reach a production environment, and never a committed file.
 
+## Clerk webhook (AIA-728)
+
+The findings Worker takes Clerk's `user.deleted` as the backstop for deletions that never go through
+the app. Add the endpoint in the Clerk dashboard (Webhooks → add endpoint,
+`https://<worker>/v1/webhooks/clerk`, subscribed to `user.deleted`), then put its signing secret
+where the Worker can read it:
+
+```sh
+npx wrangler secret put CLERK_WEBHOOK_SECRET --env staging
+```
+
+Per environment, and **never** `--env production` for a development instance's secret. Production
+gets its own endpoint and its own secret when its Worker is first deployed, alongside the real
+issuer and JWKS.
+
 ## The free tier is per ACCOUNT, not per bucket
 
 Staging and production draw from **one shared allowance** — 10 GB-month storage, 1M Class A, 10M

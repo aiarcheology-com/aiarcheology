@@ -463,6 +463,9 @@ class DependencyContainer {
 		// retained by this container; nothing else references it.
 		// Late-bind purchase tagging now that `AuthState` exists (AIA-0536).
 		taggingAuthState = account.authState
+		// Account deletion must erase the cloud copy BEFORE Clerk deletes the user, or the session
+		// token that is the only way to reach that data goes with it (AIA-728).
+		account.authState.purgeCloudData = { [findingsSync] in try await findingsSync.purgeCloudData() }
 		_ = messageReplyCoordinator
 		// Arm notification scheduling (AIA-0115, S7): hooks messageCenterState's reevaluation
 		// observer on init so every visibility recompute reconciles scheduled notifications.

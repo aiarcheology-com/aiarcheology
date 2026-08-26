@@ -154,6 +154,7 @@ export async function reserveBytes(
         `INSERT INTO object_bytes (user_id, finding_id, kind, bytes)
            SELECT ?1, ?2, ?3, ?4
             WHERE ${currentBytes} = ?5
+              AND NOT EXISTS (SELECT 1 FROM user_state WHERE user_id = ?1 AND deleting = 1)
               AND COALESCE((SELECT value FROM counter WHERE key = ?6), 0) + ?7 <= ?8
               AND COALESCE((SELECT value FROM counter WHERE key = 'global_bytes'), -1) + ?7 <= ?9
            ON CONFLICT (user_id, finding_id, kind) DO UPDATE SET bytes = excluded.bytes`,
@@ -175,6 +176,9 @@ export async function reserveBytes(
   if (stored !== 1 && delta !== 0) {
     // Nothing was written. Report which limit refused it, reading the counters rather than
     // guessing, so the client gets an error it can act on.
+    if (await isDeleting(env, userId)) {
+      throw new ApiError('account_deleting', 'This account is being deleted.');
+    }
     const usage = await usageFor(env, userId);
     if (usage.used + delta > env.USER_BYTE_LIMIT) {
       throw new ApiError('quota_exceeded', 'This account has no room left for that finding.', {
@@ -210,6 +214,18 @@ export async function releaseBytes(env: Env, userId: string, findingId: string):
     env.DB.prepare("UPDATE counter SET value = MAX(0, value - ?1) WHERE key = 'global_bytes'").bind(total),
     env.DB.prepare('DELETE FROM object_bytes WHERE user_id = ?1 AND finding_id = ?2').bind(userId, findingId),
   ]);
+}
+
+/// Whether this account is being erased.
+///
+/// Read only to explain a refusal. The refusal itself happens inside the write statements, because
+/// a check that runs before the write is a race the purge wins: the check passes, the fence lands,
+/// the purge lists and deletes, and the write commits behind it with nothing left to clean it up.
+export async function isDeleting(env: Env, userId: string): Promise<boolean> {
+  const row = await env.DB.prepare('SELECT deleting FROM user_state WHERE user_id = ?1')
+    .bind(userId)
+    .first<{ deleting: number }>();
+  return row?.deleting === 1;
 }
 
 export async function findingRow(env: Env, userId: string, findingId: string): Promise<FindingRow | null> {
@@ -249,11 +265,12 @@ export async function commitFinding(
   // the SAME receipt value. The (received_at, id) cursor only keeps tied rows safe while both are
   // visible when a client crosses them -- if one commits after a client has already paged past that
   // instant, it is invisible for ever. One statement is what makes the clock strictly increasing.
-  await env.DB.prepare(
+  const committed = await env.DB.prepare(
     `INSERT INTO finding (user_id, id, modified_at, received_at, deleted)
-       VALUES (?1, ?2, ?3,
-               MAX(?4, COALESCE((SELECT MAX(received_at) FROM finding WHERE user_id = ?1), 0) + 1),
-               ?5)
+       SELECT ?1, ?2, ?3,
+              MAX(?4, COALESCE((SELECT MAX(received_at) FROM finding WHERE user_id = ?1), 0) + 1),
+              ?5
+        WHERE NOT EXISTS (SELECT 1 FROM user_state WHERE user_id = ?1 AND deleting = 1)
        ON CONFLICT (user_id, id) DO UPDATE SET
          modified_at = excluded.modified_at,
          received_at = excluded.received_at,
@@ -262,11 +279,15 @@ export async function commitFinding(
     .bind(userId, findingId, modifiedAt, now, deleted ? 1 : 0)
     .run();
 
-  const committed = await findingRow(env, userId, findingId);
-  if (committed === null) {
+  if (committed.meta.changes !== 1) {
+    throw new ApiError('account_deleting', 'This account is being deleted.');
+  }
+
+  const stored = await findingRow(env, userId, findingId);
+  if (stored === null) {
     throw new ApiError('internal', 'The finding was written but could not be read back.');
   }
-  return committed;
+  return stored;
 }
 
 export interface Page {

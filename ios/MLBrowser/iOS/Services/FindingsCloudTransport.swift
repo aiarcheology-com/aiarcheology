@@ -68,6 +68,15 @@ struct CloudCommit: Decodable, Sendable {
     let usage: CloudUsage
 }
 
+struct CloudPurge: Decodable, Sendable {
+    struct Outcome: Decodable, Sendable {
+        /// `false` means call again. It does **not** mean the account may be deleted at Clerk.
+        let complete: Bool
+        let objects: Int
+    }
+    let purged: Outcome
+}
+
 struct CloudAccepted: Decodable, Sendable {
     /// What the server actually stored, which is not always what was sent: a future-dated client
     /// clock is clamped to receipt time.
@@ -186,6 +195,17 @@ actor FindingsCloudTransport {
         built.httpBody = data
         built.setValue("application/json", forHTTPHeaderField: "Content-Type")
         return try await decoding(CloudCommit.self, from: built)
+    }
+
+    /// Erases everything this account has stored.
+    ///
+    /// Must complete before the Clerk user is deleted. Deleting the user first destroys the session
+    /// token, and with it the only credential that can reach this data -- which would then sit in
+    /// the bucket for ever with nothing able to name it.
+    func purgeAccountData() async throws -> CloudPurge {
+        var built = request(path: "/v1/me/data")
+        built.httpMethod = "DELETE"
+        return try await decoding(CloudPurge.self, from: built)
     }
 
     func delete(id: UUID, modifiedAt: Int64) async throws -> CloudCommit {
