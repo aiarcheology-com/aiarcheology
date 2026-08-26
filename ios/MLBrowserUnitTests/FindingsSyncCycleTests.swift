@@ -295,7 +295,6 @@ final class FindingsSyncCycleTests: XCTestCase {
 	}
 }
 
-
 // MARK: - What sync is allowed to report
 
 extension FindingsSyncCycleTests {
@@ -355,7 +354,6 @@ extension FindingsSyncCycleTests {
 		)
 	}
 }
-
 
 // MARK: - Whose findings are these
 
@@ -446,7 +444,6 @@ extension FindingsSyncCycleTests {
 		XCTAssertNil(sut.backupConsentRequest, "declining is an answer, not a deferral")
 	}
 }
-
 
 // MARK: - Reading the store that is actually there
 
