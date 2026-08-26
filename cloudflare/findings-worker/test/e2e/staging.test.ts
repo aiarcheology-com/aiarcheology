@@ -71,6 +71,13 @@ afterAll(async () => {
   }
 });
 
+/// Account erasure is deliberately NOT in this suite.
+///
+/// The fence a purge sets is never cleared -- correct in production, where Clerk does not reuse user
+/// ids -- so an automated purge would leave this shared test account permanently refusing writes and
+/// every later run would fail. It is covered by the Worker's own suite against real R2 and D1
+/// bindings, and was verified once by hand against the deployed staging Worker; the PR records the
+/// result and the one-off statement that cleared the fence afterwards.
 describe('the deployed staging Worker', () => {
   it('is reachable and reports nothing but liveness', async () => {
     const response = await fetch(`${target}/health`);

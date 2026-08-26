@@ -1,4 +1,6 @@
 import { authenticate } from './auth';
+import { purgeAccount } from './purge';
+import { handleClerkWebhook } from './webhook';
 import { ApiError, errorResponse, json } from './errors';
 import {
   commitFinding,
@@ -55,7 +57,20 @@ async function handle(request: Request, env: Env): Promise<Response> {
     return json({ ok: true });
   }
 
+  // Dispatched before authentication: it carries an svix signature, not a session token, and
+  // everything past this point requires one.
+  if (url.pathname === '/v1/webhooks/clerk') {
+    return handleClerkWebhook(request, env);
+  }
+
   const userId = await authenticate(request, env);
+
+  if (url.pathname === '/v1/me/data' && request.method === 'DELETE') {
+    // The ordering this whole phase exists for: purge here, verify it finished, and only then
+    // delete the Clerk user. The other way round destroys the session token, and with it the only
+    // credential that can reach this data -- which would be orphaned in the bucket for ever.
+    return json({ purged: await purgeAccount(env, userId) });
+  }
 
   if (url.pathname === '/v1/me/usage' && request.method === 'GET') {
     return json({ usage: await usageFor(env, userId) });
@@ -143,12 +158,43 @@ async function handle(request: Request, env: Env): Promise<Response> {
   throw new ApiError('not_found', 'No such endpoint.');
 }
 
+/// The route this request matched, as a template.
+///
+/// A template, never the URL: a real path carries a finding's id, and a log line naming findings is
+/// a record of what somebody surveyed sitting in a log aggregator.
+function routeTemplate(url: URL, method: string): string {
+  if (url.pathname === '/health') return 'GET /health';
+  if (url.pathname === '/v1/webhooks/clerk') return 'POST /v1/webhooks/clerk';
+  if (url.pathname === '/v1/me/usage') return 'GET /v1/me/usage';
+  if (url.pathname === '/v1/me/data') return 'DELETE /v1/me/data';
+  if (url.pathname === '/v1/findings') return 'GET /v1/findings';
+  const match = url.pathname.match(/^\/v1\/findings\/[^/]+(?:\/(meta|image))?$/);
+  if (match !== null) return `${method} /v1/findings/:id${match[1] === undefined ? '' : `/${match[1]}`}`;
+  return `${method} <unmatched>`;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const started = Date.now();
+    const url = new URL(request.url);
+    let response: Response;
     try {
-      return await handle(request, env);
+      response = await handle(request, env);
     } catch (error) {
-      return errorResponse(error);
+      response = errorResponse(error);
     }
+
+    // One structured line per request. Route template, status, error code and duration -- and
+    // nothing else. No URL, no ids, no subject, no headers, no body: the payload behind this
+    // service is site coordinates attached to a named person.
+    console.log(
+      JSON.stringify({
+        route: routeTemplate(url, request.method),
+        status: response.status,
+        error: response.headers.get('x-error-code') ?? undefined,
+        durationMs: Date.now() - started,
+      }),
+    );
+    return response;
   },
 } satisfies ExportedHandler<Env>;

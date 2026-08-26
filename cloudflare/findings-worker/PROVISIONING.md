@@ -155,6 +155,44 @@ Resolve with `op read` at runtime and feed it through `wrangler secret put --env
 as `ios/asc.env.template` does for App Store Connect. It is a **development** instance key: it must
 never reach a production environment, and never a committed file.
 
+## Clerk webhook (AIA-728)
+
+The findings Worker takes Clerk's `user.deleted` as the backstop for deletions that never go through
+the app. Add the endpoint in the Clerk dashboard (Webhooks → add endpoint,
+`https://<worker>/v1/webhooks/clerk`, subscribed to `user.deleted`), then put its signing secret
+where the Worker can read it:
+
+Clerk generates the secret; you never invent one. Copy it from the endpoint's **Signing Secret**
+(`whsec_…`), keep it on the same 1Password item as the rest of the Clerk credentials, and pipe it
+straight in — **from this directory**, or wrangler has no configuration file and therefore no Worker
+name:
+
+```sh
+cd cloudflare/findings-worker
+op read "op://Personal/ML Browser API Key Clerk/webhook signing secret" \
+  | npx wrangler secret put CLERK_WEBHOOK_SECRET --env staging
+
+npx wrangler secret list --env staging   # names only; the value never comes back
+```
+
+**Where it lives, and where it does not.** Cloudflare is the only place the deployed Worker reads it
+from. 1Password is the human source of truth, so it can be re-provisioned without regenerating it in
+Clerk. `.dev.vars` (untracked) holds it only if you want to exercise the webhook locally under
+`wrangler dev`. It never belongs in a committed file, and it is **not** an app secret: nothing in
+the iOS bundle should carry a credential that would let it forge deletion webhooks.
+
+Per environment, and **never** `--env production` for a development instance's secret — Clerk's
+development and production instances are separate instances with separate endpoints and separate
+secrets, and the pairing has to hold:
+
+| Clerk instance | Worker environment | When |
+|-|-|-|
+| `advanced-tetra-5` (development) | `--env staging` | now |
+| production | `--env production` | when the production Worker is first deployed, alongside its real issuer and JWKS |
+
+Without the secret the webhook route answers `503` and refuses everything. It fails closed, so a
+missing secret costs the backstop, never the data.
+
 ## The free tier is per ACCOUNT, not per bucket
 
 Staging and production draw from **one shared allowance** — 10 GB-month storage, 1M Class A, 10M

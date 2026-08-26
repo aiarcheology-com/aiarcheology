@@ -31,6 +31,8 @@ All paths need `Authorization: Bearer <clerk session token>` except `/health`. E
 | `PUT /v1/findings/:id/image` | stores the image. Writes no index row. |
 | `PUT /v1/findings/:id/meta` | stores the metadata, **then** commits the index row |
 | `DELETE /v1/findings/:id` | tombstones the finding and frees its bytes |
+| `DELETE /v1/me/data` | erases everything this account has stored |
+| `POST /v1/webhooks/clerk` | svix-verified; runs the same purge on `user.deleted` |
 
 Errors are `{"error":{"code","message","retryable"}}`. **`code` is the normative key** — a client's
 state machine should branch on it — and `retryable` is the coarse summary derived from it, which the
@@ -46,6 +48,7 @@ outbox uses to decide between backing off and parking.
 | `payload_too_large` | 413 | terminal |
 | `bad_request` | 400 | terminal |
 | `not_found` | 404 | terminal — also the answer for another user's finding, deliberately |
+| `account_deleting` | 410 | terminal — the account is being erased; there is nowhere for this to go |
 
 `meta.json` is stored and returned verbatim; the Worker checks only that it parses and fits the cap.
 Its schema belongs to the client, and keeping the server incurious about it means site coordinates
@@ -76,6 +79,28 @@ simultaneous 16 MB uploads ever appear.
 size record doesn't makes the next retry compute its delta against a stale size and add the bytes
 again — permanently, account-wide, with nothing to reconcile it.
 
+## Erasing an account
+
+**Purge here, verify it finished, and only then delete the Clerk user.** The other order destroys
+the session token, and that token is the only credential that can name this user's objects — they
+would sit in the bucket for ever with nothing able to reach them. A purge that did not finish
+answers retryably and the caller must not proceed.
+
+Setting the fence (`user_state.deleting`) is the first thing the purge does, and it is never
+cleared: Clerk does not reuse user ids, so there is nothing an un-fence would be for. The fence is a
+predicate **inside** the write statements, not a check before them — a check that runs first is a
+race the purge wins, and the write commits behind the deletion with nothing left to clean it up.
+
+Keeping the fence row is also what makes the endpoint idempotent, which matters more than it sounds:
+`user.delete()` fires Clerk's `user.deleted` webhook, so an in-app deletion normally runs the purge
+twice at once. The D1 half is a single `db.batch()` with the global decrement computed in SQL,
+because reading the counter and writing it back would double-decrement on exactly that race.
+
+The webhook is the backstop for deletions that never touch the app — the Clerk dashboard, or support
+acting on a request. A verified event it does not handle is **acknowledged, not refused**: a non-2xx
+makes svix retry indefinitely and can get the endpoint disabled, which would remove the backstop
+silently.
+
 ## Known gaps, written down rather than discovered later
 
 - **Orphan bytes are charged but cannot be listed.** An image uploaded whose metadata never commits
@@ -91,6 +116,12 @@ again — permanently, account-wide, with nothing to reconcile it.
 - **The staging expiry rule deletes R2 objects without touching D1**, so a forgotten test run can
   leave index rows pointing at objects that are gone. Teardown is the mechanism; the rule is the
   backstop for a crashed run.
+- **A purge that keeps failing has no automatic retry after the Clerk user is gone.** svix's retry
+  schedule is finite, and after it the only actor left is a human. A scheduled sweep over fences
+  that never completed is the next step, and is not built here.
+- **D1 Time Travel retains purged rows for about 30 days**, and the fence row keeps a Clerk user id
+  after erasure. Both belong in the retention record rather than behind a claim of instantaneous
+  complete erasure.
 - **A stale check and the write that follows it are not one atomic step.** Immutable, revision-scoped
   keys would close it; at one-user-per-account that has not been worth the complexity.
 
