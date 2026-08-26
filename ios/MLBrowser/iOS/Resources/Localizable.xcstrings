@@ -27872,6 +27872,66 @@
         }
       }
     },
+    "findings.sync.backup.button" : {
+      "comment" : "Always-visible button at the bottom of the findings list that backs findings up to the signed-in account",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back Up My Findings"
+          }
+        }
+      }
+    },
+    "findings.sync.backup.busy" : {
+      "comment" : "Shown on the back-up button while a back-up is running",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backing up…"
+          }
+        }
+      }
+    },
+    "findings.sync.backup.failed" : {
+      "comment" : "Shown when a user-initiated back-up did not finish because of an error",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back-up didn’t finish. It will try again."
+          }
+        }
+      }
+    },
+    "findings.sync.backup.offline" : {
+      "comment" : "Shown when a user-initiated back-up could not run because the device is offline",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No connection. Your findings will go up when you’re back online."
+          }
+        }
+      }
+    },
+    "findings.sync.backup.succeeded" : {
+      "comment" : "Shown when a user-initiated back-up completed and every finding is in the account",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your findings are backed up."
+          }
+        }
+      }
+    },
     "findings.sync.backup.confirm" : {
       "comment" : "Button that agrees to back up findings already on the device to the signed-in account",
       "extractionState" : "manual",

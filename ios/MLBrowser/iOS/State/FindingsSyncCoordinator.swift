@@ -52,6 +52,45 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// than left watching a counter that never moves.
     @Published private(set) var parkedCount = 0
 
+    /// What a user-initiated back-up did.
+    ///
+    /// Only ever set by ``backUpNow()``. The automatic triggers stay silent on purpose -- a cycle
+    /// nobody asked for should not announce itself -- but a button the user pressed has to answer.
+    enum ManualBackupOutcome: Equatable {
+        case succeeded
+        case offline
+        /// The account has no room left. Pressing the button again cannot fix it, so the button says
+        /// what will: remove findings, or export them.
+        case quotaFull
+        case failed
+    }
+
+    /// True while a user-initiated back-up is running, so the button can say so.
+    @Published private(set) var isBackingUp = false
+
+    /// Whether this build has a Worker to talk to at all.
+    ///
+    /// `false` on production until AIA-741 lands, and the back-up button is hidden when it is:
+    /// a button that reports "your findings are backed up" without making a request is a lie about
+    /// the user's data, which is worse than having no button.
+    var isCloudConfigured: Bool {
+        FindingsCloudEndpoint.baseURL(for: ClerkAuthProvider.selectedEnvironment) != nil
+    }
+
+    /// The account is out of room: at least one finding was refused with `quota_exceeded`.
+    ///
+    /// Read from the same value the analytics event keys off, rather than re-derived from
+    /// ``usage`` -- a fraction at 0.999 is not the same claim as "the server refused this".
+    @Published private(set) var isQuotaBlocked = false
+
+    /// The result of the last user-initiated back-up, or `nil` if none has run this session.
+    @Published private(set) var lastManualBackup: ManualBackupOutcome?
+
+    /// Why the last cycle stopped, or `nil` if it finished. Recorded so ``backUpNow()`` can tell
+    /// the user what happened: the automatic path deliberately swallows these, because the next
+    /// trigger resumes from the ledger, but a person who pressed a button is owed an answer.
+    private var lastCycleFailure: Error?
+
     private let authProvider: AuthProviding
     private let analytics: AnalyticsState?
     private let findingRepository: FindingRepository
@@ -87,6 +126,14 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// the ledger. Losing it costs an extra question -- the finding becomes unclaimed and the user
     /// is asked -- which is the safe direction: being asked is harmless, uploading unasked is not.
     private var createdWhileSignedIn: [String: Set<String>] = [:]
+
+    /// Findings the user explicitly asked to back up, waiting for a cycle to claim them.
+    ///
+    /// Handed to the cycle rather than written straight to the ledger, for the same reason
+    /// ``createdWhileSignedIn`` is: a cycle already in flight loaded the ledger before this request
+    /// existed and will save its own copy afterwards, silently restoring the exclusions the user
+    /// just cleared -- putting back the very one-way door AIA-740 removes.
+    private var pendingManualBackup: [String: Set<String>] = [:]
 
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.aiarcheology.findings-sync.path")
@@ -215,6 +262,78 @@ final class FindingsSyncCoordinator: ObservableObject {
         return task
     }
 
+    /// The user pressed "Back up my findings".
+    ///
+    /// This is an explicit yes for everything currently on the device, so it **lifts the account's
+    /// exclusions**. Without it, declining the back-up prompt was a one-way door: the excluded set
+    /// was only ever cleared by accepting a prompt, and a prompt is only raised for findings that
+    /// are not already excluded, so nothing could ever ask again (AIA-740). A button labelled
+    /// "Not Now" that meant "never" was the sharpest part of that.
+    ///
+    /// - Parameter expectedAccount: the account the *user* was looking at when they pressed. It is
+    ///   checked against the provider rather than trusted: `AuthState` lags the provider while a new
+    ///   account is being validated, so a press during a switch could otherwise file one person's
+    ///   findings into the account that just replaced theirs -- the shared-device leak the consent
+    ///   prompt exists to prevent, arriving through the back door.
+    @discardableResult
+    func backUpNow(expectedAccount: String) -> Task<Void, Never>? {
+        guard authProvider.accountIdentifier == expectedAccount else { return nil }
+        guard isCloudConfigured else { return nil }
+
+        isBackingUp = true
+        lastManualBackup = nil
+
+        // Queued for the cycle to apply, never written here: see `pendingManualBackup`.
+        let ids = Set(Finding.selectAll(in: context).map(\.entityId.uuidString))
+        pendingManualBackup[expectedAccount, default: []].formUnion(ids)
+
+        return Task { [weak self] in
+            guard let self else { return }
+            defer { self.isBackingUp = false }
+
+            self.backupConsentRequest = nil
+
+            // `syncNow()` hands back the cycle already running, which may have read its ledger
+            // before this request existed. Wait until a cycle has actually claimed the request, so
+            // the outcome describes the back-up the user asked for rather than one that preceded it.
+            var attempts = 0
+            repeat {
+                attempts += 1
+                await self.syncNow()?.value
+            } while self.pendingManualBackup[expectedAccount] != nil && attempts < 3
+                && self.stillSignedIn(as: expectedAccount)
+
+            guard self.stillSignedIn(as: expectedAccount) else { return }
+            self.lastManualBackup = self.outcomeOfManualBackup()
+        }
+    }
+
+    /// Turns the last cycle into something the button can say.
+    ///
+    /// Offline is checked before the error is inspected, and separately from it: a request that
+    /// failed because there is no network is not a fault, and reporting one to Sentry every time
+    /// somebody presses the button in a valley would spend the error quota on the feature working
+    /// as designed.
+    private func outcomeOfManualBackup() -> ManualBackupOutcome {
+        // Checked before the failure, because running out of room is not a failed cycle: the upload
+        // is refused permanently and parked, and the cycle itself completes.
+        if isQuotaBlocked { return .quotaFull }
+        // Anything else parked was refused permanently too -- `payload_too_large`, `bad_request`.
+        // The cycle completed, but a finding the user asked to back up is not backed up, and saying
+        // "your findings are backed up" would be false.
+        if parkedCount > 0, lastCycleFailure == nil {
+            Observability.captureError("Findings back-up left findings parked")
+            return .failed
+        }
+        guard let failure = lastCycleFailure else { return .succeeded }
+        // Offline is a property of the network, never of the error. Deciding it from the error
+        // instead once reported "no connection" for a malformed response on a working connection --
+        // and, worse, sent nothing to Sentry, so the bug was invisible.
+        if monitor.currentPath.status != .satisfied { return .offline }
+        Observability.captureError("Findings back-up failed", error: failure)
+        return .failed
+    }
+
     /// The user answered the back-up question. Accepting uploads what was waiting; declining
     /// records that decision so the outbox stops re-deriving those findings and asking again.
     @discardableResult
@@ -269,7 +388,14 @@ final class FindingsSyncCoordinator: ObservableObject {
         if let mine = createdWhileSignedIn.removeValue(forKey: account) {
             ledger.owned.formUnion(mine)
         }
+        // An explicit "back up my findings" is a yes for everything it named, so it also lifts any
+        // earlier exclusion on those ids -- that lifting is the whole of AIA-740.
+        if let claimed = pendingManualBackup.removeValue(forKey: account) {
+            ledger.owned.formUnion(claimed)
+            ledger.excluded.subtract(claimed)
+        }
 
+        lastCycleFailure = nil
         do {
             try await push(account: account, store: store, transport: cloud, ledger: &ledger)
             try await pull(account: account, store: store, transport: cloud, ledger: &ledger)
@@ -278,8 +404,10 @@ final class FindingsSyncCoordinator: ObservableObject {
         } catch let error as FindingsCloudError {
             // A cycle that could not finish is not a failure to report at the finding level: the
             // next trigger picks up exactly where the ledger says this one stopped.
+            lastCycleFailure = error
             LoggingPolicy.warning("Findings sync stopped: \(String(describing: error.code ?? "transport"))", logger: .networking)
         } catch {
+            lastCycleFailure = error
             LoggingPolicy.warning("Findings sync stopped: \(error.localizedDescription)", logger: .networking)
         }
 
@@ -302,6 +430,7 @@ final class FindingsSyncCoordinator: ObservableObject {
         // Reported on the way INTO the storage-full state and not again while it lasts, so the
         // number counts users who hit the cap rather than uploads they attempted afterwards.
         let blocked = ledger.parked.values.contains { $0.code == "quota_exceeded" }
+        isQuotaBlocked = blocked
         if blocked != ledger.isReportedQuotaBlocked {
             ledger.isReportedQuotaBlocked = blocked
             if blocked { analytics?.track(.cloudSyncQuotaBlocked) }
