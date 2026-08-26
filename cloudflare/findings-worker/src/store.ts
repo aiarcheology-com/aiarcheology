@@ -283,13 +283,26 @@ export async function commitFinding(
        ON CONFLICT (user_id, id) DO UPDATE SET
          modified_at = excluded.modified_at,
          received_at = excluded.received_at,
-         deleted     = excluded.deleted`,
+         deleted     = excluded.deleted
+       WHERE excluded.modified_at >= finding.modified_at`,
   )
     .bind(userId, findingId, modifiedAt, now, deleted ? 1 : 0)
     .run();
 
   if (committed.meta.changes !== 1) {
-    throw new ApiError('account_deleting', 'This account is being deleted.');
+    // The staleness check the caller ran is a read, and a read cannot hold anything still: a newer
+    // edit or a delete can commit between it and this write. Without the condition above, the
+    // older request's `ON CONFLICT` wrote its timestamp back as live -- losing the newer version,
+    // and resurrecting a finding the user had deleted (AIA-751). Equal timestamps still apply, so
+    // an idempotent retry is unaffected.
+    if (await isDeleting(env, userId)) {
+      throw new ApiError('account_deleting', 'This account is being deleted.');
+    }
+    const winner = await findingRow(env, userId, findingId);
+    if (winner !== null) {
+      throw new ApiError('stale', 'A newer version of this finding is already stored.', { winner });
+    }
+    throw new ApiError('internal', 'The finding could not be committed.');
   }
 
   const stored = await findingRow(env, userId, findingId);

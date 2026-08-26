@@ -1,6 +1,7 @@
-import { SELF } from 'cloudflare:test';
+import { SELF, env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { auth, bytes, tokenFor } from './helpers';
+import { commitFinding } from '../../src/store';
 
 const BASE = 'https://worker.test';
 
@@ -321,5 +322,42 @@ describe('deletion', () => {
       headers: auth(token),
     });
     expect(response.status).toBe(409);
+  });
+});
+
+describe('a write that was already stale when it arrived', () => {
+  it('cannot resurrect a finding that was deleted after its staleness check passed', async () => {
+    // The check is a read, and a read holds nothing still. `commitFinding` is called directly here
+    // because that is precisely what the race produces: a request whose check passed, then paused,
+    // then resumed behind a newer write. Driving it through the route would only re-run the check.
+    const user = nextUser();
+    const token = await tokenFor(user);
+    const id = findingId('90');
+    const early = Date.now();
+
+    expect((await putMeta(token, id, early)).status).toBe(200);
+    const removed = await SELF.fetch(`${BASE}/v1/findings/${id}?modifiedAt=${early + 500}`, {
+      method: 'DELETE',
+      headers: auth(token),
+    });
+    expect(removed.status).toBe(200);
+
+    await expect(commitFinding(env, user, id, early, false, Date.now())).rejects.toMatchObject({
+      code: 'stale',
+    });
+
+    const listed = await SELF.fetch(`${BASE}/v1/findings?cursor=0`, { headers: auth(token) });
+    const page = (await listed.json()) as { findings: { id: string; deleted: boolean }[] };
+    expect(page.findings.find((row) => row.id === id)?.deleted).toBe(true);
+  });
+
+  it('still accepts the identical timestamp an outbox retry replays', async () => {
+    const user = nextUser();
+    const token = await tokenFor(user);
+    const id = findingId('91');
+    const at = Date.now();
+    expect((await putMeta(token, id, at)).status).toBe(200);
+    const again = await commitFinding(env, user, id, at, false, Date.now());
+    expect(again.modifiedAt).toBe(at);
   });
 });
