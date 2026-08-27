@@ -574,7 +574,21 @@ private struct CropAdjustableSnapshot: View {
 		// `onAppear` alone is not enough: it can fire inside the `GeometryReader` before a size has
 		// settled, and at zero size there is nothing to frame against.
 		.onChange(of: fitted) { _, newFitted in
-			frameOnDetectionIfNeeded(fitted: newFitted)
+			let newCover = newFitted.coverSize(for: image.size)
+			guard didFrame else {
+				frameOnDetectionIfNeeded(fitted: newFitted)
+				return
+			}
+			// Already framed, and the geometry moved under it — a rotation, or an iPad window
+			// resize. The published crop is what `croppedCapture()` bakes into the stored image, so
+			// it has to describe the window as it is NOW. Re-clamping matters as much as
+			// re-publishing: the render path clamps `shownOffset` for display, but the stored
+			// `offset` keeps its pre-rotation value, so without this Save persists the window from
+			// before the turn. Harmless before AIA-0757, when the default was zoom 1 and
+			// `croppedCapture()`'s full-rect guard skipped cropping entirely; auto-framing makes
+			// zoom > 1 the default for every save.
+			offset = clampOffset(offset, scale: zoom, cover: newCover, fitted: newFitted)
+			publishCrop(fitted: newFitted, cover: newCover)
 		}
 
 		// Pan only engages once zoomed in — at scale 1 a drag on the image

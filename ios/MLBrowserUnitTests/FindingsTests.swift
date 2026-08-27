@@ -389,6 +389,30 @@ final class FindingCropMathTests: XCTestCase {
         XCTAssertLessThanOrEqual(crop.maxY, 1.001)
     }
 
+    /// The normal case, and the one every other framing test misses: a page snapshot is taller than
+    /// the viewport, so the covered image overflows one axis and `cover != fitted`.
+    func testInitialFraming_AspectMismatch_StillContainsTheBox() {
+        // Viewport 400x200; a page snapshot covered to 400x800 overflows the height fourfold.
+        let cover = CGSize(width: 400, height: 800)
+        let visionBox = CGRect(x: 0.4, y: 0.45, width: 0.08, height: 0.05)
+        let framing = FindingCapture.initialFraming(
+            box: visionBox, cover: cover, fitted: fitted,
+            contextScale: Self.contextScale, zoomRange: Self.zoomRange
+        )
+        let crop = FindingCapture.cropRect(
+            scale: framing.scale, offset: framing.offset, fitted: fitted, cover: cover
+        )
+        let topLeftBox = CGRect(
+            x: visionBox.minX, y: 1 - visionBox.maxY,
+            width: visionBox.width, height: visionBox.height
+        )
+        XCTAssertTrue(crop.contains(topLeftBox), "framed window \(crop) missed the detection \(topLeftBox)")
+        XCTAssertGreaterThanOrEqual(crop.minX, -0.001)
+        XCTAssertGreaterThanOrEqual(crop.minY, -0.001)
+        XCTAssertLessThanOrEqual(crop.maxX, 1.001)
+        XCTAssertLessThanOrEqual(crop.maxY, 1.001)
+    }
+
     /// Degenerate inputs must fall back to the whole image rather than produce an invalid crop —
     /// an empty stored box fails persistence validation, and a fabricated one would lie.
     func testInitialFraming_DegenerateInputs_FallBackToWholeImage() {
