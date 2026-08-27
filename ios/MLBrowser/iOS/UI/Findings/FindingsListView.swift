@@ -644,8 +644,11 @@ private struct FindingDetailView: View {
 
 	var body: some View {
 		List {
-			snapshotSection
+			// Title first, matching the save sheet (AIA-0757 E2). It is the finding's name, and the
+			// name belongs above the picture in both places — reading one form and editing the other
+			// should not mean hunting for the same field in a different position.
 			titleSection
+			snapshotSection
 			labelSection
 			noteSection
 			authorSection
