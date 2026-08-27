@@ -323,6 +323,196 @@ final class AuthStateTests: XCTestCase {
 		await refresh.value
 		XCTAssertEqual(sut.accountIdentifier, Self.accountB)
 	}
+
+	// MARK: - Reconnecting (AIA-0757)
+
+	/// A delay long enough that the post-reconnect retry can never fire inside a test. The retry is
+	/// real behaviour, but every assertion below is about the *first* attempt.
+	private static let neverFires: Duration = .seconds(600)
+
+	/// The reported bug, end to end. A cold launch with no signal leaves `.offline` **and no account
+	/// identifier** — which is what empties the back-up section in Settings, since that section is
+	/// gated on exactly this value. Before AIA-0757 nothing re-asked while the app stayed foregrounded.
+	func testReconnect_AfterColdOfflineLaunch_RecoversTheAccountAndTheGate() async {
+		let provider = CountingAuthProvider(outcome: .offline, accountID: Self.accountA)
+		let connectivity = FakeConnectivityMonitor()
+		let sut = AuthState(provider: provider, connectivity: connectivity, reconnectRetryDelay: Self.neverFires)
+
+		await sut.start()
+		XCTAssertEqual(sut.gate, .offline)
+		XCTAssertNil(sut.accountIdentifier, "the state that hides the back-up toggle")
+
+		provider.outcome = .ready
+		await connectivity.simulateReconnect()
+
+		XCTAssertEqual(sut.gate, .ready)
+		XCTAssertEqual(sut.accountIdentifier, Self.accountA)
+	}
+
+	/// The guard that stops a flapping connection becoming a request storm: once a pass has landed on
+	/// a terminal answer, later reconnections cost nothing.
+	func testReconnect_WhenAlreadyReady_MakesNoFurtherRoundTrip() async {
+		let provider = CountingAuthProvider(outcome: .ready, accountID: Self.accountA)
+		let connectivity = FakeConnectivityMonitor()
+		let sut = AuthState(provider: provider, connectivity: connectivity, reconnectRetryDelay: Self.neverFires)
+
+		await sut.start()
+		XCTAssertEqual(sut.gate, .ready)
+		let afterStart = provider.validationCount
+
+		await connectivity.simulateReconnect()
+		await connectivity.simulateReconnect()
+
+		XCTAssertEqual(provider.validationCount, afterStart, "a reconnect re-validated an already-ready gate")
+	}
+
+	/// `.signedOut` is a decision, not an outage: `ClerkAuthProvider` routes a *rejected* session
+	/// there. Re-validating it because the network came back would second-guess a revocation.
+	func testReconnect_WhenSignedOut_DoesNothing() async {
+		let provider = CountingAuthProvider(outcome: .signedOut, accountID: nil)
+		let connectivity = FakeConnectivityMonitor()
+		let sut = AuthState(provider: provider, connectivity: connectivity, reconnectRetryDelay: Self.neverFires)
+
+		await sut.start()
+		XCTAssertEqual(sut.gate, .signedOut)
+		let afterStart = provider.validationCount
+
+		await connectivity.simulateReconnect()
+
+		XCTAssertEqual(sut.gate, .signedOut)
+		XCTAssertEqual(provider.validationCount, afterStart)
+	}
+
+	/// Before `start()` resolves anything the gate is `.checkingSession`, and a reconnect must not
+	/// race a pass that is already on its way.
+	func testRefreshIfOffline_WhileCheckingSession_DoesNothing() async {
+		let provider = CountingAuthProvider(outcome: .ready, accountID: Self.accountA)
+		let sut = AuthState(provider: provider)
+		XCTAssertEqual(sut.gate, .checkingSession)
+
+		await sut.refreshIfOffline()
+
+		XCTAssertEqual(sut.gate, .checkingSession)
+		XCTAssertEqual(provider.validationCount, 0)
+	}
+
+	/// An interface coming up is not the server answering. One failed reconnect must cost exactly one
+	/// round-trip and leave the gate where it was — not spin.
+	func testReconnect_WhileStillUnreachable_CostsOneRoundTripAndStaysOffline() async {
+		let provider = CountingAuthProvider(outcome: .offline, accountID: Self.accountA)
+		let connectivity = FakeConnectivityMonitor()
+		let sut = AuthState(provider: provider, connectivity: connectivity, reconnectRetryDelay: Self.neverFires)
+
+		await sut.start()
+		let afterStart = provider.validationCount
+
+		await connectivity.simulateReconnect()
+
+		XCTAssertEqual(sut.gate, .offline)
+		XCTAssertEqual(provider.validationCount, afterStart + 1)
+	}
+
+	/// `.task { start() }` mounts once per **scene**, not once per app, and iPad can run several over
+	/// one `AppState`. `NWPathMonitor.start(queue:)` traps on a monitor that is already running, so
+	/// the claim has to be made before `start()`'s first suspension.
+	func testStart_CalledTwice_StartsTheMonitorOnce() async {
+		let connectivity = FakeConnectivityMonitor()
+		let sut = AuthState(
+			provider: CountingAuthProvider(outcome: .ready, accountID: Self.accountA),
+			connectivity: connectivity,
+			reconnectRetryDelay: Self.neverFires
+		)
+
+		async let first: Void = sut.start()
+		async let second: Void = sut.start()
+		_ = await (first, second)
+
+		XCTAssertEqual(connectivity.startCount, 1)
+	}
+
+	// MARK: - Edge detection (AIA-0757)
+
+	/// The first report describes the state the app launched in. Calling it a reconnection would fire
+	/// a redundant refresh on every cold launch that already had signal.
+	func testEdgeDetector_FirstSatisfiedReport_IsNotAReconnection() {
+		var detector = ConnectivityEdgeDetector()
+		XCTAssertFalse(detector.isReconnection(isSatisfied: true))
+	}
+
+	func testEdgeDetector_RepeatedSatisfiedReports_AreNotReconnections() {
+		var detector = ConnectivityEdgeDetector()
+		_ = detector.isReconnection(isSatisfied: true)
+		XCTAssertFalse(detector.isReconnection(isSatisfied: true))
+		XCTAssertFalse(detector.isReconnection(isSatisfied: true))
+	}
+
+	func testEdgeDetector_UnsatisfiedThenSatisfied_IsAReconnection() {
+		var detector = ConnectivityEdgeDetector()
+		_ = detector.isReconnection(isSatisfied: true)
+		XCTAssertFalse(detector.isReconnection(isSatisfied: false))
+		XCTAssertTrue(detector.isReconnection(isSatisfied: true))
+	}
+
+	/// A cold launch in airplane mode: the first report is unsatisfied, and the first satisfied one
+	/// after it is the reconnection this whole ticket is about.
+	func testEdgeDetector_ColdOfflineLaunchThenSignal_IsAReconnection() {
+		var detector = ConnectivityEdgeDetector()
+		XCTAssertFalse(detector.isReconnection(isSatisfied: false))
+		XCTAssertTrue(detector.isReconnection(isSatisfied: true))
+	}
+}
+
+/// A ``ConnectivityMonitoring`` the test drives by hand. The production monitor cannot be asked for
+/// "the network came back", which is the whole reason the boundary exists.
+@MainActor
+private final class FakeConnectivityMonitor: ConnectivityMonitoring {
+	private(set) var startCount = 0
+	private var onReconnect: (@MainActor () async -> Void)?
+
+	func start(onReconnect: @escaping @MainActor () async -> Void) {
+		startCount += 1
+		self.onReconnect = onReconnect
+	}
+
+	/// Fires the reconnection and awaits the work it starts, so assertions never race it.
+	func simulateReconnect() async {
+		await onReconnect?()
+	}
+}
+
+/// `MockAuthProvider` with a round-trip counter and a settable outcome, so a test can assert that a
+/// reconnect cost exactly the validations it should have.
+@MainActor
+private final class CountingAuthProvider: AuthProviding {
+	enum Outcome { case ready, signedOut, offline }
+
+	var outcome: Outcome
+	private let accountID: String?
+	private(set) var validationCount = 0
+
+	init(outcome: Outcome, accountID: String?) {
+		self.outcome = outcome
+		self.accountID = accountID
+	}
+
+	var isSignedIn: Bool { outcome != .signedOut }
+	var accountIdentifier: String? { outcome == .signedOut ? nil : accountID }
+	var displayName: String? { outcome == .signedOut ? nil : "Counting Finder" }
+
+	func prepare() async {}
+
+	func validateSession() async throws {
+		validationCount += 1
+		switch outcome {
+		case .ready: return
+		case .offline: throw AuthValidationError.offline
+		case .signedOut: throw AuthValidationError.noValidSession
+		}
+	}
+
+	func sessionToken() async throws -> String? { isSignedIn ? "counting.session.token" : nil }
+	func signOut() async { outcome = .signedOut }
+	func deleteAccount() async throws { outcome = .signedOut }
 }
 
 /// An ``AuthProviding`` whose `validateSession()` can be suspended and resumed by the test, so the

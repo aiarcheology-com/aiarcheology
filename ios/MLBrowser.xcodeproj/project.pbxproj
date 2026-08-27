@@ -270,6 +270,7 @@
 		A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */; };
 		A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */; };
 		A1BFBE0657B9A36E1EE3DAAF /* AuthState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5EE5947359591A0BACE0F5 /* AuthState.swift */; };
+		AC0757B0000000000000BAF /* ConnectivityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0757A0000000000000AAF /* ConnectivityMonitor.swift */; };
 		A2626498A89E13F4C7906CF5 /* AccountSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FF6A50AC2646F384CFCDAAB /* AccountSession.swift */; };
 		A35000000000000000000002 /* TelemetryDeckAnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35000000000000000000001 /* TelemetryDeckAnalyticsService.swift */; };
 		A35000000000000000000004 /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = A35000000000000000000003 /* TelemetryDeck */; };
@@ -446,6 +447,7 @@
 		791D69ED93234CE31F8C8636 /* TourTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourTarget.swift; sourceTree = "<group>"; };
 		7CBFB4DBA150A11E6A85D783 /* ModelTypeBackfiller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModelTypeBackfiller.swift; sourceTree = "<group>"; };
 		7F5EE5947359591A0BACE0F5 /* AuthState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthState.swift; sourceTree = "<group>"; };
+		AC0757A0000000000000AAF /* ConnectivityMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectivityMonitor.swift; sourceTree = "<group>"; };
 		86D0C80027004283842AFBDF /* ClassificationDemoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClassificationDemoUITests.swift; sourceTree = "<group>"; };
 		885E22610F638752785ADEBB /* SnapshotRenderingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SnapshotRenderingTests.swift; sourceTree = "<group>"; };
 		8A112CB82ABDE0BB00786384 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
@@ -1049,6 +1051,7 @@
 				8A4256DD2B1D3090009153B1 /* WebCacheCleaner.swift */,
 				8AC650AA2B2B4CCB00922648 /* WebHistory.swift */,
 				7F5EE5947359591A0BACE0F5 /* AuthState.swift */,
+				AC0757A0000000000000AAF /* ConnectivityMonitor.swift */,
 				FE763C674E423AFA68061960 /* ClerkAuthProvider.swift */,
 				9214C9A3D785728F7E4CF911 /* FeatureFlags.swift */,
 				A35000000000000000000100 /* ReviewPrompt.swift */,
@@ -2138,6 +2141,7 @@
 				940A10082F0500020000A008 /* L10n.swift in Sources */,
 				940A100C2F0600010000A00C /* L10n+SwiftUI.swift in Sources */,
 				A1BFBE0657B9A36E1EE3DAAF /* AuthState.swift in Sources */,
+				AC0757B0000000000000BAF /* ConnectivityMonitor.swift in Sources */,
 				15A2A9B169BF17E5F22D64B3 /* ClerkAuthProvider.swift in Sources */,
 				8B15D3F02C69A47E1D53B8C0 /* SignInSheet.swift in Sources */,
 				7A31E96C4D82B05F9E63A1C8 /* ClerkTheme+App.swift in Sources */,
