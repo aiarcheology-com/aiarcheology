@@ -465,7 +465,9 @@ struct DrawerContent: View {
     }
     
     private var configurationsSection: some View {
-        Section(L10n.Models.Available.title) {
+        // Resolved once for the whole section: every row asks whether *it* is the pulsed one.
+        let pulsedModelID = tourPulsedModelObjectID
+        return Section(L10n.Models.Available.title) {
             // Use objectID for identity - it's always valid even for deleted objects.
             // Using entityId crashes when Core Data nullifies it during deletion.
             ForEach(configurations, id: \.objectID) { configuration in
@@ -474,6 +476,7 @@ struct DrawerContent: View {
                 ConfigurationRow(
                     configuration: configuration,
                     tour: tour,
+                    pulsesToggle: configuration.objectID == pulsedModelID,
                     onTap: {
                         selectedConfigurationId = entityId
                     },
@@ -484,7 +487,19 @@ struct DrawerContent: View {
             }
         }
     }
-    
+
+    /// The single model row whose switch pulses during the tour's "switch a model on" step
+    /// (AIA-0757 A4), or `nil` on every other step. `ConfigurationRow` is built for *every*
+    /// configuration — imported and invalid ones included — so a plain "is this the enable step?"
+    /// test would pulse every switch in the list while only one of them is the model the step
+    /// actually turns on. Asks `demoModelTheTourWillEnable(among:)`, the same function that
+    /// performs the flip, so the two can't disagree. `configurations` is already the ready-only
+    /// fetch, which that predicate re-checks anyway.
+    private var tourPulsedModelObjectID: NSManagedObjectID? {
+        guard tour.isActive, tour.currentStep?.id == .enableModelToggle else { return nil }
+        return demoModelTheTourWillEnable(among: configurations)?.objectID
+    }
+
     // MARK: - Toolbar
     
     @ToolbarContentBuilder
@@ -520,23 +535,36 @@ struct DrawerContent: View {
 
 // MARK: - Tour enable action
 
+/// The models the tour's enable step is allowed to touch: seeded demos that finished downloading.
+private func readyDemoModels<S: Sequence>(among configurations: S) -> [DeepConfiguration]
+where S.Element == DeepConfiguration {
+    configurations.filter { $0.demo && $0.lifeCycleString == CoreDataManageableState.ready.rawValue }
+}
+
+/// The one model `enableFirstReadyDemoModel(in:)` will flip: the newest ready demo still switched
+/// off. Newest-first matches the list's sort order, so it is the top eligible row.
+///
+/// Factored out rather than restated because two callers need the *same* answer (AIA-0757 A4):
+/// this function performs the flip, and the drawer list pulses the switch it will flip. A second
+/// copy of the predicate could drift and leave the app pulsing one model while tapping the
+/// spotlight turns on another.
+private func demoModelTheTourWillEnable<S: Sequence>(among configurations: S) -> DeepConfiguration?
+where S.Element == DeepConfiguration {
+    readyDemoModels(among: configurations)
+        .filter { $0.enabled == false }
+        .max(by: { ($0.creationDate_ ?? .distantPast) < ($1.creationDate_ ?? .distantPast) })
+}
+
 /// Ensures a demo model is enabled for the onboarding tour's overlay-driven enable step
 /// (AIA-0333). Returns `true` if a demo model is enabled afterwards — including the **Replay**
 /// case where one is already on (so the step isn't stuck), and only `false` when there are no
 /// ready demo models at all or the save fails.
 private func enableFirstReadyDemoModel(in context: NSManagedObjectContext) -> Bool {
-    let demos = DeepConfiguration.selectAll(in: context)
-        .filter { $0.demo && $0.lifeCycleString == CoreDataManageableState.ready.rawValue }
-    guard demos.isEmpty == false else { return false }
+    let all = DeepConfiguration.selectAll(in: context)
+    guard readyDemoModels(among: all).isEmpty == false else { return false }
 
-    // Newest-first (matching the list) so it flips the top, spotlighted row. If they're all
-    // already enabled (Replay), the step's goal already holds — proceed.
-    guard let target = demos
-        .filter({ $0.enabled == false })
-        .max(by: { ($0.creationDate_ ?? .distantPast) < ($1.creationDate_ ?? .distantPast) })
-    else {
-        return true
-    }
+    // If they're all already enabled (Replay), the step's goal already holds — proceed.
+    guard let target = demoModelTheTourWillEnable(among: all) else { return true }
     target.enabled = true
     do {
         try DeepConfiguration.save(in: context)
@@ -557,6 +585,10 @@ private struct ConfigurationRow: View {
     @ObservedObject var configuration: DeepConfiguration
     /// The tour engine, poked when a demo model is enabled during the enable-model step (AIA-0333).
     var tour: TourState?
+    /// True for the one row the tour's enable step will switch on — see
+    /// `DrawerContent.tourPulsedModelObjectID`. Passed down rather than derived here: this row can
+    /// only see itself, and the step targets exactly one model out of the whole list.
+    var pulsesToggle: Bool = false
     let onTap: () -> Void
     let onDelete: () -> Void
 
@@ -626,6 +658,16 @@ private struct ConfigurationRow: View {
             // A Disabled (undetermined-type) model can't run — block enabling it until the user
             // picks a type in the config form (AIA-0402).
             .disabled(configuration.modelType == .invalid)
+            // AIA-0757 A4: on the "switch a model on" tour step, ring this switch so it's obvious
+            // it is meant to be turned on. Non-hit-testing decoration (see `TourPulse`), so the
+            // switch underneath stays tappable — the tour's pass-through enable path depends on it.
+            .overlay {
+                if pulsesToggle {
+                    TourPulse(cornerRadius: 20)
+                        // Negative padding grows the ring outward, clear of the switch itself.
+                        .padding(-5)
+                }
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
