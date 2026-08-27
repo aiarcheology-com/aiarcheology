@@ -198,9 +198,16 @@ final class AuthState: ObservableObject {
     /// both reach `NWPathMonitor.start(queue:)`, which traps on an already-started monitor.
     private var didStartConnectivityMonitor = false
 
-    /// The single outstanding "try again shortly" after a reconnect that did not recover the gate.
-    /// Held so a second reconnect replaces it rather than stacking another one.
+    /// The single outstanding "try again shortly" after a refresh that landed `.offline`.
+    /// Held so a later one replaces it rather than stacking another.
     private var reconnectRetry: Task<Void, Never>?
+
+    /// Whether the current offline spell has already spent its automatic retry.
+    ///
+    /// This is what keeps "an offline outcome arms a retry" from becoming a refresh every few
+    /// seconds for as long as the device has no signal. Cleared by a settled gate and by a genuine
+    /// path change — a real network event has earned a fresh attempt.
+    private var didAutoRetryWhileOffline = false
 
     /// How long to wait before the one retry that follows a failed reconnect refresh.
     ///
@@ -247,18 +254,15 @@ final class AuthState: ObservableObject {
         await refresh()
     }
 
-    /// One reconnect: refresh, and if the gate is still `.offline`, arm a single delayed retry.
+    /// A real path change: spend a fresh retry allowance, then re-evaluate.
+    ///
+    /// The allowance is cleared *before* awaiting, so a reconnect always earns an attempt even if
+    /// the previous offline spell had already spent one. Arming the retry itself is left to
+    /// ``settleOfflineRetry()``, which every refresh runs — so two reconnects racing cannot leave
+    /// two live retry tasks behind, only the one that function keeps.
     private func handleReconnect() async {
-        reconnectRetry?.cancel()
-        reconnectRetry = nil
+        didAutoRetryWhileOffline = false
         await refreshIfOffline()
-        guard gate == .offline else { return }
-        let delay = reconnectRetryDelay
-        reconnectRetry = Task { [weak self] in
-            try? await Task.sleep(for: delay)
-            guard Task.isCancelled == false else { return }
-            await self?.refreshIfOffline()
-        }
     }
 
     /// Re-evaluate the gate. Safe to call on launch and on every foreground.
@@ -275,6 +279,41 @@ final class AuthState: ObservableObject {
             refreshPending = false
             await evaluateGate()
         } while refreshPending
+        settleOfflineRetry()
+    }
+
+    /// One rule, applied to the *outcome* of every refresh: if it ended `.offline`, try once more
+    /// shortly; otherwise stand down (AIA-0757).
+    ///
+    /// Anchoring on the outcome rather than on the connectivity event is what makes this cover the
+    /// cases a reconnect handler alone cannot see, each of which reproduced the very bug this
+    /// ticket fixes:
+    /// - a path becoming satisfied while the gate is still `.checkingSession`, where
+    ///   ``refreshIfOffline()`` correctly does nothing and the in-flight pass then lands `.offline`
+    ///   with no later edge coming, because the path is already satisfied;
+    /// - the foreground refresh firing before networking has settled after a resume;
+    /// - a captive portal or cold DNS answering the first attempt and not the second.
+    private func settleOfflineRetry() {
+        guard gate == .offline else {
+            // A terminal answer: nothing left to retry, and the next offline spell starts fresh.
+            reconnectRetry?.cancel()
+            reconnectRetry = nil
+            didAutoRetryWhileOffline = false
+            return
+        }
+        guard didAutoRetryWhileOffline == false else { return }
+        didAutoRetryWhileOffline = true
+        scheduleOfflineRetry()
+    }
+
+    private func scheduleOfflineRetry() {
+        reconnectRetry?.cancel()
+        let delay = reconnectRetryDelay
+        reconnectRetry = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard Task.isCancelled == false else { return }
+            await self?.refreshIfOffline()
+        }
     }
 
     private func evaluateGate() async {

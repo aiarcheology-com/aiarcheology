@@ -383,6 +383,65 @@ final class AuthStateTests: XCTestCase {
 		XCTAssertEqual(provider.validationCount, afterStart)
 	}
 
+	/// The blocker both pre-PR reviews found, pinned.
+	///
+	/// A path can become satisfied while the cold-launch pass is still in flight. `refreshIfOffline`
+	/// correctly does nothing then — the gate is `.checkingSession`, not `.offline` — and because the
+	/// path is now satisfied, no later unsatisfied-to-satisfied edge is coming. If the retry were
+	/// armed only by the reconnect handler, that pass landing `.offline` would strand the gate
+	/// exactly as AIA-0757 describes. The retry is armed by the *outcome* instead, so it is armed
+	/// here, and firing it recovers.
+	func testColdOfflineLaunch_ArmsARetryEvenWhenTheReconnectArrivedTooEarly() async {
+		let provider = CountingAuthProvider(outcome: .offline, accountID: Self.accountA)
+		let connectivity = FakeConnectivityMonitor()
+		// Short enough to actually fire inside the test — this one is about the retry, not about
+		// keeping it out of the way.
+		let sut = AuthState(provider: provider, connectivity: connectivity, reconnectRetryDelay: .milliseconds(20))
+
+		// The reconnect lands while the gate is still `.checkingSession`, and is correctly ignored.
+		await connectivity.simulateReconnect()
+		await sut.start()
+		XCTAssertEqual(sut.gate, .offline)
+		XCTAssertNil(sut.accountIdentifier)
+
+		// The network is genuinely back by the time the armed retry runs.
+		provider.outcome = .ready
+		try? await Task.sleep(for: .milliseconds(300))
+
+		XCTAssertEqual(sut.gate, .ready, "the retry armed by the offline outcome never recovered the gate")
+		XCTAssertEqual(sut.accountIdentifier, Self.accountA)
+	}
+
+	/// The retry is spent once per offline spell, so a device with no signal is not re-validated
+	/// every few seconds for as long as it stays that way.
+	func testOfflineRetry_IsSpentOncePerOfflineSpell() async {
+		let provider = CountingAuthProvider(outcome: .offline, accountID: Self.accountA)
+		let sut = AuthState(provider: provider, reconnectRetryDelay: .milliseconds(20))
+
+		await sut.start()
+		try? await Task.sleep(for: .milliseconds(300))
+
+		// One from `start()`, one from its single armed retry. Anything more is a poll.
+		XCTAssertEqual(provider.validationCount, 2)
+	}
+
+	/// A real path change earns a fresh attempt even after the spell's automatic one was spent.
+	func testReconnect_AfterTheAutomaticRetryWasSpent_StillRefreshes() async {
+		let provider = CountingAuthProvider(outcome: .offline, accountID: Self.accountA)
+		let connectivity = FakeConnectivityMonitor()
+		let sut = AuthState(provider: provider, connectivity: connectivity, reconnectRetryDelay: .milliseconds(20))
+
+		await sut.start()
+		try? await Task.sleep(for: .milliseconds(300))
+		let afterRetry = provider.validationCount
+
+		provider.outcome = .ready
+		await connectivity.simulateReconnect()
+
+		XCTAssertGreaterThan(provider.validationCount, afterRetry)
+		XCTAssertEqual(sut.gate, .ready)
+	}
+
 	/// Before `start()` resolves anything the gate is `.checkingSession`, and a reconnect must not
 	/// race a pass that is already on its way.
 	func testRefreshIfOffline_WhileCheckingSession_DoesNothing() async {

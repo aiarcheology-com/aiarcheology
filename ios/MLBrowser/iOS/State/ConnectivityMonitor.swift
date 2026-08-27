@@ -58,10 +58,12 @@ struct ConnectivityEdgeDetector {
 
 /// The production monitor, wrapping `NWPathMonitor`.
 ///
-/// **Never constructed by a test.** `AuthState` takes its monitor as an optional injected
-/// dependency with no production default precisely so the ~23 existing `AuthState(provider:)`
-/// constructions in the unit suite cannot spin up real network monitoring underneath assertions
-/// that count validation round-trips.
+/// **Never started by a test.** `AuthState` takes its monitor as an optional injected dependency
+/// with no production default precisely so the ~23 existing `AuthState(provider:)` constructions in
+/// the unit suite cannot spin up real network monitoring underneath assertions that count
+/// validation round-trips. (`FeatureSessionTests` does *construct* one, by forcing
+/// `AccountSession.authState` — but constructing is inert: nothing observes the network until
+/// ``start(onReconnect:)`` runs, and only `AuthState.start()` calls it.)
 ///
 /// No `cancel()`/`deinit` teardown: the only instance is owned by `AccountSession`, which is owned by
 /// the composition root, so it lives exactly as long as the process. A `stop()` nothing calls would
@@ -74,18 +76,23 @@ final class NWPathConnectivityMonitor: ConnectivityMonitoring {
 	/// Guards `NWPathMonitor.start(queue:)`, which traps when called twice on the same monitor.
 	private var isRunning = false
 
-	private var edges = ConnectivityEdgeDetector()
+	/// Confined to ``queue``, which is the only place it is touched.
+	///
+	/// Deliberately evaluated there rather than on the main actor. Hopping first and deciding after
+	/// meant one unstructured `Task` per path update, and those have no ordering guarantee between
+	/// them — a queued `unsatisfied, satisfied` pair could be processed in reverse, which both
+	/// fabricates an edge that never happened and swallows the one that did. `NWPathMonitor`
+	/// delivers to its queue serially, so deciding there is what makes the sequence trustworthy;
+	/// only the callback needs the main actor.
+	private nonisolated(unsafe) var edges = ConnectivityEdgeDetector()
 
 	func start(onReconnect: @escaping @MainActor () async -> Void) {
 		guard isRunning == false else { return }
 		isRunning = true
 		monitor.pathUpdateHandler = { [weak self] path in
-			let isSatisfied = path.status == .satisfied
-			Task { @MainActor in
-				guard let self, self.edges.isReconnection(isSatisfied: isSatisfied) else { return }
-				LoggingPolicy.info("Network path came back — re-evaluating the auth gate", logger: .networking)
-				await onReconnect()
-			}
+			guard let self, self.edges.isReconnection(isSatisfied: path.status == .satisfied) else { return }
+			LoggingPolicy.info("Network path came back — re-evaluating the auth gate", logger: .networking)
+			Task { @MainActor in await onReconnect() }
 		}
 		monitor.start(queue: queue)
 	}
