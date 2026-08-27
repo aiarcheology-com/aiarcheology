@@ -286,6 +286,26 @@ struct DrawerContent: View {
         showFindings = true
     }
 
+    /// The label colour for the drawer's own rows — Findings, Settings and the account footer.
+    ///
+    /// Stated explicitly because the app's `AccentColor` is a **deliberate neutral grey** (0.700 in
+    /// light appearance; see `PaywallView.interactiveTint`), and a `Button` label that sets no colour
+    /// of its own inherits it. That is why these three read as disabled while being perfectly live —
+    /// AIA-0757 D1. The `+` and `✕` above escaped it only by setting `.tint(.blue)`.
+    ///
+    /// Applied with `.tint`, **not** `.foregroundStyle`. `SettingsView.replayOnboardingRow` records
+    /// that the list-button style renders its label gray *and overrides* `.foregroundStyle`, which is
+    /// why that row had to stop being a `Button` at all. These three cannot take that escape — three
+    /// UI tests resolve them as `app.buttons[…]` — so they use the mechanism the toolbar's `+` and
+    /// `✕` already prove works here: the tint the button style itself reads.
+    ///
+    /// Mirrors `.disabled(tour.isActive)` rather than reading `\.isEnabled`: the disable is applied
+    /// *below* this view, so the environment here would still say enabled — and an unconditional
+    /// `.primary` would leave the rows looking live during the tour, when they deliberately do nothing.
+    private var drawerRowLabelColor: Color {
+        tour.isActive ? .secondary : .primary
+    }
+
     private var findingsSection: some View {
         Section {
             Button {
@@ -293,6 +313,7 @@ struct DrawerContent: View {
             } label: {
                 Label(L10n.Findings.title, systemImage: "archivebox")
             }
+            .tint(drawerRowLabelColor)
             .testability(Testability.Button.drawerFindings)
             // During the tour the whole drawer is the spotlight; keep only the model toggles
             // interactive so the user can't wander off into Findings (AIA-0333).
@@ -307,6 +328,7 @@ struct DrawerContent: View {
             } label: {
                 Label(L10n.Settings.title, systemImage: "gearshape")
             }
+            .tint(drawerRowLabelColor)
             .testability(Testability.Button.drawerSettings)
             .disabled(tour.isActive)
         }
@@ -372,6 +394,7 @@ struct DrawerContent: View {
                     .truncationMode(.middle)
             }
         }
+        .tint(drawerRowLabelColor)
         .disabled(tour.isActive)
     }
 
