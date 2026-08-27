@@ -20,6 +20,9 @@ import OSLog
 /// - `signedOut`: no valid session (never signed in, signed out, revoked, or banned).
 /// - `offline`: validation could not reach the server. It no longer fails closed — an entitled
 ///   user in airplane mode reaches the app, which is the lockout AIA-0536 exists to have fixed.
+///   Not terminal since AIA-0757: it is re-evaluated when a network path comes back, because the
+///   gate is read as fact (`SettingsView`'s back-up section is gated on the identifier `.offline`
+///   leaves unset on a cold offline launch) and a stale one takes a working control away.
 /// - `ready`: signed in.
 enum AuthGate: Equatable {
     case checkingSession
@@ -97,8 +100,9 @@ protocol AuthProviding {
     func deleteAccount() async throws
 }
 
-/// Owns ``AuthGate``. Re-evaluated at launch and on every foreground so that a Dashboard
-/// ban/revocation takes effect within one refresh.
+/// Owns ``AuthGate``. Re-evaluated at launch, on every foreground, and — since AIA-0757 — when the
+/// network comes back, so that a Dashboard ban/revocation takes effect within one refresh and a
+/// `.offline` gate cannot outlive the outage that caused it.
 ///
 /// Drives no root screen since AIA-0536 — see ``AuthGate``. It is still evaluated at launch
 /// because the answer is needed the moment the app has to attribute a purchase or pick a consent
@@ -182,15 +186,79 @@ final class AuthState: ObservableObject {
     private var isRefreshing = false
     private var refreshPending = false
 
-    init(provider: AuthProviding) {
+    /// Watches for the network coming back (AIA-0757). Optional and **defaulted to `nil`**: the
+    /// production monitor is constructed at the composition boundary (`AccountSession`) and nowhere
+    /// else, so the unit suite's many `AuthState(provider:)` constructions cannot start real network
+    /// monitoring underneath tests that assert exact validation counts.
+    private let connectivity: ConnectivityMonitoring?
+
+    /// Claimed **synchronously**, before `start()`'s first suspension. `.task { start() }` mounts once
+    /// per *scene*, not once per app, and this app can run several iPad scenes over one `AppState`
+    /// (the same hazard `FreeAccessState` records). Two scenes racing into `start()` would otherwise
+    /// both reach `NWPathMonitor.start(queue:)`, which traps on an already-started monitor.
+    private var didStartConnectivityMonitor = false
+
+    /// The single outstanding "try again shortly" after a reconnect that did not recover the gate.
+    /// Held so a second reconnect replaces it rather than stacking another one.
+    private var reconnectRetry: Task<Void, Never>?
+
+    /// How long to wait before the one retry that follows a failed reconnect refresh.
+    ///
+    /// A satisfied path means an interface is up, not that Clerk answers: after a captive-portal
+    /// login or on a cold DNS cache the first attempt can fail while a second, moments later,
+    /// succeeds. Injectable so a test can pick a delay long enough never to fire during it.
+    private let reconnectRetryDelay: Duration
+
+    init(
+        provider: AuthProviding,
+        connectivity: ConnectivityMonitoring? = nil,
+        reconnectRetryDelay: Duration = .seconds(3)
+    ) {
         self.provider = provider
+        self.connectivity = connectivity
+        self.reconnectRetryDelay = reconnectRetryDelay
     }
 
     /// Called once when the gate first appears: hydrate the persisted session,
     /// then evaluate access.
     func start() async {
+        startConnectivityMonitorIfNeeded()
         await provider.prepare()
         await refresh()
+    }
+
+    private func startConnectivityMonitorIfNeeded() {
+        guard didStartConnectivityMonitor == false, let connectivity else { return }
+        didStartConnectivityMonitor = true
+        connectivity.start { [weak self] in
+            await self?.handleReconnect()
+        }
+    }
+
+    /// Re-evaluate a gate that is stuck only for want of a network (AIA-0757).
+    ///
+    /// The `.offline` guard is what keeps a flapping connection from becoming a request storm: the
+    /// first successful pass leaves the gate `.ready` or `.signedOut`, and every later reconnect is
+    /// then a no-op. It is also the honest scope of this trigger — `.signedOut` is terminal by
+    /// decision (`ClerkAuthProvider` routes a *rejected* session there, not an unreachable one), and
+    /// re-validating it on a network blip would second-guess a revocation.
+    func refreshIfOffline() async {
+        guard gate == .offline else { return }
+        await refresh()
+    }
+
+    /// One reconnect: refresh, and if the gate is still `.offline`, arm a single delayed retry.
+    private func handleReconnect() async {
+        reconnectRetry?.cancel()
+        reconnectRetry = nil
+        await refreshIfOffline()
+        guard gate == .offline else { return }
+        let delay = reconnectRetryDelay
+        reconnectRetry = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard Task.isCancelled == false else { return }
+            await self?.refreshIfOffline()
+        }
     }
 
     /// Re-evaluate the gate. Safe to call on launch and on every foreground.
