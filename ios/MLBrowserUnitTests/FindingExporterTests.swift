@@ -113,9 +113,32 @@ final class FindingExporterTests: XCTestCase {
 		let row = try XCTUnwrap(rows.first)
 
 		XCTAssertEqual(row["id"] as? String, snap.id.uuidString)
-		for key in ["label", "note", "gps", "page", "detectionClass", "date", "screenshot", "modifiedAt", "modelId"] {
+		for key in ["label", "note", "gps", "page", "detectionClass", "date", "screenshot", "modifiedAt", "modelId", "captureBox"] {
 			XCTAssertTrue(row[key] is NSNull, "\(key) should serialize as explicit null")
 		}
+	}
+
+	/// AIA-0761: the reader treats an absent `captureBox` as "not stated" and keeps its local value,
+	/// so an export that omitted the key would be indistinguishable from an old client's archive and
+	/// could never clear or correct anything. Null says "the sender has none"; omission says nothing
+	/// at all, and this file's policy is null.
+	func testEncodeJSON_captureBox_isExplicitNullWhenAbsentAndWrittenWhenPresent() throws {
+		let recorded = FindingSnapshot(
+			id: UUID(),
+			title: "Recorded",
+			captureBox: .init(x: 0.2, y: 0.1, width: 0.3, height: 0.2)
+		)
+		let legacy = FindingSnapshot(id: UUID(), title: "Legacy")
+
+		let data = try FindingExporter.encodeJSON([recorded, legacy], copiedImageNames: [:])
+		let rows = try XCTUnwrap(Self.findingRows(in: data))
+
+		let box = try XCTUnwrap(rows[0]["captureBox"] as? [String: Any])
+		XCTAssertEqual(box["x"] as? Double, 0.2)
+		XCTAssertEqual(box["y"] as? Double, 0.1)
+		XCTAssertEqual(box["width"] as? Double, 0.3)
+		XCTAssertEqual(box["height"] as? Double, 0.2)
+		XCTAssertTrue(rows[1]["captureBox"] is NSNull, "captureBox should serialize as explicit null, not be omitted")
 	}
 
 	func testEncodeJSON_screenshotPath_presentOnlyWhenCopied() throws {

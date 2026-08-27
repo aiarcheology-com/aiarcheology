@@ -808,6 +808,27 @@ final class FindingMigrationTests: XCTestCase {
 
         // 5. The new Finding entity is usable in the migrated store.
         XCTAssertNotNil(container.managedObjectModel.entitiesByName["Finding"])
+
+        // 6. AIA-0761's capture-space box must arrive on the destination schema. 0.0.0 has no
+        // Finding entity at all, so there is no row to seed and nothing to carry over — the
+        // attribute check is what stops this from passing vacuously, and the row loop covers the
+        // migrated store the moment it ever does hold one.
+        let findingEntity = try XCTUnwrap(container.managedObjectModel.entitiesByName["Finding"])
+        let captureAttributes = ["captureBoxX", "captureBoxY", "captureBoxWidth", "captureBoxHeight"]
+        for attribute in captureAttributes {
+            XCTAssertNotNil(
+                findingEntity.attributesByName[attribute],
+                "the 0.0.0→0.0.2 mapping must produce a schema carrying \(attribute)"
+            )
+        }
+        for row in try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "Finding")) {
+            for attribute in captureAttributes {
+                XCTAssertEqual(
+                    row.value(forKey: attribute) as? Double, 0,
+                    "\(attribute) must arrive at the zero rect that means 'never recorded'"
+                )
+            }
+        }
     }
 
     /// The other live upgrade source (AIA-0651): 0.0.1 shipped `Finding` without `author`, so an
@@ -922,6 +943,19 @@ final class FindingMigrationTests: XCTestCase {
                 seeded.screenshot,
                 "a migrated finding must still point at the screenshot it was saved with"
             )
+        }
+
+        // AIA-0761: 0.0.1 predates the capture-space box, so an upgraded finding has no honest
+        // value for it — the crop that produced its stored image discarded the original rectangle.
+        // The zero rect is how that absence is spelled, and `FindingShareLink.Box` refuses a
+        // zero-area box, so these rows share no box rather than their crop-relative one.
+        for row in migrated {
+            for attribute in ["captureBoxX", "captureBoxY", "captureBoxWidth", "captureBoxHeight"] {
+                XCTAssertEqual(
+                    row.value(forKey: attribute) as? Double, 0,
+                    "\(attribute) must arrive at the zero rect that means 'never recorded'"
+                )
+            }
         }
 
         // AIA-713: what migration does to the new modifiedAt column was OBSERVED here rather than
