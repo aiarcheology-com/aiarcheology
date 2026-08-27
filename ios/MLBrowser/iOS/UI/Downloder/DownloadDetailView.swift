@@ -50,6 +50,7 @@ struct DownloadDetailView: View {
 			Form {
 				urlInputSection
 				statusSection
+				importSection
 				helpSection
 			}
 		}
@@ -389,10 +390,11 @@ private extension DownloadDetailView {
 private extension DownloadDetailView {
 	@ToolbarContentBuilder
 	var toolbarContent: some ToolbarContent {
-		if sizeClass == .compact {
-			ToolbarItem(placement: .topBarTrailing) { importButton }
-		} else {
-			ToolbarItem(placement: .topBarLeading) { importButton }
+		// Import is NOT here any more (AIA-0757). It sat in the navigation bar while the large
+		// in-body Download/Restart button did not, so once a download finished the prominent control
+		// was the wrong one — testers pressed Restart. It now lives in the form, between the progress
+		// rows and the action bar.
+		if sizeClass != .compact {
 			ToolbarItem(placement: .topBarTrailing) {
 				Button(L10n.Common.dismiss) { dismiss() }
 					.bold()
@@ -417,6 +419,23 @@ private extension DownloadDetailView {
 		}
 	}
 	
+	/// Import's own row in the form, directly under the progress and byte counts and directly above
+	/// the Download/Cancel bar — the place the eye lands once a download completes (AIA-0757).
+	///
+	/// Deliberately in the `Form` rather than in the pinned `safeAreaInset` alongside Download and
+	/// Cancel: that inset is chrome and stays put, so Import would hover there while the very rows
+	/// that say the download is finished scrolled away behind it.
+	var importSection: some View {
+		Section {
+			HStack {
+				Spacer()
+				importButton
+				Spacer()
+			}
+		}
+		.listRowBackground(Color.clear)
+	}
+
 	var importButton: some View {
 		// "Imported" means a deep configuration exists for this item — the same condition that
 		// disables the button below. The download state alone is not enough: import paths that
@@ -430,8 +449,11 @@ private extension DownloadDetailView {
 			
 			onImport.call(file, entityId, url, downloader)
 		}
-		.bold()
-		.foregroundColor(canImport ? .green : .gray)
+		// Matches Download and Cancel so the three read as peers. The colour is passed in rather
+		// than left to the disabled state: `PressableButtonStyle` paints white on whatever colour it
+		// is given and never inspects `isEnabled`, so without this an inactive Import would still
+		// look like the thing to press.
+		.buttonStyle(PressableButtonStyle(color: canImport ? .green : .gray))
 		.disabled(!canImport)
 		.testability(Testability.Button.downloadDetailImport)
 	}
