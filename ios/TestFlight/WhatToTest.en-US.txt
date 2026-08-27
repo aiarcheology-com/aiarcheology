@@ -1,45 +1,51 @@
-Build: AIA-713 (findings back-up)
+Build: AIA-0757 (usability fixes from the last test session)
 
-Test Focus: backing your findings up to your account, and confirming that findings you already had
-are never quietly changed or uploaded without being asked.
+Test Focus: the fixes for what you reported last time — the sign-in row that stayed stuck offline,
+the onboarding tour, washed-out detection colours, and several controls that were hard to find.
 
-Please read this first: once you sign in, this build can upload your findings — the title, your
-note, the finder credit, any coordinates you typed, and the screenshot — to your account, so they
-survive a lost or replaced phone. Nothing is uploaded while you are signed out. If you sign in on a
-device that already has findings, the app asks before uploading them; findings you make afterwards
-while signed in are uploaded as you make them. You can stop it at any time in Settings.
+- Coming back online fixes itself. This is the important one. Turn on Airplane Mode and launch the
+  app. Open the side menu: the account row at the bottom should say you are offline. Now open
+  Settings and look for "Back Up My Findings" — while the app thinks it is offline, that whole
+  setting is missing, which is what made backing up look broken. Turn the network back on and WAIT,
+  without leaving the app and without backgrounding it. Within a few seconds the menu should show
+  you signed in again, and the back-up setting should reappear in Settings on its own. Before, only
+  quitting and reopening the app fixed it.
 
-- Signing in offers to back up what is already there. With a few findings on the device, sign in.
-  A card should ask whether to back up the findings already on this device, and it should name the
-  right number. Tap Keep on This Device. Nothing should upload. Make a new finding: that one SHOULD
-  upload, because you made it while signed in. Relaunch — the card must not come back.
+- The tour points at what to press. Settings, then Replay the introduction. Two things to watch.
+  The Vladař site should already be loading behind the very first bubble — not the whole-country
+  map, and not whatever page you happened to be on. And on every step that asks you to press
+  something, that control should pulse so it is obvious which one it means. On the "switch a model
+  on" step, the switch itself pulses. If you use Reduce Motion, the highlight is steady instead of
+  pulsing — please check both if you can.
 
-- The button, and changing your mind. Open Findings; the green Back Up My Findings button is pinned
-  at the bottom and should stay visible however long the list is. Tap it. It should confirm the
-  back-up, and it should also lift the earlier Keep on This Device decision — that button is the
-  explicit yes.
+- Detection colours are vivid now. Import a model, or let a demo model detect something, and look
+  at the boxes and points over the map. They should read clearly against the relief — no more
+  washed-out or muddy colours. Please note: this applies to models added from now on. Models you
+  already have keep the colour they were given, and you can change any of them by hand in that
+  model's settings.
 
-- Restoring on a clean device. Delete the app, reinstall it, and sign in with the same account.
-  Your findings should come back, pictures included, without importing anything.
+- The side menu reads properly. Open it. Findings, Settings and the sign-in row at the bottom
+  should look like normal, tappable rows — not greyed out as if disabled. The old "+" in the top
+  corner is now a filled blue button reading "Add Model", and the "Models" heading is gone.
 
-- Turning it off really stops it. In Settings, switch backing up off. Make a new finding: it must
-  not upload. Now delete a finding that WAS backed up — that delete must still reach the account,
-  so it does not reappear on another device. Switch back on and confirm uploads resume.
+- The sign-in screen says why. Tap the sign-in row at the bottom of the side menu. Under the
+  welcome line it should now explain that signing in backs your findings up and shares them across
+  your devices, rather than just repeating that you are signing in. Nothing there should suggest
+  you need an account to detect anything — the app works signed out.
 
-- Signing out leaves your findings alone. Sign out. Every finding must still be on the device, and
-  that stays true whoever signs in next: work you did before you had an account is yours, and
-  signing in must never make it disappear. What matters on a shared phone is the backup, not the
-  list. Sign in as a different account: the findings are still there, and the card must ask before
-  any of them go to the new account. Tap Keep on This Device; nothing should upload.
+- Import is where you would expect it. Start a model download and open it. While it is downloading,
+  the Import button sits in the middle of the form and is greyed out. When the download finishes it
+  turns green and is the obvious thing to press. It is no longer up in the top corner, so there
+  should be nothing tempting you to press Restart instead.
 
-- Offline is not an error. Turn on Airplane Mode, make two findings, then tap Back Up My Findings.
-  It should say you are offline rather than claiming success. Turn the network back on: they should
-  upload on their own, without you tapping anything.
+- Saving a finding shows the finding. Detect something and tap it to save. The Title box is now the
+  first thing on the form, at the top. The picture should open zoomed in on the thing you picked,
+  with some of the surroundings still visible so you can tell where it is — not the whole page. You
+  can still pinch, drag, or use the slider to reframe it, and double-tap goes back to the full
+  picture. Whatever you leave on screen is what gets saved, so please check the saved finding and
+  its share picture look right.
 
-- An abandoned sign-in must upload nothing. Signed out, tap Back Up My Findings and cancel the
-  sign-in sheet. Nothing should upload, then or later.
+- Back-up status is readable. Open Findings with something waiting to upload. The status line above
+  the list is slightly larger than before, so it reads as status rather than fine print.
 
-- Export and import still work. Export, delete a couple of findings, then import that ZIP back:
-  they should return with their titles, notes, pages and pictures intact. Import it again and
-  choose Keep Mine — nothing restored, everything skipped. Import once more choosing Replace — the
-  count must not grow. Finally pick some other ZIP: expect a plain refusal and no change at all.
+Please report anything that looks wrong, and say which device and iOS version you were on.
