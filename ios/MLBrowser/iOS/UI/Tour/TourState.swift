@@ -74,6 +74,22 @@ final class TourState {
 	/// tapped. Returns `true` if a model was enabled.
 	private var enableModelHook: (() -> Bool)?
 
+	/// Whether the drawer is currently ringing a specific model switch (AIA-0757 A4).
+	///
+	/// The root overlay reads it to decide whether *it* should ring the cutout as well. A step that
+	/// spotlights through `spotlightFallback` has the whole drawer as its cutout, so ringing that
+	/// says only "press somewhere in here" — worth suppressing while a single switch is pointed at,
+	/// but the only affordance there is when none can be. That happens on a replay where every demo
+	/// model is already enabled: the step's goal already holds, and the drawer has no off switch to
+	/// ring, yet the user still has to tap to move on.
+	private(set) var drawerHighlightsModelSwitch = false
+
+	/// Told by the drawer as its pulse target appears and disappears.
+	func setDrawerHighlightsModelSwitch(_ isHighlighting: Bool) {
+		guard drawerHighlightsModelSwitch != isHighlighting else { return }
+		drawerHighlightsModelSwitch = isHighlighting
+	}
+
 	/// The current step, or `nil` when inactive / past the end.
 	var currentStep: TourStep? {
 		guard isActive, steps.indices.contains(currentIndex) else { return nil }

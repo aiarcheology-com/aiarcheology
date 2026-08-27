@@ -95,6 +95,10 @@ struct TourPulse: View {
 	var color: Color = .blue
 	/// One full pulse cycle.
 	var period: Double = 1.4
+	/// Ring thickness. Heavier than a hairline on purpose: the ring sits on the boundary between the
+	/// lit cutout and the surrounding dim, where a thin stroke competes with that edge instead of
+	/// reading as a mark of its own.
+	var lineWidth: CGFloat = 6
 
 	/// Reduce Motion gets a steady ring rather than an animation — the emphasis survives, the
 	/// movement doesn't. Same accommodation as `FindingFlashOverlay`.
@@ -105,7 +109,7 @@ struct TourPulse: View {
 
 	var body: some View {
 		RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-			.strokeBorder(color, lineWidth: 3)
+			.strokeBorder(color, lineWidth: lineWidth)
 			.opacity(ringOpacity)
 			.allowsHitTesting(false)
 			.accessibilityHidden(true)

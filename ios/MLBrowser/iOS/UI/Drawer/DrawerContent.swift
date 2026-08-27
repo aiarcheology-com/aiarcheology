@@ -275,6 +275,14 @@ struct DrawerContent: View {
         .onChange(of: chromeState.presentsFindings) { _, _ in
             presentFindingsIfRequested()
         }
+        // Tell the tour whether a specific switch is being ringed, so the root overlay knows not to
+        // ring the whole drawer on top of it — and knows to fall back to doing so when there is no
+        // switch left to point at (AIA-0757 A4).
+        .onChange(of: tourPulsedModelObjectID, initial: true) { _, pulsed in
+            tour.setDrawerHighlightsModelSwitch(pulsed != nil)
+        }
+        // The drawer unmounts when it closes, taking the ring with it; the flag must not outlive it.
+        .onDisappear { tour.setDrawerHighlightsModelSwitch(false) }
         // UI-test-only hook (AIA-0402): once the first model has seeded, force it to look unparsed
         // (the seeded demos are parser-decided → read-only) and auto-open its settings in type-review
         // mode, so tests can exercise the editable picker + confirmation footnotes without the
@@ -513,7 +521,14 @@ struct DrawerContent: View {
                 showImport = true
             } label: {
                 Text(L10n.Models.add)
+                    .fontWeight(.semibold)
             }
+            // The platform's own prominent style: filled with the tint, white label. Adding a model
+            // is the drawer's primary action and the reason the panel exists before any model is
+            // imported, so it should not read as one plain word among the rows (AIA-0757 D2).
+            // `.tint` rather than a hand-set background — `borderedProminent` fills with the tint,
+            // and the app's grey `AccentColor` would otherwise make the fill grey too.
+            .buttonStyle(.borderedProminent)
             .tint(.blue)
             // Keep only the model toggles interactive during the tour (AIA-0333).
             .disabled(tour.isActive)
@@ -552,7 +567,18 @@ private func demoModelTheTourWillEnable<S: Sequence>(among configurations: S) ->
 where S.Element == DeepConfiguration {
     readyDemoModels(among: configurations)
         .filter { $0.enabled == false }
-        .max(by: { ($0.creationDate_ ?? .distantPast) < ($1.creationDate_ ?? .distantPast) })
+        // Total, not just by date. `max(by:)` returns the *last* maximal element, and the two
+        // callers iterate different orders — the drawer's fetch is sorted newest-first, the action's
+        // `selectAll` is unsorted. Two demos with equal or missing creation dates (a demo whose
+        // bundle metadata carries no date parses to `.distantPast`) would then let the list pulse
+        // one switch while tapping the spotlight flipped another. The id breaks the tie the same way
+        // for both.
+        .max { left, right in
+            let leftDate = left.creationDate_ ?? .distantPast
+            let rightDate = right.creationDate_ ?? .distantPast
+            if leftDate != rightDate { return leftDate < rightDate }
+            return left.entityId.uuidString < right.entityId.uuidString
+        }
 }
 
 /// Ensures a demo model is enabled for the onboarding tour's overlay-driven enable step
@@ -663,9 +689,12 @@ private struct ConfigurationRow: View {
             // switch underneath stays tappable — the tour's pass-through enable path depends on it.
             .overlay {
                 if pulsesToggle {
-                    TourPulse(cornerRadius: 20)
-                        // Negative padding grows the ring outward, clear of the switch itself.
-                        .padding(-5)
+                    TourPulse(cornerRadius: 22)
+                        // Negative padding grows the ring outward. It has to clear the ring's own
+                        // thickness as well as the switch: `strokeBorder` draws *inward* from the
+                        // frame, so at a 6pt line a -5 inset would put the stroke back on top of
+                        // the switch it is pointing at.
+                        .padding(-11)
                 }
             }
         }

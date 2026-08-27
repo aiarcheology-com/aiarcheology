@@ -83,7 +83,7 @@ private struct TourOverlayModifier: ViewModifier {
 				//
 				// Stacked BELOW the tap target below, and non-hit-testing on both sides of the
 				// boundary, so it cannot swallow the tap that performs the step's action.
-				if let rect, case .userAction = step.advance, step.spotlightFallback == nil {
+				if let rect, case .userAction = step.advance, pulsesCutout(for: step) {
 					let inset = TourSpotlight.defaultInset
 					TourPulse()
 						.frame(width: rect.width + 2 * inset, height: rect.height + 2 * inset)
@@ -111,6 +111,17 @@ private struct TourOverlayModifier: ViewModifier {
 			// instead of pointing at a cutout.
 			bubble(step: step, cutout: step.dimsBackground ? rect : nil, container: proxy.size)
 		}
+	}
+
+	/// Whether the cutout itself should be ringed.
+	///
+	/// A step resolving through `spotlightFallback` normally should not be: its rect is the whole
+	/// drawer, and the switch inside it is ringed precisely instead. But when the drawer reports no
+	/// switch to ring — a replay where every demo model is already on, so there is none left to turn
+	/// on — suppressing both would leave a `.userAction` step with no affordance at all, which is
+	/// worse than the imprecise one.
+	private func pulsesCutout(for step: TourStep) -> Bool {
+		step.spotlightFallback == nil || tour.drawerHighlightsModelSwitch == false
 	}
 
 	/// The action (if any) for a transparent tap target over the cutout:

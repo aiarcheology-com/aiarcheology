@@ -210,7 +210,11 @@ extension TourStep {
 			TourStep(
 				target: .saveButton,
 				bubbleText: L10n.Tour.Save.text,
-				placement: .below,
+				// Bottom-pinned since AIA-0757. Save sits in the navigation bar, and the Title field
+				// moved to the very top of the form — so a `.below` bubble landed squarely on that
+				// field and swallowed taps meant for it, defeating the whole point of the
+				// `dimBlocksTaps: false` below. Caught by `testTour_fullHappyPath_throughSaveFinding`.
+				placement: .bottom,
 				// Spotlit inside the finding sheet (the sheet hosts its own tour layer). Tapping
 				// the real Save saves the finding and dismisses the sheet, so this auto-advances.
 				// Visual-only dim so the title field stays reachable (Save is disabled until named).
