@@ -409,9 +409,19 @@ struct DrawerContent: View {
     ) -> some View {
         Button(action: action) {
             accountFooterLabel {
-                Label(title, systemImage: systemImage)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                // The glyph is styled apart from the title on purpose. This row is drawn by hand
+                // outside the `List`, so the `.tint` below reaches its icon — where in a list row it
+                // does not — and the sign-in symbol came out solid black while Findings and Settings
+                // above it kept grey ones. Same words, different weight of mark, for no reason a
+                // user could name.
+                Label {
+                    Text(title)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                } icon: {
+                    Image(systemName: systemImage)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .tint(drawerRowLabelColor)

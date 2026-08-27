@@ -441,13 +441,20 @@ private extension DownloadDetailView {
 		// disables the button below. The download state alone is not enough: import paths that
 		// bypass the downloader's state machine leave it at .complete, and conversely a deleted
 		// configuration re-enables import while the state stays .imported (AIA-0459).
-		return Button(isImported ? L10n.Common.imported : L10n.Common.import) {
+		return Button {
 			let entityId = item.entityId
 			guard let file = item.file,
 				  let url = item.url
 			else { return }
 			
 			onImport.call(file, entityId, url, downloader)
+		} label: {
+			// Fills the row rather than hugging the word. `PressableButtonStyle` pads its label by 9
+			// and paints the background behind it, so the label's width *is* the button's width —
+			// left to size itself, "Import" produced a target barely wider than the text, which read
+			// as incidental next to the full-width rows above it. This is the step's primary action.
+			Text(isImported ? L10n.Common.imported : L10n.Common.import)
+				.frame(maxWidth: .infinity)
 		}
 		// Matches Download and Cancel so the three read as peers. The colour is passed in rather
 		// than left to the disabled state: `PressableButtonStyle` paints white on whatever colour it
