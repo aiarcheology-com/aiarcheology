@@ -88,7 +88,9 @@ struct DrawerContent: View {
     var body: some View {
         NavigationStack {
             configurationList
-                .navigationTitle(L10n.Models.title)
+                // No `.navigationTitle`: the toolbar's Add Model button now carries a visible title,
+                // and a centred "Models" between it and the close cross crowds the drawer's narrow
+                // bar (AIA-0757 D2). The list names itself instead — see `configurationList`.
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
                 // Pinned to the drawer's bottom edge, outside the scrolling list (AIA-0536): the
@@ -240,6 +242,16 @@ struct DrawerContent: View {
             settingsSection
         }
         .listStyle(.insetGrouped)
+        // Names the drawer for VoiceOver now that the navigation title is gone (AIA-0757 D2).
+        // `configurationsSection` carries its own header, but the empty branch has none, so without
+        // this the first thing a model-less drawer announces is the close button.
+        //
+        // `children: .contain` first, deliberately: an accessibility modifier on a view that is not
+        // itself an element propagates down to every leaf, which would relabel all four drawer
+        // buttons — including the one three UI tests resolve as `app.buttons["Add Model"]`. Marking
+        // the List a container makes the label land on the container and stop there.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(L10n.Models.title)
         // The drawer is a fixed-width panel anchored at the leading edge. In landscape the
         // List would otherwise inset its content by the device's leading safe area (the
         // Dynamic Island side), wasting a gutter inside the panel. The panel is the safe
@@ -291,13 +303,13 @@ struct DrawerContent: View {
     /// Stated explicitly because the app's `AccentColor` is a **deliberate neutral grey** (0.700 in
     /// light appearance; see `PaywallView.interactiveTint`), and a `Button` label that sets no colour
     /// of its own inherits it. That is why these three read as disabled while being perfectly live —
-    /// AIA-0757 D1. The `+` and `✕` above escaped it only by setting `.tint(.blue)`.
+    /// AIA-0757 D1. The Add Model and `✕` buttons above escaped it only by setting `.tint(.blue)`.
     ///
     /// Applied with `.tint`, **not** `.foregroundStyle`. `SettingsView.replayOnboardingRow` records
     /// that the list-button style renders its label gray *and overrides* `.foregroundStyle`, which is
     /// why that row had to stop being a `Button` at all. These three cannot take that escape — three
-    /// UI tests resolve them as `app.buttons[…]` — so they use the mechanism the toolbar's `+` and
-    /// `✕` already prove works here: the tint the button style itself reads.
+    /// UI tests resolve them as `app.buttons[…]` — so they use the mechanism the toolbar's two
+    /// buttons already prove works here: the tint the button style itself reads.
     ///
     /// Mirrors `.disabled(tour.isActive)` rather than reading `\.isEnabled`: the disable is applied
     /// *below* this view, so the environment here would still say enabled — and an unconditional
@@ -442,7 +454,7 @@ struct DrawerContent: View {
                 Text(L10n.Models.Empty.title)
                     .font(.headline)
 
-                Text(L10n.Models.Empty.message)
+                Text(L10n.Models.Empty.messageAddModel)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -478,20 +490,22 @@ struct DrawerContent: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
+            // A titled button rather than the bare `plus.circle.fill` it replaced (AIA-0757 D2): a
+            // glyph alone left the drawer's only creative action unnamed on screen. The title also
+            // *is* the accessibility label now, which is why the explicit one is gone — and what
+            // keeps `app.buttons["Add Model"]` resolving in FeatureFlagUITests.
             Button {
                 showImport = true
             } label: {
-                Image(systemName: "plus.circle.fill")
+                Text(L10n.Models.add)
             }
             .tint(.blue)
-            .accessibilityLabel(L10n.Models.add)
             // Keep only the model toggles interactive during the tour (AIA-0333).
             .disabled(tour.isActive)
         }
 
         ToolbarItem(placement: .topBarTrailing) {
-            // A plain cross balances the leading plus symbol, keeping the inline
-            // title visually centered between the two.
+            // A plain cross, balancing the leading Add Model button across the bar.
             Button {
                 drawer.close()
             } label: {

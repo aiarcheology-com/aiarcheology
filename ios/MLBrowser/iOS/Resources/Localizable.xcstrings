@@ -37467,7 +37467,7 @@
       }
     },
     "models.add" : {
-      "comment" : "Accessibility label for the button that adds a new ML model.",
+      "comment" : "Title of the toolbar button that adds a new ML model.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
@@ -37682,110 +37682,110 @@
         }
       }
     },
-    "models.empty.message" : {
-      "comment" : "Message shown when no ML models are available",
+    "models.empty.messageAddModel" : {
+      "comment" : "Message shown when no ML models are available, inviting the first import",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "انقر على زر + لإضافة نموذج ML الأول الخاص بك."
+            "value" : "أضف أول نموذج ML خاص بك للبدء."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "আপনার প্রথম ML মডেল যোগ করতে + বোতাম ট্যাপ করুন।"
+            "value" : "শুরু করতে আপনার প্রথম ML মডেল যোগ করুন।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Klepnutím na tlačítko + přidáte svůj první ML model."
+            "value" : "Začněte přidáním svého prvního ML modelu."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tippen Sie auf die + Schaltfläche, um Ihr erstes ML-Modell hinzuzufügen."
+            "value" : "Fügen Sie Ihr erstes ML-Modell hinzu, um zu beginnen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap the + button to add your first ML model."
+            "value" : "Add your first ML model to get started."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Toque el botón + para agregar su primer modelo ML."
+            "value" : "Agregue su primer modelo ML para comenzar."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "برای افزودن اولین مدل ML خود، دکمه + را بزنید."
+            "value" : "برای شروع، اولین مدل ML خود را اضافه کنید."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Appuyez sur le bouton + pour ajouter votre premier modèle ML."
+            "value" : "Ajoutez votre premier modèle ML pour commencer."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "הקש על כפתור + כדי להוסיף את מודל ה-ML הראשון שלך."
+            "value" : "הוסף את מודל ה-ML הראשון שלך כדי להתחיל."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "अपना पहला ML मॉडल जोड़ने के लिए + बटन टैप करें।"
+            "value" : "आरंभ करने के लिए अपना पहला ML मॉडल जोड़ें।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Koppintson a + gombra az első ML modell hozzáadásához."
+            "value" : "Adja hozzá első ML modelljét a kezdéshez."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stuknij przycisk +, aby dodać swój pierwszy model ML."
+            "value" : "Dodaj swój pierwszy model ML, aby zacząć."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Нажмите кнопку +, чтобы добавить свою первую модель ML."
+            "value" : "Добавьте свою первую модель ML, чтобы начать."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Торкніться кнопки +, щоб додати свою першу модель ML."
+            "value" : "Додайте свою першу модель ML, щоб почати."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "点按 + 按钮添加您的第一个 ML 模型。"
+            "value" : "添加您的第一个 ML 模型即可开始。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "點按 + 按鈕加入您的第一個 ML 模型。"
+            "value" : "加入您的第一個 ML 模型即可開始。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "點按 + 按鈕加入您的第一個 ML 模型。"
+            "value" : "加入您的第一個 ML 模型即可開始。"
           }
         }
       }

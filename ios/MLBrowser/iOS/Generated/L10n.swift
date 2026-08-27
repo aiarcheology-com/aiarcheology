@@ -876,8 +876,8 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "models.available.title", fallback: "Available Models")
     }
     internal enum Empty {
-      /// Tap the + button to add your first ML model.
-      internal static let message = L10n.tr("Localizable", "models.empty.message", fallback: "Tap the + button to add your first ML model.")
+      /// Add your first ML model to get started.
+      internal static let messageAddModel = L10n.tr("Localizable", "models.empty.messageAddModel", fallback: "Add your first ML model to get started.")
       /// No Models
       internal static let title = L10n.tr("Localizable", "models.empty.title", fallback: "No Models")
     }
