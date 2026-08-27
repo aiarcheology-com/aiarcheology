@@ -143,7 +143,18 @@ enum FindingShareLink {
 		}
 	}
 
-	/// Where on the captured page the detection sat, as fractions of the captured view.
+	/// Where on the **captured view** the detection sat, as fractions of that view.
+	///
+	/// ## Which rectangle this is, said precisely
+	/// The captured view is the on-screen snapshot taken at detection time — a WKWebView viewport
+	/// capture, not the whole scrollable document, and **not** the finding's stored image, which is
+	/// the crop the sender framed in the save sheet. Those three drift apart the moment anyone
+	/// pinches the crop editor, and this one is the only one a recipient can act on: they have the
+	/// page (`u`) and this rectangle, and no crop to reconcile anything against.
+	///
+	/// A finding that never recorded its capture-space box carries **no box at all** rather than
+	/// its cropped one — see `Finding.captureBoxX…`. That is why the field is optional in practice
+	/// even though the parser treats it as either-valid-or-absent (AIA-0761).
 	///
 	/// ## Top-left origin, deliberately not Vision's
 	/// `Finding.normalizedBox` is a **Vision** rect: bottom-left origin, which is why every drawing

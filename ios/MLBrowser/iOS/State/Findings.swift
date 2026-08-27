@@ -33,6 +33,20 @@ extension Finding: CoreDataManagableWithState {
             issues.append(.init(key: "boundingBox", message: "Bounding box is outside the unit rect."))
         }
 
+        // The capture-space box (AIA-0761) is legitimately absent — the zero rect — on any row
+        // that predates it or arrived from an older client, so it is valid either as the zero
+        // rect or as a real unit rect. `isUnitRect` is deliberately NOT widened to admit a
+        // zero-area rect: it also guards `boxX…`, where a zero-area detection IS a defect.
+        //
+        // Defence in depth only. The import path sanitizes before writing, because a rejection
+        // here costs the whole finding (`FindingRepository.apply` maps it to
+        // `ImportRejection.invalidContent`, which cloud sync never retries) — an unaffordable
+        // price for a field no renderer requires.
+        if isAbsent(x: captureBoxX, y: captureBoxY, width: captureBoxWidth, height: captureBoxHeight).not,
+           isUnitRect(x: captureBoxX, y: captureBoxY, width: captureBoxWidth, height: captureBoxHeight).not {
+            issues.append(.init(key: "captureBoundingBox", message: "Capture bounding box is outside the unit rect."))
+        }
+
         if (detectionConfidence >= 0 && detectionConfidence <= 1).not {
             issues.append(.init(key: "detectionConfidence", message: "Confidence is outside 0...1."))
         }
@@ -88,6 +102,16 @@ extension Finding: CoreDataManagableWithState {
         default:
             return false
         }
+    }
+
+    /// The "not recorded" value for an optional box quartet: all four components exactly zero.
+    ///
+    /// Exact equality is right here. This is not a measured rectangle being compared against a
+    /// tolerance — it is Core Data's own `defaultValueString="0.0"`, the literal bytes a migration
+    /// or a nil-valued import leaves behind. A tolerance would start swallowing real detections in
+    /// the top-left corner.
+    private func isAbsent(x: Double, y: Double, width: Double, height: Double) -> Bool {
+        x == 0 && y == 0 && width == 0 && height == 0
     }
 
     private func isUnitRect(x: Double, y: Double, width: Double, height: Double) -> Bool {

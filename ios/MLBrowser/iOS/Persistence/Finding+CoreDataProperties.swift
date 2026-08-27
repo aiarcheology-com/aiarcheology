@@ -23,13 +23,36 @@ extension Finding {
     ///
     /// Unrelated to `DeepConfiguration.author`, which credits the author of an imported ML model.
     @NSManaged public var author: String?
-    /// Vision-normalized bounding box in FULL-IMAGE coordinates (bottom-left origin),
-    /// exactly as `DetectedObject.boundingBox` delivers it. The highlight is always
-    /// drawn live from these values — never baked into the stored screenshot.
+    /// Vision-normalized bounding box (bottom-left origin) in the coordinates of the
+    /// **stored screenshot** — which, once the save sheet's crop editor has been used, is the
+    /// crop rather than the whole capture. The highlight is always drawn live from these
+    /// values — never baked into the stored screenshot — so every renderer that pairs these
+    /// with `screenshotFilename` is correct by construction.
+    ///
+    /// Do **not** reach for these to say where the detection sat on the captured view: that is
+    /// a different rectangle after a crop, and it is `captureBox*` (AIA-0761).
     @NSManaged public var boxHeight: Double
     @NSManaged public var boxWidth: Double
     @NSManaged public var boxX: Double
     @NSManaged public var boxY: Double
+    /// Vision-normalized bounding box (bottom-left origin) in the coordinates of the
+    /// **captured view** — the WKWebView viewport snapshot taken at detection time, before the
+    /// save sheet baked any crop into the stored image. Exactly `DetectedObject.boundingBox` as
+    /// the detector delivered it.
+    ///
+    /// This is what `FindingShareLink` promises a recipient, and the reason it is stored
+    /// separately: the crop is destructive, so after the fact the two spaces cannot be
+    /// reconciled from `boxX…` alone (AIA-0761).
+    ///
+    /// **The zero rect means "not recorded", not "at the origin with no area".** Rows saved
+    /// before this attribute existed carry it, and so do rows imported from an archive written
+    /// by an older client. `FindingShareLink.Box` already refuses a zero-area box, so such a
+    /// finding's link simply carries no box — never a fabricated one. The same convention
+    /// `boxX…` uses for rows that predate stored boxes (AIA-0657).
+    @NSManaged public var captureBoxHeight: Double
+    @NSManaged public var captureBoxWidth: Double
+    @NSManaged public var captureBoxX: Double
+    @NSManaged public var captureBoxY: Double
     @NSManaged public var creationDate_: Date?
     /// The tapped detection's top-confidence label identifier (model class vocabulary).
     @NSManaged public var detectionClass: String?

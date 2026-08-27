@@ -124,6 +124,16 @@ final class FindingRepository {
 		finding.boxY = box.minY
 		finding.boxWidth = box.width
 		finding.boxHeight = box.height
+		// The capture-space box is derived HERE rather than passed in (AIA-0761). `box` is the
+		// caller's — the save sheet's — box, already re-normalized into the crop it baked into
+		// `image`; the detection's position on the captured view is `capture`'s to state, and
+		// `capture` is already a parameter. A second box argument would be one more thing a future
+		// caller could forget to pass correctly, which is precisely the failure this fixes.
+		let captureBox = capture.observation.boundingBox
+		finding.captureBoxX = captureBox.minX
+		finding.captureBoxY = captureBox.minY
+		finding.captureBoxWidth = captureBox.width
+		finding.captureBoxHeight = captureBox.height
 
 		finding.transition(to: .draft)
 		do {
@@ -369,6 +379,17 @@ final class FindingRepository {
 		finding.boxY = row.box.y
 		finding.boxWidth = row.box.width
 		finding.boxHeight = row.box.height
+		// Nil means the archive did not STATE a capture box, not that there is none, so the local
+		// value stands (AIA-0761) — the same nil-means-fallback rule `modifiedAt` and `lifeCycle`
+		// use just below. This matters because cloud sync replace-imports automatically: writing
+		// zeroes on nil would let a single un-updated peer strip the capture box off every device,
+		// permanently, with nobody touching anything.
+		if let captureBox = row.captureBox {
+			finding.captureBoxX = captureBox.x
+			finding.captureBoxY = captureBox.y
+			finding.captureBoxWidth = captureBox.width
+			finding.captureBoxHeight = captureBox.height
+		}
 		finding.screenshotFilename = screenshotFilename
 
 		// The archived timestamp is authoritative: stamping "now" would make a restored copy win

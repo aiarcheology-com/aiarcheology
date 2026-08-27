@@ -33,6 +33,12 @@ struct FindingSnapshot: Sendable, Equatable {
 	let confidence: Double
 	let date: Date?
 	let box: Box
+	/// Where the detection sat on the **captured view**, before the save sheet's crop was baked
+	/// into the image (AIA-0761). Nil when the finding never recorded one — a row saved before the
+	/// attribute existed, or one imported from an older client's archive. Nil travels as an
+	/// explicit JSON `null`, and on the way back in it means "not stated", so an old peer's archive
+	/// cannot blank a capture box this device already knows.
+	let captureBox: Box?
 	/// Last-write-wins ordering key (AIA-713). Nil only for rows that predate model 0.0.2.
 	let modifiedAt: Date?
 	/// The configuration that produced the detection. Carried so a restored finding keeps its
@@ -57,6 +63,7 @@ struct FindingSnapshot: Sendable, Equatable {
 		confidence: Double = 0,
 		date: Date? = nil,
 		box: Box = Box(x: 0, y: 0, width: 0, height: 0),
+		captureBox: Box? = nil,
 		modifiedAt: Date? = nil,
 		modelId: UUID? = nil,
 		lifeCycle: String = CoreDataManageableState.ready.rawValue,
@@ -73,6 +80,7 @@ struct FindingSnapshot: Sendable, Equatable {
 		self.confidence = confidence
 		self.date = date
 		self.box = box
+		self.captureBox = captureBox
 		self.modifiedAt = modifiedAt
 		self.modelId = modelId
 		self.lifeCycle = lifeCycle
@@ -91,7 +99,7 @@ struct FindingSnapshot: Sendable, Equatable {
 		self = FindingSnapshot(
 			id: id, title: title, label: label, note: note, author: author, gps: gps, page: page,
 			detectionClass: detectionClass, confidence: confidence, date: date, box: box,
-			modifiedAt: modifiedAt, modelId: modelId, lifeCycle: lifeCycle,
+			captureBox: captureBox, modifiedAt: modifiedAt, modelId: modelId, lifeCycle: lifeCycle,
 			screenshotSourceURL: screenshotSourceURL
 		)
 	}
@@ -108,6 +116,12 @@ struct FindingSnapshot: Sendable, Equatable {
 		confidence = finding.detectionConfidence
 		date = finding.creationDate_
 		box = Box(x: finding.boxX, y: finding.boxY, width: finding.boxWidth, height: finding.boxHeight)
+		// The zero rect is Core Data's default, i.e. "never recorded" — carried as nil rather than
+		// as four zeroes so the wire says "not stated" instead of asserting a degenerate rectangle.
+		let capture = finding.captureNormalizedBox
+		captureBox = capture == .zero
+			? nil
+			: Box(x: capture.minX, y: capture.minY, width: capture.width, height: capture.height)
 		modifiedAt = finding.modifiedAt
 		modelId = finding.modelId
 		lifeCycle = finding.lifeCycleString
@@ -198,6 +212,7 @@ enum FindingExporter {
 		let confidence: Double
 		let date: String?
 		let box: FindingSnapshot.Box
+		let captureBox: FindingSnapshot.Box?
 		let modifiedAt: String?
 		let modelId: String?
 		let lifeCycle: String
@@ -205,7 +220,7 @@ enum FindingExporter {
 
 		enum CodingKeys: String, CodingKey {
 			case id, title, label, note, author, gps, page, detectionClass, confidence, date, box
-			case modifiedAt, modelId, lifeCycle, screenshot
+			case captureBox, modifiedAt, modelId, lifeCycle, screenshot
 		}
 
 		// Explicit `encode` (not the synthesized `encodeIfPresent`) so nil fields
@@ -223,6 +238,7 @@ enum FindingExporter {
 			try container.encode(confidence, forKey: .confidence)
 			try container.encode(date, forKey: .date)
 			try container.encode(box, forKey: .box)
+			try container.encode(captureBox, forKey: .captureBox)
 			try container.encode(modifiedAt, forKey: .modifiedAt)
 			try container.encode(modelId, forKey: .modelId)
 			try container.encode(lifeCycle, forKey: .lifeCycle)
@@ -260,6 +276,7 @@ enum FindingExporter {
 				confidence: snapshot.confidence,
 				date: snapshot.date.map(formatter.string(from:)),
 				box: snapshot.box,
+				captureBox: snapshot.captureBox,
 				modifiedAt: snapshot.modifiedAt.map(preciseFormatter.string(from:)),
 				modelId: snapshot.modelId?.uuidString,
 				lifeCycle: snapshot.lifeCycle,

@@ -1006,9 +1006,22 @@ extension Finding {
 		return trimmed.isEmpty ? (label_ ?? detectionClass ?? L10n.Finding.detection) : trimmed
 	}
 
-	/// The stored bounding box as a Vision-normalized full-image rect.
+	/// The stored bounding box as a Vision-normalized rect **in the stored screenshot's own
+	/// coordinates** — which is the crop, on any finding saved through the crop editor. Every
+	/// renderer that draws it over `screenshotFilename`'s image wants exactly this.
 	var normalizedBox: CGRect {
 		CGRect(x: boxX, y: boxY, width: boxWidth, height: boxHeight)
+	}
+
+	/// Where the detection sat on the **captured view**, before the crop was baked in — the one
+	/// thing a share link can honestly tell a recipient, who has no crop to resolve the other
+	/// rect against (AIA-0761).
+	///
+	/// `.zero` when it was never recorded (a row saved before the attribute existed, or one
+	/// imported from an older client's archive). `FindingShareLink.Box` refuses a zero-area box,
+	/// so those links carry none rather than a wrong one.
+	var captureNormalizedBox: CGRect {
+		CGRect(x: captureBoxX, y: captureBoxY, width: captureBoxWidth, height: captureBoxHeight)
 	}
 
 	/// Cropped detection thumbnail from the stored snapshot. The pixel rect is

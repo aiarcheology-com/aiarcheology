@@ -32,19 +32,31 @@ extension FindingShareSubject {
 			// means the link carries no coordinate and the recipient sees no map block at all, which
 			// is what `SharedFindingSection.layout(for:)` is built around.
 			coordinate: gps.flatMap(CoordinateText.parse),
-			// Where on the page the detection sat. For a detection on an ordinary page — a cat, a
-			// car, anything the model finds on a page that is not a map — this is the locator, in a
-			// way a coordinate never is: `gps_` is hand-typed and usually empty, while every finding
-			// has a box. `.zero` is what rows saved before boxes were stored carry, and `Box` refuses
-			// it, so those links simply carry no box (AIA-0657).
+			// Where on the captured view the detection sat. For a detection on an ordinary page — a
+			// cat, a car, anything the model finds on a page that is not a map — this is the
+			// locator, in a way a coordinate never is: `gps_` is hand-typed and usually empty, while
+			// every finding has a box.
+			//
+			// **`captureNormalizedBox`, never `normalizedBox`** (AIA-0761). The two are the same
+			// rectangle only until the save sheet bakes a crop in; after that `normalizedBox` is
+			// crop-relative, and since AIA-0757 opened the editor pre-framed on the detection, that
+			// is essentially every finding. Every *visual* consumer is right to read `normalizedBox`
+			// — each pairs it with the stored image. The link is the one consumer that pairs the box
+			// with something else, the captured view, and the recipient has no crop to reconcile it
+			// against. `FindingShareEmissionTests` pins this.
+			//
+			// `.zero` is what a row carries when the capture box was never recorded — saved before
+			// the attribute existed, or imported from an older client — and `Box` refuses a
+			// zero-area rect, so those links simply carry no box (AIA-0657). Omitting it is the
+			// point: the crop discarded the original, so there is nothing honest left to send.
 			box: FindingShareLink.Box(
-				x: normalizedBox.minX,
+				x: captureNormalizedBox.minX,
 				// Vision's origin is bottom-left; the wire's is top-left. Converted here, at the one
 				// boundary where a browsed finding enters the share contract, so no other caller has
 				// to remember which way up the format is.
-				y: 1 - normalizedBox.maxY,
-				width: normalizedBox.width,
-				height: normalizedBox.height
+				y: 1 - captureNormalizedBox.maxY,
+				width: captureNormalizedBox.width,
+				height: captureNormalizedBox.height
 			),
 			// Reduced *here*, at the one point a raw browsed URL — session tokens and all — enters the
 			// share contract. `FindingShareLink.assemble` reduces again on the way out, so the safety
