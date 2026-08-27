@@ -251,6 +251,47 @@ final class FindingRepositoryTests: XCTestCase {
 		XCTAssertEqual(box.width, captureBox.width, accuracy: 1e-9)
 		XCTAssertEqual(box.height, captureBox.height, accuracy: 1e-9)
 		XCTAssertNotEqual(box.x, cropBox.minX, accuracy: 1e-9, "the stored image's box reached the link")
+
+		// The other direction of the same swap: assigning the capture box to BOTH subject fields
+		// would satisfy every assertion above while the card drew a capture-space rectangle over
+		// the cropped image (`FindingShareCard` renders `subject.normalizedBox`).
+		XCTAssertEqual(
+			FindingShareSubject(finding).normalizedBox, cropBox,
+			"the card's box must stay the stored image's own"
+		)
+	}
+
+	/// The archive/sync lane of AIA-0761, from a real row rather than a memberwise snapshot.
+	/// `FindingSnapshot.init(_:)` is the only place a stored capture box becomes wire data, and it
+	/// is the mapping that turns the zero rect into a nil — delete it and every other test stays
+	/// green while devices quietly stop carrying capture boxes to each other.
+	func testAllFindingSnapshots_captureBox_isCarriedFromTheRowAndNilWhenNeverRecorded() throws {
+		let captureBox = CGRect(x: 0.2, y: 0.1, width: 0.3, height: 0.2)
+		let recorded = try sut.save(
+			capture: makeCapture(box: captureBox),
+			image: makeImage(),
+			box: CGRect(x: 0.6, y: 0.5, width: 0.25, height: 0.4),
+			metadata: FindingMetadata(title: "Recorded", label: "", note: "", author: "", gps: "")
+		)
+		defer { FindingScreenshotStore.delete(filename: recorded.screenshotFilename) }
+		// A row that predates the attribute, spelled the way migration leaves one.
+		recorded.captureBoxX = 0
+		recorded.captureBoxY = 0
+		recorded.captureBoxWidth = 0
+		recorded.captureBoxHeight = 0
+		let legacySnapshot = try XCTUnwrap(sut.allFindingSnapshots().first { $0.id == recorded.entityId })
+		XCTAssertNil(legacySnapshot.captureBox, "the zero rect means 'never recorded' and travels as nil")
+
+		recorded.captureBoxX = captureBox.minX
+		recorded.captureBoxY = captureBox.minY
+		recorded.captureBoxWidth = captureBox.width
+		recorded.captureBoxHeight = captureBox.height
+		let snapshot = try XCTUnwrap(sut.allFindingSnapshots().first { $0.id == recorded.entityId })
+
+		XCTAssertEqual(
+			snapshot.captureBox,
+			.init(x: captureBox.minX, y: captureBox.minY, width: captureBox.width, height: captureBox.height)
+		)
 	}
 
 	/// Exercises `FindingSnapshot.init(_:)`, which every production export goes through — this one via
