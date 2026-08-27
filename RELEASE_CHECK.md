@@ -36,15 +36,12 @@ broken feature.** That is the trade this file exists to catch.
       enforced rather than incidentally passing.
 - [x] The App Store privacy labels match the policy. **Done 2026-08-26** (#731).
 - [x] A signed-in user can turn back-up off. **Done 2026-08-26** (#744).
-- [ ] **The hosted privacy policy at <https://aiarcheology.com/privacy-policy/> matches the in-app
-      copy.** *Was* in step on 2026-08-26 and went out of step again the same night: AIA-0752
-      corrected the in-app copy (the uploaded fields now name the detection class, confidence and
-      model; "contents stay in the EU" became "stored only in the EU"; deletion now says a newer
-      edit elsewhere wins). `python3 scripts/privacy_policy_hosted.py --check` passes, which only
-      proves the two generated copies match the app's — **nothing publishes the live page**. Paste
-      `docs/privacy/privacy-policy-wordpress.html` into WordPress and read the result. This is the
-      copy App Review and users actually read, and it is the release where the policy first has to
-      disclose uploading coordinates and a real name.
+- [x] **The hosted privacy policy at <https://aiarcheology.com/privacy-policy/> matches the in-app
+      copy. Done 2026-08-27.** The four passages AIA-0752 changed were applied to the live page and
+      verified by fetching the public URL — not the editor — and asserting both that each new
+      passage is present and that each stale one is gone. Note what this gate is for: nothing
+      publishes this page automatically, and `--check` only proves the two generated copies match
+      the app's. It says nothing about what is live.
 - [ ] **Production verified with more than one account (#747).** Everything else above was proved
       against staging or with a single subject. Nothing has yet shown that two real accounts on
       production cannot see each other's findings.
