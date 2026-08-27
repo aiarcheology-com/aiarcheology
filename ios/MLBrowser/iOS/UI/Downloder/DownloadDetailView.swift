@@ -449,18 +449,17 @@ private extension DownloadDetailView {
 			
 			onImport.call(file, entityId, url, downloader)
 		} label: {
-			// Fills the row rather than hugging the word. `PressableButtonStyle` pads its label by 9
-			// and paints the background behind it, so the label's width *is* the button's width —
-			// left to size itself, "Import" produced a target barely wider than the text, which read
-			// as incidental next to the full-width rows above it. This is the step's primary action.
 			Text(isImported ? L10n.Common.imported : L10n.Common.import)
-				.frame(maxWidth: .infinity)
+				.fontWeight(.semibold)
 		}
-		// Matches Download and Cancel so the three read as peers. The colour is passed in rather
-		// than left to the disabled state: `PressableButtonStyle` paints white on whatever colour it
-		// is given and never inspects `isEnabled`, so without this an inactive Import would still
-		// look like the thing to press.
-		.buttonStyle(PressableButtonStyle(color: canImport ? .green : .gray))
+		// The same prominent style the drawer's Add Model uses, in green: this is the form's primary
+		// action once a download completes, and it should look like the platform's idea of one
+		// rather than like a bespoke control. Unlike `PressableButtonStyle` — which paints white on
+		// whatever colour it is handed and never inspects `isEnabled` — this style dims itself while
+		// the download is still running, so the inactive state needs no colour of its own.
+		.buttonStyle(.borderedProminent)
+		.controlSize(.large)
+		.tint(.green)
 		.disabled(!canImport)
 		.testability(Testability.Button.downloadDetailImport)
 	}
