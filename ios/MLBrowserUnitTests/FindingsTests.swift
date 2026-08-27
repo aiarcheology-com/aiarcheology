@@ -323,6 +323,91 @@ final class FindingCropMathTests: XCTestCase {
         XCTAssertEqual(crop.minY, 0.375, accuracy: 0.001)
     }
 
+    // MARK: - Opening framing (AIA-0757)
+
+    private static let zoomRange: ClosedRange<CGFloat> = 1...8
+    private static let contextScale: CGFloat = 3
+
+    /// The point of the change: a small detection on a big page opens zoomed in on it, not on the
+    /// whole page, and the window that results actually contains the box.
+    func testInitialFraming_SmallBox_ZoomsInAndContainsIt() {
+        // Vision coords, bottom-left origin: a 10% box just left of and above centre.
+        let visionBox = CGRect(x: 0.4, y: 0.5, width: 0.1, height: 0.1)
+        let framing = FindingCapture.initialFraming(
+            box: visionBox, cover: fitted, fitted: fitted,
+            contextScale: Self.contextScale, zoomRange: Self.zoomRange
+        )
+        XCTAssertGreaterThan(framing.scale, 1, "a 10% detection should not open at full-page zoom")
+
+        let crop = FindingCapture.cropRect(
+            scale: framing.scale, offset: framing.offset, fitted: fitted, cover: fitted
+        )
+        // The box in top-left coords, which is the space `cropRect` works in.
+        let topLeftBox = CGRect(x: visionBox.minX, y: 1 - visionBox.maxY, width: visionBox.width, height: visionBox.height)
+        XCTAssertTrue(crop.contains(topLeftBox), "framed window \(crop) does not contain the detection \(topLeftBox)")
+    }
+
+    /// "Generous context", not a tight crop: the window keeps roughly `contextScale` boxes of
+    /// surroundings, which is what lets a share card still show where the finding is.
+    func testInitialFraming_KeepsContextAroundTheBox() {
+        let visionBox = CGRect(x: 0.45, y: 0.45, width: 0.1, height: 0.1)
+        let framing = FindingCapture.initialFraming(
+            box: visionBox, cover: fitted, fitted: fitted,
+            contextScale: Self.contextScale, zoomRange: Self.zoomRange
+        )
+        let crop = FindingCapture.cropRect(
+            scale: framing.scale, offset: framing.offset, fitted: fitted, cover: fitted
+        )
+        XCTAssertEqual(crop.width, visionBox.width * Self.contextScale, accuracy: 0.02)
+        XCTAssertEqual(crop.height, visionBox.height * Self.contextScale, accuracy: 0.02)
+    }
+
+    /// A detection filling the page has nothing to zoom into; opening at full view is correct, and
+    /// the clamp must not invent an offset that would reveal an edge.
+    func testInitialFraming_BoxLargerThanTheWindow_StaysAtFullView() {
+        let framing = FindingCapture.initialFraming(
+            box: CGRect(x: 0, y: 0, width: 1, height: 1), cover: fitted, fitted: fitted,
+            contextScale: Self.contextScale, zoomRange: Self.zoomRange
+        )
+        XCTAssertEqual(framing.scale, 1, accuracy: 0.001)
+        XCTAssertEqual(framing.offset.width, 0, accuracy: 0.001)
+        XCTAssertEqual(framing.offset.height, 0, accuracy: 0.001)
+    }
+
+    /// A box in the corner must not pan past the image edge — the crop stays inside the unit rect.
+    func testInitialFraming_CornerBox_ClampsInsideTheImage() {
+        let framing = FindingCapture.initialFraming(
+            box: CGRect(x: 0, y: 0, width: 0.08, height: 0.08), cover: fitted, fitted: fitted,
+            contextScale: Self.contextScale, zoomRange: Self.zoomRange
+        )
+        let crop = FindingCapture.cropRect(
+            scale: framing.scale, offset: framing.offset, fitted: fitted, cover: fitted
+        )
+        XCTAssertGreaterThanOrEqual(crop.minX, -0.001)
+        XCTAssertGreaterThanOrEqual(crop.minY, -0.001)
+        XCTAssertLessThanOrEqual(crop.maxX, 1.001)
+        XCTAssertLessThanOrEqual(crop.maxY, 1.001)
+    }
+
+    /// Degenerate inputs must fall back to the whole image rather than produce an invalid crop —
+    /// an empty stored box fails persistence validation, and a fabricated one would lie.
+    func testInitialFraming_DegenerateInputs_FallBackToWholeImage() {
+        let cases: [(String, CGRect, CGSize, CGSize)] = [
+            ("zero-size box", CGRect(x: 0.5, y: 0.5, width: 0, height: 0), fitted, fitted),
+            ("zero viewport", CGRect(x: 0.4, y: 0.4, width: 0.1, height: 0.1), fitted, .zero),
+            ("zero cover", CGRect(x: 0.4, y: 0.4, width: 0.1, height: 0.1), .zero, fitted)
+        ]
+        for (name, box, cover, viewport) in cases {
+            let framing = FindingCapture.initialFraming(
+                box: box, cover: cover, fitted: viewport,
+                contextScale: Self.contextScale, zoomRange: Self.zoomRange
+            )
+            XCTAssertEqual(framing.scale, 1, accuracy: 0.001, "\(name) should not zoom")
+            XCTAssertEqual(framing.offset.width, 0, accuracy: 0.001, "\(name) should not pan")
+            XCTAssertEqual(framing.offset.height, 0, accuracy: 0.001, "\(name) should not pan")
+        }
+    }
+
     func testRemappedBox_InsideCrop_RenormalizesWithYFlip() {
         // Crop = top-left quadrant (top-left coords). A Vision box in the image's
         // upper-left area: vision y 0.5...0.75 → top-left y 0.25...0.5.
