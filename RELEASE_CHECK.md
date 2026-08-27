@@ -21,25 +21,34 @@ is deployed, that address answers nothing — and the app will *show* the back-u
 where before it hid the button and stayed quiet. **A release cut before the deploy ships a visibly
 broken feature.** That is the trade this file exists to catch.
 
-- [ ] `wrangler deploy --env production` has run, and `wrangler deployments list --name
-      aia-findings-production` shows it. (It did not exist on the account as of 2026-08-26.)
-- [ ] `wrangler d1 migrations apply aia-findings-production --remote --env production` has run —
-      the production database had **0 tables**.
-- [ ] `CLERK_WEBHOOK_SECRET` is set for `--env production`. It is a **different** secret from the
-      development one; signing secrets are per endpoint.
-- [ ] The production Clerk instance has a `user.deleted` webhook pointing at the production Worker,
-      and a signed delivery has been seen to return 2xx.
-- [ ] **A development-instance token presented to the production Worker returns 401.** Every other
-      check passes whether or not the issuer is enforced; only this one fails when it is not.
-- [ ] The App Store privacy labels match the policy — findings and screenshots are collected once a
-      user signs in and accepts. They currently declare the opposite (#731).
-- [ ] A signed-in user can turn back-up off (#744), or the policy is amended to say they cannot.
+- [x] `wrangler deploy --env production` has run, and `wrangler deployments list --name
+      aia-findings-production` shows it. **Done 2026-08-26** (AIA-741).
+- [x] `wrangler d1 migrations apply aia-findings-production --remote --env production` has run —
+      the production database had **0 tables**. **Done 2026-08-26**; both migrations applied.
+- [x] `CLERK_WEBHOOK_SECRET` is set for `--env production`. **Done 2026-08-26**, a fresh secret
+      distinct from the development one.
+- [x] The production Clerk instance has a `user.deleted` webhook pointing at the production Worker,
+      and a signed delivery has been seen to return 2xx. **Done 2026-08-26** — the fence row for
+      the test subject is in production D1.
+- [x] **A development-instance token presented to the production Worker returns 401.**
+      **Done 2026-08-26**: 401 on all four probes, and the two instances were shown to publish
+      different signing keys (different `kid`, different modulus), so the issuer is genuinely
+      enforced rather than incidentally passing.
+- [x] The App Store privacy labels match the policy. **Done 2026-08-26** (#731).
+- [x] A signed-in user can turn back-up off. **Done 2026-08-26** (#744).
 - [ ] **The hosted privacy policy at <https://aiarcheology.com/privacy-policy/> matches the in-app
-      copy.** That URL is what App Review and users read, and nothing publishes it automatically:
-      run `python3 scripts/privacy_policy_hosted.py --check` to confirm the generated copies are in
-      step with the app's, then paste `docs/privacy/privacy-policy-wordpress.html` into WordPress
-      and read the live page. They drifted once already (#624), and this release is the one where
-      the policy first has to disclose uploading coordinates and a real name.
+      copy.** *Was* in step on 2026-08-26 and went out of step again the same night: AIA-0752
+      corrected the in-app copy (the uploaded fields now name the detection class, confidence and
+      model; "contents stay in the EU" became "stored only in the EU"; deletion now says a newer
+      edit elsewhere wins). `python3 scripts/privacy_policy_hosted.py --check` passes, which only
+      proves the two generated copies match the app's — **nothing publishes the live page**. Paste
+      `docs/privacy/privacy-policy-wordpress.html` into WordPress and read the result. This is the
+      copy App Review and users actually read, and it is the release where the policy first has to
+      disclose uploading coordinates and a real name.
+- [ ] **Production verified with more than one account (#747).** Everything else above was proved
+      against staging or with a single subject. Nothing has yet shown that two real accounts on
+      production cannot see each other's findings.
+- [ ] **Manual acceptance on real devices (#732).** Build 1004 is on TestFlight for this.
 
 ## 1.0.7
 
