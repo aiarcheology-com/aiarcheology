@@ -4870,110 +4870,110 @@
         }
       }
     },
-    "auth.signIn.subtitle" : {
+    "auth.signIn.subtitleBackup" : {
       "comment" : "Subtitle on the sign-in sheet. States what signing in is for and nothing more — the app's detection works signed out, so it must not imply an account unlocks it. Keep 'ML Browser' verbatim.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "سجّل الدخول إلى حسابك في ML Browser."
+            "value" : "سجّل الدخول لإنشاء نسخة احتياطية من اكتشافاتك ومشاركتها بين أجهزتك."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "আপনার ML Browser অ্যাকাউন্টে সাইন ইন করুন।"
+            "value" : "আপনার আবিষ্কারগুলির ব্যাকআপ নিতে এবং সেগুলি আপনার ডিভাইসের মধ্যে ভাগ করতে সাইন ইন করুন।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Přihlaste se ke svému účtu ML Browser."
+            "value" : "Přihlaste se, abyste zálohovali své nálezy a sdíleli je mezi svými zařízeními."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Melden Sie sich bei Ihrem ML Browser Account an."
+            "value" : "Melden Sie sich an, um Ihre Funde zu sichern und auf allen Ihren Geräten zu teilen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sign in to your ML Browser account."
+            "value" : "Sign in to back up your findings and share them across your devices."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Inicia sesión en tu cuenta de ML Browser."
+            "value" : "Inicia sesión para respaldar tus hallazgos y compartirlos entre tus dispositivos."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "به حساب ML Browser خود وارد شوید."
+            "value" : "برای پشتیبان‌گیری از یافته‌هایتان و به‌اشتراک‌گذاری آن‌ها میان دستگاه‌هایتان وارد شوید."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Connectez-vous à votre compte ML Browser."
+            "value" : "Connectez-vous pour sauvegarder vos découvertes et les partager entre vos appareils."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "היכנס לחשבון ML Browser שלך."
+            "value" : "היכנס כדי לגבות את הממצאים שלך ולשתף אותם בין המכשירים שלך."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "अपने ML Browser अकाउंट में साइन इन करें।"
+            "value" : "अपनी खोजों का बैकअप लेने और उन्हें अपने डिवाइस के बीच साझा करने के लिए साइन इन करें।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Jelentkezzen be az ML Browser fiókjába."
+            "value" : "Jelentkezzen be, hogy biztonsági mentést készítsen a leleteiről, és megossza őket az eszközei között."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Zaloguj się na swoje konto ML Browser."
+            "value" : "Zaloguj się, aby utworzyć kopię zapasową swoich znalezisk i udostępniać je na swoich urządzeniach."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Войдите в свой аккаунт ML Browser."
+            "value" : "Войдите, чтобы создать резервную копию находок и открывать их на всех своих устройствах."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Увійдіть у свій акаунт ML Browser."
+            "value" : "Увійдіть, щоб створити резервну копію знахідок і відкривати їх на всіх своїх пристроях."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "登录你的 ML Browser 账户。"
+            "value" : "登录即可备份你的发现，并在你的设备之间共享。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "登入你的 ML Browser 帳號。"
+            "value" : "登入即可備份你的發現，並在你的裝置之間共用。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "登入你的 ML Browser 帳戶。"
+            "value" : "登入即可備份你的發現，並在你的裝置之間共用。"
           }
         }
       }
@@ -37467,7 +37467,7 @@
       }
     },
     "models.add" : {
-      "comment" : "Accessibility label for the button that adds a new ML model.",
+      "comment" : "Title of the toolbar button that adds a new ML model.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
@@ -37682,110 +37682,110 @@
         }
       }
     },
-    "models.empty.message" : {
-      "comment" : "Message shown when no ML models are available",
+    "models.empty.messageAddModel" : {
+      "comment" : "Message shown when no ML models are available, inviting the first import",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "انقر على زر + لإضافة نموذج ML الأول الخاص بك."
+            "value" : "أضف أول نموذج ML خاص بك للبدء."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "আপনার প্রথম ML মডেল যোগ করতে + বোতাম ট্যাপ করুন।"
+            "value" : "শুরু করতে আপনার প্রথম ML মডেল যোগ করুন।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Klepnutím na tlačítko + přidáte svůj první ML model."
+            "value" : "Začněte přidáním svého prvního ML modelu."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tippen Sie auf die + Schaltfläche, um Ihr erstes ML-Modell hinzuzufügen."
+            "value" : "Fügen Sie Ihr erstes ML-Modell hinzu, um zu beginnen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap the + button to add your first ML model."
+            "value" : "Add your first ML model to get started."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Toque el botón + para agregar su primer modelo ML."
+            "value" : "Agregue su primer modelo ML para comenzar."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "برای افزودن اولین مدل ML خود، دکمه + را بزنید."
+            "value" : "برای شروع، اولین مدل ML خود را اضافه کنید."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Appuyez sur le bouton + pour ajouter votre premier modèle ML."
+            "value" : "Ajoutez votre premier modèle ML pour commencer."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "הקש על כפתור + כדי להוסיף את מודל ה-ML הראשון שלך."
+            "value" : "הוסף את מודל ה-ML הראשון שלך כדי להתחיל."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "अपना पहला ML मॉडल जोड़ने के लिए + बटन टैप करें।"
+            "value" : "आरंभ करने के लिए अपना पहला ML मॉडल जोड़ें।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Koppintson a + gombra az első ML modell hozzáadásához."
+            "value" : "Adja hozzá első ML modelljét a kezdéshez."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stuknij przycisk +, aby dodać swój pierwszy model ML."
+            "value" : "Dodaj swój pierwszy model ML, aby zacząć."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Нажмите кнопку +, чтобы добавить свою первую модель ML."
+            "value" : "Добавьте свою первую модель ML, чтобы начать."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Торкніться кнопки +, щоб додати свою першу модель ML."
+            "value" : "Додайте свою першу модель ML, щоб почати."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "点按 + 按钮添加您的第一个 ML 模型。"
+            "value" : "添加您的第一个 ML 模型即可开始。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "點按 + 按鈕加入您的第一個 ML 模型。"
+            "value" : "加入您的第一個 ML 模型即可開始。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "點按 + 按鈕加入您的第一個 ML 模型。"
+            "value" : "加入您的第一個 ML 模型即可開始。"
           }
         }
       }

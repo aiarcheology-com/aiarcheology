@@ -601,6 +601,12 @@ struct SettingsForm: View {
 		.onTapGesture {
 			dismiss()
 			drawer.close()
+			// Stage the demo page too (AIA-0757). First launch does this in
+			// `AppState.initialize()`, but a replay never did — so the tour's opening step told the
+			// user to load a site while whatever they happened to be browsing sat underneath, and
+			// the demo models had nothing to detect on it. `pageToOpen` is the same latch a shared
+			// link uses, so the load runs through the normal pipeline and fills the address bar.
+			chromeState.pageToOpen = DemoDataManager.onboardingDemoPage
 			tour.start()
 		}
 		.accessibilityAddTraits(.isButton)

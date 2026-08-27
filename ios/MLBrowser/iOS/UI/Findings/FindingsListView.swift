@@ -562,20 +562,24 @@ struct FindingsListView: View {
 	private var syncStatus: some View {
 		let usage = findingsSync.usage
 		let fraction = usage?.fraction ?? 0
+		// `.subheadline` rather than `.footnote` (AIA-0757): one step up, still clearly secondary to
+		// the rows, but no longer the smallest text on the sheet — which is what made a status line
+		// read as a disclaimer.
+		let statusFont = Font.subheadline
 		VStack(alignment: .leading, spacing: 4) {
 			if findingsSync.pendingUploadCount > 0 {
-				label(L10n.Findings.Sync.pending(findingsSync.pendingUploadCount), icon: "arrow.up.circle", tint: .secondary)
+				label(L10n.Findings.Sync.pending(findingsSync.pendingUploadCount), icon: "arrow.up.circle", tint: .secondary, font: statusFont)
 			}
 			if findingsSync.parkedCount > 0 {
-				label(L10n.Findings.Sync.parked(findingsSync.parkedCount), icon: "exclamationmark.circle", tint: .orange)
+				label(L10n.Findings.Sync.parked(findingsSync.parkedCount), icon: "exclamationmark.circle", tint: .orange, font: statusFont)
 			}
 			if fraction >= 1 {
 				// Says what to do, not merely that something is wrong. Exporting keeps working at
 				// 100% on purpose — it is both a data-portability right and the only way out of a
 				// full account.
-				label(L10n.Findings.Sync.Storage.full, icon: "externaldrive.fill.badge.xmark", tint: .red)
+				label(L10n.Findings.Sync.Storage.full, icon: "externaldrive.fill.badge.xmark", tint: .red, font: statusFont)
 			} else if fraction >= 0.8 {
-				label(L10n.Findings.Sync.Storage.warning(Int(fraction * 100)), icon: "externaldrive.fill", tint: .orange)
+				label(L10n.Findings.Sync.Storage.warning(Int(fraction * 100)), icon: "externaldrive.fill", tint: .orange, font: statusFont)
 			}
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
@@ -583,9 +587,14 @@ struct FindingsListView: View {
 		.padding(.vertical, findingsSync.pendingUploadCount > 0 || fraction >= 0.8 ? 8 : 0)
 	}
 
-	private func label(_ text: String, icon: String, tint: Color) -> some View {
+	/// Shared by the aggregate sync lines above the list **and** the manual back-up outcome in the
+	/// pinned bar below it, which is why the size is a parameter rather than a constant: AIA-0757
+	/// raises only the aggregate line (it was the smallest text on the sheet and read as a
+	/// disclaimer rather than status). The manual outcome keeps `.footnote` — it is transient
+	/// feedback attached to a button the user just pressed, not standing status.
+	private func label(_ text: String, icon: String, tint: Color, font: Font = .footnote) -> some View {
 		Label(text, systemImage: icon)
-			.font(.footnote)
+			.font(font)
 			.foregroundStyle(tint)
 	}
 

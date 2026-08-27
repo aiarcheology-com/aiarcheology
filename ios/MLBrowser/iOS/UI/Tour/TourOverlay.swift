@@ -64,6 +64,33 @@ private struct TourOverlayModifier: ViewModifier {
 				// Four-rectangle dim with an open hole: the real control in the hole is tappable.
 				TourSpotlight(cutout: rect, blocksTaps: step.dimBlocksTaps)
 
+				// AIA-0757 A1: pulse the control the step depends on, so a passive-looking button
+				// next to a live Skip doesn't leave the user guessing which one to press. Only
+				// `.userAction` steps — a teaching (`.scripted`) step's spotlighted element is
+				// deliberately inert, so inviting a press there would lead nowhere.
+				//
+				// Covered: modelsButton, playButton, findButton, saveButton — the steps whose
+				// cutout IS the control to press.
+				//
+				// Two exclusions, both structural rather than special-cased. A step resolving
+				// through `spotlightFallback` is showing a stand-in: the enable-model step's rect
+				// is the entire drawer, because a toggle inside a `List` cell cannot publish an
+				// anchor to this overlay. Ringing the whole panel would say "press somewhere in
+				// here", which is the confusion A1 exists to remove — that step is served precisely
+				// by the pulse on the switch itself (A4, `DrawerContent`). And the capture step
+				// publishes no anchor at all with `dimsBackground: false`, so there is no rect and
+				// no dim to stand against; its bubble already asks for a tap on the live map.
+				//
+				// Stacked BELOW the tap target below, and non-hit-testing on both sides of the
+				// boundary, so it cannot swallow the tap that performs the step's action.
+				if let rect, case .userAction = step.advance, pulsesCutout(for: step) {
+					let inset = TourSpotlight.defaultInset
+					TourPulse()
+						.frame(width: rect.width + 2 * inset, height: rect.height + 2 * inset)
+						.offset(x: rect.minX - inset, y: rect.minY - inset)
+						.allowsHitTesting(false)
+				}
+
 				// A transparent tap target over the cutout. Teaching (`.scripted`) steps swallow
 				// the tap so the spotlighted element isn't interactive (the user just taps Next —
 				// this also stops the address-bar step from opening the location sheet).
@@ -84,6 +111,17 @@ private struct TourOverlayModifier: ViewModifier {
 			// instead of pointing at a cutout.
 			bubble(step: step, cutout: step.dimsBackground ? rect : nil, container: proxy.size)
 		}
+	}
+
+	/// Whether the cutout itself should be ringed.
+	///
+	/// A step resolving through `spotlightFallback` normally should not be: its rect is the whole
+	/// drawer, and the switch inside it is ringed precisely instead. But when the drawer reports no
+	/// switch to ring — a replay where every demo model is already on, so there is none left to turn
+	/// on — suppressing both would leave a `.userAction` step with no affordance at all, which is
+	/// worse than the imprecise one.
+	private func pulsesCutout(for step: TourStep) -> Bool {
+		step.spotlightFallback == nil || tour.drawerHighlightsModelSwitch == false
 	}
 
 	/// The action (if any) for a transparent tap target over the cutout:

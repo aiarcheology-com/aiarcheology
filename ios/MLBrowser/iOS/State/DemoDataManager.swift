@@ -14,9 +14,21 @@ final class DemoDataManager {
     // The Czech ČÚZK "Analýzy výškopisu" DMR 5G grayscale-hillshade relief page, seeded into the
     // demo history and loaded into the address bar when the onboarding tour starts (AIA-0333) — the
     // tour's first step points at it. (Replaces the Bavaria geoportal, which had upstream outages.)
+    //
+    // AIA-0757 pins it to Vladař rather than the whole country. The step tells the user to load a
+    // site, and an unzoomed national relief map gives the detection models nothing to find — so the
+    // very next step, "switch a model on", appeared to do nothing. The `extent` frames a hillfort
+    // where the demo models actually detect something, and `o=1` turns the relief layer fully on.
+    //
+    // Note the reach of this change: an existing install keeps the old address in its history, since
+    // `createBrowsingHistoryIfNeeded` seeds only into an empty history. A fresh install — and any
+    // onboarding replay — gets the new page.
+    //
     // Known-valid literal URL; the force-unwrap can't fail.
     // swiftlint:disable:next force_unwrapping
-    static let onboardingDemoPage = URL(string: "https://ags.cuzk.cz/av/?zvd=dmr5g&rf=GrayscaleHillshade&o=0")!
+    static let onboardingDemoPage = URL(
+        string: "https://ags.cuzk.cz/av/?extent=-831002.3241535446,-1032569.7200186695,-826473.7490963945,-1029973.3903260101&zvd=dmr5g&rf=GrayscaleHillshade&o=1"
+    )!
 
     let dataController: DataController
 

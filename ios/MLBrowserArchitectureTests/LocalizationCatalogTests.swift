@@ -208,6 +208,12 @@ final class LocalizationCatalogTests: XCTestCase {
         // what the file describes itself as (`import.checkpointDetector`,
         // `…DetectorUnlabelled`, `…Segmentation`, `…Unrecognized`), each translated into all 16
         // locales in the same change. Nothing was pruned, so the step is exactly the four new keys.
+        // Unchanged at 451 through AIA-0757. That ticket replaced `models.empty.message` with
+        // `models.empty.messageAddModel` rather than rewording it — the drawer's empty state was
+        // telling users to tap a `+` button the ticket removed, and editing the English in place
+        // would have left 16 locales fluently promising the old thing (AIA-0455). The replacement
+        // was translated into all 16 locales in the same change, so one key left and one arrived
+        // and the floor never moved.
         "ar": 451, "bn": 451, "cs": 451, "de": 451,
         "es": 451, "fa": 451, "fr": 451, "he": 451,
         "hi": 451, "hu": 451, "pl": 451, "ru": 451,

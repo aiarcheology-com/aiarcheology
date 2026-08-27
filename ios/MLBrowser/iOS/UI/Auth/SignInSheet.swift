@@ -58,7 +58,7 @@ struct SignInSheet: View {
 					// screen claiming to unlock the core feature is precisely what a Guideline
 					// 5.1.1(v) review looks for. It stays deliberately plain until the account
 					// carries something a user would want (AIA-0615, findings sync).
-					Text(L10n.Auth.SignIn.subtitle)
+					Text(L10n.Auth.SignIn.subtitleBackup)
 						.font(.body)
 						.foregroundStyle(.secondary)
 						.multilineTextAlignment(.center)
@@ -81,7 +81,7 @@ struct SignInSheet: View {
 					.buttonStyle(.borderedProminent)
 					.tint(.green)
 					.controlSize(.large)
-					.accessibilityHint(Text(L10n.Auth.SignIn.subtitle))
+					.accessibilityHint(Text(L10n.Auth.SignIn.subtitleBackup))
 					.testability(Testability.Button.authSignIn)
 
 					if showEnvironmentSwitch {

@@ -21,7 +21,11 @@ struct TourSpotlight: View {
 	/// Cutout rect in the overlay's coordinate space. `nil` dims the whole screen (no hole).
 	let cutout: CGRect?
 	/// Padding added around the target rect so the control isn't cropped by the hole edge.
-	var inset: CGFloat = 6
+	var inset: CGFloat = Self.defaultInset
+
+	/// The standard hole padding. Exposed so `TourPulse` can be drawn on the hole's edge instead
+	/// of restating the number and drifting away from it.
+	static let defaultInset: CGFloat = 6
 	/// Whether the dim swallows taps. `false` makes it visual only (everything beneath stays
 	/// interactive) — used for the in-sheet save step so the title field is still reachable.
 	var blocksTaps: Bool = true
@@ -67,5 +71,67 @@ struct TourSpotlight: View {
 		} else {
 			base.allowsHitTesting(false)
 		}
+	}
+}
+
+/// An animated ring drawn around an element the current tour step asks the user to **press**
+/// (AIA-0757 A1/A4). Without it a passive-looking button next to a live **Skip** leaves the user
+/// unsure which one the step wants.
+///
+/// This is **not** the frame AIA-0380 removed. That was a static white border + halo drawn around
+/// *every* cutout, and it read as permanent chrome / clutter. This one is animated and appears only
+/// on steps that require a specific press, so it reads as an invitation rather than decoration
+/// around the whole tour.
+///
+/// Decoration only: hit-testing is disabled and it is hidden from accessibility, so it can never
+/// swallow the tap that performs the step's action (`TourOverlay`'s transparent cutout tap target)
+/// nor the real control it surrounds (the drawer's model toggle, the finding sheet's Save).
+struct TourPulse: View {
+	/// Corner radius of the ring — match the shape of whatever it surrounds.
+	var cornerRadius: CGFloat = 12
+	/// Ring colour. Blue is this app's "you can press this" tint (`AccentColor` is a deliberate
+	/// neutral grey, so it cannot carry the meaning) and stays legible over the *un-dimmed* cutout
+	/// in both appearances, unlike the white of the removed border.
+	var color: Color = .blue
+	/// One full pulse cycle.
+	var period: Double = 1.4
+	/// Ring thickness. Heavier than a hairline on purpose: the ring sits on the boundary between the
+	/// lit cutout and the surrounding dim, where a thin stroke competes with that edge instead of
+	/// reading as a mark of its own.
+	var lineWidth: CGFloat = 6
+
+	/// Reduce Motion gets a steady ring rather than an animation — the emphasis survives, the
+	/// movement doesn't. Same accommodation as `FindingFlashOverlay`.
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
+	@State private var dimmed = false
+
+	private var pulses: Bool { reduceMotion.not }
+
+	var body: some View {
+		RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+			.strokeBorder(color, lineWidth: lineWidth)
+			.opacity(ringOpacity)
+			.allowsHitTesting(false)
+			.accessibilityHidden(true)
+			.animation(pulseAnimation, value: dimmed)
+			.onAppear {
+				// Toggling `dimmed` under a repeatForever animation is what produces the pulse.
+				dimmed = pulses
+			}
+			.onChange(of: pulses) { _, arePulsing in
+				// Flipping Reduce Motion mid-step changes `pulses` without re-appearing the view;
+				// re-arm so an OFF flip starts pulsing immediately and an ON flip freezes it.
+				dimmed = arePulsing
+			}
+	}
+
+	private var ringOpacity: Double {
+		guard pulses else { return 0.9 }
+		return dimmed ? 0.2 : 1.0
+	}
+
+	private var pulseAnimation: Animation? {
+		guard pulses else { return nil }
+		return .easeInOut(duration: period / 2).repeatForever(autoreverses: true)
 	}
 }

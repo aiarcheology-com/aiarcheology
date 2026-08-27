@@ -72,6 +72,60 @@ struct FindingCapture: Identifiable {
 		)
 	}
 
+	/// The scale and offset that open the crop editor centred on `box`, showing `contextScale` times
+	/// its size (AIA-0757).
+	///
+	/// Pure, and beside ``cropRect(scale:offset:fitted:cover:)`` rather than inside the editor view,
+	/// so the geometry can be tested directly — the editor itself only latches and applies it.
+	///
+	/// Best-effort by construction: the image is aspect-**filled**, so part of it is already outside
+	/// the viewport at scale 1, and a detection bigger than the largest achievable window cannot be
+	/// contained at any zoom. The result is then clamped as close as the geometry permits rather than
+	/// revealing an edge. A degenerate box or viewport returns "no framing" — scale 1, no offset.
+	static func initialFraming(
+		box visionBox: CGRect,
+		cover: CGSize,
+		fitted: CGSize,
+		contextScale: CGFloat,
+		zoomRange: ClosedRange<CGFloat>
+	) -> (scale: CGFloat, offset: CGSize) {
+		let unframed = (scale: zoomRange.lowerBound, offset: CGSize.zero)
+		guard
+			fitted.width > 0, fitted.height > 0,
+			cover.width > 0, cover.height > 0,
+			contextScale > 0,
+			visionBox.width > 0, visionBox.height > 0
+		else { return unframed }
+
+		let target = visionBox.visionRect(in: cover)
+		guard target.width > 0, target.height > 0 else { return unframed }
+
+		// The visible window is `fitted / scale` in cover points. Ask for it to be at least
+		// `contextScale` boxes wide *and* tall; whichever constraint binds wins.
+		let byWidth = fitted.width / (contextScale * target.width)
+		let byHeight = fitted.height / (contextScale * target.height)
+		let proposed = min(byWidth, byHeight)
+		guard proposed.isFinite else { return unframed }
+		let scale = min(max(zoomRange.lowerBound, proposed), zoomRange.upperBound)
+
+		// Invert `cropRect`'s centre: a positive offset moves the image right/down, so centring the
+		// window on the box means offsetting by the box's distance from the middle.
+		let centred = CGSize(
+			width: (cover.width / 2 - target.midX) * scale,
+			height: (cover.height / 2 - target.midY) * scale
+		)
+		// Same clamp the editor applies, so the published crop can never reveal an edge.
+		let maxX = max(0, (cover.width * scale - fitted.width) / 2)
+		let maxY = max(0, (cover.height * scale - fitted.height) / 2)
+		return (
+			scale: scale,
+			offset: CGSize(
+				width: min(max(-maxX, centred.width), maxX),
+				height: min(max(-maxY, centred.height), maxY)
+			)
+		)
+	}
+
 	/// Re-normalizes a Vision box (bottom-left origin) into the crop's own
 	/// coordinate space. A box fully outside the crop falls back to the whole
 	/// crop — the crop IS the finding then; an empty stored box would fail
@@ -214,14 +268,16 @@ struct SaveFindingSheet: View {
 	var body: some View {
 		NavigationStack {
 			Form {
+				// Title first (AIA-0757 E2): it is the one required field — Save stays disabled until
+				// it is filled — so it should not sit below a 420pt image the user has to scroll past.
+				Section(L10n.Finding.title) {
+					TextField(L10n.Finding.titlePlaceholder, text: $title)
+						.testability(Testability.TextField.saveFindingTitle)
+				}
 				Section {
 					preview
 					opacitySlider
 					zoomSlider
-				}
-				Section(L10n.Finding.title) {
-					TextField(L10n.Finding.titlePlaceholder, text: $title)
-						.testability(Testability.TextField.saveFindingTitle)
 				}
 				Section(L10n.Finding.page) {
 					Text(capture.pageURL?.absoluteString ?? "")
@@ -451,7 +507,22 @@ private struct CropAdjustableSnapshot: View {
 	@GestureState private var pinchFactor: CGFloat = 1
 	@GestureState private var dragDelta: CGSize = .zero
 
+	/// Latches the one-shot opening framing (AIA-0757). Without it a re-appearance — or any layout
+	/// pass that re-runs the trigger — would throw away a zoom and pan the user had set by hand. The
+	/// same hazard `SaveFindingSheet.didPrefill` exists for, and for the same reason: `onAppear`
+	/// fires again on re-appearance.
+	@State private var didFrame = false
+
 	static let zoomRange: ClosedRange<CGFloat> = 1...8
+
+	/// How much of the surroundings the editor opens with, as a multiple of the detection box.
+	///
+	/// The report asks for the form to show the rectangle rather than the whole page — users were
+	/// reading the entire page as the finding. It does **not** ask for the rectangle alone: a finding
+	/// cropped edge-to-edge loses the landscape that makes it recognisable, and that image is what a
+	/// share card carries. Three times the box keeps the place identifiable while making it
+	/// unmistakable which part is the finding.
+	static let initialContextScale: CGFloat = 3
 
 	var body: some View {
 		GeometryReader { geometry in
@@ -497,7 +568,27 @@ private struct CropAdjustableSnapshot: View {
 			publishCrop(fitted: fitted, cover: cover)
 		}
 		.onAppear {
+			frameOnDetectionIfNeeded(fitted: fitted)
 			publishCrop(fitted: fitted, cover: cover)
+		}
+		// `onAppear` alone is not enough: it can fire inside the `GeometryReader` before a size has
+		// settled, and at zero size there is nothing to frame against.
+		.onChange(of: fitted) { _, newFitted in
+			let newCover = newFitted.coverSize(for: image.size)
+			guard didFrame else {
+				frameOnDetectionIfNeeded(fitted: newFitted)
+				return
+			}
+			// Already framed, and the geometry moved under it — a rotation, or an iPad window
+			// resize. The published crop is what `croppedCapture()` bakes into the stored image, so
+			// it has to describe the window as it is NOW. Re-clamping matters as much as
+			// re-publishing: the render path clamps `shownOffset` for display, but the stored
+			// `offset` keeps its pre-rotation value, so without this Save persists the window from
+			// before the turn. Harmless before AIA-0757, when the default was zoom 1 and
+			// `croppedCapture()`'s full-rect guard skipped cropping entirely; auto-framing makes
+			// zoom > 1 the default for every save.
+			offset = clampOffset(offset, scale: zoom, cover: newCover, fitted: newFitted)
+			publishCrop(fitted: newFitted, cover: newCover)
 		}
 
 		// Pan only engages once zoomed in — at scale 1 a drag on the image
@@ -560,6 +651,28 @@ private struct CropAdjustableSnapshot: View {
 			width: min(max(-maxX, value.width), maxX),
 			height: min(max(-maxY, value.height), maxY)
 		)
+	}
+
+	/// Opens the editor centred on the detection, showing ``initialContextScale`` times its size.
+	///
+	/// Best-effort by construction. The image is aspect-**filled**, so at scale 1 part of it is
+	/// already outside the viewport; a detection larger than the window can be at any allowed zoom
+	/// simply cannot be contained, and `clampZoom`/`clampOffset` then leave the editor as close as
+	/// the geometry permits rather than revealing an edge.
+	private func frameOnDetectionIfNeeded(fitted: CGSize) {
+		guard didFrame == false, fitted.width > 0, fitted.height > 0 else { return }
+		let cover = fitted.coverSize(for: image.size)
+		let framing = FindingCapture.initialFraming(
+			box: normalizedBox,
+			cover: cover,
+			fitted: fitted,
+			contextScale: Self.initialContextScale,
+			zoomRange: Self.zoomRange
+		)
+		didFrame = true
+		offset = framing.offset
+		zoom = framing.scale
+		publishCrop(fitted: fitted, cover: cover)
 	}
 
 	private func publishCrop(fitted: CGSize, cover: CGSize) {

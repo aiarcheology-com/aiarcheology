@@ -151,4 +151,65 @@ final class ColorExtensionsTests: XCTestCase {
 			XCTAssertEqual(alpha, 1.0, accuracy: 0.0001)
 		}
 	}
+
+	// MARK: - Vivid annotation colours (AIA-0757)
+
+	/// The rule as reported: at least one component above 200, never all three high. Asserted over
+	/// many draws because the generator is random — a single sample proves nothing about it.
+	func testVividAnnotation_AlwaysSatisfiesTheRule() {
+		for _ in 0..<500 {
+			let components = Self.components(of: UIColor.vividAnnotation())
+			XCTAssertTrue(
+				UIColor.isVivid(components),
+				"generated \(components), which is not vivid"
+			)
+		}
+	}
+
+	/// The defect this replaces, pinned: the old generator could not produce a vivid colour at all.
+	/// Its ceiling of 0.6 is 153/255, below the floor the report asks for.
+	func testVividAnnotation_OldRandomRangeCouldNeverHaveSatisfiedTheRule() {
+		for _ in 0..<200 {
+			let components = Self.components(of: UIColor.random(range: 0.1...0.6))
+			XCTAssertFalse(UIColor.isVivid(components), "the old range produced \(components)")
+		}
+	}
+
+	/// "Above 200" is strict: a colour whose strongest component lands exactly on 200 fails.
+	func testIsVivid_DominantBoundary() {
+		XCTAssertFalse(UIColor.isVivid((200, 40, 30)), "200 is not above 200")
+		XCTAssertTrue(UIColor.isVivid((201, 40, 30)))
+	}
+
+	/// All three high is how a random generator makes grey and white — the case the report names.
+	func testIsVivid_RejectsAllThreeHigh() {
+		XCTAssertFalse(UIColor.isVivid((255, 255, 255)))
+		XCTAssertFalse(UIColor.isVivid((230, 220, 210)))
+	}
+
+	/// The case the component rule alone lets through: one component above 200, one at the ceiling,
+	/// and still a pale pink that vanishes as a stroke over relief imagery.
+	func testIsVivid_RejectsPaleColoursThatPassTheComponentRule() {
+		XCTAssertFalse(UIColor.isVivid((255, 150, 255)))
+	}
+
+	/// Both colours the report gives as examples of what it is asking for.
+	func testIsVivid_AcceptsTheReportedExamples() {
+		XCTAssertTrue(UIColor.isVivid((120, 100, 210)))
+		XCTAssertTrue(UIColor.isVivid((230, 10, 200)))
+	}
+
+	/// A saturated blue passes the component rule outright — one component above 200, two at zero —
+	/// yet blue carries so little perceived luminance that it reads as near-black on a map.
+	func testIsVivid_RejectsNearBlack() {
+		XCTAssertLessThan(UIColor.perceivedLuminance(of: (0, 0, 201)), UIColor.vividLuminanceBand.lowerBound)
+		XCTAssertFalse(UIColor.isVivid((0, 0, 201)))
+	}
+
+	/// 0...255 components of an sRGB colour, rounded the way the generator produced them.
+	private static func components(of color: UIColor) -> (Int, Int, Int) {
+		var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+		guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return (0, 0, 0) }
+		return (Int((red * 255).rounded()), Int((green * 255).rounded()), Int((blue * 255).rounded()))
+	}
 }
