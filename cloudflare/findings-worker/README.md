@@ -97,9 +97,10 @@ twice at once. The D1 half is a single `db.batch()` with the global decrement co
 because reading the counter and writing it back would double-decrement on exactly that race.
 
 The webhook is the backstop for deletions that never touch the app — the Clerk dashboard, or support
-acting on a request. A verified event it does not handle is **acknowledged, not refused**: a non-2xx
-makes svix retry indefinitely and can get the endpoint disabled, which would remove the backstop
-silently.
+acting on a request. A verified event it does not handle is **acknowledged, not refused**: svix counts
+every non-2xx as a failure and retries on a finite schedule (immediately, 5s, 5min, 30min, 2h, 5h,
+10h, 10h), then disables an endpoint whose deliveries all fail for five days — which would remove the
+backstop silently. Spending that budget refusing events we do not care about buys nothing.
 
 ## Known gaps, written down rather than discovered later
 
@@ -116,9 +117,13 @@ silently.
 - **The staging expiry rule deletes R2 objects without touching D1**, so a forgotten test run can
   leave index rows pointing at objects that are gone. Teardown is the mechanism; the rule is the
   backstop for a crashed run.
-- **A purge that keeps failing has no automatic retry after the Clerk user is gone.** svix's retry
-  schedule is finite, and after it the only actor left is a human. A scheduled sweep over fences
-  that never completed is the next step, and is not built here.
+- **A purge that keeps failing is retried by the sweep, not by svix.** svix's schedule is finite, and
+  after it no client can authenticate as the deleted user. So a daily cron re-runs the purge for
+  any fence whose data is still there (`src/sweep.ts`, AIA-0773). It needs no credential: the fence
+  row is the record that a purge was owed, and the purge is idempotent. What is still missing is an
+  alert on the sweep's own `{"sweep":"incomplete","remaining":N}` line — a `remaining` that never
+  falls is the one thing this service can say about itself that warrants a human, and nothing reads
+  it yet.
 - **D1 Time Travel retains purged rows for about 30 days**, and the fence row keeps a Clerk user id
   after erasure. Both belong in the retention record rather than behind a claim of instantaneous
   complete erasure.

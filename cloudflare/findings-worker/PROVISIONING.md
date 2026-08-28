@@ -194,6 +194,30 @@ secrets, and the pairing has to hold:
 Without the secret the webhook route answers `503` and refuses everything. It fails closed, so a
 missing secret costs the backstop, never the data.
 
+### Noticing a purge that never finished (AIA-0773)
+
+The Worker retries these itself: a daily cron sweeps fences whose data is still there and
+re-runs the purge (`src/sweep.ts`). That is the mechanism — **not** a notification, because there is
+no notification available to us:
+
+- svix's `message.attempt.exhausted` and `endpoint.disabled` are **operational** webhooks. They go to
+  the webhook *sender's* svix account — Clerk's — not to Clerk's customers. They are not in Clerk's
+  event catalogue and cannot be subscribed here.
+- Workers Observability has metrics, a query builder and export, but **no alert rules on log
+  queries**. Alerting means exporting first — Logpush, OTel, or a Tail Worker — into something that
+  pages.
+
+So the sweep is the recovery, and the thing worth watching is the sweep's own output. It logs
+`{"sweep":"incomplete","remaining":N}` when it finds work and `{"sweep":"failed"}` when it cannot
+run. **A `remaining` that does not fall across successive runs is the alertable condition** — one
+straggler surviving four runs in a day is a real problem, and it is the only such signal this
+service can raise about itself.
+
+Manual recovery, if it ever comes to that: the Clerk dashboard can replay a failed `user.deleted`
+message, which needs none of the deleted user's credentials because the route authenticates by
+signature and takes the user id from the event. It is bounded by svix's payload retention — 90 days
+by default, 30 on the free plan — so it is a fallback, not the plan.
+
 ## The free tier is per ACCOUNT, not per bucket
 
 Staging and production draw from **one shared allowance** — 10 GB-month storage, 1M Class A, 10M
