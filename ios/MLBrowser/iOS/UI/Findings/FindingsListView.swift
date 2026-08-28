@@ -663,6 +663,7 @@ struct FindingsListView: View {
 		// the rows, but no longer the smallest text on the sheet — which is what made a status line
 		// read as a disclaimer.
 		let statusFont = Font.subheadline
+		let band = Self.storageBand(fraction: fraction, isQuotaBlocked: findingsSync.isQuotaBlocked)
 		VStack(alignment: .leading, spacing: 4) {
 			if findingsSync.pendingUploadCount > 0 {
 				label(L10n.Findings.Sync.pending(findingsSync.pendingUploadCount), icon: "arrow.up.circle", tint: .secondary, font: statusFont)
@@ -670,7 +671,7 @@ struct FindingsListView: View {
 			if findingsSync.parkedCount > 0 {
 				label(L10n.Findings.Sync.parked(findingsSync.parkedCount), icon: "exclamationmark.circle", tint: .orange, font: statusFont)
 			}
-			switch Self.storageBand(fraction: fraction, isQuotaBlocked: findingsSync.isQuotaBlocked) {
+			switch band {
 			case .full:
 				// Says what to do, not merely that something is wrong. Exporting keeps working at
 				// 100% on purpose — it is both a data-portability right and the only way out of a
@@ -684,10 +685,11 @@ struct FindingsListView: View {
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
 		.padding(.horizontal)
+		// Padded whenever anything is shown -- including a lone parked line, which the old predicate
+		// missed and rendered flush against the rows.
 		.padding(
 			.vertical,
-			findingsSync.pendingUploadCount > 0
-				|| Self.storageBand(fraction: fraction, isQuotaBlocked: findingsSync.isQuotaBlocked) != .none ? 8 : 0
+			findingsSync.pendingUploadCount > 0 || findingsSync.parkedCount > 0 || band != .none ? 8 : 0
 		)
 	}
 
