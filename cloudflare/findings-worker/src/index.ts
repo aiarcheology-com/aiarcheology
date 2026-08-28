@@ -1,5 +1,6 @@
 import { authenticate } from './auth';
 import { purgeAccount } from './purge';
+import { sweepIncompleteFences } from './sweep';
 import { handleClerkWebhook } from './webhook';
 import { ApiError, errorResponse, json } from './errors';
 import {
@@ -205,6 +206,36 @@ function routeTemplate(url: URL, method: string): string {
 }
 
 export default {
+  /// Finishes purges the webhook never completed (AIA-0773).
+  ///
+  /// The only actor left once a Clerk user is gone: no client can authenticate as them, and svix's
+  /// retry schedule is finite. Logged distinctly so the line is worth alerting on -- a sweep that
+  /// keeps finding the same straggler is the signal that something needs a human, and it is the
+  /// only such signal this service can raise for itself.
+  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+    const started = Date.now();
+    try {
+      const result = await sweepIncompleteFences(env);
+      if (result.incomplete > 0) {
+        console.log(
+          JSON.stringify({
+            sweep: result.purged === true ? 'purged' : 'incomplete',
+            remaining: result.incomplete,
+            durationMs: Date.now() - started,
+          }),
+        );
+      }
+    } catch (error) {
+      console.log(
+        JSON.stringify({
+          sweep: 'failed',
+          error: error instanceof Error ? error.message : 'unknown',
+          durationMs: Date.now() - started,
+        }),
+      );
+    }
+  },
+
   async fetch(request: Request, env: Env): Promise<Response> {
     const started = Date.now();
     const url = new URL(request.url);

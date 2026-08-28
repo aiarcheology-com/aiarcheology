@@ -16,10 +16,9 @@ const SUBJECT = /^[A-Za-z0-9_-]{1,128}$/;
 /// dashboard, or by support acting on a request -- still erases the findings.
 ///
 /// **A verified event we do not handle is acknowledged, not refused.** svix treats every non-2xx as
-/// a failure and retries on a finite schedule -- immediately, 5s, 5min, 30min, 2h, 5h, 10h, 10h --
-/// and disables an endpoint whose deliveries all fail for five days, which would silently remove the
-/// backstop. Refusing events we simply do not care about would spend that budget on nothing.
-/// Only an unverifiable request is refused.
+/// a failure, and its retry budget is finite -- eight attempts, then the message is abandoned and
+/// an endpoint failing for five days is disabled. Spending that budget refusing events we do not
+/// care about buys nothing. Only an unverifiable or malformed request is refused.
 /// Clerk's `user.deleted` events are a few hundred bytes. The cap is generous enough that a future
 /// event shape cannot trip it and small enough that concurrent posts cannot pressure the isolate.
 const MAXIMUM_EVENT_BYTES = 64 * 1024;

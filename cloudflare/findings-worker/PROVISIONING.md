@@ -194,28 +194,29 @@ secrets, and the pairing has to hold:
 Without the secret the webhook route answers `503` and refuses everything. It fails closed, so a
 missing secret costs the backstop, never the data.
 
-### Subscribe the operational events too, or a failed purge is silent (AIA-0773)
+### Noticing a purge that never finished (AIA-0773)
 
-`user.deleted` is what does the work; svix's **operational** events are what tell you when the work
-never happened. Subscribe the same endpoint — or a separate one you actually read — to:
+The Worker retries these itself: a six-hourly cron sweeps fences whose data is still there and
+re-runs the purge (`src/sweep.ts`). That is the mechanism — **not** a notification, because there is
+no notification available to us:
 
-| Event | Fires when |
-|-|-|
-| `message.attempt.exhausted` | all eight delivery attempts for one message failed (about 28 hours) |
-| `EndpointDisabledEvent` | every delivery to the endpoint failed for five days, so svix disabled it |
+- svix's `message.attempt.exhausted` and `endpoint.disabled` are **operational** webhooks. They go to
+  the webhook *sender's* svix account — Clerk's — not to Clerk's customers. They are not in Clerk's
+  event catalogue and cannot be subscribed here.
+- Workers Observability has metrics, a query builder and export, but **no alert rules on log
+  queries**. Alerting means exporting first — Logpush, OTel, or a Tail Worker — into something that
+  pages.
 
-Without them, a purge that never completes leaves a deleted user's images and coordinates in R2 with
-nothing raising a hand. The data is still recoverable — replaying the message from the Clerk
-dashboard purges it, and needs none of the deleted user's credentials, because the route
-authenticates by signature and takes the user id from the event — but only if somebody knows to do
-it.
+So the sweep is the recovery, and the thing worth watching is the sweep's own output. It logs
+`{"sweep":"incomplete","remaining":N}` when it finds work and `{"sweep":"failed"}` when it cannot
+run. **A `remaining` that does not fall across successive runs is the alertable condition** — one
+straggler surviving four runs in a day is a real problem, and it is the only such signal this
+service can raise about itself.
 
-A Cloudflare log alert on this route's failures is the other half, and may be simpler than handling
-the operational events in the Worker: it already emits a structured route/status/error log on every
-failure.
-
-**Verify it rather than assuming it.** Point the endpoint at a wrong path for a single delivery and
-confirm a human is notified without anyone watching a dashboard.
+Manual recovery, if it ever comes to that: the Clerk dashboard can replay a failed `user.deleted`
+message, which needs none of the deleted user's credentials because the route authenticates by
+signature and takes the user id from the event. It is bounded by svix's payload retention — 90 days
+by default, 30 on the free plan — so it is a fallback, not the plan.
 
 ## The free tier is per ACCOUNT, not per bucket
 

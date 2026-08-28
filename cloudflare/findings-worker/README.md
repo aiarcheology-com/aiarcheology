@@ -117,14 +117,13 @@ backstop silently. Spending that budget refusing events we do not care about buy
 - **The staging expiry rule deletes R2 objects without touching D1**, so a forgotten test run can
   leave index rows pointing at objects that are gone. Teardown is the mechanism; the rule is the
   backstop for a crashed run.
-- **A purge that keeps failing has no automatic retry after the Clerk user is gone.** svix's retry
-  schedule is finite (eight attempts over about 28 hours), and after it the only actor left is a
-  human. Recovery does not need the deleted user's credentials — the webhook route authenticates by
-  signature and carries the user id in the event, so replaying the message from the Clerk dashboard
-  purges the data. What is missing is *noticing*: subscribe the endpoint to svix's operational events
-  (`message.attempt.exhausted`, `EndpointDisabledEvent`) or alert on this route's failure logs, or a
-  failed purge is silent (AIA-0773). A scheduled sweep over fences that never completed is the next
-  step, and is not built here.
+- **A purge that keeps failing is retried by the sweep, not by svix.** svix's schedule is finite, and
+  after it no client can authenticate as the deleted user. So a six-hourly cron re-runs the purge for
+  any fence whose data is still there (`src/sweep.ts`, AIA-0773). It needs no credential: the fence
+  row is the record that a purge was owed, and the purge is idempotent. What is still missing is an
+  alert on the sweep's own `{"sweep":"incomplete","remaining":N}` line — a `remaining` that never
+  falls is the one thing this service can say about itself that warrants a human, and nothing reads
+  it yet.
 - **D1 Time Travel retains purged rows for about 30 days**, and the fence row keeps a Clerk user id
   after erasure. Both belong in the retention record rather than behind a claim of instantaneous
   complete erasure.
