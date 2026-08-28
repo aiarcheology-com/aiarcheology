@@ -231,6 +231,7 @@ extension TestabilityIdentification {
 		case findingsDeleteEntry
 		case findingsOpenPage
 		case findingsExport
+		case findingsSortOrder
 		case findingsShareEntry
 		case findingDetailSave
 		case findingDetailShare
