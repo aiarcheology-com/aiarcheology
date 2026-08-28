@@ -1300,3 +1300,69 @@ final class FindingsListOrderingTests: XCTestCase {
         }
     }
 }
+
+// MARK: - Storage band (AIA-0732)
+
+/// Covers `FindingsListView.storageBand(fraction:isQuotaBlocked:)` — which line the findings header
+/// shows about cloud storage.
+///
+/// The case that matters is the first one: production showed "Cloud storage 97% full" while the
+/// server was refusing every upload, because 24,594 free bytes will not fit a finding.
+final class FindingsStorageBandTests: XCTestCase {
+
+    func testRefusedUploadsSayFull_evenWellBelowOneHundredPercent() {
+        // The production state: 1,023,982 of 1,048,576 bytes used, and eight findings refused.
+        let fraction = 1_023_982.0 / 1_048_576.0
+        XCTAssertLessThan(fraction, 1, "fixture no longer reproduces a sub-100% blocked account")
+
+        XCTAssertEqual(
+            FindingsListView.storageBand(fraction: fraction, isQuotaBlocked: true),
+            .full,
+            "an account the server is refusing must say full, not a percentage"
+        )
+    }
+
+    func testTheSameFractionSaysWarningWhenNothingHasBeenRefused() {
+        // Same number, opposite meaning: near the cap but still accepting writes.
+        let fraction = 1_023_982.0 / 1_048_576.0
+
+        XCTAssertEqual(
+            FindingsListView.storageBand(fraction: fraction, isQuotaBlocked: false),
+            .warning(percent: 97)
+        )
+    }
+
+    func testAFullFractionSaysFullWithoutWaitingForARefusal() {
+        // The usage figure can reach the cap before any upload has been attempted against it.
+        XCTAssertEqual(FindingsListView.storageBand(fraction: 1, isQuotaBlocked: false), .full)
+        XCTAssertEqual(FindingsListView.storageBand(fraction: 1.2, isQuotaBlocked: false), .full)
+    }
+
+    func testQuotaBlockedOutranksTheFractionEntirely() {
+        // Defensive: a refusal is authoritative even if usage has not been read yet, or reads zero.
+        XCTAssertEqual(FindingsListView.storageBand(fraction: 0, isQuotaBlocked: true), .full)
+    }
+
+    func testTheBandIsQuietUntilTheAccountIsMostOfTheWayFull() {
+        XCTAssertEqual(FindingsListView.storageBand(fraction: 0, isQuotaBlocked: false), .none)
+        XCTAssertEqual(FindingsListView.storageBand(fraction: 0.5, isQuotaBlocked: false), .none)
+        // Just under the threshold: still nothing to say.
+        XCTAssertEqual(FindingsListView.storageBand(fraction: 0.799, isQuotaBlocked: false), .none)
+    }
+
+    func testTheWarningStartsExactlyAtEightyPercent() {
+        XCTAssertEqual(
+            FindingsListView.storageBand(fraction: 0.8, isQuotaBlocked: false),
+            .warning(percent: 80),
+            "the boundary is inclusive; 0.8 is the first fraction that says anything"
+        )
+    }
+
+    func testThePercentageIsTruncated_soItNeverClaimsMoreRoomIsGoneThanIs() {
+        // 0.899 must not round up to 90: the band should never overstate how full the account is.
+        XCTAssertEqual(
+            FindingsListView.storageBand(fraction: 0.899, isQuotaBlocked: false),
+            .warning(percent: 89)
+        )
+    }
+}

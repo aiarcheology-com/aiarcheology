@@ -663,6 +663,7 @@ struct FindingsListView: View {
 		// the rows, but no longer the smallest text on the sheet — which is what made a status line
 		// read as a disclaimer.
 		let statusFont = Font.subheadline
+		let band = Self.storageBand(fraction: fraction, isQuotaBlocked: findingsSync.isQuotaBlocked)
 		VStack(alignment: .leading, spacing: 4) {
 			if findingsSync.pendingUploadCount > 0 {
 				label(L10n.Findings.Sync.pending(findingsSync.pendingUploadCount), icon: "arrow.up.circle", tint: .secondary, font: statusFont)
@@ -670,18 +671,26 @@ struct FindingsListView: View {
 			if findingsSync.parkedCount > 0 {
 				label(L10n.Findings.Sync.parked(findingsSync.parkedCount), icon: "exclamationmark.circle", tint: .orange, font: statusFont)
 			}
-			if fraction >= 1 {
+			switch band {
+			case .full:
 				// Says what to do, not merely that something is wrong. Exporting keeps working at
 				// 100% on purpose — it is both a data-portability right and the only way out of a
 				// full account.
 				label(L10n.Findings.Sync.Storage.full, icon: "externaldrive.fill.badge.xmark", tint: .red, font: statusFont)
-			} else if fraction >= 0.8 {
-				label(L10n.Findings.Sync.Storage.warning(Int(fraction * 100)), icon: "externaldrive.fill", tint: .orange, font: statusFont)
+			case let .warning(percent):
+				label(L10n.Findings.Sync.Storage.warning(percent), icon: "externaldrive.fill", tint: .orange, font: statusFont)
+			case .none:
+				EmptyView()
 			}
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
 		.padding(.horizontal)
-		.padding(.vertical, findingsSync.pendingUploadCount > 0 || fraction >= 0.8 ? 8 : 0)
+		// Padded whenever anything is shown -- including a lone parked line, which the old predicate
+		// missed and rendered flush against the rows.
+		.padding(
+			.vertical,
+			findingsSync.pendingUploadCount > 0 || findingsSync.parkedCount > 0 || band != .none ? 8 : 0
+		)
 	}
 
 	/// Shared by the aggregate sync lines above the list **and** the manual back-up outcome in the
@@ -703,6 +712,43 @@ struct FindingsListView: View {
 		} catch {
 			LoggingPolicy.error("Failed to delete the finding", error: error, logger: .storage)
 		}
+	}
+}
+
+// MARK: - Storage band (AIA-0732)
+
+extension FindingsListView {
+
+	/// Which storage line the findings header shows, if any.
+	enum StorageBand: Equatable {
+		case none
+		/// Approaching the cap. Carries the percentage the user sees.
+		case warning(percent: Int)
+		/// No room: say what to do about it rather than how full it is.
+		case full
+	}
+
+	/// The header's storage line.
+	///
+	/// Pure and `static` so the rule is testable without a view or a stubbed coordinator — the
+	/// interesting part is a boundary and a precedence, and neither is visible from reading the
+	/// SwiftUI body.
+	///
+	/// **`isQuotaBlocked` outranks the fraction**, which is the whole point (AIA-0748 production
+	/// pass). An account can be refusing every upload while the fraction still reads 0.97, because
+	/// what is left will not fit a finding: production showed "Cloud storage 97% full" above a list
+	/// of eight findings it had just refused. A percentage below 100 there invites "so why did it
+	/// refuse?". The coordinator already draws this distinction for the back-up button, and says why
+	/// in its own words -- a fraction at 0.999 is not the same claim as the server refusing a write.
+	///
+	/// Deliberately **not** keyed off `parkedCount`: findings are also parked for `payload_too_large`
+	/// and `bad_request`, so that would announce a storage problem for something else entirely.
+	static func storageBand(fraction: Double, isQuotaBlocked: Bool) -> StorageBand {
+		if isQuotaBlocked || fraction >= 1 { return .full }
+		// Quiet until the account is most of the way full: a permanent banner about a working
+		// feature is noise the user learns to ignore.
+		if fraction >= 0.8 { return .warning(percent: Int(fraction * 100)) }
+		return .none
 	}
 }
 
