@@ -1110,3 +1110,193 @@ final class FindingModifiedAtTests: XCTestCase {
         XCTAssertEqual(Finding.count(in: moc, predicate: nil), 0)
     }
 }
+
+// MARK: - List ordering (AIA-0748)
+
+/// Covers `FindingsListView.ordered(_:by:reversed:)` — the sort behind the findings list's sort
+/// control. The rule under test: partition into keyed and key-less, reverse the keyed slice only,
+/// and leave the key-less group last in **both** directions.
+@MainActor
+final class FindingsListOrderingTests: XCTestCase {
+    var stack: TestCoreDataStack!
+    var moc: NSManagedObjectContext { stack.viewContext }
+
+    override func setUp() async throws {
+        try await super.setUp()
+        stack = TestCoreDataStack()
+    }
+
+    override func tearDown() async throws {
+        stack = nil
+        try await super.tearDown()
+    }
+
+    // MARK: Fixtures
+
+    /// A deterministic generator, so a failing shuffle is reproducible rather than a once-a-week
+    /// flake. xorshift64 — the seed must be non-zero.
+    private struct SeededGenerator: RandomNumberGenerator {
+        private var state: UInt64
+        init(seed: UInt64) { state = seed == 0 ? 0x2545_F491_4F6C_DD1D : seed }
+        mutating func next() -> UInt64 {
+            state ^= state << 13
+            state ^= state >> 7
+            state ^= state << 17
+            return state
+        }
+    }
+
+    private static let epoch = Date(timeIntervalSince1970: 1_700_000_000)
+
+    private func date(_ offset: TimeInterval) -> Date { Self.epoch.addingTimeInterval(offset) }
+
+    @discardableResult
+    private func make(title: String, host: String?, date: Date?, label: String? = nil) -> Finding {
+        let finding = Finding.create(in: moc)
+        finding.title = title
+        finding.label_ = label
+        finding.page = host.map { URL(string: "https://\($0)/page")! }
+        finding.creationDate_ = date
+        return finding
+    }
+
+    private func titles(_ findings: [Finding]) -> [String] {
+        findings.map(\.displayTitle)
+    }
+
+    // MARK: Date
+
+    func testDateOrder_IsNewestFirst_AndNilDatesSortLast() {
+        let old = make(title: "Old", host: "a.example", date: date(0))
+        let new = make(title: "New", host: "b.example", date: date(100))
+        let undated = make(title: "Undated", host: "c.example", date: nil)
+
+        let result = FindingsListView.ordered([old, undated, new], by: .date, reversed: false)
+
+        XCTAssertEqual(titles(result), ["New", "Old", "Undated"])
+    }
+
+    func testDateOrder_Reversed_IsOldestFirst_AndNilDatesStillSortLast() {
+        let old = make(title: "Old", host: "a.example", date: date(0))
+        let new = make(title: "New", host: "b.example", date: date(100))
+        let undated = make(title: "Undated", host: "c.example", date: nil)
+
+        let result = FindingsListView.ordered([new, undated, old], by: .date, reversed: true)
+
+        // The undated row does NOT lead the reversed list: reversing must not promote the least
+        // informative rows to the top.
+        XCTAssertEqual(titles(result), ["Old", "New", "Undated"])
+    }
+
+    // MARK: Alphabetical
+
+    func testAlphabeticalOrder_CollatesNumbersNaturally() {
+        let ten = make(title: "Item 10", host: "a.example", date: date(0))
+        let nine = make(title: "Item 9", host: "a.example", date: date(1))
+
+        let result = FindingsListView.ordered([ten, nine], by: .alphabetical, reversed: false)
+
+        // localizedStandardCompare, not a plain `<`: "Item 9" precedes "Item 10".
+        XCTAssertEqual(titles(result), ["Item 9", "Item 10"])
+    }
+
+    func testAlphabeticalOrder_EmptyDisplayTitleIsKeyless_InBothDirections() {
+        // Reachable from the import path, which assigns `label_` raw while only the save path
+        // normalises empty to nil — so `displayTitle` can resolve to "".
+        let blank = make(title: "   ", host: "a.example", date: date(50), label: "")
+        let alpha = make(title: "Alpha", host: "b.example", date: date(0))
+        let zulu = make(title: "Zulu", host: "c.example", date: date(1))
+        XCTAssertEqual(blank.displayTitle, "", "fixture no longer reproduces an empty displayTitle")
+
+        let forward = FindingsListView.ordered([blank, zulu, alpha], by: .alphabetical, reversed: false)
+        let reversed = FindingsListView.ordered([blank, alpha, zulu], by: .alphabetical, reversed: true)
+
+        XCTAssertEqual(titles(forward), ["Alpha", "Zulu", ""])
+        XCTAssertEqual(titles(reversed), ["Zulu", "Alpha", ""])
+    }
+
+    // MARK: Host
+
+    func testHostOrder_IsAscending_AndHostlessSortsLast_InBothDirections() {
+        let zebra = make(title: "Z", host: "zebra.example", date: date(0))
+        let apple = make(title: "A", host: "apple.example", date: date(1))
+        let hostless = make(title: "None", host: nil, date: date(2))
+
+        let forward = FindingsListView.ordered([hostless, zebra, apple], by: .host, reversed: false)
+        let reversed = FindingsListView.ordered([hostless, apple, zebra], by: .host, reversed: true)
+
+        XCTAssertEqual(titles(forward), ["A", "Z", "None"])
+        XCTAssertEqual(titles(reversed), ["Z", "A", "None"])
+    }
+
+    func testHostOrder_HostlessGroupIsNewestFirst() {
+        let older = make(title: "Older", host: nil, date: date(0))
+        let newer = make(title: "Newer", host: nil, date: date(100))
+        let hosted = make(title: "Hosted", host: "a.example", date: date(50))
+
+        let result = FindingsListView.ordered([older, hosted, newer], by: .host, reversed: false)
+
+        XCTAssertEqual(titles(result), ["Hosted", "Newer", "Older"])
+    }
+
+    // MARK: Determinism
+
+    /// The load-bearing test: the output must not depend on the input order, for any order or
+    /// direction, over a fixture engineered so every tiebreak level is exercised — equal titles
+    /// with equal timestamps, two nil dates, two nil hosts, and an empty title.
+    ///
+    /// This is what proves the comparator is a strict total order. Swift's `sort(by:)` is not
+    /// documented as stable, so without the `entityId` terminator these rows would be free to swap.
+    func testOrdering_DoesNotDependOnInputOrder() {
+        let fixture = [
+            // Same displayTitle AND same timestamp — only entityId can separate these.
+            make(title: "Twin", host: "a.example", date: date(10)),
+            make(title: "Twin", host: "a.example", date: date(10)),
+            // Two undated rows.
+            make(title: "NoDateOne", host: "b.example", date: nil),
+            make(title: "NoDateTwo", host: "c.example", date: nil),
+            // Two hostless rows.
+            make(title: "NoHostOne", host: nil, date: date(20)),
+            make(title: "NoHostTwo", host: nil, date: date(30)),
+            // Empty displayTitle.
+            make(title: " ", host: "d.example", date: date(40), label: ""),
+            make(title: "Ordinary", host: "e.example", date: date(50))
+        ]
+
+        for order in [FindingsListView.SortOrder.date, .alphabetical, .host] {
+            for reversed in [false, true] {
+                let expected = FindingsListView.ordered(fixture, by: order, reversed: reversed)
+                    .map(\.entityId)
+                var rng = SeededGenerator(seed: 0x5EED)
+                for attempt in 0..<25 {
+                    let shuffled = fixture.shuffled(using: &rng)
+                    let actual = FindingsListView.ordered(shuffled, by: order, reversed: reversed)
+                        .map(\.entityId)
+                    XCTAssertEqual(
+                        actual, expected,
+                        "\(order) reversed=\(reversed) attempt \(attempt): output depends on input order"
+                    )
+                }
+            }
+        }
+    }
+
+    /// Documentation, not determinism coverage: with reverse implemented as `.reversed()` of the
+    /// keyed slice this holds by construction. It is kept to pin that construction, and it would
+    /// NOT have caught a non-total comparator — `testOrdering_DoesNotDependOnInputOrder` is the
+    /// test that does.
+    func testReversingTwice_RestoresTheForwardOrder() {
+        let fixture = [
+            make(title: "B", host: "b.example", date: date(0)),
+            make(title: "A", host: "a.example", date: date(10)),
+            make(title: "Hostless", host: nil, date: date(20))
+        ]
+
+        for order in [FindingsListView.SortOrder.date, .alphabetical, .host] {
+            let forward = FindingsListView.ordered(fixture, by: order, reversed: false).map(\.entityId)
+            let once = FindingsListView.ordered(fixture, by: order, reversed: true)
+            let twice = FindingsListView.ordered(once, by: order, reversed: false).map(\.entityId)
+            XCTAssertEqual(twice, forward, "\(order): reversing twice did not restore the order")
+        }
+    }
+}
