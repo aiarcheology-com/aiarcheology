@@ -629,6 +629,8 @@ internal enum L10n {
     }
   }
   internal enum Findings {
+    /// Data
+    internal static let data = L10n.tr("Localizable", "findings.data", fallback: "Data")
     /// Export
     internal static let export = L10n.tr("Localizable", "findings.export", fallback: "Export")
     /// Import
@@ -674,6 +676,18 @@ internal enum L10n {
         /// Import finished
         internal static let title = L10n.tr("Localizable", "findings.import.result.title", fallback: "Import finished")
       }
+    }
+    internal enum Sort {
+      /// Alphabetical
+      internal static let alphabetical = L10n.tr("Localizable", "findings.sort.alphabetical", fallback: "Alphabetical")
+      /// Date
+      internal static let date = L10n.tr("Localizable", "findings.sort.date", fallback: "Date")
+      /// Website
+      internal static let host = L10n.tr("Localizable", "findings.sort.host", fallback: "Website")
+      /// Sort
+      internal static let label = L10n.tr("Localizable", "findings.sort.label", fallback: "Sort")
+      /// Reverse
+      internal static let reverse = L10n.tr("Localizable", "findings.sort.reverse", fallback: "Reverse")
     }
     internal enum Sync {
       /// %d could not be backed up

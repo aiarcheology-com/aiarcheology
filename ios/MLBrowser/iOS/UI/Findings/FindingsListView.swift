@@ -50,6 +50,17 @@ struct FindingsListView: View {
 	/// nil = no filter (all findings, including unlabeled ones).
 	@State private var filterLabel: String?
 
+	// MARK: Ordering (AIA-0748)
+
+	/// Order and direction are held as two pieces of state, not one six-case enum: they are
+	/// independent behavioural dimensions, and collapsing them would make illegal states no fewer
+	/// while making "keep the order, flip the direction" unexpressible without a lookup table.
+	///
+	/// Deliberately not persisted -- the choice resets to newest-first each time the sheet opens,
+	/// exactly as the address dialog's own sort control does.
+	@State private var sortOrder: SortOrder = .date
+	@State private var isReversed = false
+
 	/// ZIP export goes straight to the system share sheet; per-finding sharing
 	/// goes through the composer (which owns its own share-sheet presentation).
 	@State private var sharePayload: ActivitySharePayload?
@@ -80,17 +91,22 @@ struct FindingsListView: View {
 	@Environment(\.usesRealAuth) private var usesRealAuth
 
 	var body: some View {
-		NavigationStack {
+		// Ordered ONCE per body pass and threaded to every reader: `filteredFindings` is a computed
+		// property, so the empty check, the ForEach and the export button would otherwise each
+		// re-run the whole sort. This array must never outlive the body pass -- see
+		// `dataMenu(isExportDisabled:)`, which takes a Bool rather than the findings for that reason.
+		let items = Self.ordered(filteredFindings, by: sortOrder, reversed: isReversed)
+		return NavigationStack {
 			VStack(spacing: 0) {
 				syncStatus
 				if distinctLabels.isEmpty.not {
 					filterChips
 				}
 				List {
-					if filteredFindings.isEmpty {
+					if items.isEmpty {
 						emptyStateView
 					}
-					ForEach(filteredFindings, id: \.objectID) { finding in
+					ForEach(items, id: \.objectID) { finding in
 						row(finding)
 					}
 				}
@@ -106,8 +122,8 @@ struct FindingsListView: View {
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
 				ToolbarItemGroup(placement: .navigationBarLeading) {
-					exportButton
-					importButton
+					dataMenu(isExportDisabled: items.isEmpty)
+					sortMenu
 				}
 				ToolbarItem(placement: .navigationBarTrailing) {
 					Button(action: { dismiss() }) {
@@ -209,19 +225,6 @@ struct FindingsListView: View {
 
 	// MARK: - Import
 
-	@ViewBuilder
-	private var importButton: some View {
-		if isImporting {
-			ProgressView()
-		} else {
-			Button(action: { isPresentingImporter = true }) {
-				Text(L10n.Findings.import)
-			}
-			.tint(.blue)
-			.testability(Testability.Button.findingsImport)
-		}
-	}
-
 	/// Reads and validates the archive off the MainActor, then decides whether a question is needed.
 	///
 	/// The picked file lives outside the sandbox, so it is opened under a security scope and copied
@@ -293,26 +296,50 @@ struct FindingsListView: View {
 
 	// MARK: - Export & share
 
-	/// Exports the CURRENTLY FILTERED findings (not the raw fetch) as a ZIP. The
-	/// snapshot is taken synchronously on the MainActor at tap time; the heavy
-	/// zip build runs detached so the UI stays responsive.
+	/// Export and import, behind one toolbar button (AIA-0748).
+	///
+	/// They were two separate text buttons until the sort control joined them: three items beside
+	/// an inline navigation title crowded the bar at larger Dynamic Type sizes. Grouping the two
+	/// archive actions under one noun leaves the leading group with two controls -- data, and order.
+	///
+	/// Export takes the emptiness as a `Bool` rather than the ordered array on purpose: the array is
+	/// render-time state, and this action closure runs later. Capturing managed objects here would
+	/// let a cloud tombstone (`FindingsSyncCoordinator` applies deletes while this sheet is open)
+	/// delete a row between render and tap -- and reading an attribute off a deleted, saved object
+	/// traps on a fault it cannot fulfil rather than returning nil.
+	///
+	/// The whole menu collapses to a spinner while either job runs: both write the same archive
+	/// surface, and offering the other action mid-job would invite exactly the overlap neither
+	/// path is written to survive.
 	@ViewBuilder
-	private var exportButton: some View {
-		if isExporting {
+	private func dataMenu(isExportDisabled: Bool) -> some View {
+		if isExporting || isImporting {
 			ProgressView()
 		} else {
-			Button(action: exportFindings) {
-				Text(L10n.Findings.export)
-					.bold()
+			Menu {
+				Button(action: exportFindings) {
+					Label(L10n.Findings.export, systemImage: "square.and.arrow.up")
+				}
+				.disabled(isExportDisabled)
+				.testability(Testability.Button.findingsExport)
+
+				Button(action: { isPresentingImporter = true }) {
+					Label(L10n.Findings.import, systemImage: "square.and.arrow.down")
+				}
+				.testability(Testability.Button.findingsImport)
+			} label: {
+				Text(L10n.Findings.data)
 			}
-			.tint(.green)
-			.disabled(filteredFindings.isEmpty)
-			.testability(Testability.Button.findingsExport)
+			.tint(.blue)
+			.testability(Testability.Button.findingsDataMenu)
 		}
 	}
 
 	private func exportFindings() {
-		let snapshots = filteredFindings.map(FindingSnapshot.init)
+		// Re-derived here, at tap time, rather than captured from the body pass -- see
+		// `exportButton(isDisabled:)`. One sort on a user action costs nothing.
+		let snapshots = Self.ordered(filteredFindings, by: sortOrder, reversed: isReversed)
+			.map(FindingSnapshot.init)
 		isExporting = true
 		Task {
 			do {
@@ -358,6 +385,76 @@ struct FindingsListView: View {
 			}
 			.padding(.horizontal)
 			.padding(.vertical, 8)
+		}
+	}
+
+	// MARK: - Ordering control (AIA-0748)
+
+	/// Shaped like `LocationSheetView.sortMenu` -- one toolbar button opening a `Menu` -- with a
+	/// reverse item added, so three orders cover six results without a second toolbar button.
+	///
+	/// Reverse is a `Button` with a direction-encoding symbol, **not** a `Toggle`: no `Menu` in this
+	/// app contains one, and this sheet also ships to iOS-on-Mac, where menu items render through a
+	/// different path. `CatalogBrowseView`'s provider menu is the shipping precedent for a
+	/// state-encoding button inside a menu.
+	private var sortMenu: some View {
+		Menu {
+			orderItem(.date, title: L10n.Findings.Sort.date, systemImage: "clock",
+			          id: Testability.Button.findingsSortByDate)
+			orderItem(.alphabetical, title: L10n.Findings.Sort.alphabetical, systemImage: "textformat.abc",
+			          id: Testability.Button.findingsSortByTitle)
+			orderItem(.host, title: L10n.Findings.Sort.host, systemImage: "globe",
+			          id: Testability.Button.findingsSortByHost)
+			Button {
+				withAnimation { isReversed.toggle() }
+			} label: {
+				Label(L10n.Findings.Sort.reverse, systemImage: isReversed ? "arrow.up" : "arrow.down")
+			}
+			// A button carrying its state in a symbol is visually stateful but audibly stateless:
+			// the symbol is decorative to VoiceOver, so without this trait "Reverse" would be
+			// announced identically in both directions. `.isSelected` is how the picker's own
+			// chosen row already announces.
+			.accessibilityAddTraits(isReversed ? .isSelected : [])
+			.testability(Testability.Button.findingsSortReverse)
+		} label: {
+			Image(systemName: "arrow.up.arrow.down")
+		}
+		.accessibilityLabel(L10n.Findings.Sort.label)
+		// The active order only -- never the order and the direction concatenated at runtime.
+		// Assembled sentences break word order and right-to-left layout across the locales; the
+		// direction is announced by the reverse button's `.isSelected` trait instead.
+		.accessibilityValue(sortOrderName)
+		.testability(Testability.Button.findingsSortOrder)
+	}
+
+	/// One order row.
+	///
+	/// Buttons rather than a `Picker`: each row needs its own accessibility identifier so a UI test
+	/// can address it directly instead of matching translated text, and a `Picker`'s rows do not
+	/// carry one through. Selection is drawn and announced the way `CatalogBrowseView`'s provider
+	/// menu does it -- a checkmark plus the `.isSelected` trait -- so nothing is lost by not using
+	/// a `Picker`.
+	private func orderItem(
+		_ order: SortOrder,
+		title: String,
+		systemImage: String,
+		id: Testability.Button
+	) -> some View {
+		let isActive = sortOrder == order
+		return Button {
+			withAnimation { sortOrder = order }
+		} label: {
+			Label(title, systemImage: isActive ? "checkmark" : systemImage)
+		}
+		.accessibilityAddTraits(isActive ? .isSelected : [])
+		.testability(id)
+	}
+
+	private var sortOrderName: String {
+		switch sortOrder {
+		case .date: return L10n.Findings.Sort.date
+		case .alphabetical: return L10n.Findings.Sort.alphabetical
+		case .host: return L10n.Findings.Sort.host
 		}
 	}
 
@@ -605,6 +702,130 @@ struct FindingsListView: View {
 			try findingRepository.delete(finding)
 		} catch {
 			LoggingPolicy.error("Failed to delete the finding", error: error, logger: .storage)
+		}
+	}
+}
+
+// MARK: - Ordering (AIA-0748)
+
+extension FindingsListView {
+
+	/// Which key the findings list is ordered by. Direction is held separately (`isReversed`).
+	enum SortOrder: Hashable {
+		case date
+		case alphabetical
+		case host
+	}
+
+	/// One finding with its sort key already extracted.
+	///
+	/// A `struct` rather than a tuple deliberately: with the `id` terminator this carries four
+	/// members, and SwiftLint's `large_tuple` warns at four.
+	private struct Decorated {
+		/// nil means this finding has **no key** for the active order and belongs in the trailing
+		/// group. An empty string is never a key -- see `sortKey(for:order:)`.
+		let key: String?
+		let date: Date?
+		/// The terminator that makes every comparison chain total. `entityId` is non-optional.
+		let id: String
+		let finding: Finding
+	}
+
+	/// The findings in display order.
+	///
+	/// The rule in one sentence: **partition into keyed and key-less, reverse the keyed slice only,
+	/// and always leave the key-less group last.** Reversing a sort should not promote the least
+	/// informative rows to the top, so a finding with no host -- or no date, or no title text --
+	/// stays at the bottom in *both* directions. That is the P0 decision, applied to all three
+	/// orders rather than to `host` alone.
+	///
+	/// Pure and `static` so the rule, which is the part carrying the edge cases, is testable
+	/// without standing up a view. **Internal, not `private`:** a `private static` is unreachable
+	/// from `@testable import`, which would leave this untested while looking tested.
+	///
+	/// Decorate-sort-undecorate, so each key is extracted once (O(n)) instead of on every
+	/// comparison. Note what that does *not* buy: `localizedStandardCompare` is an ICU call that
+	/// still runs per comparison and dominates at scale. A folded precomputed sort key is the next
+	/// lever and is deliberately out of scope -- findings are hand-captured, so the assumed
+	/// magnitude here is hundreds, not thousands.
+	static func ordered(_ findings: [Finding], by order: SortOrder, reversed: Bool) -> [Finding] {
+		var keyed: [Decorated] = []
+		var keyless: [Decorated] = []
+
+		for finding in findings {
+			let element = Decorated(
+				key: sortKey(for: finding, order: order),
+				date: finding.creationDate_,
+				id: finding.entityId.uuidString,
+				finding: finding
+			)
+			// The date order keys off the date; the other two key off their string.
+			let isKeyed = order == .date ? element.date != nil : element.key != nil
+			if isKeyed {
+				keyed.append(element)
+			} else {
+				keyless.append(element)
+			}
+		}
+
+		keyed.sort { compare($0, $1, order: order) }
+		// Fixed newest-first order, and never reversed: this group is what reversing must not
+		// promote. Reversing only the keyed slice also makes reverse an involution on it.
+		keyless.sort { byDateThenID($0, $1) }
+
+		let directed = reversed ? Array(keyed.reversed()) : keyed
+		return (directed + keyless).map(\.finding)
+	}
+
+	/// nil = no key for this order, i.e. the trailing group.
+	private static func sortKey(for finding: Finding, order: SortOrder) -> String? {
+		switch order {
+		case .date:
+			// No string key participates; keyed-ness comes from `creationDate_`.
+			return nil
+		case .alphabetical:
+			// `displayTitle` is non-optional but not non-empty: the import path assigns `label_`
+			// raw while only the save path normalises empty to nil, and `??` tests nil rather than
+			// emptiness. An imported row can therefore render as "" -- which would otherwise sort
+			// to the very top as a blank leading row.
+			let title = finding.displayTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+			return title.isEmpty ? nil : title
+		case .host:
+			guard let host = finding.page?.host, host.isEmpty.not else { return nil }
+			return host
+		}
+	}
+
+	private static func compare(_ lhs: Decorated, _ rhs: Decorated, order: SortOrder) -> Bool {
+		switch order {
+		case .date:
+			return byDateThenID(lhs, rhs)
+		case .alphabetical, .host:
+			// Both keys are non-nil here -- key-less elements were partitioned out. The empty
+			// fallbacks keep this total without forcing an optional the partition already excluded.
+			let comparison = (lhs.key ?? "").localizedStandardCompare(rhs.key ?? "")
+			if comparison != .orderedSame {
+				return comparison == .orderedAscending
+			}
+			return byDateThenID(lhs, rhs)
+		}
+	}
+
+	/// Newest first, terminating on `entityId`.
+	///
+	/// The terminator is what makes the chain a strict total order: Swift's `sort(by:)` is not
+	/// documented as stable, so without it two findings sharing a key (and a timestamp -- the
+	/// import path copies those wholesale) would be free to swap places between renders.
+	private static func byDateThenID(_ lhs: Decorated, _ rhs: Decorated) -> Bool {
+		switch (lhs.date, rhs.date) {
+		case let (left?, right?) where left != right:
+			return left > right
+		case (nil, _?):
+			return false
+		case (_?, nil):
+			return true
+		default:
+			return lhs.id < rhs.id
 		}
 	}
 }

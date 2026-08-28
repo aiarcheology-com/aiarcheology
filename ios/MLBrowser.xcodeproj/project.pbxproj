@@ -235,6 +235,7 @@
 		94E018910000000000000006 /* terrain_ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000005 /* terrain_ipad.png */; };
 		94E018910000000000000011 /* DrawerConfigUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000010 /* DrawerConfigUITests.swift */; };
 		94E018910000000000000013 /* SettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000012 /* SettingsUITests.swift */; };
+		94E018910000000000000019 /* FindingsMenusUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000018 /* FindingsMenusUITests.swift */; };
 		94E018910000000000000015 /* BrowsingHistoryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000014 /* BrowsingHistoryUITests.swift */; };
 		94E018910000000000000017 /* AddressBarUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000016 /* AddressBarUITests.swift */; };
 		94E6A66D2EEE1EEB008E1B4B /* MetadataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E6A66C2EEE1EE6008E1B4B /* MetadataParser.swift */; };
@@ -646,6 +647,7 @@
 		94E018910000000000000005 /* terrain_ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = terrain_ipad.png; sourceTree = "<group>"; };
 		94E018910000000000000010 /* DrawerConfigUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerConfigUITests.swift; sourceTree = "<group>"; };
 		94E018910000000000000012 /* SettingsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsUITests.swift; sourceTree = "<group>"; };
+		94E018910000000000000018 /* FindingsMenusUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsMenusUITests.swift; sourceTree = "<group>"; };
 		94E018910000000000000014 /* BrowsingHistoryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowsingHistoryUITests.swift; sourceTree = "<group>"; };
 		94E018910000000000000016 /* AddressBarUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarUITests.swift; sourceTree = "<group>"; };
 		94E6A66C2EEE1EE6008E1B4B /* MetadataParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataParser.swift; sourceTree = "<group>"; };
@@ -1388,6 +1390,7 @@
 				94E018910000000000000010 /* DrawerConfigUITests.swift */,
 				94FF035000000000000000A0 /* FeatureFlagUITests.swift */,
 				94E018910000000000000012 /* SettingsUITests.swift */,
+				94E018910000000000000018 /* FindingsMenusUITests.swift */,
 				94E018910000000000000014 /* BrowsingHistoryUITests.swift */,
 				94F1631700000000000000C1 /* DetectionCountCheckpointUITests.swift */,
 				86D0C80027004283842AFBDF /* ClassificationDemoUITests.swift */,
@@ -2321,6 +2324,7 @@
 				94E018910000000000000011 /* DrawerConfigUITests.swift in Sources */,
 				94FF035000000000000000A1 /* FeatureFlagUITests.swift in Sources */,
 				94E018910000000000000013 /* SettingsUITests.swift in Sources */,
+				94E018910000000000000019 /* FindingsMenusUITests.swift in Sources */,
 				94E018910000000000000015 /* BrowsingHistoryUITests.swift in Sources */,
 				94F1631700000000000000C2 /* DetectionCountCheckpointUITests.swift in Sources */,
 				10C7A2E888F44A46B69E150E /* ClassificationDemoUITests.swift in Sources */,
