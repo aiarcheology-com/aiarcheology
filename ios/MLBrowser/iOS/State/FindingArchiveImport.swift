@@ -47,6 +47,13 @@ struct ImportedFindingRow: Equatable {
 	let confidence: Double
 	let creationDate: Date?
 	let box: FindingSnapshot.Box
+	/// Where the detection sat on the captured view (AIA-0761).
+	///
+	/// Nil means **not stated** — an archive written before the field existed, or by a client that
+	/// does not know it — and the caller keeps whatever the local row already has. It never means
+	/// "the sender says there is none": zeroing on nil would let one un-updated peer strip the
+	/// capture box off every device through automatic replace-import, permanently and silently.
+	let captureBox: FindingSnapshot.Box?
 	/// Nil for a v0 archive, which predates the attribute. The caller falls back to `creationDate`.
 	let modifiedAt: Date?
 	let modelId: UUID?
@@ -66,8 +73,8 @@ extension ImportedFindingRow {
 		ImportedFindingRow(
 			id: id, title: title, label: label, note: note, author: author, gps: gps, page: page,
 			detectionClass: detectionClass, confidence: confidence, creationDate: creationDate,
-			box: box, modifiedAt: modifiedAt, modelId: modelId, lifeCycle: lifeCycle,
-			screenshotExtension: screenshotExtension
+			box: box, captureBox: captureBox, modifiedAt: modifiedAt, modelId: modelId,
+			lifeCycle: lifeCycle, screenshotExtension: screenshotExtension
 		)
 	}
 }
@@ -245,6 +252,7 @@ enum FindingArchiveImport {
 		let confidence: Double?
 		let date: String?
 		let box: FindingSnapshot.Box?
+		let captureBox: FindingSnapshot.Box?
 		let modifiedAt: String?
 		let modelId: String?
 		let lifeCycle: String?
@@ -281,11 +289,31 @@ enum FindingArchiveImport {
 			confidence: raw.confidence ?? 0,
 			creationDate: raw.date.flatMap(parseDate),
 			box: box,
+			// Sanitized at the boundary, not validated into a rejection. `FindingRepository.apply`
+			// turns any `throwIfInvalid()` failure into `ImportRejection.invalidContent`, which
+			// cloud sync counts as rejected and never retries — far too high a price for a field
+			// no renderer requires. An out-of-range capture box is simply not stated.
+			captureBox: raw.captureBox.flatMap(sanitizedCaptureBox),
 			modifiedAt: raw.modifiedAt.flatMap(parseDate),
 			modelId: raw.modelId.flatMap(UUID.init(uuidString:)),
 			lifeCycle: raw.lifeCycle,
 			screenshotExtension: screenshotExtension
 		)
+	}
+
+	/// A capture box the local store can hold, or nil.
+	///
+	/// The unit-rect rule mirrors `Finding.validationReport()`'s, deliberately: the model rule is
+	/// defence in depth, and this is the gate that keeps a peer's malformed value from ever
+	/// reaching it. The zero rect is rejected here too — on the wire it is indistinguishable from
+	/// "not recorded", and nil already says that without asserting a degenerate rectangle.
+	private static func sanitizedCaptureBox(_ box: FindingSnapshot.Box) -> FindingSnapshot.Box? {
+		let values = [box.x, box.y, box.width, box.height]
+		guard values.allSatisfy(\.isFinite),
+		      box.x >= 0, box.y >= 0, box.width > 0, box.height > 0,
+		      box.x + box.width <= 1, box.y + box.height <= 1
+		else { return nil }
+		return box
 	}
 
 	/// `images/<id>.<ext>` with a supported extension and nothing else — no directory components, no

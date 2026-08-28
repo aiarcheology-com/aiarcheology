@@ -56,7 +56,12 @@ enum ShareCardOrientation: String, CaseIterable, Identifiable {
 struct FindingShareSubject: Identifiable {
 	let id: UUID
 	let image: UIImage?
+	/// The detection in `image`'s own coordinates — what the card draws over the picture.
 	let normalizedBox: CGRect
+	/// The detection on the captured view, before any crop was baked into `image` — what a share
+	/// link may state, since a recipient has no crop to resolve `normalizedBox` against.
+	/// `.zero` when the finding never recorded one (AIA-0761).
+	let captureNormalizedBox: CGRect
 	let title: String
 	let label: String?
 	let note: String?
@@ -74,6 +79,7 @@ struct FindingShareSubject: Identifiable {
 		id = finding.entityId
 		image = FindingScreenshotStore.load(filename: finding.screenshotFilename)
 		normalizedBox = finding.normalizedBox
+		captureNormalizedBox = finding.captureNormalizedBox
 		title = finding.displayTitle
 		label = finding.label_
 		note = finding.note_
@@ -93,6 +99,7 @@ struct FindingShareSubject: Identifiable {
 		id: UUID,
 		image: UIImage? = nil,
 		normalizedBox: CGRect = .zero,
+		captureNormalizedBox: CGRect = .zero,
 		title: String,
 		label: String? = nil,
 		note: String? = nil,
@@ -107,6 +114,7 @@ struct FindingShareSubject: Identifiable {
 		self.id = id
 		self.image = image
 		self.normalizedBox = normalizedBox
+		self.captureNormalizedBox = captureNormalizedBox
 		self.title = title
 		self.label = label
 		self.note = note

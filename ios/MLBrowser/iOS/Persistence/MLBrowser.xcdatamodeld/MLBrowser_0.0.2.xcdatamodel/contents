@@ -42,6 +42,10 @@
         <attribute name="boxWidth" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="boxX" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="boxY" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="captureBoxHeight" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="captureBoxWidth" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="captureBoxX" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="captureBoxY" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="detectionClass" optional="YES" attributeType="String"/>
         <attribute name="detectionConfidence" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>

@@ -218,6 +218,82 @@ final class FindingRepositoryTests: XCTestCase {
 		XCTAssertNil(FindingShareSubject(anonymous).author)
 	}
 
+	// MARK: - Capture-space box (AIA-0761)
+
+	/// The two rectangles have to stay apart on the row. The save sheet re-normalizes the detection
+	/// into the crop it bakes into the image, so the caller's `box` and the detection's own place on
+	/// the captured view genuinely differ on nearly every save — one field cannot hold both.
+	///
+	/// The share assertion is the half a value-initialized subject cannot reach:
+	/// `FindingShareSubject.init(_ finding:)` is the only way a browsed finding enters the share
+	/// contract, so a copy dropped there leaves every emission test green while every real link goes
+	/// out pointing at the crop.
+	func testSave_croppedFinding_recordsBothBoxesAndSharesTheCaptureOne() throws {
+		let captureBox = CGRect(x: 0.2, y: 0.1, width: 0.3, height: 0.2)
+		let cropBox = CGRect(x: 0.6, y: 0.5, width: 0.25, height: 0.4)
+		let finding = try sut.save(
+			capture: makeCapture(box: captureBox),
+			image: makeImage(),
+			box: cropBox,
+			metadata: FindingMetadata(title: "Cropped finding", label: "", note: "", author: "", gps: "")
+		)
+		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
+
+		XCTAssertEqual(finding.normalizedBox, cropBox, "the stored image's box is the one the caller passed")
+		XCTAssertEqual(
+			finding.captureNormalizedBox, captureBox,
+			"the capture box is the detection's own, not the crop-relative one"
+		)
+
+		let box = try XCTUnwrap(FindingShareSubject(finding).linkPayload().box)
+		XCTAssertEqual(box.x, captureBox.minX, accuracy: 1e-9)
+		XCTAssertEqual(box.y, 1 - captureBox.maxY, accuracy: 1e-9)
+		XCTAssertEqual(box.width, captureBox.width, accuracy: 1e-9)
+		XCTAssertEqual(box.height, captureBox.height, accuracy: 1e-9)
+		XCTAssertNotEqual(box.x, cropBox.minX, accuracy: 1e-9, "the stored image's box reached the link")
+
+		// The other direction of the same swap: assigning the capture box to BOTH subject fields
+		// would satisfy every assertion above while the card drew a capture-space rectangle over
+		// the cropped image (`FindingShareCard` renders `subject.normalizedBox`).
+		XCTAssertEqual(
+			FindingShareSubject(finding).normalizedBox, cropBox,
+			"the card's box must stay the stored image's own"
+		)
+	}
+
+	/// The archive/sync lane of AIA-0761, from a real row rather than a memberwise snapshot.
+	/// `FindingSnapshot.init(_:)` is the only place a stored capture box becomes wire data, and it
+	/// is the mapping that turns the zero rect into a nil — delete it and every other test stays
+	/// green while devices quietly stop carrying capture boxes to each other.
+	func testAllFindingSnapshots_captureBox_isCarriedFromTheRowAndNilWhenNeverRecorded() throws {
+		let captureBox = CGRect(x: 0.2, y: 0.1, width: 0.3, height: 0.2)
+		let recorded = try sut.save(
+			capture: makeCapture(box: captureBox),
+			image: makeImage(),
+			box: CGRect(x: 0.6, y: 0.5, width: 0.25, height: 0.4),
+			metadata: FindingMetadata(title: "Recorded", label: "", note: "", author: "", gps: "")
+		)
+		defer { FindingScreenshotStore.delete(filename: recorded.screenshotFilename) }
+		// A row that predates the attribute, spelled the way migration leaves one.
+		recorded.captureBoxX = 0
+		recorded.captureBoxY = 0
+		recorded.captureBoxWidth = 0
+		recorded.captureBoxHeight = 0
+		let legacySnapshot = try XCTUnwrap(sut.allFindingSnapshots().first { $0.id == recorded.entityId })
+		XCTAssertNil(legacySnapshot.captureBox, "the zero rect means 'never recorded' and travels as nil")
+
+		recorded.captureBoxX = captureBox.minX
+		recorded.captureBoxY = captureBox.minY
+		recorded.captureBoxWidth = captureBox.width
+		recorded.captureBoxHeight = captureBox.height
+		let snapshot = try XCTUnwrap(sut.allFindingSnapshots().first { $0.id == recorded.entityId })
+
+		XCTAssertEqual(
+			snapshot.captureBox,
+			.init(x: captureBox.minX, y: captureBox.minY, width: captureBox.width, height: captureBox.height)
+		)
+	}
+
 	/// Exercises `FindingSnapshot.init(_:)`, which every production export goes through — this one via
 	/// `allFindingSnapshots()` (the export-before-delete flow), the Findings list via
 	/// `filteredFindings.map(FindingSnapshot.init)`. Deliberately NOT built with the memberwise init:
@@ -277,6 +353,73 @@ final class FindingRepositoryTests: XCTestCase {
 		// a bell with no stamp change uploads nothing, a stamp change with no bell uploads late.
 		XCTAssertEqual(changeNotifications, 1, "an edit rings the bell create and delete ring")
 		XCTAssertNotEqual(finding.modifiedAt, stampBeforeEdit, "the edit re-stamps modifiedAt, so it is owed")
+	}
+
+	// MARK: - Importing a capture box (AIA-0761)
+
+	/// Nil on the wire means "not stated", never "there is none". This is asserted against
+	/// `importFindings` — `apply`'s public entry point — rather than through the sync cycle harness,
+	/// because the rule lives in `apply` and a stubbed-Worker round trip would exercise HTTP, zip
+	/// and ledger code to reach the same three lines.
+	///
+	/// It matters because cloud sync replace-imports without anyone touching anything: if nil wrote
+	/// zeroes, one peer still on an older build would strip the capture box off every device the
+	/// account owns, permanently and silently.
+	func testImportFindings_replaceWithNoStatedCaptureBox_keepsTheLocalOne() throws {
+		let captureBox = CGRect(x: 0.2, y: 0.1, width: 0.3, height: 0.2)
+		let finding = try sut.save(
+			capture: makeCapture(box: captureBox),
+			image: makeImage(),
+			box: CGRect(x: 0.6, y: 0.5, width: 0.25, height: 0.4),
+			metadata: FindingMetadata(title: "Local", label: "", note: "", author: "", gps: "")
+		)
+		let id = finding.entityId
+		defer { FindingScreenshotStore.delete(filename: Finding.screenshotFilename(for: id)) }
+
+		let unstated = try sut.importFindings(archive(id: id, captureBox: nil), duplicates: .replace)
+		XCTAssertEqual(unstated.restored, 1, "precondition: the row was actually replaced")
+		XCTAssertEqual(
+			try XCTUnwrap(Finding.select(id, in: moc)).captureNormalizedBox, captureBox,
+			"an archive that does not state a capture box must not blank the one this device knows"
+		)
+
+		let stated = try sut.importFindings(
+			archive(id: id, captureBox: .init(x: 0.4, y: 0.3, width: 0.2, height: 0.1)),
+			duplicates: .replace
+		)
+		XCTAssertEqual(stated.restored, 1)
+		XCTAssertEqual(
+			try XCTUnwrap(Finding.select(id, in: moc)).captureNormalizedBox,
+			CGRect(x: 0.4, y: 0.3, width: 0.2, height: 0.1),
+			"a stated capture box is the sender's own fact and replaces the local value"
+		)
+	}
+
+	/// One archived row for `id`, carrying whatever capture box the case under test needs.
+	private func archive(id: UUID, captureBox: FindingSnapshot.Box?) -> FindingArchiveContents {
+		FindingArchiveContents(
+			rows: [
+				ImportedFindingRow(
+					id: id,
+					title: "Imported",
+					label: nil,
+					note: nil,
+					author: nil,
+					gps: nil,
+					page: URL(string: "https://example.com/a"),
+					detectionClass: nil,
+					confidence: 0.5,
+					creationDate: nil,
+					box: .init(x: 0.1, y: 0.1, width: 0.2, height: 0.2),
+					captureBox: captureBox,
+					modifiedAt: nil,
+					modelId: nil,
+					lifeCycle: CoreDataManageableState.ready.rawValue,
+					screenshotExtension: nil
+				)
+			],
+			images: [:]
+		)
 	}
 
 	/// Current filenames in the shared `Documents/Findings` dir (the store's write target),

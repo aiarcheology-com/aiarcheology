@@ -1,51 +1,36 @@
-Build: AIA-0757 (usability fixes from the last test session)
+Build: AIA-0761 (a shared link pointed at the wrong part of the page)
 
-Test Focus: the fixes for what you reported last time — the sign-in row that stayed stuck offline,
-the onboarding tour, washed-out detection colours, and several controls that were hard to find.
+Test Focus: sharing a finding as a link, and what the person receiving it is told about where the
+detection was. Nothing else changed, so if findings, saving, exporting or backing up misbehave,
+that is worth reporting loudly.
 
-- Coming back online fixes itself. This is the important one. Turn on Airplane Mode and launch the
-  app. Open the side menu: the account row at the bottom should say you are offline. Now open
-  Settings and look for "Back Up My Findings" — while the app thinks it is offline, that whole
-  setting is missing, which is what made backing up look broken. Turn the network back on and WAIT,
-  without leaving the app and without backgrounding it. Within a few seconds the menu should show
-  you signed in again, and the back-up setting should reappear in Settings on its own. Before, only
-  quitting and reopening the app fixed it.
+- The link now points where the detection actually was. Find something with a model, save it, and
+  before you save use the pinch/drag on the picture to crop in tight on the detection — that is the
+  case that was broken. Now share that finding with the link switched on, and send it to yourself.
+  Open the link. Under "Where on the page" you should see a small diagram of the page with the
+  detection marked. It should sit where the thing was on the page as you saw it in the browser —
+  for example, near the bottom-right corner if that is where it was. Before this build, that
+  diagram described where the detection sat inside your crop, so a detection near the edge of the
+  page was shown near the middle, and it was drawn far too large.
 
-- The tour points at what to press. Settings, then Replay the introduction. Two things to watch.
-  The Vladař site should already be loading behind the very first bubble — not the whole-country
-  map, and not whatever page you happened to be on. And on every step that asks you to press
-  something, that control should pulse so it is obvious which one it means. On the "switch a model
-  on" step, the switch itself pulses. If you use Reduce Motion, the highlight is steady instead of
-  pulsing — please check both if you can.
+- Cropping harder should not move the mark. Save the same detection twice: once without touching
+  the crop, once cropped in as far as it will go. Share both. The two links should put the mark in
+  the same place and at the same size, because the detection did not move on the page — only your
+  picture of it changed.
 
-- Detection colours are vivid now. Import a model, or let a demo model detect something, and look
-  at the boxes and points over the map. They should read clearly against the relief — no more
-  washed-out or muddy colours. Please note: this applies to models added from now on. Models you
-  already have keep the colour they were given, and you can change any of them by hand in that
-  model's settings.
+- Findings you saved before this build now say nothing rather than something wrong. Take any
+  finding you already had on the device before installing this build and share it. Its link should
+  show no "Where on the page" section at all. That is deliberate and is not a bug to report: the
+  crop those older findings were saved with threw the original position away, so there is nothing
+  truthful left to send. Everything else about the link — the title, the picture, the address, the
+  QR code — should be exactly as before.
 
-- The side menu reads properly. Open it. Findings, Settings and the sign-in row at the bottom
-  should look like normal, tappable rows — not greyed out as if disabled. The old "+" in the top
-  corner is now a filled blue button reading "Add Model", and the "Models" heading is gone.
+- Your existing findings must all still be there. This build changes how findings are stored, so
+  please check this carefully after updating: open Findings and confirm every finding you had is
+  still listed, with its picture, its title and its red detection box in the right place. If you
+  can, update from the build you were already running rather than deleting the app first — a
+  fresh install cannot test this at all.
 
-- The sign-in screen says why. Tap the sign-in row at the bottom of the side menu. Under the
-  welcome line it should now explain that signing in backs your findings up and shares them across
-  your devices, rather than just repeating that you are signing in. Nothing there should suggest
-  you need an account to detect anything — the app works signed out.
-
-- Import is where you would expect it. Start a model download and open it. While it is downloading,
-  the Import button sits in the middle of the form and is greyed out. When the download finishes it
-  turns green and is the obvious thing to press. It is no longer up in the top corner, so there
-  should be nothing tempting you to press Restart instead.
-
-- Saving a finding shows the finding. Detect something and tap it to save. The Title box is now the
-  first thing on the form, at the top. The picture should open zoomed in on the thing you picked,
-  with some of the surroundings still visible so you can tell where it is — not the whole page. You
-  can still pinch, drag, or use the slider to reframe it, and double-tap goes back to the full
-  picture. Whatever you leave on screen is what gets saved, so please check the saved finding and
-  its share picture look right.
-
-- Back-up status is readable. Open Findings with something waiting to upload. The status line above
-  the list is slightly larger than before, so it reads as status rather than fine print.
-
-Please report anything that looks wrong, and say which device and iOS version you were on.
+- Back up and restore still round-trips. If you are signed in, back your findings up, then check
+  they come back. If you use the export/import files instead, export a finding, import it back, and
+  confirm the imported copy's link still marks the right spot on the page.

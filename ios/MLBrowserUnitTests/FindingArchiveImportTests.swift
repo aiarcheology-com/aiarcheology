@@ -163,6 +163,71 @@ final class FindingArchiveImportTests: XCTestCase {
 		XCTAssertEqual(restored.lifeCycle, .ready, "a v0 row carries no lifeCycle and restores as ready")
 	}
 
+	// MARK: - The capture-space box on the wire (AIA-0761)
+
+	/// A one-row v1 archive whose `captureBox` entry is spelled by the caller — including not being
+	/// spelled at all, which is a case in its own right.
+	private func makeCaptureBoxArchive(id: UUID, captureBoxJSON: String) throws -> URL {
+		try makeArchive(manifest: """
+		{"schemaVersion":1,"findings":[{"id":"\(id.uuidString)","title":"Boxed","label":null,\
+		"note":null,"author":null,"gps":null,"page":"https://example.com/a","detectionClass":null,\
+		"confidence":0.5,"date":null,"box":{"x":0.1,"y":0.1,"width":0.2,"height":0.2},\
+		\(captureBoxJSON)"modifiedAt":null,"modelId":null,"lifeCycle":"ready","screenshot":null}]}
+		""")
+	}
+
+	/// The field has to survive the wire verbatim: after a crop it is the only rectangle a share
+	/// link can honestly state, and a restored finding that lost it emits no box at all.
+	func testRead_statedCaptureBox_decodesOntoTheRow() throws {
+		let archive = try makeCaptureBoxArchive(
+			id: UUID(),
+			captureBoxJSON: "\"captureBox\":{\"x\":0.2,\"y\":0.1,\"width\":0.3,\"height\":0.2},"
+		)
+		let row = try XCTUnwrap(FindingArchiveImport.read(archiveAt: archive).rows.first)
+
+		XCTAssertEqual(row.captureBox, .init(x: 0.2, y: 0.1, width: 0.3, height: 0.2))
+	}
+
+	/// Both spellings of "this archive says nothing about a capture box": the key missing entirely
+	/// (an archive written before the field existed) and an explicit null (a device that has none).
+	/// They must decode alike, because the caller reads nil as "keep whatever is local" — reading an
+	/// omission as anything else would let an old peer's export blank a box this device knows.
+	func testRead_omittedOrNullCaptureBox_decodesAsNotStated() throws {
+		for captureBoxJSON in ["", "\"captureBox\":null,"] {
+			let archive = try makeCaptureBoxArchive(id: UUID(), captureBoxJSON: captureBoxJSON)
+			let row = try XCTUnwrap(FindingArchiveImport.read(archiveAt: archive).rows.first)
+
+			XCTAssertNil(row.captureBox, "captureBox JSON '\(captureBoxJSON)' should decode as not stated")
+		}
+	}
+
+	/// A malformed capture box costs the field, never the finding. `FindingRepository.apply` turns
+	/// any validation failure into `ImportRejection.invalidContent`, which cloud sync never retries —
+	/// far too high a price for a rectangle no renderer requires. So it is sanitized to "not stated"
+	/// at the boundary and the row still lands.
+	func testRead_malformedCaptureBox_isSanitizedToNotStatedAndTheRowSurvives() throws {
+		let malformed = [
+			"\"captureBox\":{\"x\":0.9,\"y\":0.9,\"width\":0.5,\"height\":0.5},",
+			"\"captureBox\":{\"x\":-0.1,\"y\":0.1,\"width\":0.2,\"height\":0.2},",
+			"\"captureBox\":{\"x\":0.1,\"y\":0.1,\"width\":0,\"height\":0},"
+		]
+		for captureBoxJSON in malformed {
+			let id = UUID()
+			let archive = try makeCaptureBoxArchive(id: id, captureBoxJSON: captureBoxJSON)
+			let rows = try FindingArchiveImport.read(archiveAt: archive).rows
+
+			XCTAssertEqual(rows.count, 1, "'\(captureBoxJSON)' must not cost the finding")
+			XCTAssertNil(try XCTUnwrap(rows.first).captureBox, "'\(captureBoxJSON)' should be sanitized away")
+
+			let summary = try importArchive(archive)
+			XCTAssertEqual(summary.restored, 1, "'\(captureBoxJSON)' must still restore the row")
+			XCTAssertEqual(
+				try XCTUnwrap(Finding.select(id, in: moc)).captureNormalizedBox, .zero,
+				"nothing was stated, so the row keeps the zero rect that means 'never recorded'"
+			)
+		}
+	}
+
 	/// Identity is resolved BEFORE any file is written. A skipped duplicate must leave the stored
 	/// finding's image untouched — the filename derives from the id, so writing first would
 	/// overwrite a picture the user never agreed to change.

@@ -18,6 +18,7 @@ final class FindingShareEmissionTests: XCTestCase {
 	private func makeSubject(
 		id: UUID = UUID(),
 		normalizedBox: CGRect = .zero,
+		captureNormalizedBox: CGRect = .zero,
 		title: String = "Roman wall",
 		author: String? = "V. Slavík",
 		gps: String? = "48.8, 19.53",
@@ -29,6 +30,7 @@ final class FindingShareEmissionTests: XCTestCase {
 		FindingShareSubject(
 			id: id,
 			normalizedBox: normalizedBox,
+			captureNormalizedBox: captureNormalizedBox,
 			title: title,
 			author: author,
 			gps: gps,
@@ -257,11 +259,11 @@ final class FindingShareEmissionTests: XCTestCase {
 
 	// MARK: - The box, and the sender's address choice (AIA-0657)
 
-	/// The conversion is the point: `normalizedBox` is a Vision rect (bottom-left origin) and the
-	/// wire is top-left, so a box sitting in the **bottom** 25% of the capture must travel as one
-	/// sitting in the **top** 75% down.
+	/// The conversion is the point: `captureNormalizedBox` is a Vision rect (bottom-left origin) and
+	/// the wire is top-left, so a box sitting in the **bottom** 25% of the capture must travel as
+	/// one sitting in the **top** 75% down.
 	func test_linkPayload_convertsTheBoxFromVisionToTopLeftOrigin() throws {
-		let subject = makeSubject(normalizedBox: CGRect(x: 0.1, y: 0.0, width: 0.4, height: 0.25))
+		let subject = makeSubject(captureNormalizedBox: CGRect(x: 0.1, y: 0.0, width: 0.4, height: 0.25))
 		let box = try XCTUnwrap(subject.linkPayload().box)
 
 		XCTAssertEqual(box.x, 0.1, accuracy: 1e-9)
@@ -270,9 +272,44 @@ final class FindingShareEmissionTests: XCTestCase {
 		XCTAssertEqual(box.height, 0.25, accuracy: 1e-9)
 	}
 
-	/// `.zero` is what a row saved before boxes were stored carries, and it is not a location.
+	/// `.zero` is what a row saved before capture boxes were stored carries, and it is not a
+	/// location.
 	func test_linkPayload_carriesNoBoxForAZeroRect() {
-		XCTAssertNil(makeSubject(normalizedBox: .zero).linkPayload().box)
+		XCTAssertNil(makeSubject(captureNormalizedBox: .zero).linkPayload().box)
+	}
+
+	/// The bug AIA-0761 fixed, pinned from both sides: once the save sheet has baked a crop into the
+	/// image, `normalizedBox` is crop-relative and only `captureNormalizedBox` says where the
+	/// detection sat on the page the recipient will open. Reverting the emission to `normalizedBox`
+	/// has to fail here, so the wrong-source values are asserted absent as well as the right ones
+	/// present.
+	func test_linkPayload_statesTheCaptureBoxAndNotTheImageOne() throws {
+		let subject = makeSubject(
+			normalizedBox: CGRect(x: 0.6, y: 0.5, width: 0.25, height: 0.4),
+			captureNormalizedBox: CGRect(x: 0.2, y: 0.1, width: 0.3, height: 0.2)
+		)
+		let box = try XCTUnwrap(subject.linkPayload().box)
+
+		XCTAssertEqual(box.x, 0.2, accuracy: 1e-9)
+		XCTAssertEqual(box.y, 0.7, accuracy: 1e-9)
+		XCTAssertEqual(box.width, 0.3, accuracy: 1e-9)
+		XCTAssertEqual(box.height, 0.2, accuracy: 1e-9)
+
+		XCTAssertNotEqual(box.x, 0.6, accuracy: 1e-9, "The image-space box was emitted")
+		XCTAssertNotEqual(box.y, 0.1, accuracy: 1e-9, "The image-space box was emitted")
+		XCTAssertNotEqual(box.width, 0.25, accuracy: 1e-9, "The image-space box was emitted")
+		XCTAssertNotEqual(box.height, 0.4, accuracy: 1e-9, "The image-space box was emitted")
+	}
+
+	/// A legacy row has a perfectly usable image-space box and no capture-space one. Emitting the
+	/// former would hand the recipient a rectangle measured against a crop they will never see, so
+	/// the link must carry no box at all rather than a fabricated one.
+	func test_linkPayload_carriesNoBoxWhenOnlyTheImageBoxWasRecorded() {
+		let subject = makeSubject(
+			normalizedBox: CGRect(x: 0.1, y: 0.2, width: 0.3, height: 0.4),
+			captureNormalizedBox: .zero
+		)
+		XCTAssertNil(subject.linkPayload().box)
 	}
 
 	func test_linkPayload_carriesTheFullAddressOnlyWhenAsked() throws {
