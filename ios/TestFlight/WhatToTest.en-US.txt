@@ -1,36 +1,40 @@
-Build: AIA-0761 (a shared link pointed at the wrong part of the page)
+Build: AIA-0748 (sorting the findings list, and a tidier Findings toolbar)
 
-Test Focus: sharing a finding as a link, and what the person receiving it is told about where the
-detection was. Nothing else changed, so if findings, saving, exporting or backing up misbehave,
-that is worth reporting loudly.
+Test Focus: the new sort control in Findings, and the new Data menu that now holds export and
+import. Saving, sharing and backing up were not touched, so if those misbehave, report it loudly.
 
-- The link now points where the detection actually was. Find something with a model, save it, and
-  before you save use the pinch/drag on the picture to crop in tight on the detection — that is the
-  case that was broken. Now share that finding with the link switched on, and send it to yourself.
-  Open the link. Under "Where on the page" you should see a small diagram of the page with the
-  detection marked. It should sit where the thing was on the page as you saw it in the browser —
-  for example, near the bottom-right corner if that is where it was. Before this build, that
-  diagram described where the detection sat inside your crop, so a detection near the edge of the
-  page was shown near the middle, and it was drawn far too large.
+- The Findings toolbar changed shape. Open Findings. Where Export and Import used to sit as two
+  separate buttons, there is now one button called Data holding both, and next to it a new
+  up/down arrows button for sorting. Check the title at the top is not squashed or cut off — and
+  please check this again with larger text turned on (Settings > Accessibility > Display & Text
+  Size > Larger Text, pushed high). That is the case this change exists to fix.
 
-- Cropping harder should not move the mark. Save the same detection twice: once without touching
-  the crop, once cropped in as far as it will go. Share both. The two links should put the mark in
-  the same place and at the same size, because the detection did not move on the page — only your
-  picture of it changed.
+- Export and import still work from their new home. Tap Data. Export a few findings, then import
+  the file back. Both should behave exactly as they did before; only where you tap has changed.
+  While an export or import is running, the Data button becomes a spinner and cannot be tapped —
+  that is deliberate.
 
-- Findings you saved before this build now say nothing rather than something wrong. Take any
-  finding you already had on the device before installing this build and share it. Its link should
-  show no "Where on the page" section at all. That is deliberate and is not a bug to report: the
-  crop those older findings were saved with threw the original position away, so there is nothing
-  truthful left to send. Everything else about the link — the title, the picture, the address, the
-  QR code — should be exactly as before.
+- Sorting by date, name and website. Tap the arrows button. You get three choices — Date,
+  Alphabetical, Website — and a Reverse item. Date is the default and shows newest first, which is
+  the order the list has always used. Alphabetical sorts by the title shown on each row. Website
+  groups by the site the finding was captured on. Reverse flips whichever one you picked.
 
-- Your existing findings must all still be there. This build changes how findings are stored, so
-  please check this carefully after updating: open Findings and confirm every finding you had is
-  still listed, with its picture, its title and its red detection box in the right place. If you
-  can, update from the build you were already running rather than deleting the app first — a
-  fresh install cannot test this at all.
+- Findings with nothing to sort by stay at the bottom — in both directions. This is the part most
+  worth a careful look. A finding saved from a file rather than a web page has no website. Sort by
+  Website: it should sit at the bottom. Now tap Reverse: it should STILL be at the bottom, not
+  jump to the top. The same rule applies to a finding with no date, and to one with no title text.
+  A row with no information should never lead the list, whichever way round you sort it.
 
-- Back up and restore still round-trips. If you are signed in, back your findings up, then check
-  they come back. If you use the export/import files instead, export a finding, import it back, and
-  confirm the imported copy's link still marks the right spot on the page.
+- The choice is not remembered, on purpose. Pick Alphabetical, close Findings, open it again. It
+  should be back to Date, newest first. That is intended for this build — tell us if you would
+  rather it remembered.
+
+- Two things that are expected, not bugs. If you switch order while scrolled down the list, you
+  stay at the same scroll position and the rows move around you — so you may land somewhere
+  unfamiliar; scroll up to get your bearings. And under Alphabetical or Website, a finding you
+  save or sync while the list is open appears in its sorted place rather than at the top, so it
+  may arrive off-screen. Judge whether either of these feels wrong in practice.
+
+- Exported files follow the sort. Sort by Alphabetical, then export. The rows inside the exported
+  file come out in that same order. Nothing depends on that order, so this is cosmetic — but it is
+  a change from before, when the file was always newest-first.
