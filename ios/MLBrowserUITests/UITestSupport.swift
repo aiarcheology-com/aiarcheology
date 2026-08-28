@@ -92,6 +92,17 @@ enum AID {
 	// Drawer
 	static let drawerSettings = "_AIA:Button.DrawerSettings"
 	static let drawerFindings = "_AIA:Button.DrawerFindings"
+
+	// Findings toolbar (AIA-0748)
+	static let findingsDataMenu = "_AIA:Button.FindingsDataMenu"
+	static let findingsExport = "_AIA:Button.FindingsExport"
+	static let findingsImport = "_AIA:Button.FindingsImport"
+	static let findingsSortOrder = "_AIA:Button.FindingsSortOrder"
+	static let findingsSortReverse = "_AIA:Button.FindingsSortReverse"
+	static let findingsSortByDate = "_AIA:Button.FindingsSortByDate"
+	static let findingsSortByTitle = "_AIA:Button.FindingsSortByTitle"
+	static let findingsSortByHost = "_AIA:Button.FindingsSortByHost"
+	static let findingsDismiss = "_AIA:Button.FindingsDismiss"
 	static let configEnabledToggle = "_AIA:Toggle.SideMenuCellEnabled"
 	static let configDelete = "_AIA:Button.SideMenuDeleteConfiguration"
 	static let configModelTypePicker = "_AIA:Picker.ConfigurationFormModelType"

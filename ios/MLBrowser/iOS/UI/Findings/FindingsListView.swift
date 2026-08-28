@@ -399,12 +399,12 @@ struct FindingsListView: View {
 	/// state-encoding button inside a menu.
 	private var sortMenu: some View {
 		Menu {
-			Picker(selection: $sortOrder.animation(), label: EmptyView()) {
-				Label(L10n.Findings.Sort.date, systemImage: "clock").tag(SortOrder.date)
-				Label(L10n.Findings.Sort.alphabetical, systemImage: "textformat.abc")
-					.tag(SortOrder.alphabetical)
-				Label(L10n.Findings.Sort.host, systemImage: "globe").tag(SortOrder.host)
-			}
+			orderItem(.date, title: L10n.Findings.Sort.date, systemImage: "clock",
+			          id: Testability.Button.findingsSortByDate)
+			orderItem(.alphabetical, title: L10n.Findings.Sort.alphabetical, systemImage: "textformat.abc",
+			          id: Testability.Button.findingsSortByTitle)
+			orderItem(.host, title: L10n.Findings.Sort.host, systemImage: "globe",
+			          id: Testability.Button.findingsSortByHost)
 			Button {
 				withAnimation { isReversed.toggle() }
 			} label: {
@@ -415,6 +415,7 @@ struct FindingsListView: View {
 			// announced identically in both directions. `.isSelected` is how the picker's own
 			// chosen row already announces.
 			.accessibilityAddTraits(isReversed ? .isSelected : [])
+			.testability(Testability.Button.findingsSortReverse)
 		} label: {
 			Image(systemName: "arrow.up.arrow.down")
 		}
@@ -424,6 +425,29 @@ struct FindingsListView: View {
 		// direction is announced by the reverse button's `.isSelected` trait instead.
 		.accessibilityValue(sortOrderName)
 		.testability(Testability.Button.findingsSortOrder)
+	}
+
+	/// One order row.
+	///
+	/// Buttons rather than a `Picker`: each row needs its own accessibility identifier so a UI test
+	/// can address it directly instead of matching translated text, and a `Picker`'s rows do not
+	/// carry one through. Selection is drawn and announced the way `CatalogBrowseView`'s provider
+	/// menu does it -- a checkmark plus the `.isSelected` trait -- so nothing is lost by not using
+	/// a `Picker`.
+	private func orderItem(
+		_ order: SortOrder,
+		title: String,
+		systemImage: String,
+		id: Testability.Button
+	) -> some View {
+		let isActive = sortOrder == order
+		return Button {
+			withAnimation { sortOrder = order }
+		} label: {
+			Label(title, systemImage: isActive ? "checkmark" : systemImage)
+		}
+		.accessibilityAddTraits(isActive ? .isSelected : [])
+		.testability(id)
 	}
 
 	private var sortOrderName: String {
