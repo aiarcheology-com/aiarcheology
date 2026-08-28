@@ -94,7 +94,7 @@ struct FindingsListView: View {
 		// Ordered ONCE per body pass and threaded to every reader: `filteredFindings` is a computed
 		// property, so the empty check, the ForEach and the export button would otherwise each
 		// re-run the whole sort. This array must never outlive the body pass -- see
-		// `exportButton(isDisabled:)`, which takes a Bool rather than the findings for that reason.
+		// `dataMenu(isExportDisabled:)`, which takes a Bool rather than the findings for that reason.
 		let items = Self.ordered(filteredFindings, by: sortOrder, reversed: isReversed)
 		return NavigationStack {
 			VStack(spacing: 0) {
@@ -122,8 +122,7 @@ struct FindingsListView: View {
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
 				ToolbarItemGroup(placement: .navigationBarLeading) {
-					exportButton(isDisabled: items.isEmpty)
-					importButton
+					dataMenu(isExportDisabled: items.isEmpty)
 					sortMenu
 				}
 				ToolbarItem(placement: .navigationBarTrailing) {
@@ -226,19 +225,6 @@ struct FindingsListView: View {
 
 	// MARK: - Import
 
-	@ViewBuilder
-	private var importButton: some View {
-		if isImporting {
-			ProgressView()
-		} else {
-			Button(action: { isPresentingImporter = true }) {
-				Text(L10n.Findings.import)
-			}
-			.tint(.blue)
-			.testability(Testability.Button.findingsImport)
-		}
-	}
-
 	/// Reads and validates the archive off the MainActor, then decides whether a question is needed.
 	///
 	/// The picked file lives outside the sandbox, so it is opened under a security scope and copied
@@ -310,27 +296,42 @@ struct FindingsListView: View {
 
 	// MARK: - Export & share
 
-	/// Exports the CURRENTLY FILTERED **and sorted** findings (not the raw fetch) as a ZIP -- the
-	/// archive's row order follows the sort control (AIA-0748). The snapshot is taken synchronously
-	/// on the MainActor at tap time; the heavy zip build runs detached so the UI stays responsive.
+	/// Export and import, behind one toolbar button (AIA-0748).
 	///
-	/// Takes the emptiness as a `Bool` rather than the ordered array on purpose: the array is
-	/// render-time state, and this button's action closure runs later. Capturing managed objects
-	/// here would let a cloud tombstone (`FindingsSyncCoordinator` applies deletes while this sheet
-	/// is open) delete a row between render and tap -- and reading an attribute off a deleted,
-	/// saved object traps on a fault it cannot fulfil rather than returning nil.
+	/// They were two separate text buttons until the sort control joined them: three items beside
+	/// an inline navigation title crowded the bar at larger Dynamic Type sizes. Grouping the two
+	/// archive actions under one noun leaves the leading group with two controls -- data, and order.
+	///
+	/// Export takes the emptiness as a `Bool` rather than the ordered array on purpose: the array is
+	/// render-time state, and this action closure runs later. Capturing managed objects here would
+	/// let a cloud tombstone (`FindingsSyncCoordinator` applies deletes while this sheet is open)
+	/// delete a row between render and tap -- and reading an attribute off a deleted, saved object
+	/// traps on a fault it cannot fulfil rather than returning nil.
+	///
+	/// The whole menu collapses to a spinner while either job runs: both write the same archive
+	/// surface, and offering the other action mid-job would invite exactly the overlap neither
+	/// path is written to survive.
 	@ViewBuilder
-	private func exportButton(isDisabled: Bool) -> some View {
-		if isExporting {
+	private func dataMenu(isExportDisabled: Bool) -> some View {
+		if isExporting || isImporting {
 			ProgressView()
 		} else {
-			Button(action: exportFindings) {
-				Text(L10n.Findings.export)
-					.bold()
+			Menu {
+				Button(action: exportFindings) {
+					Label(L10n.Findings.export, systemImage: "square.and.arrow.up")
+				}
+				.disabled(isExportDisabled)
+				.testability(Testability.Button.findingsExport)
+
+				Button(action: { isPresentingImporter = true }) {
+					Label(L10n.Findings.import, systemImage: "square.and.arrow.down")
+				}
+				.testability(Testability.Button.findingsImport)
+			} label: {
+				Text(L10n.Findings.data)
 			}
-			.tint(.green)
-			.disabled(isDisabled)
-			.testability(Testability.Button.findingsExport)
+			.tint(.blue)
+			.testability(Testability.Button.findingsDataMenu)
 		}
 	}
 

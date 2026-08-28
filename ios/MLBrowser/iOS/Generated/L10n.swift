@@ -629,6 +629,8 @@ internal enum L10n {
     }
   }
   internal enum Findings {
+    /// Data
+    internal static let data = L10n.tr("Localizable", "findings.data", fallback: "Data")
     /// Export
     internal static let export = L10n.tr("Localizable", "findings.export", fallback: "Export")
     /// Import
