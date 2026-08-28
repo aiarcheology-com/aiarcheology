@@ -196,7 +196,7 @@ missing secret costs the backstop, never the data.
 
 ### Noticing a purge that never finished (AIA-0773)
 
-The Worker retries these itself: a six-hourly cron sweeps fences whose data is still there and
+The Worker retries these itself: a daily cron sweeps fences whose data is still there and
 re-runs the purge (`src/sweep.ts`). That is the mechanism — **not** a notification, because there is
 no notification available to us:
 

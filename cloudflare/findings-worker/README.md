@@ -118,7 +118,7 @@ backstop silently. Spending that budget refusing events we do not care about buy
   leave index rows pointing at objects that are gone. Teardown is the mechanism; the rule is the
   backstop for a crashed run.
 - **A purge that keeps failing is retried by the sweep, not by svix.** svix's schedule is finite, and
-  after it no client can authenticate as the deleted user. So a six-hourly cron re-runs the purge for
+  after it no client can authenticate as the deleted user. So a daily cron re-runs the purge for
   any fence whose data is still there (`src/sweep.ts`, AIA-0773). It needs no credential: the fence
   row is the record that a purge was owed, and the purge is idempotent. What is still missing is an
   alert on the sweep's own `{"sweep":"incomplete","remaining":N}` line — a `remaining` that never
