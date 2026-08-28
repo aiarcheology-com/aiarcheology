@@ -694,9 +694,9 @@ internal enum L10n {
       internal static func parked(_ p1: Int) -> String {
         return L10n.tr("Localizable", "findings.sync.parked", p1, fallback: "%d could not be backed up")
       }
-      /// %d not backed up yet
+      /// %d waiting to back up
       internal static func pending(_ p1: Int) -> String {
-        return L10n.tr("Localizable", "findings.sync.pending", p1, fallback: "%d not backed up yet")
+        return L10n.tr("Localizable", "findings.sync.pending", p1, fallback: "%d waiting to back up")
       }
       internal enum Backup {
         /// Backing up…

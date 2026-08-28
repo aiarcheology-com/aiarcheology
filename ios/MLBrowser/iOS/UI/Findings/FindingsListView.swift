@@ -670,10 +670,16 @@ struct FindingsListView: View {
 			if findingsSync.parkedCount > 0 {
 				label(L10n.Findings.Sync.parked(findingsSync.parkedCount), icon: "exclamationmark.circle", tint: .orange, font: statusFont)
 			}
-			if fraction >= 1 {
+			if fraction >= 1 || findingsSync.isQuotaBlocked {
 				// Says what to do, not merely that something is wrong. Exporting keeps working at
 				// 100% on purpose — it is both a data-portability right and the only way out of a
 				// full account.
+				//
+				// `isQuotaBlocked` and not the fraction alone (AIA-0748 production pass): an account
+				// can be refusing every upload while the fraction still reads 97%, because what is
+				// left will not fit a finding. Showing a percentage there invites "so why did it
+				// refuse?", and the coordinator already draws this distinction for the back-up
+				// button — a fraction near 1 is not the same claim as the server refusing a write.
 				label(L10n.Findings.Sync.Storage.full, icon: "externaldrive.fill.badge.xmark", tint: .red, font: statusFont)
 			} else if fraction >= 0.8 {
 				label(L10n.Findings.Sync.Storage.warning(Int(fraction * 100)), icon: "externaldrive.fill", tint: .orange, font: statusFont)
@@ -681,7 +687,7 @@ struct FindingsListView: View {
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
 		.padding(.horizontal)
-		.padding(.vertical, findingsSync.pendingUploadCount > 0 || fraction >= 0.8 ? 8 : 0)
+		.padding(.vertical, findingsSync.pendingUploadCount > 0 || fraction >= 0.8 || findingsSync.isQuotaBlocked ? 8 : 0)
 	}
 
 	/// Shared by the aggregate sync lines above the list **and** the manual back-up outcome in the

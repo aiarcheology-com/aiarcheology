@@ -30387,103 +30387,103 @@
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "‏%d بلا نسخة احتياطية بعد"
+            "value" : "%d في انتظار النسخ الاحتياطي"
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d এখনও ব্যাকআপ হয়নি"
+            "value" : "%d ব্যাকআপের অপেক্ষায়"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d zatím nezálohováno"
+            "value" : "%d čeká na zálohování"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d noch nicht gesichert"
+            "value" : "%d warten auf die Sicherung"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%d not backed up yet"
+            "value" : "%d waiting to back up"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d sin copia de seguridad"
+            "value" : "%d en espera de copia"
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "‏%d هنوز پشتیبان‌گیری نشده"
+            "value" : "%d در انتظار پشتیبان‌گیری"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d pas encore sauvegardées"
+            "value" : "%d en attente de sauvegarde"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "‏%d עדיין ללא גיבוי"
+            "value" : "%d ממתינים לגיבוי"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d का अभी बैकअप नहीं हुआ"
+            "value" : "%d बैकअप की प्रतीक्षा में"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d még nincs mentve"
+            "value" : "%d mentésre vár"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d bez kopii zapasowej"
+            "value" : "%d czeka na kopię zapasową"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d без резервной копии"
+            "value" : "%d ожидают резервного копирования"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d без резервної копії"
+            "value" : "%d очікують резервного копіювання"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d 项尚未备份"
+            "value" : "%d 项等待备份"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d 項尚未備份"
+            "value" : "%d 項等待備份"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%d 項仲未備份"
+            "value" : "%d 項等待備份"
           }
         }
       }
