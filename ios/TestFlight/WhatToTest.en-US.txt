@@ -1,40 +1,46 @@
-Build: AIA-0748 (sorting the findings list, and a tidier Findings toolbar)
+Build: AIA-0757, AIA-0761, AIA-0748 (usability fixes, a corrected share link, findings sorting)
 
-Test Focus: the new sort control in Findings, and the new Data menu that now holds export and
-import. Saving, sharing and backing up were not touched, so if those misbehave, report it loudly.
+Test Focus: three builds' worth of changes reached you at once. The two that matter most are that
+your existing findings survive the update, and that a shared link points at the right thing.
 
-- The Findings toolbar changed shape. Open Findings. Where Export and Import used to sit as two
-  separate buttons, there is now one button called Data holding both, and next to it a new
-  up/down arrows button for sorting. Check the title at the top is not squashed or cut off — and
-  please check this again with larger text turned on (Settings > Accessibility > Display & Text
-  Size > Larger Text, pushed high). That is the case this change exists to fix.
+- YOUR EXISTING FINDINGS MUST ALL STILL BE THERE. This build changes how findings are stored, so
+  please check first: open Findings and confirm every finding you had is still listed, with its
+  picture, title and red box in the right place. Update from the build you were running rather
+  than deleting the app first — a fresh install cannot test this at all.
 
-- Export and import still work from their new home. Tap Data. Export a few findings, then import
-  the file back. Both should behave exactly as they did before; only where you tap has changed.
-  While an export or import is running, the Data button becomes a spinner and cannot be tapped —
-  that is deliberate.
+- Coming back online fixes itself. Airplane Mode on, launch the app. The account row in the side
+  menu says offline, and "Back Up My Findings" is missing from Settings — that absence is what made
+  backing up look broken. Turn the network on and WAIT, without leaving or backgrounding the app.
+  Within seconds you should be signed in again and the setting should reappear on its own.
 
-- Sorting by date, name and website. Tap the arrows button. You get three choices — Date,
-  Alphabetical, Website — and a Reverse item. Date is the default and shows newest first, which is
-  the order the list has always used. Alphabetical sorts by the title shown on each row. Website
-  groups by the site the finding was captured on. Reverse flips whichever one you picked.
+- A shared link points where the detection actually was. Save a finding and, before saving, pinch
+  and drag to crop in tight — that is the case that was broken. Share it with the link switched on
+  and open it. Under "Where on the page" the mark should sit where the thing was on the page as you
+  saw it in the browser. Cropping harder must not move it: save the same detection twice, once
+  uncropped and once cropped hard, and both links should mark the same place at the same size.
+  Findings saved before this build show no "Where on the page" section at all — deliberate, not a
+  bug: their original position was thrown away and there is nothing truthful left to send.
 
-- Findings with nothing to sort by stay at the bottom — in both directions. This is the part most
-  worth a careful look. A finding saved from a file rather than a web page has no website. Sort by
-  Website: it should sit at the bottom. Now tap Reverse: it should STILL be at the bottom, not
-  jump to the top. The same rule applies to a finding with no date, and to one with no title text.
-  A row with no information should never lead the list, whichever way round you sort it.
+- The Findings toolbar changed shape. Export and Import are now inside one button called Data, next
+  to a new arrows button for sorting. Check the title is not squashed, and check again with Larger
+  Text turned up high. Export and import themselves work exactly as before from their new home.
 
-- The choice is not remembered, on purpose. Pick Alphabetical, close Findings, open it again. It
-  should be back to Date, newest first. That is intended for this build — tell us if you would
-  rather it remembered.
+- Sorting by date, name and website. Tap the arrows: Date, Alphabetical, Website, plus Reverse.
+  Date is the default and is the order the list has always used. The part worth real attention: a
+  finding with no website sits at the bottom under Website — and after tapping Reverse it must
+  STILL be at the bottom, not jump to the top. Same for one with no date or no title. A row with no
+  information should never lead the list. The choice resets to Date when you reopen Findings.
 
-- Two things that are expected, not bugs. If you switch order while scrolled down the list, you
-  stay at the same scroll position and the rows move around you — so you may land somewhere
-  unfamiliar; scroll up to get your bearings. And under Alphabetical or Website, a finding you
-  save or sync while the list is open appears in its sorted place rather than at the top, so it
-  may arrive off-screen. Judge whether either of these feels wrong in practice.
+- The tour points at what to press. Settings, then Replay the introduction. The Vladař site should
+  already be loading behind the first bubble, and each step's control should pulse. With Reduce
+  Motion the highlight is steady instead — please check both if you can.
 
-- Exported files follow the sort. Sort by Alphabetical, then export. The rows inside the exported
-  file come out in that same order. Nothing depends on that order, so this is cosmetic — but it is
-  a change from before, when the file was always newest-first.
+- Detection colours are vivid now. New models get clear colours against the relief; models you
+  already have keep theirs, and you can change any by hand in that model's settings.
+
+- Smaller things. The side menu rows read as tappable, with a blue "Add Model" button. Import sits
+  in the middle of the download form and turns green when ready. The save form opens with Title
+  first and the picture zoomed on what you picked. Back-up status above the Findings list is
+  larger.
+
+Please report anything that looks wrong, and say which device and iOS version you were on.
