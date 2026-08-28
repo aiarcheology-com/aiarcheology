@@ -27123,24 +27123,6 @@
         "ar" : {
           "variations" : {
             "plural" : {
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%lld من هذه الملتقطات موجود على هذا الجهاز."
-                }
-              },
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%lld من هذه الملتقطات موجود بالفعل على هذا الجهاز."
-                }
-              },
-              "two" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%lld من هذه الملتقطات موجودان بالفعل على هذا الجهاز."
-                }
-              },
               "few" : {
                 "stringUnit" : {
                   "state" : "needs_review",
@@ -27153,10 +27135,28 @@
                   "value" : "%lld من هذه الملتقطات موجودة بالفعل على هذا الجهاز."
                 }
               },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld من هذه الملتقطات موجود بالفعل على هذا الجهاز."
+                }
+              },
               "other" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%lld من هذه الملتقطات موجودة بالفعل على هذا الجهاز."
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld من هذه الملتقطات موجودان بالفعل على هذا الجهاز."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld من هذه الملتقطات موجود على هذا الجهاز."
                 }
               }
             }
@@ -27183,12 +27183,6 @@
         "cs" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%lld z těchto nálezů už v tomto zařízení je."
-                }
-              },
               "few" : {
                 "stringUnit" : {
                   "state" : "needs_review",
@@ -27196,6 +27190,12 @@
                 }
               },
               "many" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld z těchto nálezů už v tomto zařízení je."
+                }
+              },
+              "one" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%lld z těchto nálezů už v tomto zařízení je."
@@ -27249,16 +27249,16 @@
         "es" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%lld de estos hallazgos ya está en este dispositivo."
-                }
-              },
               "many" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%lld de estos hallazgos ya están en este dispositivo."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld de estos hallazgos ya está en este dispositivo."
                 }
               },
               "other" : {
@@ -27291,16 +27291,16 @@
         "fr" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%lld de ces trouvailles est déjà sur cet appareil."
-                }
-              },
               "many" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%lld de ces trouvailles sont déjà sur cet appareil."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld de ces trouvailles est déjà sur cet appareil."
                 }
               },
               "other" : {
@@ -27315,25 +27315,25 @@
         "he" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "ממצא %lld מתוך אלה כבר נמצא במכשיר הזה."
-                }
-              },
-              "two" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%lld מהממצאים האלה כבר נמצאים במכשיר הזה."
-                }
-              },
               "many" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%lld מהממצאים האלה כבר נמצאים במכשיר הזה."
                 }
               },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "ממצא %lld מתוך אלה כבר נמצא במכשיר הזה."
+                }
+              },
               "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld מהממצאים האלה כבר נמצאים במכשיר הזה."
+                }
+              },
+              "two" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%lld מהממצאים האלה כבר נמצאים במכשיר הזה."
@@ -27381,12 +27381,6 @@
         "pl" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%lld z tych znalezisk jest już na tym urządzeniu."
-                }
-              },
               "few" : {
                 "stringUnit" : {
                   "state" : "needs_review",
@@ -27394,6 +27388,12 @@
                 }
               },
               "many" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld z tych znalezisk jest już na tym urządzeniu."
+                }
+              },
+              "one" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%lld z tych znalezisk jest już na tym urządzeniu."
@@ -27411,12 +27411,6 @@
         "ru" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%lld из этих находок уже есть на этом устройстве."
-                }
-              },
               "few" : {
                 "stringUnit" : {
                   "state" : "needs_review",
@@ -27424,6 +27418,12 @@
                 }
               },
               "many" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld из этих находок уже есть на этом устройстве."
+                }
+              },
+              "one" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%lld из этих находок уже есть на этом устройстве."
@@ -27441,12 +27441,6 @@
         "uk" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%lld із цих знахідок уже є на цьому пристрої."
-                }
-              },
               "few" : {
                 "stringUnit" : {
                   "state" : "needs_review",
@@ -27459,22 +27453,16 @@
                   "value" : "%lld із цих знахідок уже є на цьому пристрої."
                 }
               },
-              "other" : {
+              "one" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%lld із цих знахідок уже є на цьому пристрої."
                 }
-              }
-            }
-          }
-        },
-        "zh-HK" : {
-          "variations" : {
-            "plural" : {
+              },
               "other" : {
                 "stringUnit" : {
                   "state" : "needs_review",
-                  "value" : "其中 %lld 項發現已在此裝置上。"
+                  "value" : "%lld із цих знахідок уже є на цьому пристрої."
                 }
               }
             }
@@ -27493,6 +27481,18 @@
           }
         },
         "zh-Hant" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "其中 %lld 項發現已在此裝置上。"
+                }
+              }
+            }
+          }
+        },
+        "zh-HK" : {
           "variations" : {
             "plural" : {
               "other" : {
@@ -29133,24 +29133,6 @@
         "ar" : {
           "variations" : {
             "plural" : {
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%d ملتقط على هذا الجهاز خارج هذا الحساب."
-                }
-              },
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%d ملتقط على هذا الجهاز ليس في هذا الحساب بعد."
-                }
-              },
-              "two" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%d ملتقطان على هذا الجهاز ليسا في هذا الحساب بعد."
-                }
-              },
               "few" : {
                 "stringUnit" : {
                   "state" : "needs_review",
@@ -29163,10 +29145,28 @@
                   "value" : "%d ملتقطًا على هذا الجهاز ليست في هذا الحساب بعد."
                 }
               },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%d ملتقط على هذا الجهاز ليس في هذا الحساب بعد."
+                }
+              },
               "other" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%d ملتقط على هذا الجهاز ليست في هذا الحساب بعد."
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%d ملتقطان على هذا الجهاز ليسا في هذا الحساب بعد."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%d ملتقط على هذا الجهاز خارج هذا الحساب."
                 }
               }
             }
@@ -29193,12 +29193,6 @@
         "cs" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%d nález v tomto zařízení zatím v tomto účtu není."
-                }
-              },
               "few" : {
                 "stringUnit" : {
                   "state" : "needs_review",
@@ -29209,6 +29203,12 @@
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%d nálezu v tomto zařízení zatím v tomto účtu není."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%d nález v tomto zařízení zatím v tomto účtu není."
                 }
               },
               "other" : {
@@ -29259,16 +29259,16 @@
         "es" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%d hallazgo de este dispositivo aún no está en esta cuenta."
-                }
-              },
               "many" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%d hallazgos de este dispositivo aún no están en esta cuenta."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%d hallazgo de este dispositivo aún no está en esta cuenta."
                 }
               },
               "other" : {
@@ -29301,16 +29301,16 @@
         "fr" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%d trouvaille sur cet appareil n’est pas encore dans ce compte."
-                }
-              },
               "many" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%d trouvailles sur cet appareil ne sont pas encore dans ce compte."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%d trouvaille sur cet appareil n’est pas encore dans ce compte."
                 }
               },
               "other" : {
@@ -29325,25 +29325,25 @@
         "he" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "ממצא %d במכשיר הזה עדיין לא נמצא בחשבון הזה."
-                }
-              },
-              "two" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%d ממצאים במכשיר הזה עדיין לא נמצאים בחשבון הזה."
-                }
-              },
               "many" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%d ממצאים במכשיר הזה עדיין לא נמצאים בחשבון הזה."
                 }
               },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "ממצא %d במכשיר הזה עדיין לא נמצא בחשבון הזה."
+                }
+              },
               "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%d ממצאים במכשיר הזה עדיין לא נמצאים בחשבון הזה."
+                }
+              },
+              "two" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%d ממצאים במכשיר הזה עדיין לא נמצאים בחשבון הזה."
@@ -29391,12 +29391,6 @@
         "pl" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%d znalezisko na tym urządzeniu nie jest jeszcze na tym koncie."
-                }
-              },
               "few" : {
                 "stringUnit" : {
                   "state" : "needs_review",
@@ -29407,6 +29401,12 @@
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%d znalezisk na tym urządzeniu nie ma jeszcze na tym koncie."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%d znalezisko na tym urządzeniu nie jest jeszcze na tym koncie."
                 }
               },
               "other" : {
@@ -29421,12 +29421,6 @@
         "ru" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%d находка на этом устройстве ещё не в этом аккаунте."
-                }
-              },
               "few" : {
                 "stringUnit" : {
                   "state" : "needs_review",
@@ -29437,6 +29431,12 @@
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%d находок на этом устройстве ещё не в этом аккаунте."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%d находка на этом устройстве ещё не в этом аккаунте."
                 }
               },
               "other" : {
@@ -29451,12 +29451,6 @@
         "uk" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "%d знахідка на цьому пристрої ще не в цьому обліковому записі."
-                }
-              },
               "few" : {
                 "stringUnit" : {
                   "state" : "needs_review",
@@ -29469,22 +29463,16 @@
                   "value" : "%d знахідок на цьому пристрої ще не в цьому обліковому записі."
                 }
               },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%d знахідка на цьому пристрої ще не в цьому обліковому записі."
+                }
+              },
               "other" : {
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%d знахідки на цьому пристрої ще не в цьому обліковому записі."
-                }
-              }
-            }
-          }
-        },
-        "zh-HK" : {
-          "variations" : {
-            "plural" : {
-              "other" : {
-                "stringUnit" : {
-                  "state" : "needs_review",
-                  "value" : "此裝置上有 %d 項發現尚未加入此帳戶。"
                 }
               }
             }
@@ -29503,6 +29491,18 @@
           }
         },
         "zh-Hant" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "此裝置上有 %d 項發現尚未加入此帳戶。"
+                }
+              }
+            }
+          }
+        },
+        "zh-HK" : {
           "variations" : {
             "plural" : {
               "other" : {
