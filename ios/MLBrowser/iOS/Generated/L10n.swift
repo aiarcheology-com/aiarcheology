@@ -732,6 +732,30 @@ internal enum L10n {
           return L10n.tr("Localizable", "findings.sync.storage.warning", p1, fallback: "Cloud storage %d%% full")
         }
       }
+      internal enum Synchronize {
+        /// Synchronizing…
+        internal static let busy = L10n.tr("Localizable", "findings.sync.synchronize.busy", fallback: "Synchronizing…")
+        /// Synchronize
+        internal static let button = L10n.tr("Localizable", "findings.sync.synchronize.button", fallback: "Synchronize")
+        /// Synchronizing didn’t finish. It will try again.
+        internal static let failed = L10n.tr("Localizable", "findings.sync.synchronize.failed", fallback: "Synchronizing didn’t finish. It will try again.")
+        /// No connection. Nothing could be sent or fetched.
+        internal static let offline = L10n.tr("Localizable", "findings.sync.synchronize.offline", fallback: "No connection. Nothing could be sent or fetched.")
+        /// Up to date.
+        internal static let succeeded = L10n.tr("Localizable", "findings.sync.synchronize.succeeded", fallback: "Up to date.")
+        internal enum Help {
+          /// What does Synchronize do?
+          internal static let accessibility = L10n.tr("Localizable", "findings.sync.synchronize.help.accessibility", fallback: "What does Synchronize do?")
+          /// Synchronize works in both directions. It sends findings this device has that your account does not, and it brings down findings your account has that this device does not.
+          /// 
+          /// It is not a one-way upload, and it does not run by itself while this list is open. A finding you change on another device will not appear here on its own — open this list again, pull down on it, or press Synchronize to ask.
+          /// 
+          /// It does not undo what you chose to keep on this device. Findings you asked the app to keep here stay here, and are not sent.
+          internal static let body = L10n.tr("Localizable", "findings.sync.synchronize.help.body", fallback: "Synchronize works in both directions. It sends findings this device has that your account does not, and it brings down findings your account has that this device does not.\n\nIt is not a one-way upload, and it does not run by itself while this list is open. A finding you change on another device will not appear here on its own — open this list again, pull down on it, or press Synchronize to ask.\n\nIt does not undo what you chose to keep on this device. Findings you asked the app to keep here stay here, and are not sent.")
+          /// About Synchronize
+          internal static let title = L10n.tr("Localizable", "findings.sync.synchronize.help.title", fallback: "About Synchronize")
+        }
+      }
     }
   }
   internal enum History {
