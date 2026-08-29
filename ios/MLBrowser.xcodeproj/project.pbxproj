@@ -354,6 +354,7 @@
 		AC055600000000000000B008 /* FreeAccessUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A008 /* FreeAccessUITests.swift */; };
 		AC055600000000000000B009 /* FindingsEscapeHatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A009 /* FindingsEscapeHatch.swift */; };
 		AC055600000000000000B00A /* PaywallPurchaseIntentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A00A /* PaywallPurchaseIntentTests.swift */; };
+		AC077900000000000000B00A /* PaywallAccountDeletionPromptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC077900000000000000A00A /* PaywallAccountDeletionPromptTests.swift */; };
 		AC0757B0000000000000BAF /* ConnectivityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0757A0000000000000AAF /* ConnectivityMonitor.swift */; };
 		AC0FE77270000000000BAFB /* FindingsSyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0FE77270000000000AAFB /* FindingsSyncCoordinator.swift */; };
 		AC218D7270000000000B423 /* BackupConsentPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC218D7270000000000A423 /* BackupConsentPrompt.swift */; };
@@ -761,6 +762,7 @@
 		AC055600000000000000A008 /* FreeAccessUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessUITests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A009 /* FindingsEscapeHatch.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingsEscapeHatch.swift; sourceTree = "<group>"; };
 		AC055600000000000000A00A /* PaywallPurchaseIntentTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PaywallPurchaseIntentTests.swift; sourceTree = "<group>"; };
+		AC077900000000000000A00A /* PaywallAccountDeletionPromptTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PaywallAccountDeletionPromptTests.swift; sourceTree = "<group>"; };
 		AC0757A0000000000000AAF /* ConnectivityMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectivityMonitor.swift; sourceTree = "<group>"; };
 		AC0FE77270000000000AAFB /* FindingsSyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsSyncCoordinator.swift; sourceTree = "<group>"; };
 		AC218D7270000000000A423 /* BackupConsentPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupConsentPrompt.swift; sourceTree = "<group>"; };
@@ -1271,6 +1273,7 @@
 				AC055600000000000000A003 /* FreeAccessWindowTests.swift */,
 				AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */,
 				AC055600000000000000A00A /* PaywallPurchaseIntentTests.swift */,
+				AC077900000000000000A00A /* PaywallAccountDeletionPromptTests.swift */,
 				AC055600000000000000A006 /* FreeAccessStateTests.swift */,
 				548E8E7AA59A9B9E0C56C84C /* EntitlementTransactionTests.swift */,
 				A400E2EB12B7D3CA1F9151EB /* StoreKitSubscriptionProviderTests.swift */,
@@ -2206,6 +2209,7 @@
 				AC055600000000000000B003 /* FreeAccessWindowTests.swift in Sources */,
 				AC055600000000000000B007 /* SubscriptionGateDisplayTests.swift in Sources */,
 				AC055600000000000000B00A /* PaywallPurchaseIntentTests.swift in Sources */,
+				AC077900000000000000B00A /* PaywallAccountDeletionPromptTests.swift in Sources */,
 				AC055600000000000000B006 /* FreeAccessStateTests.swift in Sources */,
 				C54CDEC7AD84AB111D4A8319 /* EntitlementTransactionTests.swift in Sources */,
 				EA89403E84DBCD956619A996 /* StoreKitSubscriptionProviderTests.swift in Sources */,

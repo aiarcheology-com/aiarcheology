@@ -147,6 +147,10 @@ extension TestabilityIdentification {
 		/// The destructive action inside the delete-account confirmation dialog. It shares its
 		/// label with the button that opens it, so a test cannot tell them apart by text alone.
 		case paywallDeleteAccountConfirm
+		/// Export First… offered inside the delete-account confirmation when this device still
+		/// holds saved findings (AIA-0779). Absent when there is nothing to export, so its absence
+		/// is itself the assertion that the action is conditional.
+		case paywallDeleteAccountExportFindings
 		/// The findings escape hatch on the hard wall (AIA-0556) and the two choices inside its
 		/// confirmation. Present only where the paywall is a dead end, so its absence is itself the
 		/// assertion that an informational free-access paywall — not the wall — is showing.

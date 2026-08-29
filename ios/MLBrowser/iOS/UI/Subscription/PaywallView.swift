@@ -141,6 +141,47 @@ enum PaywallPurchaseIntent: Equatable {
 	}
 }
 
+/// What the delete-account confirmation on the hard wall must say, and offer (AIA-0779).
+///
+/// Deleting the account purges the *cloud* copy of the findings (`AuthState.deleteAccount` →
+/// `purgeCloudData`) and leaves the device copy alone. That is the one moment a user needs told,
+/// because the screen they are standing on is the wall: Settings — and with it the findings
+/// inventory — is behind the gate, and someone who believes deletion took their work with it has
+/// no way from here to find out otherwise. The escape hatch to export already exists (AIA-0556);
+/// what was missing is that the delete dialog never mentioned it, which is what the reporter hit.
+///
+/// A value, not an `if` inside the dialog, for the reason ``PaywallPurchaseIntent`` is one: the
+/// confirmation cannot be driven by the UI suite in the state that matters — the UI-testing launch
+/// path wipes the Caches store, so `hasAnyFinding()` is false there and the interesting branch is
+/// unreachable — and a decision about someone's data is worth stating where a test can reach it.
+enum PaywallAccountDeletionPrompt: Equatable {
+	/// Nothing is saved on this device. Warn about billing only, exactly as before AIA-0779.
+	case billingOnly
+
+	/// This device still holds findings: say so, and offer to export them before deleting.
+	case billingAndFindings
+
+	/// - Parameter hasSavedFindings: whether this install has anything saved — the same answer the
+	///   findings escape hatch is shown on, read once on appear.
+	static func resolve(hasSavedFindings: Bool) -> PaywallAccountDeletionPrompt {
+		hasSavedFindings ? .billingAndFindings : .billingOnly
+	}
+
+	/// Whether the confirmation offers Export First… beside the destructive action.
+	var offersFindingsExport: Bool { self == .billingAndFindings }
+
+	/// The body of the confirmation. Both forms carry the billing warning AIA-0528 added — the
+	/// findings sentence is appended to it, never substituted for it.
+	var message: String {
+		switch self {
+		case .billingOnly:
+			return L10n.Auth.Account.Delete.messageBilling
+		case .billingAndFindings:
+			return L10n.Auth.Account.Delete.messageBillingFindings
+		}
+	}
+}
+
 /// The paywall. Presented as the whole-app root gate (`SubscriptionGateView`) when the
 /// signed-in user isn't subscribed. Reads products and entitlement from
 /// ``SubscriptionState`` and drives purchase / restore intents.
@@ -323,6 +364,13 @@ struct PaywallView: View {
 	/// ever puts this screen over a reachable app again, this is the line that has to change, not the
 	/// three call sites below.
 	private var isDeadEnd: Bool { isRootGate }
+
+	/// What the delete-account confirmation says and offers (AIA-0779). Reads ``hasSavedFindings``,
+	/// which only the dead end ever answers — every other presentation leaves it `false`, and there
+	/// the account controls are absent anyway.
+	private var accountDeletionPrompt: PaywallAccountDeletionPrompt {
+		.resolve(hasSavedFindings: hasSavedFindings)
+	}
 
 	/// "Enjoying ML Browser?" — but only of someone who has actually used it (AIA-0567).
 	///
@@ -604,6 +652,17 @@ struct PaywallView: View {
 			isPresented: $showDeleteConfirmation,
 			titleVisibility: .visible
 		) {
+			// Offered before the destructive action, and only when there is something to export
+			// (AIA-0779). Exporting never deletes — it is the same independent explicit choice the
+			// findings dialog above is built on, and the same `exportFindings()`: the share sheet is
+			// attached to the paywall itself, so it outlives this dialog's dismissal.
+			if accountDeletionPrompt.offersFindingsExport {
+				Button(L10n.Settings.Reset.RemoveFindings.export) {
+					exportFindings()
+				}
+				.testability(Testability.Button.paywallDeleteAccountExportFindings)
+			}
+
 			Button(L10n.Paywall.manage) {
 				openURL(.appleManageSubscriptions)
 			}
@@ -623,7 +682,7 @@ struct PaywallView: View {
 
 			Button(L10n.Common.cancel, role: .cancel) {}
 		} message: {
-			Text(L10n.Auth.Account.Delete.messageBilling)
+			Text(accountDeletionPrompt.message)
 		}
 		// One alert for everything this screen has to say — purchase, restore, and a failed
 		// account deletion (AIA-0376). Chaining a second `.alert` onto the same view risks
