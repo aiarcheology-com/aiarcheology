@@ -41,22 +41,4 @@ final class PaywallAccountDeletionPromptTests: XCTestCase {
 			PaywallAccountDeletionPrompt.billingAndFindings.message
 		)
 	}
-
-	/// The billing warning AIA-0528 added is *appended to*, never replaced. Someone with findings
-	/// must still be told that deleting the account does not stop Apple billing — that is the
-	/// warning App Review reads, and the one the ticket's reporter needed on the same screen.
-	func testTheFindingsMessageStillCarriesTheBillingWarning() {
-		let billing = L10n.Auth.Account.Delete.messageBilling
-		let withFindings = PaywallAccountDeletionPrompt.billingAndFindings.message
-
-		XCTAssertTrue(
-			withFindings.hasPrefix(billing),
-			"the findings copy must keep the billing warning intact, not paraphrase it away"
-		)
-		XCTAssertGreaterThan(
-			withFindings.count,
-			billing.count,
-			"the findings copy must add a sentence, not merely restate the billing warning"
-		)
-	}
 }

@@ -208,7 +208,7 @@ final class StoreKitSubscriptionProviderTests: XCTestCase {
 	func testCancellation_AccountIsEntitled_ReportsSubscribed() async {
 		let provider = makeProvider(entitlements: [candidate(transactionID: 7, expiresAt: expiryDate)])
 
-		let outcome = await provider.outcomeAfterCancellation()
+		let outcome = await provider.outcomeAfterCancellation { [] }
 
 		XCTAssertEqual(outcome, .subscribed)
 		XCTAssertTrue(provider.isSubscribed)
@@ -220,7 +220,7 @@ final class StoreKitSubscriptionProviderTests: XCTestCase {
 	func testCancellation_NothingOwned_ReportsCancelled() async {
 		let provider = makeProvider(entitlements: [])
 
-		let outcome = await provider.outcomeAfterCancellation()
+		let outcome = await provider.outcomeAfterCancellation { [] }
 
 		XCTAssertEqual(outcome, .cancelled)
 		XCTAssertFalse(provider.isSubscribed)
@@ -241,11 +241,41 @@ final class StoreKitSubscriptionProviderTests: XCTestCase {
 		// What the App Store's ownership check leaves behind while the dialog is on screen.
 		candidates.value = [candidate(transactionID: 9, expiresAt: expiryDate)]
 
-		let outcome = await provider.outcomeAfterCancellation()
+		let outcome = await provider.outcomeAfterCancellation { [] }
 
 		XCTAssertEqual(outcome, .subscribed)
 		XCTAssertEqual(provider.currentTransactionID, 9)
 		XCTAssertEqual(provider.currentExpirationDate, expiryDate)
+	}
+
+	/// The other half of the dead end, and the half that fires when the local store stays empty —
+	/// which is the state the wall was up for in the first place. The store says a subscription
+	/// exists; the customer is sent to Restore rather than back to a Subscribe button.
+	func testCancellation_NoLocalEntitlementButTheStoreReportsOne_RecommendsRestore() async {
+		let provider = makeProvider(entitlements: [])
+
+		let outcome = await provider.outcomeAfterCancellation {
+			[SubscriptionStatusCandidate(productID: SubscriptionProduct.monthly, state: .subscribed, isVerified: true)]
+		}
+
+		XCTAssertEqual(outcome, .restoreRecommended)
+		XCTAssertFalse(provider.isSubscribed, "recommending a restore must not fabricate an entitlement")
+	}
+
+	/// A local entitlement outranks the status query, and the query is not even made: the customer
+	/// is already through, and `.subscribed` opens the gate while `.restoreRecommended` only talks
+	/// about it.
+	func testCancellation_EntitledLocally_DoesNotAskTheStoreAndReportsSubscribed() async {
+		let provider = makeProvider(entitlements: [candidate(transactionID: 5, expiresAt: expiryDate)])
+		let asked = Box(false)
+
+		let outcome = await provider.outcomeAfterCancellation {
+			asked.value = true
+			return []
+		}
+
+		XCTAssertEqual(outcome, .subscribed)
+		XCTAssertFalse(asked.value, "the status query is wasted work once the entitlement is in hand")
 	}
 
 	/// A revoked transaction is not ownership. Refunded customers reach this branch too, and
@@ -254,7 +284,7 @@ final class StoreKitSubscriptionProviderTests: XCTestCase {
 	func testCancellation_RevokedTransaction_ReportsCancelled() async {
 		let provider = makeProvider(entitlements: [candidate(transactionID: 3, revokedAt: revocationDate)])
 
-		let outcome = await provider.outcomeAfterCancellation()
+		let outcome = await provider.outcomeAfterCancellation { [] }
 
 		XCTAssertEqual(outcome, .cancelled)
 		XCTAssertFalse(provider.isSubscribed)

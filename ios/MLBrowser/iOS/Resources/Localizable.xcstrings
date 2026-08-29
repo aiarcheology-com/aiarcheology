@@ -43103,6 +43103,30 @@
         }
       }
     },
+    "paywall.restoreRecommended.message" : {
+      "comment" : "Shown when a purchase attempt ended with no entitlement but the App Store reports an active subscription for this app. Must not claim the customer owns it \u2014 a subscription-group status can be family-shared \u2014 and must name Restore Purchases, which is on the same screen.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The App Store reports an active subscription for ML Browser. Tap Restore Purchases below to unlock it on this device."
+          }
+        }
+      }
+    },
+    "paywall.restoreRecommended.title" : {
+      "comment" : "Title of the alert that points a customer at Restore Purchases after a purchase attempt found an existing subscription.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscription Found"
+          }
+        }
+      }
+    },
     "paywall.restoreEmpty.messageAppleAccount" : {
       "comment" : "Body when Restore finds nothing. The last screen before a second purchase, so it must explain that entitlement follows the Apple Account, not the app account. Keep 'App Store' and 'ML Browser' verbatim.",
       "extractionState" : "manual",

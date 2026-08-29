@@ -35,6 +35,14 @@ struct SubscriptionNotice: Equatable {
 			return nil
 		case .pending:
 			return .init(title: L10n.Paywall.Pending.title, message: L10n.Paywall.Pending.message)
+		case .restoreRecommended:
+			// The one outcome that must break the silence a cancel normally earns: the customer was
+			// just told by Apple that a subscription exists and then handed back a Subscribe button.
+			// Restore Purchases is on this screen — the alert's whole job is to name it.
+			return .init(
+				title: L10n.Paywall.RestoreRecommended.title,
+				message: L10n.Paywall.RestoreRecommended.message
+			)
 		case .failed:
 			return .init(title: L10n.Alert.Error.title, message: L10n.Paywall.Failed.message)
 		}
@@ -347,6 +355,18 @@ struct PaywallView: View {
 	/// Drives the Export / Delete / Cancel confirmation for the saved findings.
 	@State private var showRemoveFindings = false
 
+	/// What the delete-account confirmation says and offers, frozen when it opens (AIA-0779).
+	///
+	/// Resolved at the tap from a **fresh** count, not from the answer `onAppear` happened to get:
+	/// findings sync runs outside the subscription gate and can import cloud findings while this
+	/// screen is up, so an appear-time `false` can be stale by the time somebody reaches for Delete
+	/// Account — and being told nothing about findings that exist is the whole of AIA-0779.
+	///
+	/// Frozen rather than recomputed per render for the reason the dialog's other inputs are: the
+	/// message and the actions must describe the same install, and a count landing between the two
+	/// would let the dialog offer an export it never mentioned, or mention one it never offered.
+	@State private var accountDeletionPrompt: PaywallAccountDeletionPrompt = .billingOnly
+
 	/// True while the export ZIP is being built, before the share sheet appears. Only fades the
 	/// button's spinner and disables it — it never restructures the button, because structural churn
 	/// on a view the share sheet is presented from wedges the dismissal on iOS-on-Mac (AIA-0448).
@@ -364,13 +384,6 @@ struct PaywallView: View {
 	/// ever puts this screen over a reachable app again, this is the line that has to change, not the
 	/// three call sites below.
 	private var isDeadEnd: Bool { isRootGate }
-
-	/// What the delete-account confirmation says and offers (AIA-0779). Reads ``hasSavedFindings``,
-	/// which only the dead end ever answers — every other presentation leaves it `false`, and there
-	/// the account controls are absent anyway.
-	private var accountDeletionPrompt: PaywallAccountDeletionPrompt {
-		.resolve(hasSavedFindings: hasSavedFindings)
-	}
 
 	/// "Enjoying ML Browser?" — but only of someone who has actually used it (AIA-0567).
 	///
@@ -832,6 +845,9 @@ struct PaywallView: View {
 					.testability(Testability.Button.paywallSignOut)
 
 					Button(role: .destructive) {
+						// Counted here, not read from `onAppear` — see ``accountDeletionPrompt``.
+						hasSavedFindings = findingRepository?.hasAnyFinding() == true
+						accountDeletionPrompt = .resolve(hasSavedFindings: hasSavedFindings)
 						showDeleteConfirmation = true
 					} label: {
 						Text(L10n.Auth.Account.Delete.action).frame(maxWidth: .infinity)

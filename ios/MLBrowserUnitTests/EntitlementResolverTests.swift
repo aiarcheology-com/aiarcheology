@@ -164,3 +164,80 @@ final class EntitlementResolverTests: XCTestCase {
 		XCTAssertNotNil(EntitlementResolver.resolve([candidate(productID: foreignID)], productIDs: [foreignID]))
 	}
 }
+
+/// What the App Store's subscription-group status is allowed to prove (AIA-0782).
+///
+/// The rule these cover is the one standing between "the customer is told to tap Restore" and
+/// "the customer who simply changed their mind is told they already subscribed".
+final class SubscriptionStatusResolverTests: XCTestCase {
+
+	private func status(
+		productID: String = SubscriptionProduct.monthly,
+		state: SubscriptionStatusState = .subscribed,
+		isVerified: Bool = true
+	) -> SubscriptionStatusCandidate {
+		SubscriptionStatusCandidate(productID: productID, state: state, isVerified: isVerified)
+	}
+
+	/// The case the whole feature exists for.
+	func testActiveVerifiedSubscription_IsRestorable() {
+		XCTAssertTrue(SubscriptionStatusResolver.reportsRestorableSubscription([status()]))
+	}
+
+	/// Apple keeps serving a grace-period customer while it retries the payment, so they still
+	/// have something to restore.
+	func testGracePeriod_IsRestorable() {
+		XCTAssertTrue(SubscriptionStatusResolver.reportsRestorableSubscription([status(state: .inGracePeriod)]))
+	}
+
+	/// Nothing to restore, and the difference matters: a lapsed customer must be sold a
+	/// subscription, not sent to Restore to find nothing.
+	func testInactiveStates_AreNotRestorable() {
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([status(state: .other)]))
+	}
+
+	/// An unverified status is unsigned data. It gets the same answer an unverified entitlement
+	/// gets — dropped — and this is the only place that rule is visible.
+	func testUnverifiedStatus_IsNotRestorable() {
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([status(isVerified: false)]))
+	}
+
+	/// A status for a product this app does not sell says nothing about access to this app.
+	func testForeignProduct_IsNotRestorable() {
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([status(productID: foreignID)]))
+	}
+
+	/// Empty is the answer a failed or unavailable query produces, and it must read as "no".
+	func testNoStatuses_AreNotRestorable() {
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([]))
+	}
+
+	/// The array holds a group's whole history — expired and revoked entries sit beside live ones.
+	/// A live entry behind two dead ones must still be found, and a dead one must not mask it.
+	func testALiveStatusBehindDeadOnes_IsStillFound() {
+		XCTAssertTrue(SubscriptionStatusResolver.reportsRestorableSubscription([
+			status(state: .other),
+			status(productID: foreignID),
+			status(state: .subscribed)
+		]))
+	}
+
+	/// Every clause must hold *together*. A candidate that is active but unverified, or verified
+	/// but foreign, must not be rescued by a sibling that satisfies the other half.
+	func testTheClausesApplyPerCandidate_NotAcrossTheArray() {
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([
+			status(isVerified: false),
+			status(productID: foreignID, state: .subscribed)
+		]))
+	}
+
+	/// The shipping product set governs by default, mirroring `EntitlementResolver`: a resolver
+	/// that stopped consulting it would fail open in production with every test above still green.
+	func testExplicitProductIDs_OverrideTheDefault() {
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([status()], productIDs: [foreignID]))
+		XCTAssertTrue(SubscriptionStatusResolver.reportsRestorableSubscription(
+			[status(productID: foreignID)],
+			productIDs: [foreignID]
+		))
+	}
+}

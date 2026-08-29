@@ -1023,6 +1023,12 @@ internal enum L10n {
       /// Your purchases could not be restored. Please try again.
       internal static let message = L10n.tr("Localizable", "paywall.restoreFailed.message", fallback: "Your purchases could not be restored. Please try again.")
     }
+    internal enum RestoreRecommended {
+      /// The App Store reports an active subscription for ML Browser. Tap Restore Purchases below to unlock it on this device.
+      internal static let message = L10n.tr("Localizable", "paywall.restoreRecommended.message", fallback: "The App Store reports an active subscription for ML Browser. Tap Restore Purchases below to unlock it on this device.")
+      /// Subscription Found
+      internal static let title = L10n.tr("Localizable", "paywall.restoreRecommended.title", fallback: "Subscription Found")
+    }
   }
   internal enum Sentry {
     /// Config

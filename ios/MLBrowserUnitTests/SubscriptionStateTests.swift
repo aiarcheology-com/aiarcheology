@@ -222,6 +222,17 @@ final class SubscriptionNoticeTests: XCTestCase {
 		XCTAssertNotEqual(notice.title, L10n.Alert.Error.title, "pending is not an error")
 	}
 
+	/// The AIA-0782 dead end: Apple said the account is subscribed, the app could not see it, and
+	/// the customer was handed back the same Subscribe button. The alert exists to name the way out
+	/// — and to name it without claiming the customer personally owns the subscription, which a
+	/// family-shared status would make false.
+	func testPurchase_RestoreRecommended_PointsAtRestoreWithoutClaimingOwnership() throws {
+		let notice = try XCTUnwrap(SubscriptionNotice.forPurchase(.restoreRecommended))
+		XCTAssertEqual(notice.title, L10n.Paywall.RestoreRecommended.title)
+		XCTAssertEqual(notice.message, L10n.Paywall.RestoreRecommended.message)
+		XCTAssertNotEqual(notice.title, L10n.Alert.Error.title, "an existing subscription is not an error")
+	}
+
 	/// A successful restore needs no alert: the entitlement lands in published state and the
 	/// gate re-renders, which is the answer.
 	func testRestore_Restored_SaysNothing() {
