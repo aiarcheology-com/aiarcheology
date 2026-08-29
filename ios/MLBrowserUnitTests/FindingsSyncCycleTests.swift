@@ -835,8 +835,8 @@ extension FindingsSyncCycleTests {
 			"precondition: account A recorded a decision about this finding"
 		)
 
-		// Straight from A to B. No sign-out in between -- that is the whole point: the nil-account
-		// branch of `cycle()` never runs, so only an explicit account-change clear saves this.
+		// Straight from A to B. No sign-out in between: the nil-account branch of `cycle()` never
+		// runs, so if anything carried A's decision across, this is where it would show.
 		auth.setAccountIDForTesting("user_somebody_entirely_else")
 		await sut.syncNow()?.value
 
@@ -844,6 +844,86 @@ extension FindingsSyncCycleTests {
 			sut.backupStates[shared.entityId], .owed,
 			"account B must not inherit account A's decision -- the ledger is per account, and this "
 				+ "icon is a claim about one person's cloud"
+		)
+
+		// **What this test does and does not pin.** It pins the user-visible property: B never sees
+		// A's `keptOnDevice`. It does NOT prove the explicit account-change clear in `cycle()`,
+		// because a cycle that reaches its end rebuilds the whole map from B's ledger anyway --
+		// `refreshCounts` runs even after a *caught* transport error, so a failing cycle does not
+		// separate the two either. The clear earns its place on the paths that exit before the
+		// rebuild (cancellation, a sign-out mid-cycle), and those cannot be provoked deterministically
+		// from here. `testPurgingCloudDataClearsEveryRowIcon` is the one that pins a clear with no
+		// rebuild behind it; that is where the mutation dies.
+	}
+
+	/// A permanent refusal must never read as backed up.
+	///
+	/// `needsUpload` is false for a parked finding -- retrying cannot cure what was refused -- so a
+	/// derivation that reads that as "nothing owed" falls through to the upload receipt and turns
+	/// the row green at the exact moment the user's edit was lost. The cloud still holds the copy
+	/// from before the edit.
+	func testAnEditRefusedForGoodDoesNotReadAsBackedUp() throws {
+		let finding = try saveFinding(title: "Edited, then refused")
+		var ledger = FindingsSyncLedger()
+		ledger.owned = [finding.entityId.uuidString]
+		// The cloud confirmed the PRE-edit copy.
+		ledger.uploaded = [finding.entityId.uuidString: 1_000]
+		// The edit was refused permanently, and the park records the timestamp that was refused.
+		ledger.parked = [finding.entityId.uuidString: ParkedUpload(code: "payload_too_large", modifiedAt: 2_000)]
+
+		let states = FindingsSyncCoordinator.backupStates(for: [finding], ledger: ledger) { _ in 2_000 }
+
+		XCTAssertEqual(
+			states[finding.entityId], .owed,
+			"the cloud holds the copy from before the edit, so this finding is not backed up"
+		)
+	}
+
+	/// The other half: a finding that was never in the cloud and has been parked is still owed, not
+	/// silently absent from the projection.
+	func testAFindingParkedBeforeItEverUploadedIsOwed() throws {
+		let finding = try saveFinding(title: "Too big from the start")
+		var ledger = FindingsSyncLedger()
+		ledger.owned = [finding.entityId.uuidString]
+		ledger.parked = [finding.entityId.uuidString: ParkedUpload(code: "payload_too_large", modifiedAt: 2_000)]
+
+		let states = FindingsSyncCoordinator.backupStates(for: [finding], ledger: ledger) { _ in 2_000 }
+
+		XCTAssertEqual(states[finding.entityId], .owed)
+	}
+
+	/// Purging the account's cloud data must take every row mark with it. It is the third place this
+	/// has to happen and the worst one to miss: the cloud copies are gone, the account is about to
+	/// be deleted, and the cycle that would rebuild the projection has been cancelled.
+	func testPurgingCloudDataClearsEveryRowIcon() async throws {
+		try saveFinding(title: "About to be erased")
+		StubWorkerProtocol.handler = { request in
+			if request.httpMethod == "DELETE" {
+				return (200, StubWorkerProtocol.json(["purged": ["complete": true, "objects": 1]]))
+			}
+			if request.httpMethod == "PUT" {
+				return (200, StubWorkerProtocol.json([
+					"finding": [
+						"id": UUID().uuidString, "modifiedAt": 1, "receivedAt": 2,
+						"deleted": false, "bytes": 1, "hasImage": false
+					],
+					"usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.syncNow()?.value
+		XCTAssertFalse(sut.backupStates.isEmpty, "precondition: the rows have marks to lose")
+
+		try await sut.purgeCloudData()
+
+		XCTAssertTrue(
+			sut.backupStates.isEmpty,
+			"a tick claiming these findings are safe in an account that no longer exists"
 		)
 	}
 

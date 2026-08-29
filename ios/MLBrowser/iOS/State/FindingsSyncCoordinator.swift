@@ -1183,6 +1183,18 @@ final class FindingsSyncCoordinator: ObservableObject {
         usage = nil
         pendingUploadCount = 0
         backupConsentRequest = nil
+        // Every row loses its mark, and this is the third place that has to happen -- sign-out and
+        // an account change are the other two. Purging is the one where getting it wrong is worst:
+        // the cloud copies are gone, this call is made just before the account itself is deleted,
+        // and the cycle that would otherwise rebuild the projection has been cancelled and told not
+        // to run again. A green tick would sit there claiming those findings are safe in an account
+        // that no longer exists, for as long as the app stayed open.
+        backupStates = [:]
+        parkedCount = 0
+        isQuotaBlocked = false
+        // The ledger this account's state was derived from is gone, so the next cycle -- whatever
+        // account it runs as -- must rebuild rather than believe it has already seen this one.
+        lastSyncedAccount = nil
     }
 
     // MARK: - Local state
@@ -1254,16 +1266,38 @@ final class FindingsSyncCoordinator: ObservableObject {
         var states: [UUID: FindingBackupState] = [:]
         for finding in findings {
             let id = finding.entityId
-            if ledger.excluded.contains(id.uuidString) {
+            let key = id.uuidString
+            let localModifiedAt = modifiedAt(finding)
+
+            if ledger.excluded.contains(key) {
                 states[id] = .keptOnDevice
-            } else if ledger.needsUpload(id: id, localModifiedAt: modifiedAt(finding)) {
+                continue
+            }
+
+            // Parked BEFORE the receipt is consulted, and this order is the whole point.
+            //
+            // `needsUpload` answers "should the outbox try again", and for a parked finding that is
+            // false -- retrying cannot cure what was refused. Reading that as "nothing owed" and
+            // falling through to the receipt turned a permanent failure into a green tick: a
+            // finding uploaded at t=1000, edited to t=2000, then refused for good keeps its t=1000
+            // receipt, so the row went green at the exact moment the edit was lost. The cloud holds
+            // the copy from before the edit, and the user is being told their work is safe.
+            //
+            // A park is only cleared by editing the finding again, which moves `modifiedAt` past
+            // the parked stamp -- so the row recovers by itself once there is something new to send.
+            if let parked = ledger.parked[key], parked.modifiedAt >= localModifiedAt {
                 states[id] = .owed
-            } else if ledger.uploaded[id.uuidString] != nil {
+                continue
+            }
+
+            if ledger.needsUpload(id: id, localModifiedAt: localModifiedAt) {
+                states[id] = .owed
+            } else if ledger.uploaded[key] != nil {
                 states[id] = .backedUp
             } else {
-                // Never sent, and not something this account may send without being asked -- the
-                // consent card is what resolves it. Owed is the honest answer: it is not in the
-                // cloud, whatever the reason.
+                // Never sent: either nobody has answered the consent card for it, or back-up is
+                // switched off. Owed is the honest answer -- it is not in the cloud, whatever the
+                // reason -- and the line above the list is where the reason is spelled out.
                 states[id] = .owed
             }
         }
