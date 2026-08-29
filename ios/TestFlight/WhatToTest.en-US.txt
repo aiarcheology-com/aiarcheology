@@ -1,82 +1,61 @@
-Build: AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735 (usability fixes, a corrected share link,
-findings sorting, findings that arrive between devices on their own, and a per-finding back-up mark)
+Build: AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735, AIA-0779, AIA-0782
 
-Test Focus: five builds' worth of changes reached you at once. The three that matter most are that
-your existing findings survive the update, that a shared link points at the right thing, and that a
-finding edited on one device now reaches your other device without you pressing anything.
+Test Focus: your existing findings must survive the update, a shared link must point at the right
+place, an edit on one device must reach the other on its own, and the subscription screen must
+never be a dead end.
 
-- YOUR EXISTING FINDINGS MUST ALL STILL BE THERE. This build changes how findings are stored, so
-  please check first: open Findings and confirm every finding you had is still listed, with its
-  picture, title and red box in the right place. Update from the build you were running rather
-  than deleting the app first — a fresh install cannot test this at all.
+- YOUR EXISTING FINDINGS MUST ALL STILL BE THERE. Storage changed in this build. Update from the
+  build you were running rather than deleting the app first — a fresh install cannot test this.
+  Open Findings: every finding still listed, with its picture, title and red box in the right place.
 
-- Coming back online fixes itself. Airplane Mode on, launch the app. The account row in the side
-  menu says offline, and "Back Up My Findings" is missing from Settings — that absence is what made
-  backing up look broken. Turn the network on and WAIT, without leaving or backgrounding the app.
-  Within seconds you should be signed in again and the setting should reappear on its own.
+- TWO DEVICES, ONE ACCOUNT. Sign both into the same account. On A, open Findings and leave it open.
+  On B, edit a finding's title. On A, close Findings and open it again: B's change should be there
+  without you pressing anything.
 
-- A shared link points where the detection actually was. Save a finding and, before saving, pinch
-  and drag to crop in tight — that is the case that was broken. Share it with the link switched on
-  and open it. Under "Where on the page" the mark should sit where the thing was on the page as you
-  saw it in the browser. Cropping harder must not move it: save the same detection twice, once
-  uncropped and once cropped hard, and both links should mark the same place at the same size.
-  Findings saved before this build show no "Where on the page" section at all — deliberate, not a
-  bug: their original position was thrown away and there is nothing truthful left to send.
+- Pull down on the findings list to fetch again. The spinner must stay until the fetch has really
+  finished.
 
-- The Findings toolbar changed shape. Export and Import are now inside one button called Data, next
-  to a new arrows button for sorting. Check the title is not squashed, and check again with Larger
-  Text turned up high. Export and import themselves work exactly as before from their new home.
+- Synchronize (the renamed button) still works both ways: in Airplane Mode it should say there is
+  no connection, on a working connection that everything is up to date. Its question mark explains
+  what it does — please tell us whether that answers the question you would have asked.
 
-- Sorting by date, name and website. Tap the arrows: Date, Alphabetical, Website, plus Reverse.
-  Date is the default and is the order the list has always used. The part worth real attention: a
-  finding with no website sits at the bottom under Website — and after tapping Reverse it must
-  STILL be at the bottom, not jump to the top. Same for one with no date or no title. A row with no
-  information should never lead the list. The choice resets to Date when you reopen Findings.
+- IF YOU HAVE EVER TAPPED "Keep on This Device": Synchronize must leave those findings local,
+  however many times you press it. Only "Back Up My Findings", now inside the question-mark sheet,
+  still sends them. Check both halves.
 
-- The tour points at what to press. Settings, then Replay the introduction. The Vladař site should
-  already be loading behind the first bubble, and each step's control should pulse. With Reduce
-  Motion the highlight is steady instead — please check both if you can.
+- EVERY ROW SAYS WHETHER IT IS IN THE CLOUD. Green cloud with a tick = backed up and current; grey
+  upload cloud = not up there yet; grey cloud with a line through it = kept on this device. Signed
+  OUT there must be no icon at all, and signing in as a different account must recalculate the
+  marks rather than still showing the previous account's.
 
-- Detection colours are vivid now. New models get clear colours against the relief; models you
-  already have keep theirs, and you can change any by hand in that model's settings.
+- A shared link points where the detection actually was. Before saving, pinch and drag to crop in
+  tight — the case that was broken. Share it with the link on and open it: under "Where on the
+  page" the mark should sit where the thing was. Cropping harder must not move it. Findings saved
+  before this build show no "Where on the page" section at all: deliberate.
 
-- Smaller things. The side menu rows read as tappable, with a blue "Add Model" button. Import sits
-  in the middle of the download form and turns green when ready. The save form opens with Title
-  first and the picture zoomed on what you picked. Back-up status above the Findings list is
-  larger.
+- Findings toolbar: Export and Import now sit inside one button called Data, beside an arrows
+  button for sorting. Check the title is not squashed, also with Larger Text turned up.
 
-- TWO DEVICES, ONE ACCOUNT. This is the whole point of the build, so please try it first if you
-  can. Sign both devices into the same account. On device A, open Findings and leave it open. On
-  device B, edit a finding — change its title. Now on device A, close Findings and open it again.
-  B's change should be there, WITHOUT pressing anything. Before this build the only thing that
-  brought it down was the back-up button, which is why a button about uploading was the only way
-  to download.
+- Sorting: Date (the default and the old order), Alphabetical, Website, plus Reverse. Worth real
+  attention: a finding with no website sits at the bottom under Website and must STILL be there
+  after Reverse. Same with no date or no title. The choice resets to Date when you reopen Findings.
 
-- Pull down on the findings list to fetch again. A spinner should appear and stay until the fetch
-  has actually finished, not flick away instantly.
+- Coming back online fixes itself. Airplane Mode on, launch the app, then turn the network on and
+  WAIT in the app: you should be signed in again and "Back Up My Findings" should reappear on its
+  own.
 
-- The button is now called Synchronize. It always worked in both directions; the old name only
-  described half of it. Check it still reports sensibly: in Airplane Mode it should say there is no
-  connection, and on a working connection it should say everything is up to date.
+- The tour points at what to press: Settings, then Replay the introduction. With Reduce Motion the
+  highlight is steady instead. Detection colours are vivid now; models you have keep theirs.
 
-- The question mark beside it explains what Synchronize does and does not do. Please read it and
-  tell us whether it answers the question you would have asked. It should be clear that findings do
-  not arrive from your other devices on their own while you sit on the list.
+- NEW: deleting your account offers your findings first. On the subscription screen tap Delete
+  Account. If this device has saved findings, the confirmation now says they are NOT deleted with
+  the account and offers "Export First…" — check the ZIP really reaches the share sheet, and that
+  the warning that deleting does not cancel App Store billing is still there. With nothing saved,
+  that export choice must NOT appear.
 
-- IMPORTANT, if you have ever tapped "Keep on This Device". Synchronize deliberately no longer
-  overrides that. Findings you chose to keep local must stay local, however many times you press
-  Synchronize. The only thing that still sends them is "Back Up My Findings", which now lives
-  inside the question-mark sheet. Please confirm both halves: Synchronize leaves them alone, and
-  that button inside the sheet still sends them.
-
-- EVERY FINDING NOW SAYS WHETHER IT IS IN THE CLOUD. Look at the right-hand end of each row in
-  Findings. A green cloud with a tick means that finding is backed up and current. A plain grey
-  upload cloud means it is not up there yet — newly saved, edited since it last went up, or waiting
-  for a signal. A grey cloud with a line through it means you chose to keep that one on this device,
-  and it is not going anywhere.
-
-  Two things worth checking specifically. Signed OUT, there should be no icon on any row at all —
-  not a grey one, none. And if you sign out and sign in as a different account, the marks must be
-  recalculated for the new account rather than still showing the previous one's.
-
-Please report anything that looks wrong, and say which device and iOS version you were on.
+- NEW: subscribing on an Apple Account that is already subscribed. Needs a Sandbox or TestFlight
+  account that already holds the subscription. Tap Subscribe; if Apple answers that you are
+  currently subscribed, tap Cancel. Before, that left you stuck with nothing to do. Now you should
+  be let straight in, or get an alert titled "Subscription Found" telling you to tap Restore
+  Purchases, which should then work. On an account that is NOT subscribed, cancelling a real
+  purchase sheet must still say nothing at all.

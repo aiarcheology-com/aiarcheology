@@ -109,6 +109,8 @@ internal enum L10n {
       internal enum Delete {
         /// Delete Account
         internal static let action = L10n.tr("Localizable", "auth.account.delete.action", fallback: "Delete Account")
+        /// The findings saved on this device are not deleted, and you can export them first.
+        internal static let findingsNote = L10n.tr("Localizable", "auth.account.delete.findingsNote", fallback: "The findings saved on this device are not deleted, and you can export them first.")
         /// This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.
         internal static let messageBilling = L10n.tr("Localizable", "auth.account.delete.messageBilling", fallback: "This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.")
         /// Delete Account?
@@ -1020,6 +1022,12 @@ internal enum L10n {
     internal enum RestoreFailed {
       /// Your purchases could not be restored. Please try again.
       internal static let message = L10n.tr("Localizable", "paywall.restoreFailed.message", fallback: "Your purchases could not be restored. Please try again.")
+    }
+    internal enum RestoreRecommended {
+      /// The App Store reports an active subscription for ML Browser. Tap Restore Purchases below to unlock it on this device.
+      internal static let message = L10n.tr("Localizable", "paywall.restoreRecommended.message", fallback: "The App Store reports an active subscription for ML Browser. Tap Restore Purchases below to unlock it on this device.")
+      /// Subscription Found
+      internal static let title = L10n.tr("Localizable", "paywall.restoreRecommended.title", fallback: "Subscription Found")
     }
   }
   internal enum Sentry {

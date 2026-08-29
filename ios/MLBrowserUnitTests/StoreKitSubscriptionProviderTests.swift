@@ -200,6 +200,96 @@ final class StoreKitSubscriptionProviderTests: XCTestCase {
 		XCTAssertTrue(provider.purchaseOptions().isEmpty)
 	}
 
+	// MARK: - Cancelling a purchase the account already owns (AIA-0782)
+
+	/// The reported dead end. StoreKit answers `.userCancelled` both for a dismissed purchase sheet
+	/// and for its own "You are currently subscribed" dialog; when the second is what happened, the
+	/// store has just confirmed ownership and the customer must not be returned to the wall.
+	func testCancellation_AccountIsEntitled_ReportsSubscribed() async {
+		let provider = makeProvider(entitlements: [candidate(transactionID: 7, expiresAt: expiryDate)])
+
+		let outcome = await provider.outcomeAfterCancellation { [] }
+
+		XCTAssertEqual(outcome, .subscribed)
+		XCTAssertTrue(provider.isSubscribed)
+	}
+
+	/// An ordinary change of mind stays an ordinary change of mind. This is the case that must not
+	/// regress: telling someone who tapped Cancel that they just subscribed would be worse than the
+	/// bug being fixed.
+	func testCancellation_NothingOwned_ReportsCancelled() async {
+		let provider = makeProvider(entitlements: [])
+
+		let outcome = await provider.outcomeAfterCancellation { [] }
+
+		XCTAssertEqual(outcome, .cancelled)
+		XCTAssertFalse(provider.isSubscribed)
+	}
+
+	/// The entitlement is **re-read**, not read from whatever was published before. The dead end
+	/// begins with an empty local store — that is why the wall was up — so a check against stale
+	/// state would answer "not subscribed" for exactly the customer this exists for.
+	func testCancellation_EntitlementArrivesDuringThePurchase_IsSeen() async {
+		let candidates = Box<[EntitlementCandidate]>([])
+		let provider = StoreKitSubscriptionProvider(
+			accountIdentifierSource: { nil },
+			entitlementSource: { candidates.value }
+		)
+		await provider.refreshEntitlement()
+		XCTAssertFalse(provider.isSubscribed, "precondition: the local store starts empty")
+
+		// What the App Store's ownership check leaves behind while the dialog is on screen.
+		candidates.value = [candidate(transactionID: 9, expiresAt: expiryDate)]
+
+		let outcome = await provider.outcomeAfterCancellation { [] }
+
+		XCTAssertEqual(outcome, .subscribed)
+		XCTAssertEqual(provider.currentTransactionID, 9)
+		XCTAssertEqual(provider.currentExpirationDate, expiryDate)
+	}
+
+	/// The other half of the dead end, and the half that fires when the local store stays empty —
+	/// which is the state the wall was up for in the first place. The store says a subscription
+	/// exists; the customer is sent to Restore rather than back to a Subscribe button.
+	func testCancellation_NoLocalEntitlementButTheStoreReportsOne_RecommendsRestore() async {
+		let provider = makeProvider(entitlements: [])
+
+		let outcome = await provider.outcomeAfterCancellation {
+			[SubscriptionStatusCandidate(productID: SubscriptionProduct.monthly, state: .subscribed, isVerified: true)]
+		}
+
+		XCTAssertEqual(outcome, .restoreRecommended)
+		XCTAssertFalse(provider.isSubscribed, "recommending a restore must not fabricate an entitlement")
+	}
+
+	/// A local entitlement outranks the status query, and the query is not even made: the customer
+	/// is already through, and `.subscribed` opens the gate while `.restoreRecommended` only talks
+	/// about it.
+	func testCancellation_EntitledLocally_DoesNotAskTheStoreAndReportsSubscribed() async {
+		let provider = makeProvider(entitlements: [candidate(transactionID: 5, expiresAt: expiryDate)])
+		let asked = Box(false)
+
+		let outcome = await provider.outcomeAfterCancellation {
+			asked.value = true
+			return []
+		}
+
+		XCTAssertEqual(outcome, .subscribed)
+		XCTAssertFalse(asked.value, "the status query is wasted work once the entitlement is in hand")
+	}
+
+	/// A revoked transaction is not ownership. Refunded customers reach this branch too, and
+	/// `EntitlementResolver` — not this method — is what keeps them out; the wiring must not
+	/// second-guess it into letting them through.
+	func testCancellation_RevokedTransaction_ReportsCancelled() async {
+		let provider = makeProvider(entitlements: [candidate(transactionID: 3, revokedAt: revocationDate)])
+
+		let outcome = await provider.outcomeAfterCancellation { [] }
+
+		XCTAssertEqual(outcome, .cancelled)
+		XCTAssertFalse(provider.isSubscribed)
+	}
+
 	/// The account is read at purchase time, not captured at construction: someone who signs in
 	/// after launch must still have their purchase tagged.
 	func testPurchaseOptions_AccountArrivesAfterConstruction_IsStillTagged() throws {

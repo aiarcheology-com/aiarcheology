@@ -23,6 +23,10 @@ enum PurchaseOutcome: Equatable {
 	case subscribed
 	/// The user dismissed Apple's sheet. Say nothing: they know what they did.
 	case cancelled
+	/// The purchase ended with no entitlement, but the store reports an active subscription for
+	/// this app that a Restore would surface (AIA-0782). Point at Restore Purchases; do not claim
+	/// the customer owns it, because a subscription-group status may be family-shared.
+	case restoreRecommended
 	/// Ask-to-Buy / SCA. Not an error — approval arrives later via `Transaction.updates`.
 	case pending
 	/// Verification failed, StoreKit threw, or an unknown result arrived.

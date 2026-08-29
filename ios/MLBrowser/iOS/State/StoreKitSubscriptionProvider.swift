@@ -27,6 +27,24 @@ enum SubscriptionProduct {
 	static let allIDs: [String] = [monthly]
 }
 
+extension SubscriptionStatusState {
+	/// Collapse StoreKit's renewal states into the three this app distinguishes (AIA-0782).
+	///
+	/// `.inGracePeriod` joins `.subscribed` because Apple keeps serving those customers while it
+	/// retries the payment; `.inBillingRetryPeriod` does **not**, because by then access has
+	/// lapsed. The `default` arm — `RenewalState` is a struct of static values, so there is no
+	/// `@unknown default` to write — maps to `.other`: a state StoreKit adds later must not be
+	/// read as an entitlement by a build that has never heard of it.
+	init(_ state: Product.SubscriptionInfo.RenewalState) {
+		switch state {
+		case .subscribed: self = .subscribed
+		case .inGracePeriod: self = .inGracePeriod
+		case .expired, .inBillingRetryPeriod, .revoked: self = .other
+		default: self = .other
+		}
+	}
+}
+
 /// Production ``SubscriptionProviding`` backed by StoreKit 2.
 ///
 /// `@MainActor` (not an `actor`) on purpose: it publishes UI-bound state and drives
@@ -164,7 +182,10 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 				LoggingPolicy.info("Purchase pending (Ask-to-Buy / deferred).", logger: .state)
 				return .pending
 			case .userCancelled:
-				return .cancelled
+				// Not necessarily a change of mind — see ``outcomeAfterCancellation(statusCandidates:)``.
+				return await outcomeAfterCancellation {
+					await Self.statusCandidates(for: product)
+				}
 			@unknown default:
 				LoggingPolicy.warning("Unknown purchase result.", logger: .state)
 				return .failed
@@ -172,6 +193,84 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 		} catch {
 			LoggingPolicy.error("Purchase failed: \(error.localizedDescription)", logger: .state)
 			return .failed
+		}
+	}
+
+	/// What a `.userCancelled` purchase actually means (AIA-0782).
+	///
+	/// StoreKit reports the same `.userCancelled` for two different events, and the app used to
+	/// treat both as the second:
+	///
+	/// 1. The customer dismissed a real purchase sheet. Ordinary; nothing changed.
+	/// 2. `product.purchase()` asked the App Store, was told **this Apple Account already owns the
+	///    subscription**, and showed its own "You are currently subscribed" dialog instead of a
+	///    purchase sheet. Cancelling *that* also returns `.userCancelled` — and the store had just
+	///    confirmed ownership, which the old mapping threw away. The customer landed back on the
+	///    wall with the one obvious button leading nowhere: the dead end AIA-0782 reports, and the
+	///    exact path an App Review tester on a sandbox account that already subscribed walks.
+	///
+	/// StoreKit does not distinguish the two, so the entitlement is re-read instead of guessed at.
+	/// It costs a local read and prompts for nothing — deliberately **not** `AppStore.sync()`,
+	/// which asks for App Store credentials and is therefore restore-only, per Apple's guidance
+	/// and per ``restore()``.
+	///
+	/// Internal rather than private so a test can drive the whole decision: ``purchase(_:)`` needs
+	/// a `Product`, which cannot be constructed outside `StoreKitTest`, so the branch is otherwise
+	/// unreachable — the same reason ``refreshEntitlement()`` and ``purchaseOptions()`` are
+	/// internal.
+	///
+	/// Honest about its reach: case 2 is only rescued when the store's answer has landed in the
+	/// **local** entitlements by the time this runs. Where it has not, the outcome is `.cancelled`
+	/// — exactly today's behaviour, so this can only add a way out, never take one away.
+	func outcomeAfterCancellation(
+		statusCandidates: () async -> [SubscriptionStatusCandidate]
+	) async -> PurchaseOutcome {
+		await refreshEntitlement()
+		if isSubscribed {
+			LoggingPolicy.info(
+				"Purchase dialog was dismissed but the account is entitled — treating it as subscribed.",
+				logger: .state
+			)
+			return .subscribed
+		}
+		guard SubscriptionStatusResolver.reportsRestorableSubscription(await statusCandidates()) else {
+			return .cancelled
+		}
+		LoggingPolicy.info(
+			"Purchase dialog was dismissed with no local entitlement, but the store reports an"
+				+ " active subscription — recommending Restore.",
+			logger: .state
+		)
+		return .restoreRecommended
+	}
+
+	/// The production status reader. Only ever called through the closure ``purchase(_:)`` hands to
+	/// ``outcomeAfterCancellation(statusCandidates:)``.
+	///
+	/// Maps rather than filters: whether an unverified status counts is ``SubscriptionStatusResolver``'s
+	/// rule, and a reader that silently dropped them would move that rule somewhere no test can see it.
+	/// `unsafePayloadValue` is safe here for exactly that reason — the product id is read for the
+	/// resolver to judge, never as proof of anything on its own.
+	///
+	/// A thrown query is an answer, not a crash: the store could not be reached, which is not
+	/// evidence of a subscription. Logged and reported as nothing found, so the customer gets
+	/// today's silent `.cancelled` rather than a claim the app cannot support.
+	private static func statusCandidates(for product: Product) async -> [SubscriptionStatusCandidate] {
+		guard let subscription = product.subscription else { return [] }
+		do {
+			return try await subscription.status.map { status in
+				SubscriptionStatusCandidate(
+					productID: status.transaction.unsafePayloadValue.productID,
+					state: SubscriptionStatusState(status.state),
+					isVerified: { if case .verified = status.transaction { return true } else { return false } }()
+				)
+			}
+		} catch {
+			LoggingPolicy.warning(
+				"Subscription status query failed after a cancelled purchase: \(error.localizedDescription)",
+				logger: .networking
+			)
+			return []
 		}
 	}
 
@@ -296,6 +395,8 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 		}
 		return candidates
 	}
+
+	// MARK: - StoreKit bridging
 
 	/// Unwrap a `VerificationResult`, returning the payload only when StoreKit verified
 	/// it (`.verified`). Unverified results are dropped — they cannot be trusted as

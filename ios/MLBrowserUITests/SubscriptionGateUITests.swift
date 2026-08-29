@@ -192,6 +192,15 @@ final class SubscriptionGateUITests: UITestCase {
 			"Delete-account confirmation is missing its Manage Subscription action"
 		)
 
+		// Export First… is conditional on this device holding findings (AIA-0779), and the
+		// UI-testing launch path wipes the Caches store — so the empty-store branch is the only one
+		// reachable from here, and its absence is the assertion. The populated branch is covered by
+		// `PaywallAccountDeletionPromptTests`, which can state it without a simulator.
+		XCTAssertFalse(
+			dialog.buttons.matching(identifier: AID.paywallDeleteAccountExportFindings).firstMatch.exists,
+			"Delete-account confirmation offered a findings export with nothing saved to export"
+		)
+
 		// `.firstMatch`, not a subscript: under UI testing `.testability` mirrors the identifier into
 		// the accessibility label too, so a plain lookup matches the same control twice and the tap
 		// fails as ambiguous rather than as missing.
