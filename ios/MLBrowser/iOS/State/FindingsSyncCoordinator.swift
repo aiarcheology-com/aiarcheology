@@ -52,6 +52,29 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// than left watching a counter that never moves.
     @Published private(set) var parkedCount = 0
 
+    /// Where one finding stands with the cloud, for the icon on its row (AIA-0735).
+    enum FindingBackupState: Equatable {
+        /// In the cloud, and the cloud's copy is current.
+        case backedUp
+        /// Not in the cloud yet: created, edited since it was sent, offline, or never claimed.
+        case owed
+        /// The user answered the back-up question with "Keep on This Device" for this finding.
+        ///
+        /// Distinct from ``owed`` on purpose. Both mean "not in the cloud", but only one of them is
+        /// going to change on its own, and showing a deliberate choice as though it were a queue
+        /// would be the same misdirection the button's old label was (AIA-0758).
+        case keptOnDevice
+    }
+
+    /// One entry per finding this account has an opinion about. **Empty while signed out**, which is
+    /// what makes the rows render no icon at all: somebody who never signs in should not get a
+    /// slashed cloud on every row advertising a feature they did not ask for.
+    ///
+    /// Rebuilt from the ledger at the end of each cycle and cleared on an account change, for the
+    /// same reason the outcome lines are: these are claims about one person's data, and the ledger
+    /// is per account.
+    @Published private(set) var backupStates: [UUID: FindingBackupState] = [:]
+
     /// What a user-initiated back-up did.
     ///
     /// Only ever set by ``backUpNow()``. The automatic triggers stay silent on purpose -- a cycle
@@ -549,6 +572,10 @@ final class FindingsSyncCoordinator: ObservableObject {
             lastManualBackup = nil
             lastSynchronize = nil
             backupConsentRequest = nil
+            // Every row loses its icon. A signed-out person is not owed a report on somebody's
+            // cloud, and on a shared device the last account's ticks would be exactly that.
+            backupStates = [:]
+            lastSyncedAccount = nil
             return
         }
         // A different account than the last cycle saw. The signed-out branch above clears this
@@ -564,6 +591,10 @@ final class FindingsSyncCoordinator: ObservableObject {
             parkedCount = 0
             isQuotaBlocked = false
             usage = nil
+            // Cleared here and not only on sign-out: A -> B directly never passes through the
+            // nil-account branch above, and stale ticks would then mark B's findings with A's
+            // ledger -- one account's rows claiming another account's cloud.
+            backupStates = [:]
         }
 
         guard let baseURL = FindingsCloudEndpoint.baseURL(for: ClerkAuthProvider.selectedEnvironment) else {
@@ -1202,6 +1233,41 @@ final class FindingsSyncCoordinator: ObservableObject {
     private func refreshCounts(from ledger: FindingsSyncLedger) {
         pendingUploadCount = uploadCandidates(ledger: ledger).count
         parkedCount = ledger.parked.count
+        backupStates = Self.backupStates(for: syncableFindings(), ledger: ledger) { [weak self] finding in
+            self?.effectiveMilliseconds(of: finding) ?? 0
+        }
+    }
+
+    /// One state per finding, derived from the ledger the cycle just saved (AIA-0735).
+    ///
+    /// A `static` taking its inputs rather than reading `self`, so the derivation is testable on its
+    /// own and cannot accidentally consult live state that the ledger disagrees with.
+    ///
+    /// Order matters. `excluded` is checked first because a finding the user chose to keep here can
+    /// also look "owed" -- it has never been uploaded -- and reporting it as merely waiting would be
+    /// the same lie the list told before this existed.
+    static func backupStates(
+        for findings: [Finding],
+        ledger: FindingsSyncLedger,
+        modifiedAt: (Finding) -> Int64
+    ) -> [UUID: FindingBackupState] {
+        var states: [UUID: FindingBackupState] = [:]
+        for finding in findings {
+            let id = finding.entityId
+            if ledger.excluded.contains(id.uuidString) {
+                states[id] = .keptOnDevice
+            } else if ledger.needsUpload(id: id, localModifiedAt: modifiedAt(finding)) {
+                states[id] = .owed
+            } else if ledger.uploaded[id.uuidString] != nil {
+                states[id] = .backedUp
+            } else {
+                // Never sent, and not something this account may send without being asked -- the
+                // consent card is what resolves it. Owed is the honest answer: it is not in the
+                // cloud, whatever the reason.
+                states[id] = .owed
+            }
+        }
+        return states
     }
 
     /// Failures that are about this one finding and that retrying cannot cure.

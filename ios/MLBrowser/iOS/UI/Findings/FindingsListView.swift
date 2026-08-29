@@ -512,6 +512,40 @@ struct FindingsListView: View {
 
 	// MARK: - Rows
 
+	/// Where this one finding stands with the cloud (AIA-0735).
+	///
+	/// Renders **nothing at all** when there is no state for the finding, which is the signed-out
+	/// case: the projection is empty until a cycle runs under an account. A slashed cloud on every
+	/// row would advertise a feature to somebody who never asked for one, and on a shared device a
+	/// stale tick would be a claim about the previous person's cloud.
+	///
+	/// The icon is the only carrier of this information, so each state gets a real accessibility
+	/// label rather than being decorative.
+	@ViewBuilder
+	private func backupBadge(for finding: Finding) -> some View {
+		if let state = findingsSync.backupStates[finding.entityId] {
+			switch state {
+			case .backedUp:
+				badgeIcon("checkmark.icloud.fill", tint: .green, label: L10n.Findings.Sync.Row.backedUp)
+			case .owed:
+				badgeIcon("icloud.and.arrow.up", tint: .secondary, label: L10n.Findings.Sync.Row.owed)
+			case .keptOnDevice:
+				// Not the same as "waiting": this one is a decision the user recorded, and nothing
+				// will change it on its own. Since AIA-0758 Synchronize no longer quietly reverses
+				// it, so this row is the only place that choice is visible.
+				badgeIcon("icloud.slash", tint: .secondary, label: L10n.Findings.Sync.Row.keptOnDevice)
+			}
+		}
+	}
+
+	/// One overload only, taking `Color`. A second taking `HierarchicalShapeStyle` made `.secondary`
+	/// ambiguous between the two at every call site.
+	private func badgeIcon(_ systemName: String, tint: Color, label: String) -> some View {
+		Image(systemName: systemName)
+			.foregroundStyle(tint)
+			.accessibilityLabel(label)
+	}
+
 	private func row(_ finding: Finding) -> some View {
 		NavigationLink(value: finding) {
 			HStack(spacing: 12) {
@@ -530,6 +564,8 @@ struct FindingsListView: View {
 							.foregroundStyle(.secondary)
 					}
 				}
+				Spacer(minLength: 8)
+				backupBadge(for: finding)
 			}
 		}
 		.testability(Testability.Button.findingsItem)

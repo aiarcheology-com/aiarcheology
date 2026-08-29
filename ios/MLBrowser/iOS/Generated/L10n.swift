@@ -724,6 +724,14 @@ internal enum L10n {
         /// When off, nothing new leaves this device. Findings already backed up stay in your account and are still restored on a new device.
         internal static let toggleFooter = L10n.tr("Localizable", "findings.sync.backup.toggleFooter", fallback: "When off, nothing new leaves this device. Findings already backed up stay in your account and are still restored on a new device.")
       }
+      internal enum Row {
+        /// Backed up
+        internal static let backedUp = L10n.tr("Localizable", "findings.sync.row.backedUp", fallback: "Backed up")
+        /// Kept on this device
+        internal static let keptOnDevice = L10n.tr("Localizable", "findings.sync.row.keptOnDevice", fallback: "Kept on this device")
+        /// Not backed up yet
+        internal static let owed = L10n.tr("Localizable", "findings.sync.row.owed", fallback: "Not backed up yet")
+      }
       internal enum Storage {
         /// Cloud storage full — delete findings you no longer need, or export them
         internal static let full = L10n.tr("Localizable", "findings.sync.storage.full", fallback: "Cloud storage full — delete findings you no longer need, or export them")

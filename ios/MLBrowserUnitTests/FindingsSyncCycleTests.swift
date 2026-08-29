@@ -732,6 +732,121 @@ extension FindingsSyncCycleTests {
 		)
 	}
 
+	// MARK: - Per-finding back-up state (AIA-0735)
+
+	/// The projection itself, against a hand-built ledger. Pure and deterministic: no network, no
+	/// cycle, so a failure here is the derivation and nothing else.
+	func testEachFindingGetsTheStateItsLedgerEntryImplies() throws {
+		let backedUp = try saveFinding(title: "Safe in the cloud")
+		let stale = try saveFinding(title: "Edited since it went up")
+		let excluded = try saveFinding(title: "Kept here on purpose")
+		let unclaimed = try saveFinding(title: "Never answered for")
+
+		var ledger = FindingsSyncLedger()
+		ledger.owned = [backedUp.entityId.uuidString, stale.entityId.uuidString]
+		// The cloud holds both at timestamp 1000.
+		ledger.uploaded = [
+			backedUp.entityId.uuidString: 1_000,
+			stale.entityId.uuidString: 1_000
+		]
+		ledger.excluded = [excluded.entityId.uuidString]
+
+		// `stale` has been edited since: its local clock is ahead of what the cloud confirmed.
+		let localTimes: [UUID: Int64] = [
+			backedUp.entityId: 1_000,
+			stale.entityId: 2_000,
+			excluded.entityId: 500,
+			unclaimed.entityId: 500
+		]
+
+		let states = FindingsSyncCoordinator.backupStates(
+			for: [backedUp, stale, excluded, unclaimed],
+			ledger: ledger
+		) { localTimes[$0.entityId] ?? 0 }
+
+		XCTAssertEqual(states[backedUp.entityId], .backedUp)
+		XCTAssertEqual(states[stale.entityId], .owed, "an edit since the upload is owed again")
+		XCTAssertEqual(
+			states[excluded.entityId], .keptOnDevice,
+			"a deliberate choice must not be reported as merely waiting -- nothing will change it"
+		)
+		XCTAssertEqual(
+			states[unclaimed.entityId], .owed,
+			"never claimed is still not in the cloud, whatever the reason"
+		)
+	}
+
+	/// Exclusion is checked before "needs upload", and both are true for the same finding. Getting
+	/// the order wrong shows a kept-on-device finding as a queue that will drain, which it will not.
+	func testKeptOnDeviceWinsOverOwed() throws {
+		let finding = try saveFinding(title: "Both at once")
+		var ledger = FindingsSyncLedger()
+		ledger.excluded = [finding.entityId.uuidString]
+
+		let states = FindingsSyncCoordinator.backupStates(for: [finding], ledger: ledger) { _ in 1_000 }
+
+		XCTAssertEqual(states[finding.entityId], .keptOnDevice)
+	}
+
+	/// Signed out renders no icon at all, which is what an empty projection produces.
+	func testSigningOutClearsEveryRowIcon() async throws {
+		try saveFinding(title: "Mine")
+		StubWorkerProtocol.handler = { _ in
+			(200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.syncNow()?.value
+		XCTAssertFalse(sut.backupStates.isEmpty, "precondition: a signed-in cycle produced states")
+
+		auth.setOutcomeForTesting(.signedOut)
+		await sut.syncNow()?.value
+
+		XCTAssertTrue(
+			sut.backupStates.isEmpty,
+			"a signed-out person is not owed a report on somebody's cloud"
+		)
+	}
+
+	/// The one this projection is most likely to get wrong. Signing out clears the states, but
+	/// signing straight from one account into another never passes through that branch -- so without
+	/// an explicit account-change clear, B's findings would wear A's ticks.
+	func testSwitchingAccountDirectlyDoesNotLeaveTheOtherAccountsIcons() async throws {
+		// `keptOnDevice` is the state to test the switch with, because it is the one that CANNOT
+		// arise by accident under the second account: it is recorded only by answering A's consent
+		// card, and B's ledger is empty. Comparing "backed up" against "owed" would not do -- the
+		// stub confirms an upload at its own timestamp while the local clock is far ahead, so a
+		// finding reads as owed under both accounts and the assertion would pass vacuously.
+		let shared = try saveFindingBelongingToNobody(title: "Shared device")
+		StubWorkerProtocol.handler = { _ in
+			(200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.syncNow()?.value
+		await sut.answerBackupConsent(accepted: false)?.value
+		await sut.syncNow()?.value
+		XCTAssertEqual(
+			sut.backupStates[shared.entityId], .keptOnDevice,
+			"precondition: account A recorded a decision about this finding"
+		)
+
+		// Straight from A to B. No sign-out in between -- that is the whole point: the nil-account
+		// branch of `cycle()` never runs, so only an explicit account-change clear saves this.
+		auth.setAccountIDForTesting("user_somebody_entirely_else")
+		await sut.syncNow()?.value
+
+		XCTAssertEqual(
+			sut.backupStates[shared.entityId], .owed,
+			"account B must not inherit account A's decision -- the ledger is per account, and this "
+				+ "icon is a claim about one person's cloud"
+		)
+	}
+
 	// MARK: - Turning back-up off (AIA-744)
 
 	func testTurningBackUpOffStopsFindingsCreatedAfterwardsFromUploading() async throws {
