@@ -3268,10 +3268,106 @@
       "comment" : "Appended to auth.account.delete.messageBilling when this device still holds saved findings. A separate key on purpose: the billing warning it follows is translated into every shipping locale, and folding the two into one new string would have downgraded that warning to English everywhere.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لا تُحذف الاكتشافات المحفوظة على هذا الجهاز، ويمكنك تصديرها أولًا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই ডিভাইসে সংরক্ষিত সন্ধানগুলি মোছা হয় না, এবং আপনি আগে সেগুলি এক্সপোর্ট করতে পারেন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nálezy uložené v tomto zařízení se nesmažou a můžete si je nejdřív exportovat."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Die auf diesem Gerät gesicherten Funde werden nicht gelöscht, und Sie können sie vorher exportieren."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The findings saved on this device are not deleted, and you can export them first."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Los hallazgos guardados en este dispositivo no se eliminan, y puedes exportarlos antes."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "یافته‌های ذخیره‌شده روی این دستگاه حذف نمی‌شوند و می‌توانید ابتدا از آن‌ها خروجی بگیرید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Les découvertes enregistrées sur cet appareil ne sont pas supprimées, et vous pouvez les exporter d’abord."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הממצאים השמורים במכשיר הזה אינם נמחקים, ואפשר לייצא אותם קודם."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "इस डिवाइस पर सहेजी गई खोजें डिलीट नहीं होतीं, और आप उन्हें पहले एक्सपोर्ट कर सकते हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az ezen az eszközön mentett leletek nem törlődnek, és előbb exportálhatja őket."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Znaleziska zapisane na tym urządzeniu nie zostaną usunięte i możesz je najpierw wyeksportować."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Находки, сохранённые на этом устройстве, не удаляются — их можно сначала экспортировать."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Знахідки, збережені на цьому пристрої, не видаляються — їх можна спочатку експортувати."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此设备上已保存的发现记录不会被删除，你可以先导出它们。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此裝置上已儲存的發現不會被刪除，你可以先輸出它們。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此裝置上已儲存的發現記錄不會被刪除，你可以先匯出它們。"
           }
         }
       }
@@ -43107,10 +43203,106 @@
       "comment" : "Shown when a purchase attempt ended with no entitlement but the App Store reports an active subscription for this app. Must not claim the customer owns it \u2014 a subscription-group status can be family-shared \u2014 and must name Restore Purchases, which is on the same screen.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يفيد App Store بوجود اشتراك نشط في ML Browser. اضغط على «استعادة المشتريات» أدناه لتفعيله على هذا الجهاز."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store জানাচ্ছে ML Browser-এর জন্য একটি সক্রিয় সাবস্ক্রিপশন রয়েছে। এই ডিভাইসে সেটি চালু করতে নিচের “কেনাকাটা পুনরুদ্ধার করুন” চাপুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store hlásí aktivní předplatné pro ML Browser. Klepnutím na „Obnovit nákupy“ níže ho odemknete v tomto zařízení."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Der App Store meldet ein aktives Abo für ML Browser. Tippen Sie unten auf „Käufe wiederherstellen“, um es auf diesem Gerät freizuschalten."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The App Store reports an active subscription for ML Browser. Tap Restore Purchases below to unlock it on this device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "El App Store indica que hay una suscripción activa a ML Browser. Toca «Restaurar compras» abajo para desbloquearla en este dispositivo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store اعلام می‌کند اشتراکی فعال برای ML Browser وجود دارد. برای فعال‌کردن آن روی این دستگاه، «بازیابی خریدها» را در پایین بزنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "L’App Store signale un abonnement actif à ML Browser. Touchez « Restaurer les achats » ci-dessous pour le débloquer sur cet appareil."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "‏App Store מדווח על מנוי פעיל ל‑ML Browser. הקש „שחזור רכישות” למטה כדי לפתוח אותו במכשיר הזה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store के अनुसार ML Browser की एक सक्रिय सदस्यता मौजूद है। इसे इस डिवाइस पर चालू करने के लिए नीचे “खरीदारी पुनर्स्थापित करें” टैप करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az App Store aktív ML Browser-előfizetést jelez. Koppintson alább a „Vásárlások visszaállítása” gombra, hogy feloldja ezen az eszközön."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store zgłasza aktywną subskrypcję ML Browser. Naciśnij „Przywróć zakupy” poniżej, aby odblokować ją na tym urządzeniu."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store сообщает об активной подписке на ML Browser. Нажмите «Восстановить покупки» ниже, чтобы открыть её на этом устройстве."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store повідомляє про активну передплату на ML Browser. Натисніть «Відновити покупки» нижче, щоб відкрити її на цьому пристрої."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store 显示 ML Browser 有一项有效订阅。请轻点下方“恢复购买项目”，在此设备上解锁。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store 顯示 ML Browser 有一項有效的訂閱項目。請點一下下方的「回復購買項目」，在此裝置上解鎖。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store 顯示 ML Browser 有一項有效的訂閱項目。請點一下下方的「回復購買項目」，在此裝置上解鎖。"
           }
         }
       }
@@ -43119,10 +43311,106 @@
       "comment" : "Title of the alert that points a customer at Restore Purchases after a purchase attempt found an existing subscription.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تم العثور على اشتراك"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সাবস্ক্রিপশন পাওয়া গেছে"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Předplatné nalezeno"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abo gefunden"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Subscription Found"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Suscripción encontrada"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "اشتراک پیدا شد"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abonnement trouvé"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "נמצא מנוי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "सदस्यता मिली"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Előfizetés található"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Znaleziono subskrypcję"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Подписка найдена"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Передплату знайдено"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "找到订阅"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "找到訂閱項目"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "找到訂閱項目"
           }
         }
       }
