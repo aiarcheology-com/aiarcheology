@@ -164,7 +164,8 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 				LoggingPolicy.info("Purchase pending (Ask-to-Buy / deferred).", logger: .state)
 				return .pending
 			case .userCancelled:
-				return .cancelled
+				// Not necessarily a change of mind — see ``outcomeAfterCancellation()``.
+				return await outcomeAfterCancellation()
 			@unknown default:
 				LoggingPolicy.warning("Unknown purchase result.", logger: .state)
 				return .failed
@@ -173,6 +174,42 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 			LoggingPolicy.error("Purchase failed: \(error.localizedDescription)", logger: .state)
 			return .failed
 		}
+	}
+
+	/// What a `.userCancelled` purchase actually means (AIA-0782).
+	///
+	/// StoreKit reports the same `.userCancelled` for two different events, and the app used to
+	/// treat both as the second:
+	///
+	/// 1. The customer dismissed a real purchase sheet. Ordinary; nothing changed.
+	/// 2. `product.purchase()` asked the App Store, was told **this Apple Account already owns the
+	///    subscription**, and showed its own "You are currently subscribed" dialog instead of a
+	///    purchase sheet. Cancelling *that* also returns `.userCancelled` — and the store had just
+	///    confirmed ownership, which the old mapping threw away. The customer landed back on the
+	///    wall with the one obvious button leading nowhere: the dead end AIA-0782 reports, and the
+	///    exact path an App Review tester on a sandbox account that already subscribed walks.
+	///
+	/// StoreKit does not distinguish the two, so the entitlement is re-read instead of guessed at.
+	/// It costs a local read and prompts for nothing — deliberately **not** `AppStore.sync()`,
+	/// which asks for App Store credentials and is therefore restore-only, per Apple's guidance
+	/// and per ``restore()``.
+	///
+	/// Internal rather than private so a test can drive the whole decision: ``purchase(_:)`` needs
+	/// a `Product`, which cannot be constructed outside `StoreKitTest`, so the branch is otherwise
+	/// unreachable — the same reason ``refreshEntitlement()`` and ``purchaseOptions()`` are
+	/// internal.
+	///
+	/// Honest about its reach: case 2 is only rescued when the store's answer has landed in the
+	/// **local** entitlements by the time this runs. Where it has not, the outcome is `.cancelled`
+	/// — exactly today's behaviour, so this can only add a way out, never take one away.
+	func outcomeAfterCancellation() async -> PurchaseOutcome {
+		await refreshEntitlement()
+		guard isSubscribed else { return .cancelled }
+		LoggingPolicy.info(
+			"Purchase dialog was dismissed but the account is entitled — treating it as subscribed.",
+			logger: .state
+		)
+		return .subscribed
 	}
 
 	// Not `@discardableResult` — see ``purchase(_:)``.
