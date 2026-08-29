@@ -826,6 +826,10 @@ struct PaywallView: View {
 			}
 			.buttonStyle(.bordered)
 			.controlSize(.large)
+			// Tinted like Restore and Manage, for the reason given on ``interactiveTint``: a
+			// `.bordered` button with no tint resolves its label to the app's grey AccentColor,
+			// which on this screen reads as *disabled* rather than as a control (AIA-0779).
+			.tint(Self.interactiveTint)
 			.padding(.top, 8)
 			.testability(Testability.Button.paywallRemoveFindings)
 		}
@@ -851,6 +855,7 @@ struct PaywallView: View {
 					}
 					.buttonStyle(.bordered)
 					.controlSize(.large)
+					.tint(Self.interactiveTint)
 					.testability(Testability.Button.paywallSignOut)
 
 					Button(role: .destructive) {
@@ -881,6 +886,7 @@ struct PaywallView: View {
 				}
 				.buttonStyle(.bordered)
 				.controlSize(.large)
+				.tint(Self.interactiveTint)
 				.padding(.top, 8)
 				.testability(Testability.Button.paywallSignIn)
 			case .indeterminate, .suspended:
