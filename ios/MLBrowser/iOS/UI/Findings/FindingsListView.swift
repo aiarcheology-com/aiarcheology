@@ -717,6 +717,12 @@ struct FindingsListView: View {
 								.frame(maxWidth: .infinity)
 						}
 						.buttonStyle(.bordered)
+						// Tinted. `.bordered` with no tint renders grey, and a grey button reads as
+						// disabled -- which this one is not. Getting that wrong here costs more than
+						// it looks: this is the only route back for somebody who chose "Keep on This
+						// Device" and changed their mind, and a door nobody believes is open is the
+						// one-way door AIA-740 removed.
+						.tint(.blue)
 						.disabled(findingsSync.isBackingUp)
 						.testability(Testability.Button.findingsBackUpEverything)
 					}
