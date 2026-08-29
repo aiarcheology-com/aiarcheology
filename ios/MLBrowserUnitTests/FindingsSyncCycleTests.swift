@@ -526,6 +526,184 @@ extension FindingsSyncCycleTests {
 		XCTAssertTrue(sut.isQuotaBlocked, "the button reads this to stop looking like it will work")
 	}
 
+	// MARK: - Synchronize (AIA-0758)
+
+	/// The whole point of splitting the button: a neutral action must not reverse a decision the
+	/// user recorded per finding.
+	///
+	/// Mutation check for whoever changes this later: point the call below at `backUpNow` instead
+	/// and this test MUST fail. If it still passes, it is asserting nothing.
+	func testSynchronizeDoesNotLiftKeepOnThisDeviceExclusions() async throws {
+		// Belonging to nobody, so the card is actually raised: a finding created while signed in is
+		// `owned` at birth and is never the subject of a consent question.
+		let strangerId = try saveFindingBelongingToNobody(title: "Somebody else's ditch").entityId
+		StubWorkerProtocol.handler = { request in
+			if request.httpMethod == "PUT" {
+				return (200, StubWorkerProtocol.json([
+					"finding": [
+						"id": UUID().uuidString, "modifiedAt": 1, "receivedAt": 2,
+						"deleted": false, "bytes": 1, "hasImage": false
+					],
+					"usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		// Reach the same state AIA-740 is about: the card asked, and the user said keep it here.
+		await sut.syncNow()?.value
+		await sut.answerBackupConsent(accepted: false)?.value
+
+		StubWorkerProtocol.requests = []
+		await sut.synchronizeNow(expectedAccount: try XCTUnwrap(auth.accountIdentifier))?.value
+
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.contains { $0.hasPrefix("PUT") && $0.contains(strangerId.uuidString) } == false,
+			"Synchronize must not upload a finding the user chose to keep on this device: "
+				+ "\(StubWorkerProtocol.requests)"
+		)
+	}
+
+	/// `backUpNow` forces back-up on; Synchronize deliberately does not. A neutral label may not
+	/// flip a switch the user set.
+	func testSynchronizeLeavesTheBackUpSwitchAlone() async throws {
+		try saveFinding(title: "Stays here")
+		StubWorkerProtocol.handler = { _ in
+			(200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+		let account = try XCTUnwrap(auth.accountIdentifier)
+		await sut.setBackUpEnabled(false, expectedAccount: account)?.value
+		XCTAssertFalse(sut.isBackUpEnabled)
+
+		StubWorkerProtocol.requests = []
+		await sut.synchronizeNow(expectedAccount: account)?.value
+
+		XCTAssertFalse(sut.isBackUpEnabled, "Synchronize must not turn back-up back on")
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.contains { $0.hasPrefix("PUT") } == false,
+			"back-up is off, so nothing may leave the device: \(StubWorkerProtocol.requests)"
+		)
+		// And the report must not claim otherwise. With back-up off nothing was pushed, so any
+		// wording about findings being backed up would be false -- `.succeeded` here means only
+		// that the cycle finished, and the pending count says what is still owed.
+		XCTAssertEqual(sut.lastSynchronize, .succeeded)
+		XCTAssertNil(sut.lastManualBackup, "a synchronize must not present itself as a back-up")
+	}
+
+	/// An unanswered "whose findings are these?" card must survive a neutral action. `backUpNow`
+	/// clears it because pressing that button IS the answer; Synchronize is not.
+	func testSynchronizeDoesNotDismissAnUnansweredConsentPrompt() async throws {
+		try saveFindingBelongingToNobody(title: "Whose is this?")
+		StubWorkerProtocol.handler = { _ in
+			(200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		await sut.syncNow()?.value
+		XCTAssertNotNil(sut.backupConsentRequest, "precondition: the card is up")
+
+		await sut.synchronizeNow(expectedAccount: try XCTUnwrap(auth.accountIdentifier))?.value
+
+		XCTAssertNotNil(
+			sut.backupConsentRequest,
+			"Synchronize must not answer the consent question by dismissing it"
+		)
+	}
+
+	/// The AIA-740 fence, on the new path too: the account the user was looking at travels with the
+	/// request and is checked against the provider rather than trusted.
+	func testSynchronizeRefusesWhenTheAccountHasMovedOn() async throws {
+		try saveFinding(title: "Not yours")
+		StubWorkerProtocol.handler = { _ in
+			(200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		XCTAssertNil(
+			sut.synchronizeNow(expectedAccount: "user_somebody_else"),
+			"a press made under one account must not run under another"
+		)
+		XCTAssertFalse(sut.isBackingUp, "a refused request must not leave the button spinning")
+	}
+
+	/// A finding parked permanently (`payload_too_large`) is standing status, not the result of the
+	/// cycle the user just asked for. Reporting it as a failure would also send the same permanent
+	/// condition to Sentry on every press.
+	func testSynchronizeReportsSuccessDespiteAnOlderPermanentPark() async throws {
+		try saveFinding(title: "Too big")
+		StubWorkerProtocol.handler = { request in
+			if request.httpMethod == "PUT" {
+				return (413, StubWorkerProtocol.json([
+					"error": ["code": "payload_too_large", "message": "too big", "retryable": false]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+		let account = try XCTUnwrap(auth.accountIdentifier)
+		// Park it through the explicit path, which is what reports parked work as a failure.
+		await sut.backUpNow(expectedAccount: account)?.value
+		XCTAssertEqual(sut.lastManualBackup, .failed, "precondition: the back-up path does report it")
+		XCTAssertTrue(sut.parkedCount > 0)
+
+		await sut.synchronizeNow(expectedAccount: account)?.value
+
+		XCTAssertEqual(
+			sut.lastSynchronize, .succeeded,
+			"a standing park is status above the list, not the outcome of this cycle"
+		)
+		XCTAssertNil(sut.lastManualBackup, "starting a synchronize clears the older back-up outcome")
+	}
+
+	/// AIA-0758: `syncNow()` hands back the cycle already running and used to schedule the follow-up
+	/// fire-and-forget. Awaiting the returned task therefore returned while the cycle that could
+	/// actually see the caller's change had not started -- pull-to-refresh stopped spinning early,
+	/// and a pressed button reported success on work that predated the press.
+	func testAwaitingSyncNowWaitsForTheCycleQueuedWhileOneWasRunning() async throws {
+		StubWorkerProtocol.handler = { _ in
+			(200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+
+		// Measure what one cycle costs, so the assertion below is about the SECOND cycle existing
+		// rather than about a hard-coded request count that a change to the pull would invalidate.
+		await sut.syncNow()?.value
+		let requestsPerCycle = StubWorkerProtocol.requests.count
+		XCTAssertGreaterThan(requestsPerCycle, 0, "precondition: a cycle talks to the Worker")
+
+		StubWorkerProtocol.requests = []
+		// Both calls happen before this actor yields, so the second one lands while the first cycle
+		// is still in flight -- the coalescing path, which is the one that was broken.
+		let first = try XCTUnwrap(sut.syncNow())
+		let second = try XCTUnwrap(sut.syncNow())
+		XCTAssertEqual(first, second, "precondition: the second trigger coalesces onto the first")
+
+		await second.value
+
+		// Before the fix the follow-up cycle was started with `_ = self?.syncNow()` and nobody
+		// awaited it, so this returned after ONE cycle's worth of requests -- i.e. after a cycle
+		// that had already read the store before the second trigger existed.
+		XCTAssertGreaterThanOrEqual(
+			StubWorkerProtocol.requests.count, requestsPerCycle * 2,
+			"awaiting the returned task must await the cycle the second trigger asked for: "
+				+ "\(StubWorkerProtocol.requests)"
+		)
+	}
+
 	// MARK: - Turning back-up off (AIA-744)
 
 	func testTurningBackUpOffStopsFindingsCreatedAfterwardsFromUploading() async throws {

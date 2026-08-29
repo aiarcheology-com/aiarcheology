@@ -100,6 +100,15 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// The result of the last user-initiated back-up, or `nil` if none has run this session.
     @Published private(set) var lastManualBackup: ManualBackupOutcome?
 
+    /// The result of the last user-pressed **Synchronize**, or `nil` if none has run this session.
+    ///
+    /// Held apart from ``lastManualBackup`` rather than sharing it, because the two actions make
+    /// different promises and their wording must not be interchangeable: a back-up may say "your
+    /// findings are backed up", and a synchronize may not -- with back-up switched off it pushes
+    /// nothing at all (AIA-0758). Starting either action clears the other, so exactly one outcome
+    /// is ever on screen and the newer one is always the one shown.
+    @Published private(set) var lastSynchronize: ManualBackupOutcome?
+
     /// Why the last cycle stopped, or `nil` if it finished. Recorded so ``backUpNow()`` can tell
     /// the user what happened: the automatic path deliberately swallows these, because the next
     /// trigger resumes from the ledger, but a person who pressed a button is owed an answer.
@@ -297,7 +306,16 @@ final class FindingsSyncCoordinator: ObservableObject {
             self?.runningCycle = nil
             if self?.wantsAnotherCycle == true {
                 self?.wantsAnotherCycle = false
-                _ = self?.syncNow()
+                // Awaited, not fired and forgotten. A caller that awaits this task is asking "is my
+                // change synced?", and the cycle that answers is the follow-up -- the one this task
+                // ran may have read the store before the trigger existed. Discarding it here let
+                // pull-to-refresh stop spinning, and a user-pressed button report success, on work
+                // that predated the request (AIA-0758).
+                //
+                // It cannot recurse without end: the chained call returns nil while `isPurging`,
+                // and otherwise only re-enters when something set `wantsAnotherCycle` again, which
+                // is a real trigger and not this loop.
+                await self?.syncNow()?.value
             }
         }
         runningCycle = task
@@ -356,6 +374,7 @@ final class FindingsSyncCoordinator: ObservableObject {
 
         isBackingUp = true
         lastManualBackup = nil
+        lastSynchronize = nil
 
         // Queued for the cycle to apply, never written here: see `pendingManualBackup`.
         let ids = Set(syncableFindings().map(\.entityId.uuidString))
@@ -380,6 +399,70 @@ final class FindingsSyncCoordinator: ObservableObject {
             guard self.stillSignedIn(as: expectedAccount) else { return }
             self.lastManualBackup = self.outcomeOfManualBackup()
         }
+    }
+
+    /// The user pressed **Synchronize**.
+    ///
+    /// Deliberately *not* "back up everything on this device". It runs a cycle and reports what
+    /// happened; it changes no decision the user has previously recorded. Specifically it does not
+    /// lift per-finding "Keep on This Device" exclusions, does not claim findings the account has
+    /// never agreed to back up, and does not switch back-up on. Under the old label those were
+    /// defensible as an explicit yes (AIA-740); under a neutral one they are not, and
+    /// ``backUpNow(expectedAccount:)`` remains the explicit yes for anyone who wants it.
+    ///
+    /// The account fence is the same one ``backUpNow(expectedAccount:)`` carries and for the same
+    /// reason: `AuthState` lags the provider while an account is being validated, so the account
+    /// the *user* was looking at travels with the request rather than being read when it lands.
+    ///
+    /// - Parameter expectedAccount: the account the user was looking at when they pressed.
+    @discardableResult
+    func synchronizeNow(expectedAccount: String) -> Task<Void, Never>? {
+        guard authProvider.accountIdentifier == expectedAccount else { return nil }
+        guard isCloudConfigured else { return nil }
+
+        isBackingUp = true
+        lastManualBackup = nil
+        lastSynchronize = nil
+
+        return Task { [weak self] in
+            guard let self else { return }
+            defer { self.isBackingUp = false }
+
+            // `backupConsentRequest` is deliberately NOT cleared. It is an unanswered question about
+            // whose findings these are, and a neutral action must not answer it by dismissing it.
+            // `backUpNow` clears it because pressing that button *is* the answer.
+
+            // `syncNow()` chains its follow-up cycle into the returned task (AIA-0758), so awaiting
+            // it awaits the cycle that actually saw this request -- not one that read the store
+            // before the user pressed.
+            await self.syncNow()?.value
+
+            guard self.stillSignedIn(as: expectedAccount) else { return }
+            self.lastSynchronize = self.outcomeOfSynchronize()
+        }
+    }
+
+    /// Turns the cycle Synchronize just ran into something the button can say.
+    ///
+    /// Distinct from ``outcomeOfManualBackup()`` on two points that matter:
+    ///
+    /// 1. **Standing parked uploads are not this cycle's failure.** A `payload_too_large` park never
+    ///    clears until the finding is edited, so reporting it here would send the same permanent
+    ///    condition to Sentry on every press. The user is still told about it -- the parked count
+    ///    sits above the list -- but it is status, not the result of what they just asked for.
+    /// 2. **Success claims nothing about backing up.** A cycle with back-up switched off pushes
+    ///    nothing at all, so "your findings are backed up" would be false. Success here means the
+    ///    cycle finished, and the pending count says what is still owed.
+    private func outcomeOfSynchronize() -> ManualBackupOutcome {
+        // Running out of room is not a failed cycle, but it is the one state the user must act on,
+        // and the wording names the way out.
+        if isQuotaBlocked { return .quotaFull }
+        guard let failure = lastCycleFailure else { return .succeeded }
+        // Offline is a property of the network, never of the error -- same reasoning as the
+        // back-up path, and the same reason it is checked before anything is reported.
+        if monitor.currentPath.status != .satisfied { return .offline }
+        Observability.captureError("Findings synchronize failed", error: failure)
+        return .failed
     }
 
     /// Turns the last cycle into something the button can say.
@@ -450,6 +533,7 @@ final class FindingsSyncCoordinator: ObservableObject {
             isQuotaBlocked = false
             usage = nil
             lastManualBackup = nil
+            lastSynchronize = nil
             backupConsentRequest = nil
             return
         }
