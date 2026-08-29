@@ -565,6 +565,17 @@ extension FindingsSyncCycleTests {
 			"Synchronize must not upload a finding the user chose to keep on this device: "
 				+ "\(StubWorkerProtocol.requests)"
 		)
+
+		// The exclusion must still be on disk, not merely unused by that one cycle: a synchronize
+		// that silently emptied `excluded` would pass the check above and upload on the next
+		// ordinary trigger instead.
+		StubWorkerProtocol.requests = []
+		await sut.syncNow()?.value
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.contains { $0.hasPrefix("PUT") && $0.contains(strangerId.uuidString) } == false,
+			"the exclusion must survive the synchronize, not just be skipped by it: "
+				+ "\(StubWorkerProtocol.requests)"
+		)
 	}
 
 	/// `backUpNow` forces back-up on; Synchronize deliberately does not. A neutral label may not
@@ -610,11 +621,21 @@ extension FindingsSyncCycleTests {
 		await sut.syncNow()?.value
 		XCTAssertNotNil(sut.backupConsentRequest, "precondition: the card is up")
 
+		StubWorkerProtocol.requests = []
 		await sut.synchronizeNow(expectedAccount: try XCTUnwrap(auth.accountIdentifier))?.value
 
 		XCTAssertNotNil(
 			sut.backupConsentRequest,
 			"Synchronize must not answer the consent question by dismissing it"
+		)
+		// Be honest about the limit of the line above: `push` re-raises the card for a finding that
+		// is still unclaimed, so it cannot tell a transient dismissal from no dismissal at all.
+		// What it *does* catch, and what actually matters, is the variant that answers the question
+		// by claiming the finding -- so assert the durable half directly: still not uploaded.
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.contains { $0.hasPrefix("PUT") } == false,
+			"a finding nobody has claimed must not be uploaded by a neutral action: "
+				+ "\(StubWorkerProtocol.requests)"
 		)
 	}
 
@@ -629,11 +650,18 @@ extension FindingsSyncCycleTests {
 			]))
 		}
 
+		StubWorkerProtocol.requests = []
 		XCTAssertNil(
 			sut.synchronizeNow(expectedAccount: "user_somebody_else"),
 			"a press made under one account must not run under another"
 		)
 		XCTAssertFalse(sut.isBackingUp, "a refused request must not leave the button spinning")
+		// A nil return is not by itself proof: the refusal has to happen before anything is asked
+		// of the Worker, or the request went out under the wrong credential regardless.
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.isEmpty,
+			"a refused press must not have talked to the Worker at all: \(StubWorkerProtocol.requests)"
+		)
 	}
 
 	/// A finding parked permanently (`payload_too_large`) is standing status, not the result of the

@@ -31035,103 +31035,103 @@
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "تعمل المزامنة في الاتجاهين. فهي ترسل الاكتشافات الموجودة على هذا الجهاز وغير الموجودة في حسابك، وتجلب الاكتشافات الموجودة في حسابك وغير الموجودة على هذا الجهاز.\n\nليست عملية رفع في اتجاه واحد، ولا تعمل من تلقاء نفسها ما دامت هذه القائمة مفتوحة. الاكتشاف الذي تغيّره على جهاز آخر لن يظهر هنا من تلقاء نفسه — افتح هذه القائمة من جديد، أو اسحبها للأسفل، أو اضغط على مزامنة.\n\nلا تُلغي ما اخترت الاحتفاظ به على هذا الجهاز. الاكتشافات التي طلبت من التطبيق الاحتفاظ بها هنا تبقى هنا ولا تُرسل."
+            "value" : "تعمل المزامنة في الاتجاهين. فهي تجلب الاكتشافات الموجودة في حسابك وغير الموجودة على هذا الجهاز، كما ترسل — ما لم تكن قد أوقفت النسخ الاحتياطي — الاكتشافات الموجودة على هذا الجهاز وغير الموجودة في حسابك.\n\nليست عملية رفع في اتجاه واحد. لكن الاكتشاف الذي تغيّره على جهاز آخر لن يظهر هنا من تلقاء نفسه، مهما تركت هذه القائمة مفتوحة. افتح هذه القائمة من جديد، أو اسحبها للأسفل، أو اضغط على مزامنة لطلب التحديث.\n\nلا تُلغي ما اخترت الاحتفاظ به على هذا الجهاز. الاكتشافات التي طلبت من التطبيق الاحتفاظ بها هنا تبقى هنا ولا تُرسل."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "সিঙ্ক দুই দিকেই কাজ করে। এই ডিভাইসে যে আবিষ্কারগুলি আছে কিন্তু আপনার অ্যাকাউন্টে নেই, সেগুলি পাঠানো হয়, আর আপনার অ্যাকাউন্টে যেগুলি আছে কিন্তু এই ডিভাইসে নেই, সেগুলি নামিয়ে আনা হয়।\n\nএটি এক-মুখী আপলোড নয়, আর এই তালিকা খোলা থাকলে এটি নিজে থেকে চলে না। অন্য ডিভাইসে বদলানো কোনো আবিষ্কার এখানে নিজে থেকে দেখা যাবে না — তালিকাটি আবার খুলুন, নিচের দিকে টানুন বা সিঙ্ক চাপুন।\n\nআপনি এই ডিভাইসে যা রাখতে চেয়েছেন, তা এটি বদলায় না। আপনি অ্যাপকে এখানে রাখতে বলেছেন এমন আবিষ্কারগুলি এখানেই থাকে এবং পাঠানো হয় না।"
+            "value" : "সিঙ্ক দুই দিকেই কাজ করে। আপনার অ্যাকাউন্টে যেগুলি আছে কিন্তু এই ডিভাইসে নেই, সেই আবিষ্কারগুলি নামিয়ে আনা হয়, আর — আপনি ব্যাকআপ বন্ধ না করে থাকলে — এই ডিভাইসে যেগুলি আছে কিন্তু আপনার অ্যাকাউন্টে নেই, সেগুলি পাঠানো হয়।\n\nএটি এক-মুখী আপলোড নয়। তবে অন্য ডিভাইসে বদলানো কোনো আবিষ্কার এখানে নিজে থেকে দেখা যাবে না, এই তালিকা যত সময়ই খোলা রাখুন না কেন। তালিকাটি আবার খুলুন, নিচের দিকে টানুন বা চেয়ে নিতে সিঙ্ক চাপুন।\n\nআপনি এই ডিভাইসে যা রাখতে চেয়েছেন, তা এটি বদলায় না। আপনি অ্যাপকে এখানে রাখতে বলেছেন এমন আবিষ্কারগুলি এখানেই থাকে এবং পাঠানো হয় না।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Synchronizace funguje oběma směry. Odešle nálezy, které má toto zařízení a váš účet ne, a stáhne nálezy, které má váš účet a toto zařízení ne.\n\nNení to jednosměrné odesílání a neběží sama od sebe, když je tento seznam otevřený. Nález, který změníte na jiném zařízení, se zde neobjeví sám — otevřete tento seznam znovu, potáhněte jej dolů nebo stiskněte Synchronizovat.\n\nNeruší to, co jste se rozhodli ponechat v tomto zařízení. Nálezy, které má aplikace nechat jen zde, tu zůstanou a neodesílají se."
+            "value" : "Synchronizace funguje oběma směry. Stáhne nálezy, které má váš účet a toto zařízení ne, a — pokud jste nevypnuli zálohování — odešle nálezy, které má toto zařízení a váš účet ne.\n\nNení to jednosměrné odesílání. Nález, který změníte na jiném zařízení, se tu ale sám neobjeví, ať necháte tento seznam otevřený jakkoli dlouho. Otevřete tento seznam znovu, potáhněte jej dolů nebo stiskněte Synchronizovat, chcete-li si změny vyžádat.\n\nNeruší to, co jste se rozhodli ponechat v tomto zařízení. Nálezy, které má aplikace nechat jen zde, tu zůstanou a neodesílají se."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Synchronisieren funktioniert in beide Richtungen. Es sendet Funde, die dieses Gerät hat und dein Konto nicht, und es holt Funde herunter, die dein Konto hat und dieses Gerät nicht.\n\nEs ist kein einseitiges Hochladen, und es läuft nicht von selbst, solange diese Liste geöffnet ist. Ein Fund, den du auf einem anderen Gerät änderst, erscheint hier nicht von allein — öffne diese Liste erneut, zieh sie nach unten oder tippe auf Synchronisieren.\n\nEs macht nicht rückgängig, was du auf diesem Gerät behalten wolltest. Funde, die die App hier behalten soll, bleiben hier und werden nicht gesendet."
+            "value" : "Synchronisieren funktioniert in beide Richtungen. Es holt Funde herunter, die dein Konto hat und dieses Gerät nicht, und — sofern du das Sichern nicht ausgeschaltet hast — es sendet Funde, die dieses Gerät hat und dein Konto nicht.\n\nEs ist kein einseitiges Hochladen. Aber ein Fund, den du auf einem anderen Gerät änderst, erscheint hier nicht von allein, so lange du diese Liste auch geöffnet lässt. Öffne diese Liste erneut, zieh sie nach unten oder tippe auf Synchronisieren, um nachzufragen.\n\nEs macht nicht rückgängig, was du auf diesem Gerät behalten wolltest. Funde, die die App hier behalten soll, bleiben hier und werden nicht gesendet."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Synchronize works in both directions. It sends findings this device has that your account does not, and it brings down findings your account has that this device does not.\n\nIt is not a one-way upload, and it does not run by itself while this list is open. A finding you change on another device will not appear here on its own — open this list again, pull down on it, or press Synchronize to ask.\n\nIt does not undo what you chose to keep on this device. Findings you asked the app to keep here stay here, and are not sent."
+            "value" : "Synchronize works in both directions. It brings down findings your account has that this device does not, and — unless you have turned back-up off — it sends up findings this device has that your account does not.\n\nIt is not a one-way upload. But a finding you change on another device will not appear here on its own, however long you leave this list open. Open this list again, pull down on it, or press Synchronize to ask.\n\nIt does not undo what you chose to keep on this device. Findings you asked the app to keep here stay here, and are not sent."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Sincronizar funciona en ambos sentidos. Envía los hallazgos que tiene este dispositivo y tu cuenta no, y descarga los hallazgos que tiene tu cuenta y este dispositivo no.\n\nNo es una subida en un solo sentido y no se ejecuta por su cuenta mientras esta lista está abierta. Un hallazgo que cambies en otro dispositivo no aparecerá aquí solo — vuelve a abrir esta lista, deslízala hacia abajo o pulsa Sincronizar.\n\nNo deshace lo que elegiste mantener en este dispositivo. Los hallazgos que pediste que la app mantuviera aquí se quedan aquí y no se envían."
+            "value" : "Sincronizar funciona en ambos sentidos. Descarga los hallazgos que tiene tu cuenta y este dispositivo no y — salvo que hayas desactivado la copia — envía los hallazgos que tiene este dispositivo y tu cuenta no.\n\nNo es una subida en un solo sentido. Pero un hallazgo que cambies en otro dispositivo no aparecerá aquí solo, por mucho tiempo que dejes esta lista abierta. Vuelve a abrir esta lista, deslízala hacia abajo o pulsa Sincronizar para pedirlo.\n\nNo deshace lo que elegiste mantener en este dispositivo. Los hallazgos que pediste que la app mantuviera aquí se quedan aquí y no se envían."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "همگام‌سازی در هر دو جهت کار می‌کند. یافته‌هایی را که این دستگاه دارد و حساب شما ندارد ارسال می‌کند و یافته‌هایی را که حساب شما دارد و این دستگاه ندارد دریافت می‌کند.\n\nاین یک بارگذاری یک‌طرفه نیست و تا زمانی که این فهرست باز است خودبه‌خود اجرا نمی‌شود. یافته‌ای که روی دستگاه دیگری تغییر می‌دهید خودبه‌خود اینجا نمایان نمی‌شود — این فهرست را دوباره باز کنید، آن را به پایین بکشید یا همگام‌سازی را بزنید.\n\nکاری را که برای نگه‌داشتن روی این دستگاه انتخاب کرده‌اید برنمی‌گرداند. یافته‌هایی که خواسته‌اید برنامه اینجا نگه دارد همین‌جا می‌مانند و ارسال نمی‌شوند."
+            "value" : "همگام‌سازی در هر دو جهت کار می‌کند. یافته‌هایی را که حساب شما دارد و این دستگاه ندارد دریافت می‌کند و — مگر آنکه پشتیبان‌گیری را خاموش کرده باشید — یافته‌هایی را که این دستگاه دارد و حساب شما ندارد ارسال می‌کند.\n\nاین یک بارگذاری یک‌طرفه نیست. اما یافته‌ای که روی دستگاه دیگری تغییر می‌دهید خودبه‌خود اینجا نمایان نمی‌شود، هر چقدر هم که این فهرست را باز بگذارید. این فهرست را دوباره باز کنید، آن را به پایین بکشید یا برای درخواست، همگام‌سازی را بزنید.\n\nکاری را که برای نگه‌داشتن روی این دستگاه انتخاب کرده‌اید برنمی‌گرداند. یافته‌هایی که خواسته‌اید برنامه اینجا نگه دارد همین‌جا می‌مانند و ارسال نمی‌شوند."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Synchroniser fonctionne dans les deux sens. Cette action envoie les trouvailles que cet appareil possède et que votre compte n’a pas, et récupère les trouvailles que votre compte possède et que cet appareil n’a pas.\n\nCe n’est pas un envoi à sens unique, et cela ne se déclenche pas tout seul tant que cette liste est ouverte. Une trouvaille que vous modifiez sur un autre appareil n’apparaîtra pas ici d’elle-même — rouvrez cette liste, tirez-la vers le bas ou appuyez sur Synchroniser.\n\nCela n’annule pas ce que vous avez choisi de conserver sur cet appareil. Les trouvailles que vous avez demandé à l’app de garder ici y restent et ne sont pas envoyées."
+            "value" : "Synchroniser fonctionne dans les deux sens. Cette action récupère les trouvailles que votre compte possède et que cet appareil n’a pas et — sauf si vous avez désactivé la sauvegarde — envoie les trouvailles que cet appareil possède et que votre compte n’a pas.\n\nCe n’est pas un envoi à sens unique. Mais une trouvaille que vous modifiez sur un autre appareil n’apparaîtra pas ici d’elle-même, quel que soit le temps pendant lequel vous laissez cette liste ouverte. Rouvrez cette liste, tirez-la vers le bas ou appuyez sur Synchroniser pour la demander.\n\nCela n’annule pas ce que vous avez choisi de conserver sur cet appareil. Les trouvailles que vous avez demandé à l’app de garder ici y restent et ne sont pas envoyées."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "הסנכרון פועל בשני הכיוונים. הוא שולח ממצאים שיש במכשיר הזה ואין בחשבון שלך, ומוריד ממצאים שיש בחשבון שלך ואין במכשיר הזה.\n\nזו אינה העלאה חד-כיוונית, והוא לא פועל מעצמו כל עוד הרשימה הזאת פתוחה. ממצא שתשנה במכשיר אחר לא יופיע כאן מעצמו — פתח את הרשימה שוב, משוך אותה מטה או הקש על סנכרון.\n\nהוא לא מבטל את מה שבחרת להשאיר במכשיר הזה. ממצאים שביקשת מהאפליקציה להשאיר כאן נשארים כאן ואינם נשלחים."
+            "value" : "הסנכרון פועל בשני הכיוונים. הוא מוריד ממצאים שיש בחשבון שלך ואין במכשיר הזה, וגם — אלא אם כיבית את הגיבוי — שולח ממצאים שיש במכשיר הזה ואין בחשבון שלך.\n\nזו אינה העלאה חד-כיוונית. אבל ממצא שתשנה במכשיר אחר לא יופיע כאן מעצמו, כמה זמן שלא תשאיר את הרשימה הזאת פתוחה. פתח את הרשימה שוב, משוך אותה מטה או הקש על סנכרון כדי לבקש.\n\nהוא לא מבטל את מה שבחרת להשאיר במכשיר הזה. ממצאים שביקשת מהאפליקציה להשאיר כאן נשארים כאן ואינם נשלחים."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "सिंक दोनों दिशाओं में काम करता है। जो खोजें इस डिवाइस पर हैं पर आपके खाते में नहीं, वे भेजी जाती हैं, और जो आपके खाते में हैं पर इस डिवाइस पर नहीं, वे यहाँ ले आई जाती हैं।\n\nयह एकतरफ़ा अपलोड नहीं है, और यह सूची खुली रहने पर यह अपने आप नहीं चलता। किसी दूसरे डिवाइस पर बदली गई खोज यहाँ अपने आप नहीं दिखेगी — इस सूची को दोबारा खोलें, इसे नीचे खींचें या सिंक दबाएँ।\n\nआपने इस डिवाइस पर जो रखना चुना है, यह उसे नहीं बदलता। जिन खोजों को यहीं रखने के लिए आपने ऐप से कहा है, वे यहीं रहती हैं और भेजी नहीं जातीं।"
+            "value" : "सिंक दोनों दिशाओं में काम करता है। जो खोजें आपके खाते में हैं पर इस डिवाइस पर नहीं, वे यहाँ ले आई जाती हैं, और — जब तक आपने बैकअप बंद न किया हो — जो खोजें इस डिवाइस पर हैं पर आपके खाते में नहीं, वे भेजी जाती हैं।\n\nयह एकतरफ़ा अपलोड नहीं है। पर किसी दूसरे डिवाइस पर बदली गई खोज यहाँ अपने आप नहीं दिखेगी, चाहे आप इस सूची को कितनी भी देर खुला रखें। इस सूची को दोबारा खोलें, इसे नीचे खींचें या माँगने के लिए सिंक दबाएँ।\n\nआपने इस डिवाइस पर जो रखना चुना है, यह उसे नहीं बदलता। जिन खोजों को यहीं रखने के लिए आपने ऐप से कहा है, वे यहीं रहती हैं और भेजी नहीं जातीं।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "A szinkronizálás mindkét irányban működik. Elküldi azokat a leleteket, amelyek ezen az eszközön megvannak, a fiókodban viszont nem, és letölti azokat, amelyek a fiókodban megvannak, ezen az eszközön viszont nem.\n\nEz nem egyirányú feltöltés, és nem indul el magától, amíg ez a lista nyitva van. Egy másik eszközön módosított lelet nem jelenik meg itt magától — nyisd meg újra ezt a listát, húzd lefelé, vagy nyomd meg a Szinkronizálás gombot.\n\nNem vonja vissza azt, amit ezen az eszközön szerettél volna megtartani. Azok a leletek, amelyeket a kérésedre itt tart meg az alkalmazás, itt maradnak, és nem kerülnek elküldésre."
+            "value" : "A szinkronizálás mindkét irányban működik. Letölti azokat a leleteket, amelyek a fiókodban megvannak, ezen az eszközön viszont nem, és — hacsak nem kapcsoltad ki a mentést — elküldi azokat, amelyek ezen az eszközön megvannak, a fiókodban viszont nem.\n\nEz nem egyirányú feltöltés. Egy másik eszközön módosított lelet azonban magától nem jelenik meg itt, bármeddig is hagyod nyitva ezt a listát. Nyisd meg újra ezt a listát, húzd lefelé, vagy nyomd meg a Szinkronizálás gombot, hogy lekérd.\n\nNem vonja vissza azt, amit ezen az eszközön szerettél volna megtartani. Azok a leletek, amelyeket a kérésedre itt tart meg az alkalmazás, itt maradnak, és nem kerülnek elküldésre."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Synchronizacja działa w obie strony. Wysyła znaleziska, które są na tym urządzeniu, a nie ma ich na koncie, i pobiera znaleziska, które są na koncie, a nie ma ich na tym urządzeniu.\n\nTo nie jest jednokierunkowe wysyłanie i nie uruchamia się samo, gdy ta lista jest otwarta. Znalezisko zmienione na innym urządzeniu nie pojawi się tu samo — otwórz tę listę ponownie, pociągnij ją w dół lub naciśnij Synchronizuj.\n\nNie cofa decyzji o zachowaniu znalezisk na tym urządzeniu. Znaleziska, które mają zostać tutaj, tu zostają i nie są wysyłane."
+            "value" : "Synchronizacja działa w obie strony. Pobiera znaleziska, które są na koncie, a nie ma ich na tym urządzeniu, i — jeśli tworzenie kopii nie zostało wyłączone — wysyła znaleziska, które są na tym urządzeniu, a nie ma ich na koncie.\n\nTo nie jest jednokierunkowe wysyłanie. Znalezisko zmienione na innym urządzeniu nie pojawi się tu jednak samo, choćby ta lista była otwarta bardzo długo. Otwórz tę listę ponownie, pociągnij ją w dół lub naciśnij Synchronizuj, aby o nie poprosić.\n\nNie cofa decyzji o zachowaniu znalezisk na tym urządzeniu. Znaleziska, które mają zostać tutaj, tu zostają i nie są wysyłane."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Синхронизация работает в обе стороны. Она отправляет находки, которые есть на этом устройстве, но нет в вашем аккаунте, и загружает находки, которые есть в вашем аккаунте, но нет на этом устройстве.\n\nЭто не односторонняя выгрузка, и она не запускается сама, пока этот список открыт. Находка, изменённая на другом устройстве, не появится здесь сама — откройте этот список заново, потяните его вниз или нажмите «Синхронизировать».\n\nОна не отменяет то, что вы решили оставить на этом устройстве. Находки, которые вы просили оставить здесь, здесь и остаются и не отправляются."
+            "value" : "Синхронизация работает в обе стороны. Она загружает находки, которые есть в вашем аккаунте, но нет на этом устройстве, и — если вы не отключили резервное копирование — отправляет находки, которые есть на этом устройстве, но нет в вашем аккаунте.\n\nЭто не односторонняя выгрузка. Но находка, изменённая на другом устройстве, не появится здесь сама, как бы долго этот список ни был открыт. Откройте этот список заново, потяните его вниз или нажмите «Синхронизировать», чтобы запросить изменения.\n\nОна не отменяет то, что вы решили оставить на этом устройстве. Находки, которые вы просили оставить здесь, здесь и остаются и не отправляются."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Синхронізація працює в обидва боки. Вона надсилає знахідки, які є на цьому пристрої, але яких немає у вашому обліковому записі, і завантажує знахідки, які є в обліковому записі, але яких немає на цьому пристрої.\n\nЦе не одностороннє вивантаження, і воно не запускається саме, поки цей список відкрито. Знахідка, змінена на іншому пристрої, не зʼявиться тут сама — відкрийте цей список знову, потягніть його вниз або натисніть «Синхронізувати».\n\nВона не скасовує того, що ви вирішили залишити на цьому пристрої. Знахідки, які ви попросили залишити тут, тут і лишаються та не надсилаються."
+            "value" : "Синхронізація працює в обидва боки. Вона завантажує знахідки, які є у вашому обліковому записі, але яких немає на цьому пристрої, і — якщо ви не вимкнули резервне копіювання — надсилає знахідки, які є на цьому пристрої, але яких немає в обліковому записі.\n\nЦе не одностороннє вивантаження. Але знахідка, змінена на іншому пристрої, не зʼявиться тут сама, хоч би скільки цей список залишався відкритим. Відкрийте цей список знову, потягніть його вниз або натисніть «Синхронізувати», щоб запитати зміни.\n\nВона не скасовує того, що ви вирішили залишити на цьому пристрої. Знахідки, які ви попросили залишити тут, тут і лишаються та не надсилаються."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "同步是双向的。它会把本设备有、而您的账户没有的发现上传，也会把您的账户有、而本设备没有的发现下载下来。\n\n它不是单向上传，在打开这个列表期间也不会自动运行。在其他设备上改动的发现不会自动出现在这里——请重新打开这个列表、下拉刷新，或点按“同步”。\n\n它不会撤销您选择仅保留在本设备上的内容。您让应用留在这里的发现会一直留在这里，不会被上传。"
+            "value" : "同步是双向的。它会把您的账户有、而本设备没有的发现下载下来；除非您关闭了备份，否则也会把本设备有、而您的账户没有的发现上传。\n\n它不是单向上传。但在其他设备上改动的发现不会自动出现在这里，无论这个列表开着多久——请重新打开这个列表、下拉刷新，或点按“同步”来获取。\n\n它不会撤销您选择仅保留在本设备上的内容。您让应用留在这里的发现会一直留在这里，不会被上传。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "同步是雙向的。它會把此裝置有、而您的帳戶沒有的發現上傳，也會把您的帳戶有、而此裝置沒有的發現下載下來。\n\n它不是單向上傳，在開啟這個列表期間也不會自動執行。在其他裝置上改動的發現不會自動出現在這裡——請重新開啟這個列表、下拉重新整理，或點一下「同步」。\n\n它不會撤銷您選擇僅保留在此裝置上的內容。您要求 App 留在這裡的發現會一直留在這裡，不會被上傳。"
+            "value" : "同步是雙向的。它會把您的帳戶有、而此裝置沒有的發現下載下來；除非您關閉了備份，否則也會把此裝置有、而您的帳戶沒有的發現上傳。\n\n它不是單向上傳。但在其他裝置上改動的發現不會自動出現在這裡，無論這個列表開著多久——請重新開啟這個列表、下拉重新整理，或點一下「同步」來取得。\n\n它不會撤銷您選擇僅保留在此裝置上的內容。您要求 App 留在這裡的發現會一直留在這裡，不會被上傳。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "同步係雙向嘅。佢會將呢部裝置有、但你個帳戶冇嘅發現上傳，亦會將你個帳戶有、但呢部裝置冇嘅發現下載返嚟。\n\n佢唔係單向上傳，開住呢個清單嘅時候亦唔會自己行。喺其他裝置改咗嘅發現唔會自己喺度出現——請重新開返呢個清單、向下拉，或者㩒「同步」。\n\n佢唔會取消你揀咗淨係留喺呢部裝置嘅嘢。你叫 App 留喺呢度嘅發現會一直留喺度，唔會上傳。"
+            "value" : "同步係雙向嘅。佢會將你個帳戶有、但呢部裝置冇嘅發現下載返嚟；除非你閂咗備份，否則亦會將呢部裝置有、但你個帳戶冇嘅發現上傳。\n\n佢唔係單向上傳。不過喺其他裝置改咗嘅發現唔會自己喺度出現，無論你開住呢個清單幾耐都好——請重新開返呢個清單、向下拉，或者㩒「同步」去攞。\n\n佢唔會取消你揀咗淨係留喺呢部裝置嘅嘢。你叫 App 留喺呢度嘅發現會一直留喺度，唔會上傳。"
           }
         }
       }

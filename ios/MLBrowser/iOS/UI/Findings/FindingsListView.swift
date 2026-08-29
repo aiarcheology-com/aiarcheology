@@ -130,10 +130,9 @@ struct FindingsListView: View {
 				// instantly having talked to nothing is a worse answer than no gesture at all.
 				.refreshable {
 					guard findingsSync.isCloudConfigured else { return }
-					// Two statements rather than one: this closure is a nonisolated `@Sendable`
-					// async body, and `syncNow()` is a synchronous `@MainActor` call.
-					let cycle = await MainActor.run { findingsSync.syncNow() }
-					await cycle?.value
+					// `refreshable`'s action is declared `@_inheritActorContext`, so this closure
+					// inherits the MainActor of `body` and can call the coordinator directly.
+					await findingsSync.syncNow()?.value
 				}
 			}
 			.safeAreaInset(edge: .bottom) {
@@ -210,12 +209,10 @@ struct FindingsListView: View {
 				// (Designed for iPad) — AGENTS.md §3, same as the drawer's own sign-in sheet.
 				.environment(\.usesRealAuth, usesRealAuth)
 		}
-		.sheet(isPresented: $showSyncHelp) {
-			syncHelpSheet
-				// Environment objects do not reliably cross a `.sheet` boundary on Mac (Designed for
-				// iPad) — re-inject, per AGENTS.md §3.
-				.environmentObject(findingsSync)
-		}
+		// No environment re-injection here: `findingsSync` is a stored `@ObservedObject` this view
+		// captures directly, not something carried in the environment, so the Mac sheet-boundary
+		// caveat in AGENTS.md §3 does not apply to it.
+		.sheet(isPresented: $showSyncHelp) { syncHelpSheet }
 		.activityShareSheet($sharePayload)
 		.sheet(item: $shareSubject) { subject in
 			FindingShareComposer(subject: subject)
@@ -708,8 +705,13 @@ struct FindingsListView: View {
 							// Same fence as every other path: checked against the provider rather
 							// than trusted, so a press made while an account switch is in flight
 							// cannot file one person's findings into another's (AIA-740).
-							findingsSync.backUpNow(expectedAccount: account)
-							showSyncHelp = false
+							//
+							// The sheet closes only if the request was actually accepted. Closing
+							// regardless would read as "done" for a press the coordinator refused,
+							// which is the one case where the user most needs to still be here.
+							if findingsSync.backUpNow(expectedAccount: account) != nil {
+								showSyncHelp = false
+							}
 						} label: {
 							Text(L10n.Findings.Sync.Backup.button)
 								.frame(maxWidth: .infinity)

@@ -138,6 +138,11 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// Set when a trigger arrives mid-cycle, so the work it was about is not simply lost.
     private var wantsAnotherCycle = false
 
+    /// The account the previous cycle ran as, so a switch straight from one account to another can
+    /// be noticed. Signing out is already handled by the nil-account branch of ``cycle()``; signing
+    /// in as somebody else is not, and it is the case that matters on a shared device.
+    private var lastSyncedAccount: String?
+
     /// Counted per cycle, for the one log line it emits.
     private var uploaded = 0
     private var applied = 0
@@ -302,21 +307,24 @@ final class FindingsSyncCoordinator: ObservableObject {
             return runningCycle
         }
         let task = Task { [weak self] in
-            await self?.cycle()
-            self?.runningCycle = nil
-            if self?.wantsAnotherCycle == true {
+            // A loop, not a chain of tasks awaiting tasks. The queued follow-up must be part of
+            // this task, because a caller that awaits it is asking "is my change synced?" and the
+            // cycle that answers is the follow-up -- the one this task ran first may have read the
+            // store before the trigger existed. Discarding it let pull-to-refresh stop spinning,
+            // and a user-pressed button report success, on work that predated the request
+            // (AIA-0758).
+            //
+            // Iterative rather than recursive so sustained churn cannot grow a task graph: two
+            // devices editing at once means every cycle applies something and queues another, and
+            // a chain of tasks each awaiting its child would retain every ancestor for as long as
+            // that lasted. Here the depth is one whatever happens.
+            while true {
+                await self?.cycle()
+                guard self?.wantsAnotherCycle == true, self?.isPurging == false else { break }
                 self?.wantsAnotherCycle = false
-                // Awaited, not fired and forgotten. A caller that awaits this task is asking "is my
-                // change synced?", and the cycle that answers is the follow-up -- the one this task
-                // ran may have read the store before the trigger existed. Discarding it here let
-                // pull-to-refresh stop spinning, and a user-pressed button report success, on work
-                // that predated the request (AIA-0758).
-                //
-                // It cannot recurse without end: the chained call returns nil while `isPurging`,
-                // and otherwise only re-enters when something set `wantsAnotherCycle` again, which
-                // is a real trigger and not this loop.
-                await self?.syncNow()?.value
             }
+            self?.runningCycle = nil
+            self?.wantsAnotherCycle = false
         }
         runningCycle = task
         return task
@@ -432,10 +440,16 @@ final class FindingsSyncCoordinator: ObservableObject {
             // whose findings these are, and a neutral action must not answer it by dismissing it.
             // `backUpNow` clears it because pressing that button *is* the answer.
 
-            // `syncNow()` chains its follow-up cycle into the returned task (AIA-0758), so awaiting
-            // it awaits the cycle that actually saw this request -- not one that read the store
-            // before the user pressed.
-            await self.syncNow()?.value
+            // `syncNow()` runs its queued follow-up inside the returned task (AIA-0758), so
+            // awaiting it awaits the cycle that actually saw this request -- not one that read the
+            // store before the user pressed.
+            //
+            // A nil task means no cycle ran at all: the account's cloud data is being erased.
+            // Reporting an outcome then would invent one -- `outcomeOfSynchronize` reads the
+            // *previous* cycle's state, so it would cheerfully say "Up to date." over an account
+            // mid-purge.
+            guard let cycle = self.syncNow() else { return }
+            await cycle.value
 
             guard self.stillSignedIn(as: expectedAccount) else { return }
             self.lastSynchronize = self.outcomeOfSynchronize()
@@ -537,6 +551,21 @@ final class FindingsSyncCoordinator: ObservableObject {
             backupConsentRequest = nil
             return
         }
+        // A different account than the last cycle saw. The signed-out branch above clears this
+        // state, but signing straight from one account into another never passes through it -- and
+        // the outcome line is a claim about somebody's data ("Up to date.", "Your findings are
+        // backed up"). Left standing it makes that claim to the wrong person, which on a shared
+        // device is exactly the confusion the consent card exists to prevent.
+        if lastSyncedAccount != account {
+            lastSyncedAccount = account
+            lastManualBackup = nil
+            lastSynchronize = nil
+            backupConsentRequest = nil
+            parkedCount = 0
+            isQuotaBlocked = false
+            usage = nil
+        }
+
         guard let baseURL = FindingsCloudEndpoint.baseURL(for: ClerkAuthProvider.selectedEnvironment) else {
             // No Worker for this build. Sync is off rather than pointed somewhere wrong.
             return
