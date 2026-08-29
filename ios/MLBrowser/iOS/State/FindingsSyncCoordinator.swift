@@ -52,6 +52,29 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// than left watching a counter that never moves.
     @Published private(set) var parkedCount = 0
 
+    /// Where one finding stands with the cloud, for the icon on its row (AIA-0735).
+    enum FindingBackupState: Equatable {
+        /// In the cloud, and the cloud's copy is current.
+        case backedUp
+        /// Not in the cloud yet: created, edited since it was sent, offline, or never claimed.
+        case owed
+        /// The user answered the back-up question with "Keep on This Device" for this finding.
+        ///
+        /// Distinct from ``owed`` on purpose. Both mean "not in the cloud", but only one of them is
+        /// going to change on its own, and showing a deliberate choice as though it were a queue
+        /// would be the same misdirection the button's old label was (AIA-0758).
+        case keptOnDevice
+    }
+
+    /// One entry per finding this account has an opinion about. **Empty while signed out**, which is
+    /// what makes the rows render no icon at all: somebody who never signs in should not get a
+    /// slashed cloud on every row advertising a feature they did not ask for.
+    ///
+    /// Rebuilt from the ledger at the end of each cycle and cleared on an account change, for the
+    /// same reason the outcome lines are: these are claims about one person's data, and the ledger
+    /// is per account.
+    @Published private(set) var backupStates: [UUID: FindingBackupState] = [:]
+
     /// What a user-initiated back-up did.
     ///
     /// Only ever set by ``backUpNow()``. The automatic triggers stay silent on purpose -- a cycle
@@ -100,6 +123,15 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// The result of the last user-initiated back-up, or `nil` if none has run this session.
     @Published private(set) var lastManualBackup: ManualBackupOutcome?
 
+    /// The result of the last user-pressed **Synchronize**, or `nil` if none has run this session.
+    ///
+    /// Held apart from ``lastManualBackup`` rather than sharing it, because the two actions make
+    /// different promises and their wording must not be interchangeable: a back-up may say "your
+    /// findings are backed up", and a synchronize may not -- with back-up switched off it pushes
+    /// nothing at all (AIA-0758). Starting either action clears the other, so exactly one outcome
+    /// is ever on screen and the newer one is always the one shown.
+    @Published private(set) var lastSynchronize: ManualBackupOutcome?
+
     /// Why the last cycle stopped, or `nil` if it finished. Recorded so ``backUpNow()`` can tell
     /// the user what happened: the automatic path deliberately swallows these, because the next
     /// trigger resumes from the ledger, but a person who pressed a button is owed an answer.
@@ -128,6 +160,11 @@ final class FindingsSyncCoordinator: ObservableObject {
     private var runningCycle: Task<Void, Never>?
     /// Set when a trigger arrives mid-cycle, so the work it was about is not simply lost.
     private var wantsAnotherCycle = false
+
+    /// The account the previous cycle ran as, so a switch straight from one account to another can
+    /// be noticed. Signing out is already handled by the nil-account branch of ``cycle()``; signing
+    /// in as somebody else is not, and it is the case that matters on a shared device.
+    private var lastSyncedAccount: String?
 
     /// Counted per cycle, for the one log line it emits.
     private var uploaded = 0
@@ -293,12 +330,24 @@ final class FindingsSyncCoordinator: ObservableObject {
             return runningCycle
         }
         let task = Task { [weak self] in
-            await self?.cycle()
-            self?.runningCycle = nil
-            if self?.wantsAnotherCycle == true {
+            // A loop, not a chain of tasks awaiting tasks. The queued follow-up must be part of
+            // this task, because a caller that awaits it is asking "is my change synced?" and the
+            // cycle that answers is the follow-up -- the one this task ran first may have read the
+            // store before the trigger existed. Discarding it let pull-to-refresh stop spinning,
+            // and a user-pressed button report success, on work that predated the request
+            // (AIA-0758).
+            //
+            // Iterative rather than recursive so sustained churn cannot grow a task graph: two
+            // devices editing at once means every cycle applies something and queues another, and
+            // a chain of tasks each awaiting its child would retain every ancestor for as long as
+            // that lasted. Here the depth is one whatever happens.
+            while true {
+                await self?.cycle()
+                guard self?.wantsAnotherCycle == true, self?.isPurging == false else { break }
                 self?.wantsAnotherCycle = false
-                _ = self?.syncNow()
             }
+            self?.runningCycle = nil
+            self?.wantsAnotherCycle = false
         }
         runningCycle = task
         return task
@@ -356,6 +405,7 @@ final class FindingsSyncCoordinator: ObservableObject {
 
         isBackingUp = true
         lastManualBackup = nil
+        lastSynchronize = nil
 
         // Queued for the cycle to apply, never written here: see `pendingManualBackup`.
         let ids = Set(syncableFindings().map(\.entityId.uuidString))
@@ -380,6 +430,76 @@ final class FindingsSyncCoordinator: ObservableObject {
             guard self.stillSignedIn(as: expectedAccount) else { return }
             self.lastManualBackup = self.outcomeOfManualBackup()
         }
+    }
+
+    /// The user pressed **Synchronize**.
+    ///
+    /// Deliberately *not* "back up everything on this device". It runs a cycle and reports what
+    /// happened; it changes no decision the user has previously recorded. Specifically it does not
+    /// lift per-finding "Keep on This Device" exclusions, does not claim findings the account has
+    /// never agreed to back up, and does not switch back-up on. Under the old label those were
+    /// defensible as an explicit yes (AIA-740); under a neutral one they are not, and
+    /// ``backUpNow(expectedAccount:)`` remains the explicit yes for anyone who wants it.
+    ///
+    /// The account fence is the same one ``backUpNow(expectedAccount:)`` carries and for the same
+    /// reason: `AuthState` lags the provider while an account is being validated, so the account
+    /// the *user* was looking at travels with the request rather than being read when it lands.
+    ///
+    /// - Parameter expectedAccount: the account the user was looking at when they pressed.
+    @discardableResult
+    func synchronizeNow(expectedAccount: String) -> Task<Void, Never>? {
+        guard authProvider.accountIdentifier == expectedAccount else { return nil }
+        guard isCloudConfigured else { return nil }
+
+        isBackingUp = true
+        lastManualBackup = nil
+        lastSynchronize = nil
+
+        return Task { [weak self] in
+            guard let self else { return }
+            defer { self.isBackingUp = false }
+
+            // `backupConsentRequest` is deliberately NOT cleared. It is an unanswered question about
+            // whose findings these are, and a neutral action must not answer it by dismissing it.
+            // `backUpNow` clears it because pressing that button *is* the answer.
+
+            // `syncNow()` runs its queued follow-up inside the returned task (AIA-0758), so
+            // awaiting it awaits the cycle that actually saw this request -- not one that read the
+            // store before the user pressed.
+            //
+            // A nil task means no cycle ran at all: the account's cloud data is being erased.
+            // Reporting an outcome then would invent one -- `outcomeOfSynchronize` reads the
+            // *previous* cycle's state, so it would cheerfully say "Up to date." over an account
+            // mid-purge.
+            guard let cycle = self.syncNow() else { return }
+            await cycle.value
+
+            guard self.stillSignedIn(as: expectedAccount) else { return }
+            self.lastSynchronize = self.outcomeOfSynchronize()
+        }
+    }
+
+    /// Turns the cycle Synchronize just ran into something the button can say.
+    ///
+    /// Distinct from ``outcomeOfManualBackup()`` on two points that matter:
+    ///
+    /// 1. **Standing parked uploads are not this cycle's failure.** A `payload_too_large` park never
+    ///    clears until the finding is edited, so reporting it here would send the same permanent
+    ///    condition to Sentry on every press. The user is still told about it -- the parked count
+    ///    sits above the list -- but it is status, not the result of what they just asked for.
+    /// 2. **Success claims nothing about backing up.** A cycle with back-up switched off pushes
+    ///    nothing at all, so "your findings are backed up" would be false. Success here means the
+    ///    cycle finished, and the pending count says what is still owed.
+    private func outcomeOfSynchronize() -> ManualBackupOutcome {
+        // Running out of room is not a failed cycle, but it is the one state the user must act on,
+        // and the wording names the way out.
+        if isQuotaBlocked { return .quotaFull }
+        guard let failure = lastCycleFailure else { return .succeeded }
+        // Offline is a property of the network, never of the error -- same reasoning as the
+        // back-up path, and the same reason it is checked before anything is reported.
+        if monitor.currentPath.status != .satisfied { return .offline }
+        Observability.captureError("Findings synchronize failed", error: failure)
+        return .failed
     }
 
     /// Turns the last cycle into something the button can say.
@@ -450,9 +570,33 @@ final class FindingsSyncCoordinator: ObservableObject {
             isQuotaBlocked = false
             usage = nil
             lastManualBackup = nil
+            lastSynchronize = nil
             backupConsentRequest = nil
+            // Every row loses its icon. A signed-out person is not owed a report on somebody's
+            // cloud, and on a shared device the last account's ticks would be exactly that.
+            backupStates = [:]
+            lastSyncedAccount = nil
             return
         }
+        // A different account than the last cycle saw. The signed-out branch above clears this
+        // state, but signing straight from one account into another never passes through it -- and
+        // the outcome line is a claim about somebody's data ("Up to date.", "Your findings are
+        // backed up"). Left standing it makes that claim to the wrong person, which on a shared
+        // device is exactly the confusion the consent card exists to prevent.
+        if lastSyncedAccount != account {
+            lastSyncedAccount = account
+            lastManualBackup = nil
+            lastSynchronize = nil
+            backupConsentRequest = nil
+            parkedCount = 0
+            isQuotaBlocked = false
+            usage = nil
+            // Cleared here and not only on sign-out: A -> B directly never passes through the
+            // nil-account branch above, and stale ticks would then mark B's findings with A's
+            // ledger -- one account's rows claiming another account's cloud.
+            backupStates = [:]
+        }
+
         guard let baseURL = FindingsCloudEndpoint.baseURL(for: ClerkAuthProvider.selectedEnvironment) else {
             // No Worker for this build. Sync is off rather than pointed somewhere wrong.
             return
@@ -1039,6 +1183,18 @@ final class FindingsSyncCoordinator: ObservableObject {
         usage = nil
         pendingUploadCount = 0
         backupConsentRequest = nil
+        // Every row loses its mark, and this is the third place that has to happen -- sign-out and
+        // an account change are the other two. Purging is the one where getting it wrong is worst:
+        // the cloud copies are gone, this call is made just before the account itself is deleted,
+        // and the cycle that would otherwise rebuild the projection has been cancelled and told not
+        // to run again. A green tick would sit there claiming those findings are safe in an account
+        // that no longer exists, for as long as the app stayed open.
+        backupStates = [:]
+        parkedCount = 0
+        isQuotaBlocked = false
+        // The ledger this account's state was derived from is gone, so the next cycle -- whatever
+        // account it runs as -- must rebuild rather than believe it has already seen this one.
+        lastSyncedAccount = nil
     }
 
     // MARK: - Local state
@@ -1089,6 +1245,63 @@ final class FindingsSyncCoordinator: ObservableObject {
     private func refreshCounts(from ledger: FindingsSyncLedger) {
         pendingUploadCount = uploadCandidates(ledger: ledger).count
         parkedCount = ledger.parked.count
+        backupStates = Self.backupStates(for: syncableFindings(), ledger: ledger) { [weak self] finding in
+            self?.effectiveMilliseconds(of: finding) ?? 0
+        }
+    }
+
+    /// One state per finding, derived from the ledger the cycle just saved (AIA-0735).
+    ///
+    /// A `static` taking its inputs rather than reading `self`, so the derivation is testable on its
+    /// own and cannot accidentally consult live state that the ledger disagrees with.
+    ///
+    /// Order matters. `excluded` is checked first because a finding the user chose to keep here can
+    /// also look "owed" -- it has never been uploaded -- and reporting it as merely waiting would be
+    /// the same lie the list told before this existed.
+    static func backupStates(
+        for findings: [Finding],
+        ledger: FindingsSyncLedger,
+        modifiedAt: (Finding) -> Int64
+    ) -> [UUID: FindingBackupState] {
+        var states: [UUID: FindingBackupState] = [:]
+        for finding in findings {
+            let id = finding.entityId
+            let key = id.uuidString
+            let localModifiedAt = modifiedAt(finding)
+
+            if ledger.excluded.contains(key) {
+                states[id] = .keptOnDevice
+                continue
+            }
+
+            // Parked BEFORE the receipt is consulted, and this order is the whole point.
+            //
+            // `needsUpload` answers "should the outbox try again", and for a parked finding that is
+            // false -- retrying cannot cure what was refused. Reading that as "nothing owed" and
+            // falling through to the receipt turned a permanent failure into a green tick: a
+            // finding uploaded at t=1000, edited to t=2000, then refused for good keeps its t=1000
+            // receipt, so the row went green at the exact moment the edit was lost. The cloud holds
+            // the copy from before the edit, and the user is being told their work is safe.
+            //
+            // A park is only cleared by editing the finding again, which moves `modifiedAt` past
+            // the parked stamp -- so the row recovers by itself once there is something new to send.
+            if let parked = ledger.parked[key], parked.modifiedAt >= localModifiedAt {
+                states[id] = .owed
+                continue
+            }
+
+            if ledger.needsUpload(id: id, localModifiedAt: localModifiedAt) {
+                states[id] = .owed
+            } else if ledger.uploaded[key] != nil {
+                states[id] = .backedUp
+            } else {
+                // Never sent: either nobody has answered the consent card for it, or back-up is
+                // switched off. Owed is the honest answer -- it is not in the cloud, whatever the
+                // reason -- and the line above the list is where the reason is spelled out.
+                states[id] = .owed
+            }
+        }
+        return states
     }
 
     /// Failures that are about this one finding and that retrying cannot cure.

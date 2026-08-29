@@ -86,6 +86,20 @@ struct FindingsListView: View {
 	/// started from somewhere else never triggers an upload they did not ask for.
 	@State private var signInWasForBackUp = false
 
+	/// The sheet explaining what Synchronize does, and does not do (AIA-0758).
+	@State private var showSyncHelp = false
+
+	/// The account this view may act on, resolved once for every caller.
+	///
+	/// The fallback matters and is not defensive padding: `AuthState` reports nil while a persisted
+	/// session is still being validated, so on a cold offline launch the app looks signed out while
+	/// sync is already armed under the cached account. Reading only `authState` there gives the
+	/// coordinator an account it will refuse, and the user presses a button that does nothing and
+	/// says nothing.
+	private var resolvedAccount: String? {
+		authState.accountIdentifier ?? findingsSync.syncingAccount
+	}
+
 	/// Real Clerk-backed auth vs. the DEBUG mock. Re-injected across the sign-in sheet boundary
 	/// below, where `SignInSheet` branches on it -- losing it there traps rather than degrades.
 	@Environment(\.usesRealAuth) private var usesRealAuth
@@ -111,6 +125,15 @@ struct FindingsListView: View {
 					}
 				}
 				.listStyle(.plain)
+				// Pull down to ask again, with progress the automatic fetch cannot show. Gated on a
+				// configured Worker for the same reason the bar below is: a spinner that resolves
+				// instantly having talked to nothing is a worse answer than no gesture at all.
+				.refreshable {
+					guard findingsSync.isCloudConfigured else { return }
+					// `refreshable`'s action is declared `@_inheritActorContext`, so this closure
+					// inherits the MainActor of `body` and can call the coordinator directly.
+					await findingsSync.syncNow()?.value
+				}
 			}
 			.safeAreaInset(edge: .bottom) {
 				// Hidden outright when this build has no Worker to talk to: `backUpNow` returns
@@ -146,6 +169,15 @@ struct FindingsListView: View {
 			// failed file deletes. Runs on the viewContext/MainActor; the save sheet
 			// is dismissed before this list can open, so it never races a save.
 			FindingScreenshotStore.sweepOrphans(in: moc)
+			// Opening this list is the moment the user asks "what have I got?", and until now it
+			// was the one moment nothing asked the server. A cycle runs on foreground, on the
+			// network returning, and on a local save -- none of which happens when the app has been
+			// open the whole time and the change was made on another device (AIA-0758).
+			//
+			// Deliberately the bare cycle and not `synchronizeNow`: nobody pressed anything, so
+			// this must not spin the button or post an outcome line. `syncNow` coalesces, so
+			// re-presenting the sheet cannot stack cycles.
+			findingsSync.syncNow()
 		}
 		// Driven by the account appearing, NOT by the sheet closing. `SignInSheet` validates the
 		// session asynchronously after Clerk's own sheet goes away, so at dismissal the identifier
@@ -158,7 +190,10 @@ struct FindingsListView: View {
 		.onChange(of: authState.accountIdentifier) { _, account in
 			guard signInWasForBackUp, let account else { return }
 			signInWasForBackUp = false
-			findingsSync.backUpNow(expectedAccount: account)
+			// The neutral action, because a neutral button is what the user pressed. Signing in to
+			// synchronize must not become the explicit yes that lifts every "Keep on This Device"
+			// (AIA-0758); the help sheet carries that action, under its own label.
+			findingsSync.synchronizeNow(expectedAccount: account)
 		}
 		.sheet(isPresented: $showSignIn, onDismiss: {
 			// The sheet closes itself only once `refresh()` has succeeded, so anything else is an
@@ -174,6 +209,10 @@ struct FindingsListView: View {
 				// (Designed for iPad) — AGENTS.md §3, same as the drawer's own sign-in sheet.
 				.environment(\.usesRealAuth, usesRealAuth)
 		}
+		// No environment re-injection here: `findingsSync` is a stored `@ObservedObject` this view
+		// captures directly, not something carried in the environment, so the Mac sheet-boundary
+		// caveat in AGENTS.md §3 does not apply to it.
+		.sheet(isPresented: $showSyncHelp) { syncHelpSheet }
 		.activityShareSheet($sharePayload)
 		.sheet(item: $shareSubject) { subject in
 			FindingShareComposer(subject: subject)
@@ -473,6 +512,40 @@ struct FindingsListView: View {
 
 	// MARK: - Rows
 
+	/// Where this one finding stands with the cloud (AIA-0735).
+	///
+	/// Renders **nothing at all** when there is no state for the finding, which is the signed-out
+	/// case: the projection is empty until a cycle runs under an account. A slashed cloud on every
+	/// row would advertise a feature to somebody who never asked for one, and on a shared device a
+	/// stale tick would be a claim about the previous person's cloud.
+	///
+	/// The icon is the only carrier of this information, so each state gets a real accessibility
+	/// label rather than being decorative.
+	@ViewBuilder
+	private func backupBadge(for finding: Finding) -> some View {
+		if let state = findingsSync.backupStates[finding.entityId] {
+			switch state {
+			case .backedUp:
+				badgeIcon("checkmark.icloud.fill", tint: .green, label: L10n.Findings.Sync.Row.backedUp)
+			case .owed:
+				badgeIcon("icloud.and.arrow.up", tint: .secondary, label: L10n.Findings.Sync.Row.owed)
+			case .keptOnDevice:
+				// Not the same as "waiting": this one is a decision the user recorded, and nothing
+				// will change it on its own. Since AIA-0758 Synchronize no longer quietly reverses
+				// it, so this row is the only place that choice is visible.
+				badgeIcon("icloud.slash", tint: .secondary, label: L10n.Findings.Sync.Row.keptOnDevice)
+			}
+		}
+	}
+
+	/// One overload only, taking `Color`. A second taking `HierarchicalShapeStyle` made `.secondary`
+	/// ambiguous between the two at every call site.
+	private func badgeIcon(_ systemName: String, tint: Color, label: String) -> some View {
+		Image(systemName: systemName)
+			.foregroundStyle(tint)
+			.accessibilityLabel(label)
+	}
+
 	private func row(_ finding: Finding) -> some View {
 		NavigationLink(value: finding) {
 			HStack(spacing: 12) {
@@ -491,6 +564,8 @@ struct FindingsListView: View {
 							.foregroundStyle(.secondary)
 					}
 				}
+				Spacer(minLength: 8)
+				backupBadge(for: finding)
 			}
 		}
 		.testability(Testability.Button.findingsItem)
@@ -573,45 +648,68 @@ struct FindingsListView: View {
 	/// wants this, and a row would have scrolled out of reach by then.
 	private var backUpBar: some View {
 		VStack(spacing: 8) {
-			if let outcome = findingsSync.lastManualBackup {
-				label(backUpMessage(for: outcome), icon: backUpIcon(for: outcome), tint: backUpTint(for: outcome))
+			// Exactly one outcome is ever set: starting either action clears the other, so this
+			// cannot show a stale back-up line under a fresh synchronize.
+			if let outcome = findingsSync.lastSynchronize ?? findingsSync.lastManualBackup {
+				let isSynchronize = findingsSync.lastSynchronize != nil
+				label(
+					isSynchronize ? synchronizeMessage(for: outcome) : backUpMessage(for: outcome),
+					icon: backUpIcon(for: outcome),
+					tint: backUpTint(for: outcome)
+				)
 			}
-			Button {
-				if let account = authState.accountIdentifier {
-					// The account the user is looking at travels with the request; the coordinator
-					// refuses it if the provider has moved on.
-					findingsSync.backUpNow(expectedAccount: account)
-				} else if let account = findingsSync.syncingAccount {
-					// Signed in as far as sync is concerned, but `AuthState` has not caught up --
-					// a cold launch with no signal is the ordinary case. Offering a sign-in that
-					// cannot complete offline, for an account already signed in, was the wrong
-					// answer; asking for the back-up gets the honest "you are offline" instead.
-					findingsSync.backUpNow(expectedAccount: account)
-				} else {
-					// Signing in is what makes a back-up possible, so the button opens that door rather
-					// than doing nothing. Nothing uploads unless the sign-in actually succeeds.
-					signInWasForBackUp = true
-					showSignIn = true
-				}
-			} label: {
-				HStack(spacing: 8) {
-					if findingsSync.isBackingUp {
-						ProgressView().controlSize(.small).tint(.white)
+			HStack(spacing: 12) {
+				Button {
+					if let account = resolvedAccount {
+						// The account the user is looking at travels with the request; the
+						// coordinator refuses it if the provider has moved on. The fallback inside
+						// `resolvedAccount` covers the cold offline launch, where `AuthState` has
+						// not caught up: offering a sign-in that cannot complete offline, for an
+						// account already signed in, was the wrong answer -- asking for the sync
+						// gets the honest "you are offline" instead.
+						findingsSync.synchronizeNow(expectedAccount: account)
+					} else {
+						// Signing in is what makes syncing possible, so the button opens that door
+						// rather than doing nothing. Nothing moves unless the sign-in succeeds.
+						signInWasForBackUp = true
+						showSignIn = true
 					}
-					Text(findingsSync.isBackingUp ? L10n.Findings.Sync.Backup.busy : L10n.Findings.Sync.Backup.button)
+				} label: {
+					HStack(spacing: 8) {
+						if findingsSync.isBackingUp {
+							ProgressView().controlSize(.small).tint(.white)
+						}
+						Text(findingsSync.isBackingUp
+							? L10n.Findings.Sync.Synchronize.busy
+							: L10n.Findings.Sync.Synchronize.button)
+					}
+					// Sized to its label rather than edge to edge: full-bleed made it read as a
+					// modal's primary action rather than one control on a list of findings.
+					.padding(.horizontal, 12)
 				}
-				// Sized to its label rather than edge to edge: full-bleed made it read as a
-				// modal's primary action rather than one control on a list of findings.
-				.padding(.horizontal, 12)
+				.buttonStyle(.borderedProminent)
+				.controlSize(.regular)
+				// Green means "this will work". A full account is the one state where it will not, so
+				// the button stops claiming otherwise -- but stays ENABLED, because deleting a finding
+				// frees room and the retry has to be available the moment it does.
+				.tint(findingsSync.isQuotaBlocked ? .gray : .green)
+				.disabled(findingsSync.isBackingUp)
+				// Identifier deliberately unchanged. Nothing in the UI suite references it, and
+				// renaming it in the same commit as a behaviour change is what AGENTS.md §13 asks
+				// us not to do.
+				.testability(Testability.Button.findingsBackUp)
+
+				// The neutral label is honest but it is not self-explanatory, and what it does NOT
+				// do is what surprised the tester who filed AIA-0758. Same treatment as the
+				// downloader's help control.
+				Button { showSyncHelp = true } label: {
+					Image(systemName: "questionmark.circle")
+						.foregroundColor(.blue)
+						.font(.title3)
+				}
+				.accessibilityLabel(L10n.Findings.Sync.Synchronize.Help.accessibility)
+				.testability(Testability.Button.findingsSyncHelp)
 			}
-			.buttonStyle(.borderedProminent)
-			.controlSize(.regular)
-			// Green means "this will work". A full account is the one state where it will not, so
-			// the button stops claiming otherwise -- but stays ENABLED, because deleting a finding
-			// frees room and the retry has to be available the moment it does.
-			.tint(findingsSync.isQuotaBlocked ? .gray : .green)
-			.disabled(findingsSync.isBackingUp)
-			.testability(Testability.Button.findingsBackUp)
 		}
 		.padding(.horizontal)
 		.padding(.vertical, 14)
@@ -619,6 +717,74 @@ struct FindingsListView: View {
 		// VStack hugs the button and `.bar` paints a floating box around it.
 		.frame(maxWidth: .infinity)
 		.background(.bar)
+	}
+
+	/// What Synchronize does, what it does not, and the one place the old "back up everything"
+	/// behaviour still lives.
+	///
+	/// The lift action is here rather than on the bar on purpose. It reverses a decision the user
+	/// recorded per finding, so it belongs next to the sentence explaining that Synchronize does
+	/// not -- not as a second green button somebody presses by reflex.
+	private var syncHelpSheet: some View {
+		NavigationStack {
+			ScrollView {
+				VStack(alignment: .leading, spacing: 16) {
+					Text(L10n.Findings.Sync.Synchronize.Help.body)
+						.font(.body)
+						.frame(maxWidth: .infinity, alignment: .leading)
+
+					// Hidden when there is no account to act on, rather than raising a sign-in
+					// sheet on top of this one.
+					if let account = resolvedAccount {
+						Divider()
+						Button {
+							// Same fence as every other path: checked against the provider rather
+							// than trusted, so a press made while an account switch is in flight
+							// cannot file one person's findings into another's (AIA-740).
+							//
+							// The sheet closes only if the request was actually accepted. Closing
+							// regardless would read as "done" for a press the coordinator refused,
+							// which is the one case where the user most needs to still be here.
+							if findingsSync.backUpNow(expectedAccount: account) != nil {
+								showSyncHelp = false
+							}
+						} label: {
+							Text(L10n.Findings.Sync.Backup.button)
+								.frame(maxWidth: .infinity)
+						}
+						.buttonStyle(.bordered)
+						// Tinted. `.bordered` with no tint renders grey, and a grey button reads as
+						// disabled -- which this one is not. Getting that wrong here costs more than
+						// it looks: this is the only route back for somebody who chose "Keep on This
+						// Device" and changed their mind, and a door nobody believes is open is the
+						// one-way door AIA-740 removed.
+						.tint(.blue)
+						.disabled(findingsSync.isBackingUp)
+						.testability(Testability.Button.findingsBackUpEverything)
+					}
+				}
+				.padding()
+			}
+			.navigationTitle(L10n.Findings.Sync.Synchronize.Help.title)
+			.navigationBarTitleDisplayMode(.inline)
+			.toolbar {
+				ToolbarItem(placement: .navigationBarTrailing) {
+					Button(L10n.Common.dismiss) { showSyncHelp = false }
+						.tint(.blue)
+				}
+			}
+		}
+	}
+
+	private func synchronizeMessage(for outcome: FindingsSyncCoordinator.ManualBackupOutcome) -> String {
+		switch outcome {
+		case .succeeded: return L10n.Findings.Sync.Synchronize.succeeded
+		case .offline: return L10n.Findings.Sync.Synchronize.offline
+		// Reuses the storage-full wording the header already shows: it names the way out --
+		// remove findings or export them -- which is the only thing that helps here.
+		case .quotaFull: return L10n.Findings.Sync.Storage.full
+		case .failed: return L10n.Findings.Sync.Synchronize.failed
+		}
 	}
 
 	private func backUpMessage(for outcome: FindingsSyncCoordinator.ManualBackupOutcome) -> String {

@@ -164,8 +164,14 @@ extension TestabilityIdentification {
 		/// never agreed to send (AIA-727).
 		case backupConsentConfirm
 		case backupConsentDecline
-		/// The always-visible back-up button at the bottom of the findings sheet (AIA-740).
+		/// The always-visible sync button at the bottom of the findings sheet. Identifier kept from
+		/// AIA-740, when it was labelled "Back Up My Findings"; AIA-0758 renamed the label only.
 		case findingsBackUp
+		/// The question mark beside it, opening the explanation of what Synchronize does (AIA-0758).
+		case findingsSyncHelp
+		/// Inside that explanation: the explicit "back up everything, including what I chose to keep
+		/// on this device" action, which is the only thing that lifts exclusions (AIA-0758).
+		case findingsBackUpEverything
 		// App Messages (AIA-0115)
 		case appMessageDismiss
 		case appMessageReply

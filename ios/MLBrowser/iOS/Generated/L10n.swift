@@ -724,12 +724,44 @@ internal enum L10n {
         /// When off, nothing new leaves this device. Findings already backed up stay in your account and are still restored on a new device.
         internal static let toggleFooter = L10n.tr("Localizable", "findings.sync.backup.toggleFooter", fallback: "When off, nothing new leaves this device. Findings already backed up stay in your account and are still restored on a new device.")
       }
+      internal enum Row {
+        /// Backed up
+        internal static let backedUp = L10n.tr("Localizable", "findings.sync.row.backedUp", fallback: "Backed up")
+        /// Kept on this device
+        internal static let keptOnDevice = L10n.tr("Localizable", "findings.sync.row.keptOnDevice", fallback: "Kept on this device")
+        /// Not backed up yet
+        internal static let owed = L10n.tr("Localizable", "findings.sync.row.owed", fallback: "Not backed up yet")
+      }
       internal enum Storage {
         /// Cloud storage full — delete findings you no longer need, or export them
         internal static let full = L10n.tr("Localizable", "findings.sync.storage.full", fallback: "Cloud storage full — delete findings you no longer need, or export them")
         /// Cloud storage %d%% full
         internal static func warning(_ p1: Int) -> String {
           return L10n.tr("Localizable", "findings.sync.storage.warning", p1, fallback: "Cloud storage %d%% full")
+        }
+      }
+      internal enum Synchronize {
+        /// Synchronizing…
+        internal static let busy = L10n.tr("Localizable", "findings.sync.synchronize.busy", fallback: "Synchronizing…")
+        /// Synchronize
+        internal static let button = L10n.tr("Localizable", "findings.sync.synchronize.button", fallback: "Synchronize")
+        /// Synchronizing didn’t finish. It will try again.
+        internal static let failed = L10n.tr("Localizable", "findings.sync.synchronize.failed", fallback: "Synchronizing didn’t finish. It will try again.")
+        /// No connection. Nothing could be sent or fetched.
+        internal static let offline = L10n.tr("Localizable", "findings.sync.synchronize.offline", fallback: "No connection. Nothing could be sent or fetched.")
+        /// Up to date.
+        internal static let succeeded = L10n.tr("Localizable", "findings.sync.synchronize.succeeded", fallback: "Up to date.")
+        internal enum Help {
+          /// What does Synchronize do?
+          internal static let accessibility = L10n.tr("Localizable", "findings.sync.synchronize.help.accessibility", fallback: "What does Synchronize do?")
+          /// Synchronize works in both directions. It brings down findings your account has that this device does not, and — unless you have turned back-up off — it sends up findings this device has that your account does not.
+          /// 
+          /// It is not a one-way upload. But a finding you change on another device will not appear here on its own, however long you leave this list open. Open this list again, pull down on it, or press Synchronize to ask.
+          /// 
+          /// It does not undo what you chose to keep on this device. Findings you asked the app to keep here stay here, and are not sent.
+          internal static let body = L10n.tr("Localizable", "findings.sync.synchronize.help.body", fallback: "Synchronize works in both directions. It brings down findings your account has that this device does not, and — unless you have turned back-up off — it sends up findings this device has that your account does not.\n\nIt is not a one-way upload. But a finding you change on another device will not appear here on its own, however long you leave this list open. Open this list again, pull down on it, or press Synchronize to ask.\n\nIt does not undo what you chose to keep on this device. Findings you asked the app to keep here stay here, and are not sent.")
+          /// About Synchronize
+          internal static let title = L10n.tr("Localizable", "findings.sync.synchronize.help.title", fallback: "About Synchronize")
         }
       }
     }

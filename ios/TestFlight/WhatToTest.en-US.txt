@@ -1,7 +1,9 @@
-Build: AIA-0757, AIA-0761, AIA-0748 (usability fixes, a corrected share link, findings sorting)
+Build: AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735 (usability fixes, a corrected share link,
+findings sorting, findings that arrive between devices on their own, and a per-finding back-up mark)
 
-Test Focus: three builds' worth of changes reached you at once. The two that matter most are that
-your existing findings survive the update, and that a shared link points at the right thing.
+Test Focus: five builds' worth of changes reached you at once. The three that matter most are that
+your existing findings survive the update, that a shared link points at the right thing, and that a
+finding edited on one device now reaches your other device without you pressing anything.
 
 - YOUR EXISTING FINDINGS MUST ALL STILL BE THERE. This build changes how findings are stored, so
   please check first: open Findings and confirm every finding you had is still listed, with its
@@ -42,5 +44,39 @@ your existing findings survive the update, and that a shared link points at the 
   in the middle of the download form and turns green when ready. The save form opens with Title
   first and the picture zoomed on what you picked. Back-up status above the Findings list is
   larger.
+
+- TWO DEVICES, ONE ACCOUNT. This is the whole point of the build, so please try it first if you
+  can. Sign both devices into the same account. On device A, open Findings and leave it open. On
+  device B, edit a finding — change its title. Now on device A, close Findings and open it again.
+  B's change should be there, WITHOUT pressing anything. Before this build the only thing that
+  brought it down was the back-up button, which is why a button about uploading was the only way
+  to download.
+
+- Pull down on the findings list to fetch again. A spinner should appear and stay until the fetch
+  has actually finished, not flick away instantly.
+
+- The button is now called Synchronize. It always worked in both directions; the old name only
+  described half of it. Check it still reports sensibly: in Airplane Mode it should say there is no
+  connection, and on a working connection it should say everything is up to date.
+
+- The question mark beside it explains what Synchronize does and does not do. Please read it and
+  tell us whether it answers the question you would have asked. It should be clear that findings do
+  not arrive from your other devices on their own while you sit on the list.
+
+- IMPORTANT, if you have ever tapped "Keep on This Device". Synchronize deliberately no longer
+  overrides that. Findings you chose to keep local must stay local, however many times you press
+  Synchronize. The only thing that still sends them is "Back Up My Findings", which now lives
+  inside the question-mark sheet. Please confirm both halves: Synchronize leaves them alone, and
+  that button inside the sheet still sends them.
+
+- EVERY FINDING NOW SAYS WHETHER IT IS IN THE CLOUD. Look at the right-hand end of each row in
+  Findings. A green cloud with a tick means that finding is backed up and current. A plain grey
+  upload cloud means it is not up there yet — newly saved, edited since it last went up, or waiting
+  for a signal. A grey cloud with a line through it means you chose to keep that one on this device,
+  and it is not going anywhere.
+
+  Two things worth checking specifically. Signed OUT, there should be no icon on any row at all —
+  not a grey one, none. And if you sign out and sign in as a different account, the marks must be
+  recalculated for the new account rather than still showing the previous one's.
 
 Please report anything that looks wrong, and say which device and iOS version you were on.
