@@ -821,6 +821,64 @@ final class ArchitectureTests: XCTestCase {
         )
     }
 
+    // MARK: - Passkey sign-in keeps its associated domains (AIA-0760)
+
+    /// Both Clerk instances must stay listed as `webcredentials:` associated domains.
+    ///
+    /// **Why this needs a test at all.** Passkeys are a WebAuthn credential scoped to a relying
+    /// party, and iOS will only hand one to an app that has proved it owns that domain. The proof is
+    /// this entitlement plus the `apple-app-site-association` file each host serves. Nothing in the
+    /// app references these strings, no compiler checks them, and no other test reads this file --
+    /// so deleting a line here compiles, links, ships, and simply makes passkey sign-in stop working
+    /// on one instance. That failure appears at sign-in on a real device, which is the most
+    /// expensive place any of this could be discovered.
+    ///
+    /// **Both, not one.** The instances are configured separately (the same per-instance trap
+    /// AIA-741 hit with webhooks), and the app picks between them at runtime:
+    /// `ClerkAuthProvider.publishableKey` returns the production key for App Store builds and the
+    /// dev key everywhere else. Dropping only the dev host leaves production working and every
+    /// tester broken -- the combination least likely to be noticed before release.
+    ///
+    /// The hosts are written out rather than derived: the keys they belong to come from
+    /// `Secrets.xcconfig`, which is deliberately not committed. A guard that reads a file the
+    /// repository may not have would skip silently, and a silent skip is worse than no guard.
+    func testEntitlementsKeepWebCredentialsForBothClerkInstances() throws {
+        let entitlements = Self.repoRootURL()
+            .appendingPathComponent("ios/MLBrowser/MLBrowser.entitlements", isDirectory: false)
+
+        let data = try Data(contentsOf: entitlements)
+        let plist = try PropertyListSerialization.propertyList(from: data, format: nil)
+
+        guard let dictionary = plist as? [String: Any] else {
+            return XCTFail("\(entitlements.path) did not parse as a plist dictionary")
+        }
+
+        let key = "com.apple.developer.associated-domains"
+        guard let domains = dictionary[key] as? [String] else {
+            return XCTFail("\(key) is missing from the entitlements, or is not an array of strings")
+        }
+
+        // Fail closed: an empty array would satisfy every `contains` check below vacuously.
+        XCTAssertFalse(domains.isEmpty, "\(key) is present but empty — the guard would pass vacuously")
+
+        let required = [
+            "webcredentials:clerk.aiarcheology.com",
+            "webcredentials:advanced-tetra-5.clerk.accounts.dev"
+        ]
+
+        let missing = required.filter { domains.contains($0) == false }
+        XCTAssertTrue(
+            missing.isEmpty,
+            """
+            Passkey sign-in needs every Clerk instance listed as an associated domain, and these are \
+            gone: \(missing.joined(separator: ", ")).
+            Present: \(domains.joined(separator: ", ")).
+            Removing one does not break the build — it breaks signing in with Face ID on that \
+            instance, on a real device, and nowhere earlier.
+            """
+        )
+    }
+
     // MARK: - The free-days confirmation cannot be bypassed (AIA-0623)
 
     /// Subscribing while the app-managed free window is still open forfeits whatever is left of it —
