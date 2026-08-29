@@ -3264,14 +3264,14 @@
         }
       }
     },
-    "auth.account.delete.messageBillingFindings" : {
-      "comment" : "Confirmation body for deleting the account when this device still holds saved findings. Says the same thing as auth.account.delete.messageBilling and adds that the device copy survives and can be exported first.",
+    "auth.account.delete.findingsNote" : {
+      "comment" : "Appended to auth.account.delete.messageBilling when this device still holds saved findings. A separate key on purpose: the billing warning it follows is translated into every shipping locale, and folding the two into one new string would have downgraded that warning to English everywhere.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store. The findings saved on this device are not deleted, and you can export them first."
+            "value" : "The findings saved on this device are not deleted, and you can export them first."
           }
         }
       }

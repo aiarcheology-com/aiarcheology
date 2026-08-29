@@ -11,6 +11,7 @@
 //  the Xcode IDE, and from a UI test creating the session before app launch).
 //
 
+import StoreKit
 import XCTest
 @testable import ML_Browser
 
@@ -229,6 +230,39 @@ final class SubscriptionStatusResolverTests: XCTestCase {
 			status(isVerified: false),
 			status(productID: foreignID, state: .subscribed)
 		]))
+	}
+
+	// MARK: - The StoreKit renewal-state mapping
+
+	/// The mapping is where the rule can be broken silently. `RenewalState` *is* constructible —
+	/// it is a struct of static values, not an enum — so there is no excuse for leaving it to a
+	/// sandbox run: flipping `.expired` to `.subscribed` here would send every lapsed customer to
+	/// a Restore that finds nothing, with every other test in this file still green.
+	func testRenewalStates_MapToTheStatesThisAppDistinguishes() {
+		XCTAssertEqual(SubscriptionStatusState(.subscribed), .subscribed)
+		XCTAssertEqual(SubscriptionStatusState(.inGracePeriod), .inGracePeriod)
+		XCTAssertEqual(SubscriptionStatusState(.expired), .other)
+		XCTAssertEqual(SubscriptionStatusState(.revoked), .other)
+	}
+
+	/// Billing retry is the one that reads like access and is not. Apple has stopped serving the
+	/// subscription by then, so a customer here must be sold one rather than sent to Restore.
+	func testBillingRetry_IsNotAnActiveState() {
+		XCTAssertEqual(SubscriptionStatusState(.inBillingRetryPeriod), .other)
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([
+			SubscriptionStatusCandidate(
+				productID: SubscriptionProduct.monthly,
+				state: SubscriptionStatusState(.inBillingRetryPeriod),
+				isVerified: true
+			)
+		]))
+	}
+
+	/// A renewal state this build has never heard of is not an entitlement. `RenewalState` is a
+	/// struct, so StoreKit can add values without a compiler error anywhere — this pins that the
+	/// `default` arm stays closed rather than opening the gate on an unknown value.
+	func testAnUnrecognisedRenewalState_IsNotActive() {
+		XCTAssertEqual(SubscriptionStatusState(Product.SubscriptionInfo.RenewalState(rawValue: 9_999)), .other)
 	}
 
 	/// The shipping product set governs by default, mirroring `EntitlementResolver`: a resolver

@@ -32,8 +32,9 @@ extension SubscriptionStatusState {
 	///
 	/// `.inGracePeriod` joins `.subscribed` because Apple keeps serving those customers while it
 	/// retries the payment; `.inBillingRetryPeriod` does **not**, because by then access has
-	/// lapsed. `@unknown default` maps to `.other`: a state StoreKit adds later must not be read
-	/// as an entitlement by a build that has never heard of it.
+	/// lapsed. The `default` arm — `RenewalState` is a struct of static values, so there is no
+	/// `@unknown default` to write — maps to `.other`: a state StoreKit adds later must not be
+	/// read as an entitlement by a build that has never heard of it.
 	init(_ state: Product.SubscriptionInfo.RenewalState) {
 		switch state {
 		case .subscribed: self = .subscribed

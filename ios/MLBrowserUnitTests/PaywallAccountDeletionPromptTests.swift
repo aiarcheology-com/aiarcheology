@@ -29,7 +29,22 @@ final class PaywallAccountDeletionPromptTests: XCTestCase {
 
 		XCTAssertEqual(prompt, .billingAndFindings)
 		XCTAssertTrue(prompt.offersFindingsExport)
-		XCTAssertEqual(prompt.message, L10n.Auth.Account.Delete.messageBillingFindings)
+		XCTAssertTrue(
+			prompt.message.contains(L10n.Auth.Account.Delete.findingsNote),
+			"the reader must be told the device copy survives"
+		)
+	}
+
+	/// The billing warning AIA-0528 added is *appended to*, never replaced — and it must stay the
+	/// **localized** one. Composing it in is what keeps it translated (the whole-message key this
+	/// replaced would have shipped English to sixteen locales), so this is the assertion that stops
+	/// a future edit from folding the two sentences back into one new string.
+	func testSavedFindings_StillCarriesTheLocalizedBillingWarning() {
+		XCTAssertTrue(
+			PaywallAccountDeletionPrompt.billingAndFindings.message
+				.contains(L10n.Auth.Account.Delete.messageBilling),
+			"deleting the account still does not cancel App Store billing, in every locale"
+		)
 	}
 
 	/// The two branches must not be able to collapse into one string. A copy edit that made the

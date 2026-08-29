@@ -73,9 +73,11 @@ enum EntitlementResolver {
 /// How the App Store answers "is there an active subscription for this group", reduced to the
 /// facts the decision reads (AIA-0782).
 ///
-/// A plain value for the same reason ``EntitlementCandidate`` is one: the StoreKit types behind it
-/// — `Product.SubscriptionInfo.Status` and the `VerificationResult<Transaction>` it carries —
-/// cannot be constructed in a test, so a rule written against them is a rule nothing can check.
+/// A plain value for the same reason ``EntitlementCandidate`` is one: `Product.SubscriptionInfo.Status`
+/// and the `VerificationResult<Transaction>` it carries cannot be constructed in a test, so a rule
+/// written against them is a rule nothing can check. (`RenewalState` itself *is* constructible —
+/// which is why the mapping onto ``SubscriptionStatusState`` is tested on its own rather than
+/// waved through with the rest.)
 struct SubscriptionStatusCandidate: Equatable {
 	let productID: String
 	let state: SubscriptionStatusState

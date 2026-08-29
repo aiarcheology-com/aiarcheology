@@ -109,10 +109,10 @@ internal enum L10n {
       internal enum Delete {
         /// Delete Account
         internal static let action = L10n.tr("Localizable", "auth.account.delete.action", fallback: "Delete Account")
+        /// The findings saved on this device are not deleted, and you can export them first.
+        internal static let findingsNote = L10n.tr("Localizable", "auth.account.delete.findingsNote", fallback: "The findings saved on this device are not deleted, and you can export them first.")
         /// This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.
         internal static let messageBilling = L10n.tr("Localizable", "auth.account.delete.messageBilling", fallback: "This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.")
-        /// This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store. The findings saved on this device are not deleted, and you can export them first.
-        internal static let messageBillingFindings = L10n.tr("Localizable", "auth.account.delete.messageBillingFindings", fallback: "This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store. The findings saved on this device are not deleted, and you can export them first.")
         /// Delete Account?
         internal static let title = L10n.tr("Localizable", "auth.account.delete.title", fallback: "Delete Account?")
       }

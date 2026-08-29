@@ -178,14 +178,19 @@ enum PaywallAccountDeletionPrompt: Equatable {
 	/// Whether the confirmation offers Export First… beside the destructive action.
 	var offersFindingsExport: Bool { self == .billingAndFindings }
 
-	/// The body of the confirmation. Both forms carry the billing warning AIA-0528 added — the
-	/// findings sentence is appended to it, never substituted for it.
+	/// The body of the confirmation. Both forms carry the billing warning AIA-0528 added.
+	///
+	/// **Composed, not a second whole-message key.** The billing warning ships in every locale the
+	/// app does; a new key carrying both sentences would have been English-only until translators
+	/// caught up, silently downgrading a warning App Review reads — for the readers who need it
+	/// most, since only a user *with* findings would have seen it. Appending keeps the translated
+	/// half translated and confines the untranslated text to the sentence that is genuinely new.
 	var message: String {
 		switch self {
 		case .billingOnly:
 			return L10n.Auth.Account.Delete.messageBilling
 		case .billingAndFindings:
-			return L10n.Auth.Account.Delete.messageBillingFindings
+			return L10n.Auth.Account.Delete.messageBilling + "\n\n" + L10n.Auth.Account.Delete.findingsNote
 		}
 	}
 }
@@ -350,6 +355,10 @@ struct PaywallView: View {
 	/// Read once on appear rather than on every render: a Core Data count is cheap, but this screen
 	/// re-renders on every StoreKit tick and the answer only ever changes from the button below it.
 	/// `false` until answered, so an install with nothing saved keeps develop's paywall exactly.
+	///
+	/// Governs the findings button only. The delete-account confirmation takes its own fresh count
+	/// at the tap — see ``accountDeletionPrompt`` — because that dialog can be reached long after
+	/// this was answered, and by then sync may have imported findings this does not know about.
 	@State private var hasSavedFindings = false
 
 	/// Drives the Export / Delete / Cancel confirmation for the saved findings.
@@ -846,8 +855,15 @@ struct PaywallView: View {
 
 					Button(role: .destructive) {
 						// Counted here, not read from `onAppear` — see ``accountDeletionPrompt``.
-						hasSavedFindings = findingRepository?.hasAnyFinding() == true
-						accountDeletionPrompt = .resolve(hasSavedFindings: hasSavedFindings)
+						//
+						// Into a local, deliberately: writing `hasSavedFindings` would insert or
+						// remove the findings button in the same transaction that presents this
+						// dialog, and structural churn on a presenting view is what wedges the
+						// share sheet on iOS-on-Mac (AIA-0448). Only the dialog needs the fresh
+						// answer; the button keeps the appear-time one it always had.
+						accountDeletionPrompt = .resolve(
+							hasSavedFindings: findingRepository?.hasAnyFinding() == true
+						)
 						showDeleteConfirmation = true
 					} label: {
 						Text(L10n.Auth.Account.Delete.action).frame(maxWidth: .infinity)
@@ -880,7 +896,11 @@ struct PaywallView: View {
 	/// ``FindingsEscapeHatch`` owns the build and returns only once the confirmation dialog has
 	/// finished dismissing, so the payload can never present into a dismissing presenter (AIA-0402).
 	private func exportFindings() {
-		guard let findingRepository else { return }
+		// Two entry points reach this now — the findings dialog and the delete-account confirmation
+		// (AIA-0779) — so the re-entrancy guard moves here from the button that used to be the only
+		// caller. A second build landing under the first would reassign `findingsSharePayload`
+		// mid-presentation, which is the wedge AIA-0402/0448 exist to avoid.
+		guard isExportingFindings.not, let findingRepository else { return }
 		isExportingFindings = true
 		Task {
 			defer { isExportingFindings = false }
