@@ -1,5 +1,4 @@
-Build: AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735, AIA-0779, AIA-0782, AIA-0763, AIA-0765,
-AIA-0783, AIA-0785, AIA-0778
+Build: AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735, AIA-0779, AIA-0782, AIA-0763, AIA-0765, AIA-0783, AIA-0785, AIA-0778, AIA-0791
 
 Test Focus: detection boxes must sit on what they found, the two questions the app asks must never
 share a screen, and your existing findings must survive the update.
@@ -32,10 +31,9 @@ share a screen, and your existing findings must survive the update.
   a phase (the log shows it too, under Model file). An error after a conversion SUCCEEDED must NOT
   offer it. With no mail set up it must open the log, which still shares, not do nothing.
 
-- NEW: with detection sounds on, background the app mid-detection several times. No crash.
-
-- NEW: on a Mac, the drawer's Add Model button must read "Add Model" in full. It was showing as a
-  small blue circle with just "M" in it.
+- NEW: YOU WILL BE SIGNED OUT ONCE. This build uses the real account system, not the test one, so
+  sign in again. Findings you BACKED UP earlier do not carry over; the ones on your device are
+  untouched. Synchronize must then FINISH, on a Mac too, where it has never once worked.
 
 - YOUR EXISTING FINDINGS MUST ALL STILL BE THERE. Storage changed. Update from the build you were
   running rather than deleting the app first — a fresh install cannot test this. Every finding
