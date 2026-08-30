@@ -53,7 +53,7 @@ enum ProductionBannerWindow {
         for name in [
             UIScene.willConnectNotification,
             UIScene.didActivateNotification,
-            UIScene.didDisconnectNotification,
+            UIScene.didDisconnectNotification
         ] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
                 MainActor.assumeIsolated { update() }
