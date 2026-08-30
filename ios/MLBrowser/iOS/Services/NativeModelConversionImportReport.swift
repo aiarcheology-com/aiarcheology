@@ -31,6 +31,23 @@ enum NativeModelConversionImportState: String, Codable, Equatable, Sendable {
 			false
 		}
 	}
+
+	/// Whether this is a conversion the app can learn from — the ticket's own definition of a
+	/// failing conversion: one that *does not result in a Core ML model, for a technical reason*
+	/// (AIA-0778).
+	///
+	/// `registered` is excluded because a model exists: an error raised afterwards (an export that
+	/// failed, say) reaches the same alert, and offering to report a conversion that succeeded as a
+	/// failing one would poison the very signal this is collected for. `cancelled` is excluded
+	/// because the user stopped it, which says nothing about whether the model is supported.
+	var isReportableConversionFailure: Bool {
+		switch self {
+		case .staged, .converting, .interrupted, .emitted, .failed:
+			true
+		case .registered, .cancelled:
+			false
+		}
+	}
 }
 
 /// The independently durable lifetime of a source package after its converted model is registered.
@@ -93,6 +110,23 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 	var updatedAt: Date
 	var state: NativeModelConversionImportState
 	var lastProgress: NativeModelConversionProgress?
+	/// The staged source's size on disk, recorded **before** conversion begins.
+	///
+	/// Separate from `metrics` on purpose. `NativeModelConversionMetrics` cannot exist without
+	/// `emission`, which only a *successful* conversion produces — so a failed report carried no
+	/// size at all, and a failed report is precisely the one somebody is asked to send us
+	/// (AIA-0778). This is captured at the point the source is staged, so it survives any failure
+	/// after that. `nil` for reports written before this field existed, and if the size could not
+	/// be read.
+	var sourceByteCount: UInt64?
+	/// Where a **remotely** imported model was downloaded from, if it was.
+	///
+	/// Deliberately never a local path. `logText`'s rule — no user document location — is about the
+	/// user's disk: a filename identifies the model, a path identifies the person's filesystem. A
+	/// download address is neither; it is a public link, it is the single most useful field for
+	/// reproducing a failed conversion, and it is `nil` for local imports because the host only
+	/// supplies it for remote ones (AIA-0778).
+	var sourceURL: String?
 	var metrics: NativeModelConversionMetrics?
 	var diagnostic: NativeModelConversionDiagnostic?
 	var entries: [NativeModelConversionImportLogEntry]
@@ -211,6 +245,44 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 		updatedAt = Date()
 	}
 
+	mutating func record(sourceByteCount: UInt64?, sourceURL: String? = nil) {
+		if let sourceByteCount { self.sourceByteCount = sourceByteCount }
+		// Sanitised here rather than at the call site, so the durable report cannot hold an unsafe
+		// value however it was reached.
+		if let safe = Self.loggableSourceURL(sourceURL) { self.sourceURL = safe }
+		updatedAt = Date()
+	}
+
+	/// A remote source address reduced to what is safe to put in a support log: scheme, host and
+	/// path. `nil` for anything else.
+	///
+	/// Two hazards, both real rather than theoretical:
+	///
+	/// - **Local paths.** The download row's URL is free text the user can edit after the download
+	///   completes (`DownloadDetailView.swift:197`), and import only checks that it is non-empty.
+	///   A `file:///Users/…` value can therefore reach here. Restricting to `http(s)` rejects it.
+	/// - **Credentials in the query.** `Downloader.swift:733` already states the rule this follows:
+	///   *"full URLs may carry signed query parameters / tokens"*. A presigned link pasted into a
+	///   support attachment would hand over working credentials, so query and fragment are dropped —
+	///   as are any user/password components, which `URLComponents` does not carry across.
+	///
+	/// The path is kept: it names the model, which is the point of recording this at all, and it is
+	/// not where signed tokens live.
+	static func loggableSourceURL(_ raw: String?) -> String? {
+		guard let raw,
+			let components = URLComponents(string: raw),
+			let scheme = components.scheme?.lowercased(),
+			scheme == "https" || scheme == "http",
+			let host = components.host, host.isEmpty == false
+		else { return nil }
+
+		var safe = URLComponents()
+		safe.scheme = scheme
+		safe.host = host
+		safe.path = components.path
+		return safe.string
+	}
+
 	mutating func recordSourceCleanup(
 		_ cleanupState: NativeModelConversionSourceCleanupState,
 		diagnostic: NativeModelConversionDiagnostic? = nil
@@ -317,6 +389,11 @@ actor NativeModelConversionImportReportStore {
 
 	func record(metrics: NativeModelConversionMetrics) throws {
 		report.record(metrics: metrics)
+		try report.write(in: configurationDirectory)
+	}
+
+	func record(sourceByteCount: UInt64?, sourceURL: String? = nil) throws {
+		report.record(sourceByteCount: sourceByteCount, sourceURL: sourceURL)
 		try report.write(in: configurationDirectory)
 	}
 

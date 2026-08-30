@@ -42,9 +42,9 @@ broken feature.** That is the trade this file exists to catch.
       passage is present and that each stale one is gone. Note what this gate is for: nothing
       publishes this page automatically, and `--check` only proves the two generated copies match
       the app's. It says nothing about what is live.
-- [ ] **Production verified with more than one account (#747).** Everything else above was proved
-      against staging or with a single subject. Nothing has yet shown that two real accounts on
-      production cannot see each other's findings.
+- [x] **Production verified with more than one account (#747). Done 2026-08-28.** Everything else
+      above was proved against staging or with a single subject; this gate closed that gap by
+      showing that two real accounts on production cannot see each other's findings.
 - [ ] **Manual acceptance on real devices (#732).** Build 1004 is on TestFlight for this.
 
 ## 1.0.7

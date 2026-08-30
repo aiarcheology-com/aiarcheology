@@ -158,9 +158,29 @@ struct ModelImportView: View {
 	private func importAlerts(_ content: some View) -> some View {
 		content
 		.alert(L10n.Alert.Error.title, isPresented: $showErrorAlert) {
-			if nativeConversionReport != nil {
+			if let report = nativeConversionReport {
+				// Reporting offered where the failure is announced, not only after the user has
+				// opened the log and found a toolbar menu (AIA-0778). A conversion that produced no
+				// Core ML model is the only way the app learns which models it does not yet support,
+				// so the path to sending one must be visible at the moment it fails.
+				//
+				// Gated on the state and not merely on a report existing: this alert also carries
+				// errors raised *after* a conversion succeeded, and inviting someone to report a
+				// registered model as a failing conversion would corrupt the signal.
+				if report.state.isReportableConversionFailure {
+					Button(L10n.Import.reportConversion) {
+						Task {
+							// No mail account and no mail app reaches neither tier. Falling through
+							// to the log is not a consolation prize: that screen carries the same
+							// report behind a Share item, so the path stays open instead of ending.
+							if await NativeModelConversionReporting.email(report).not {
+								presentedNativeConversionReport = report
+							}
+						}
+					}
+				}
 				Button(L10n.Import.showConversionLog) {
-					presentedNativeConversionReport = nativeConversionReport
+					presentedNativeConversionReport = report
 				}
 			}
 			Button(L10n.Common.ok, role: .cancel) { }
@@ -918,6 +938,22 @@ struct ModelImportView: View {
 			return generatedModelURL
 		}
 		do {
+			// Recorded before the conversion, not after it. The metrics the converter returns need
+			// an `emission`, which only a success produces — so a failed report used to carry no
+			// size at all, and that is the report a user is asked to send us (AIA-0778).
+			// Off the main actor: a package can be a deep directory, and walking it synchronously
+			// here would freeze the UI before conversion even starts. `nonisolated` alone does not
+			// move the work — it still runs on the caller's executor.
+			let sourceByteCount = await Task.detached(priority: .utility) {
+				Self.byteCount(at: storedURL)
+			}.value
+			// The URL is sanitised inside `record` — see `loggableSourceURL`. It is passed raw
+			// here on purpose, so the one place that decides what is safe to log is the one place
+			// that has to be got right.
+			try? await request.reportStore.record(
+				sourceByteCount: sourceByteCount,
+				sourceURL: request.originalModelURL
+			)
 			try await request.reportStore.transition(to: .converting)
 			request.reportObserver(await request.reportStore.snapshot())
 			let converter = NativeModelConverter()
@@ -974,6 +1010,49 @@ struct ModelImportView: View {
 			)
 			throw error
 		}
+	}
+
+	/// Total bytes at `url`, whether it is a file or a package directory.
+	///
+	/// A source can be either: ONNX arrives as a single file, a native graph package as a
+	/// directory. Summing the directory's contents is what makes the two comparable in a report.
+	/// `nil` when the size cannot be read — a missing number is honest, a zero would not be.
+	nonisolated static func byteCount(at url: URL) -> UInt64? {
+		let manager = FileManager.default
+		var isDirectory: ObjCBool = false
+		guard manager.fileExists(atPath: url.path, isDirectory: &isDirectory) else { return nil }
+
+		guard isDirectory.boolValue else {
+			guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize else { return nil }
+			return UInt64(size)
+		}
+		// `nil` on the first unreadable entry rather than a partial sum: a number that silently
+		// omits half a package is worse than no number, because a support reader cannot tell.
+		var failed = false
+		guard let enumerator = manager.enumerator(
+			at: url,
+			includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
+			options: [],
+			errorHandler: { _, _ in
+				failed = true
+				return false
+			}
+		) else { return nil }
+
+		var total: UInt64 = 0
+		for case let file as URL in enumerator {
+			guard let values = try? file.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]) else {
+				return nil
+			}
+			// Directories and symlinks contribute nothing: a symlink reports its own metadata size,
+			// not its target's, so counting it would double or mis-state the total.
+			guard values.isRegularFile == true, let size = values.fileSize, size >= 0 else { continue }
+			// Sparse or hostile inputs must not trap the app for a diagnostic number.
+			let (sum, overflowed) = total.addingReportingOverflow(UInt64(size))
+			if overflowed { return nil }
+			total = sum
+		}
+		return failed ? nil : total
 	}
 
 	private func recordNativeImportFailure(

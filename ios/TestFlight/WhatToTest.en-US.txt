@@ -1,5 +1,5 @@
 Build: AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735, AIA-0779, AIA-0782, AIA-0763, AIA-0765,
-AIA-0783
+AIA-0783, AIA-0785, AIA-0778
 
 Test Focus: detection boxes must sit on what they found, the two questions the app asks must never
 share a screen, and your existing findings must survive the update.
@@ -26,6 +26,13 @@ share a screen, and your existing findings must survive the update.
   after you answer it, and it must NOT be forgotten. Tap fast on "Not now" — the second tap must
   NOT hit the back-up card's buttons underneath. Check both cards on iPad and with Larger Text
   turned up: they should stay a centred card and never fill the whole window.
+
+- NEW: A FAILED CONVERSION MUST BE REPORTABLE. Import a model the converter cannot handle. The error
+  must offer "Report Failing Conversion", and the draft must name the model's own filename, not just
+  a phase (the log shows it too, under Model file). An error after a conversion SUCCEEDED must NOT
+  offer it. With no mail set up it must open the log, which still shares, not do nothing.
+
+- NEW: with detection sounds on, background the app mid-detection several times. No crash.
 
 - NEW: on a Mac, the drawer's Add Model button must read "Add Model" in full. It was showing as a
   small blue circle with just "M" in it.

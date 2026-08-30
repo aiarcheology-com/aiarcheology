@@ -126,7 +126,12 @@ final class EmailController: NSObject, @MainActor MFMailComposeViewControllerDel
 		let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow)
 			?? scenes.first { $0.activationState == .foregroundActive }?.keyWindow
 		guard var top = window?.rootViewController else { return nil }
-		while let presented = top.presentedViewController {
+		// A controller that is *being dismissed* is still in this chain for the length of its
+		// dismissal animation, and presenting from it is the same silent no-op as presenting from the
+		// root while a sheet is up (AIA-0778). It bites whenever a presentation is started from an
+		// action on the thing that is closing — an alert button, most obviously — which is exactly
+		// where a "report this failure" action belongs.
+		while let presented = top.presentedViewController, presented.isBeingDismissed.not {
 			top = presented
 		}
 		return top
