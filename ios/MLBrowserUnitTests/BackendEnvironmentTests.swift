@@ -24,12 +24,19 @@ final class BackendEnvironmentTests: XCTestCase {
     /// assertions, which read the independently expanded plist string rather than the compiled
     /// value. This compares the two expansions of the one setting against each other, so it is
     /// meaningful under either.
+    /// A missing key is a **failure**, not a skip. Unlike the Clerk keys, `BackendEnvironment` is
+    /// not a secret and is never withheld from a build — it is `$(AIA_BACKEND_ENVIRONMENT)` in
+    /// `MLBrowser-Info.plist`, present on every path. Its absence would mean the plist entry was
+    /// dropped or the setting failed to expand, which is precisely the integration defect this
+    /// test exists to catch; skipping on it would make the test vacuous.
     func test_compiledValueMatchesTheInfoPlistValue() throws {
-        let raw = Bundle(for: ClerkAuthProvider.self)
-            .object(forInfoDictionaryKey: BackendEnvironment.infoDictionaryKey) as? String
-        try XCTSkipIf(raw == nil, "App bundle carries no BackendEnvironment key.")
+        let raw = try XCTUnwrap(
+            Bundle(for: ClerkAuthProvider.self)
+                .object(forInfoDictionaryKey: BackendEnvironment.infoDictionaryKey) as? String,
+            "The app bundle carries no \(BackendEnvironment.infoDictionaryKey) key — the Info.plist entry or the build setting is missing."
+        )
         XCTAssertEqual(
-            raw?.trimmingCharacters(in: .whitespacesAndNewlines),
+            raw.trimmingCharacters(in: .whitespacesAndNewlines),
             BackendEnvironment.configured.rawValue,
             "The compilation condition and the Info.plist disagree — they expand from one setting, so one consumer was edited by hand."
         )

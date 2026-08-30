@@ -23,8 +23,13 @@ import ClerkKit
 /// Fixed at **build time** from `AIA_BACKEND_ENVIRONMENT`, never inferred at runtime.
 /// `AppEnvironment.distributionChannel` is not reliable enough to carry a decision about where a
 /// user's data lives: an iOS-app-on-Mac install has no receipt at that path at all, and an iPhone
-/// restored from backup has none until `SKReceiptRefreshRequest` completes. It stays in use for
-/// decisions whose failure mode is cosmetic.
+/// restored from backup has none until `SKReceiptRefreshRequest` completes.
+///
+/// It stays in use elsewhere, and not all of that is cosmetic — besides Settings' debug section,
+/// Sentry sampling and StoreKit sandbox detection, `DataController` uses it to choose Core Data
+/// mapping-model inference and to gate destructive store-destruction recovery. Those are
+/// pre-existing and out of scope here; this type neither fixes nor worsens them. What it does fix
+/// is that no decision about *which backend holds user data* goes through that inference any more.
 enum BackendEnvironment: String, CaseIterable, Sendable {
     case development
     case production
@@ -74,8 +79,22 @@ extension BackendEnvironment {
     /// Returns `false` (and changes nothing) when the target instance's key is missing or the
     /// reconfigure fails. `Clerk.configure` traps on a malformed key in DEBUG
     /// (`ClerkAuthProvider.configure()`), and a local build may legitimately lack the live key.
+    /// Serialises `switch(to:)`. `Clerk.reconfigure` rejects a concurrent reconfigure, and a fast
+    /// double-tap on the segmented picker can start a second switch while the first is still
+    /// awaiting — which would leave the picker and the active backend disagreeing.
+    @MainActor private static var isSwitching = false
+
     @MainActor
     static func `switch`(to environment: BackendEnvironment) async -> Bool {
+        // Already there: report success so the caller does not resynchronise the control away
+        // from a value that is in fact correct.
+        guard environment != current else { return true }
+        // Refuse rather than queue. The caller re-reads `current` on a `false`, so a refused
+        // second tap puts the control back on the truth instead of racing the first switch.
+        guard isSwitching == false else { return false }
+        isSwitching = true
+        defer { isSwitching = false }
+
         let key = ClerkAuthProvider.publishableKey(for: environment)
         guard key.hasPrefix("pk_") else {
             LoggingPolicy.warning(

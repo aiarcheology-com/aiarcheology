@@ -43,13 +43,18 @@ enum ProductionBannerWindow {
     /// data-race error (`Notification` is not `Sendable`), and `update()` already covers every
     /// scene — including the one that just connected.
     ///
-    /// Both notifications are observed because neither alone is sufficient: `install()` runs from
+    /// All three notifications are observed and none alone is sufficient: `install()` runs from
     /// the `@main` initialiser, before any scene exists, so the launch-time `update()` below sees
-    /// an empty `connectedScenes`; and a scene is not guaranteed to be in `connectedScenes` yet
-    /// when `willConnect` is posted, so `didActivate` is the one that certainly catches it.
+    /// an empty `connectedScenes`; a scene is not guaranteed to be in `connectedScenes` yet when
+    /// `willConnect` is posted, so `didActivate` is the one that certainly catches it; and
+    /// `didDisconnect` is what lets `update()` release a closed window's scene.
     static func install(usesMockAuth: Bool) {
         Self.usesMockAuth = usesMockAuth
-        for name in [UIScene.willConnectNotification, UIScene.didActivateNotification] {
+        for name in [
+            UIScene.willConnectNotification,
+            UIScene.didActivateNotification,
+            UIScene.didDisconnectNotification,
+        ] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
                 MainActor.assumeIsolated { update() }
             }
@@ -63,7 +68,16 @@ enum ProductionBannerWindow {
     /// picker flip to production would show nothing, and a flip back would leave a stale red
     /// strip claiming production while the app talked to staging.
     static func update() {
-        for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        // Drop windows belonging to scenes that have gone away. `attach(to:)` only ever adds, so
+        // without this a closed iPad window's `UIWindow` would be retained for the lifetime of the
+        // process — and its scene with it.
+        let live = Set(scenes.map(ObjectIdentifier.init))
+        for key in windows.keys where live.contains(key) == false {
+            windows[key]?.isHidden = true
+            windows.removeValue(forKey: key)
+        }
+        for scene in scenes {
             attach(to: scene)
         }
     }

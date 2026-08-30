@@ -134,11 +134,17 @@ enum AppEnvironment {
     ///    can only be a store binary whose receipt has not landed. See the note at that return:
     ///    every `isAppStoreDistribution` consumer tests positively, so guessing anything else
     ///    puts a production user on the development branch.
+    ///
+    /// This must not decide which backend holds a user's data. It answers `.appStore` for an
+    /// iOS-app-on-Mac install and for an iPhone restored from backup, which is fine for a
+    /// cosmetic decision and was fatal for auth (AIA-0791). See `BackendEnvironment`.
     static var distributionChannel: DistributionChannel {
 		// A Simulator can contain a local StoreKit testing receipt named `receipt`.
 		// That file must never make a simulator look like an App Store install: among
-		// other things, doing so would force production auth and hide the test/dev
-		// environment picker on the sign-in screen.
+		// other things, doing so would put a simulator on the App Store branch of the
+		// debug section, Sentry sampling and StoreKit sandbox detection. It no longer
+		// touches auth — which backend a build talks to is fixed at build time by
+		// `AIA_BACKEND_ENVIRONMENT`, not inferred here (AIA-0791).
 		if isSimulator {
 			return .unknown
 		}
@@ -173,11 +179,16 @@ enum AppEnvironment {
 		// **positively** (`== .appStore`), so `.unknown` sent all of them down their
 		// *non-production* branch in a real App Store install (no ticket of its own; PR #612).
 		// That is the wrong
-		// direction for every one of them, and for two it is serious: `ClerkAuthProvider` would
-		// hand a production user the **development** Clerk key and permit instance switching, and
-		// `SignInSheet` would show the dev/prod picker to real customers. `SettingsView`'s debug
-		// section, `DataController`'s recovery paths and Sentry's sampling rate follow the same
+		// direction for every one of them. `SettingsView`'s debug section, `DataController`'s
+		// mapping-model choice and its recovery paths, and Sentry's sampling rate all follow this
 		// gate.
+		//
+		// Auth used to follow it too, and that was the defect in AIA-0791: this fallback is right
+		// for a *cosmetic* decision and wrong for one about where a user's data lives, because it
+		// fires for an iOS-app-on-Mac install and for an iPhone restored from backup — neither of
+		// which is an App Store install. `ClerkAuthProvider` and `FindingsCloudEndpoint` now read
+		// `BackendEnvironment`, fixed at build time. Do not route a data-location decision back
+		// through here.
 		//
 		// So it fails **closed to production** instead. Nothing else moves: simulator, Debug,
 		// dev/AdHoc/Enterprise and TestFlight all return above, which is what leaves `.unknown`
