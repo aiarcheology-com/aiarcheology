@@ -817,6 +817,8 @@ internal enum L10n {
     internal static let conversionLogPhase = L10n.tr("Localizable", "import.conversionLogPhase", fallback: "Phase")
     /// Conversion revision
     internal static let conversionLogRevision = L10n.tr("Localizable", "import.conversionLogRevision", fallback: "Conversion revision")
+    /// Model file
+    internal static let conversionLogSourceFile = L10n.tr("Localizable", "import.conversionLogSourceFile", fallback: "Model file")
     /// Converter version
     internal static let conversionLogSourceVersion = L10n.tr("Localizable", "import.conversionLogSourceVersion", fallback: "Converter version")
     /// State
@@ -875,6 +877,8 @@ internal enum L10n {
     internal static let onnxConversion = L10n.tr("Localizable", "import.onnxConversion", fallback: "ONNX Conversion")
     /// Use this Python code to convert ONNX models:
     internal static let onnxConversionHint = L10n.tr("Localizable", "import.onnxConversionHint", fallback: "Use this Python code to convert ONNX models:")
+    /// Report Failing Conversion
+    internal static let reportConversion = L10n.tr("Localizable", "import.reportConversion", fallback: "Report Failing Conversion")
     /// Resume Conversion
     internal static let resumeConversion = L10n.tr("Localizable", "import.resumeConversion", fallback: "Resume Conversion")
     /// A native model conversion did not finish. You can resume it, inspect its path-free conversion log, or discard its staged app-sandbox artifacts.

@@ -49,6 +49,92 @@ struct NativeModelConversionReportView: View {
 	}
 }
 
+/// Sends a conversion report to support, from wherever the user asked to report it (AIA-0778).
+///
+/// Free of the view so the failure alert can report without first pushing the log: the ticket is
+/// about the *path* being clear, and a path that begins "open the log, then find a toolbar menu" is
+/// the one it was raised against. The log view and the alert therefore send the identical text.
+enum NativeModelConversionReporting {
+	/// A plain-text rendering of the report. Like the on-screen report it records no user document
+	/// location: the source *filename* identifies the model (AIA-0778), never where it was read from.
+	static func logText(for report: NativeModelConversionImportReport) -> String {
+		var lines = [
+			"AI Archeology — Native Model Conversion Log",
+			"Model file: \(report.sourcePackageFilename)",
+			"Acquired: \(report.wasRemoteImport ? "remote link" : "local file")",
+			"State: \(report.state.rawValue)",
+			"Converter: \(report.nativeConverterPackageVersion) (revision \(report.nativeConverterConversionRevision))"
+		]
+		if let diagnostic = report.diagnostic {
+			lines += [
+				"",
+				"Diagnostic:",
+				"  Code: \(diagnostic.code)",
+				"  Phase: \(diagnostic.phase.rawValue)",
+				"  Message: \(diagnostic.message)"
+			]
+		}
+		if let metrics = report.metrics {
+			lines += [
+				"",
+				"Metrics:",
+				"  Input bytes: \(metrics.sourceFootprint.totalByteCount)",
+				"  Output bytes: \(metrics.emission.outputModelByteCount)",
+				"  Operations: \(metrics.emission.operationCount)"
+			]
+		}
+		lines += ["", "Events:"]
+		for entry in report.entries {
+			var parts = [entry.state.rawValue]
+			if let progress = entry.progress {
+				parts.append(progressDescription(progress))
+			}
+			if let diagnostic = entry.diagnostic {
+				parts.append("\(diagnostic.code): \(diagnostic.message)")
+			}
+			let timestamp = entry.timestamp.formatted(date: .abbreviated, time: .standard)
+			lines.append("  \(timestamp) — \(parts.joined(separator: " · "))")
+		}
+		return lines.joined(separator: "\n")
+	}
+
+	static func subject() -> String {
+		"\(L10n.Support.title) — \(L10n.Import.conversionLog)"
+	}
+
+	/// The app's support-mail tiers: the in-app composer, then the user's default mail app. Both are
+	/// user-driven — nothing here sends anything on its own.
+	@MainActor
+	static func email(_ report: NativeModelConversionImportReport) async {
+		let body = logText(for: report)
+		do {
+			try EmailController.shared.sendEmail(
+				subject: subject(),
+				body: body,
+				to: SupportRequest.supportEmailAddress
+			)
+		} catch {
+			LoggingPolicy.warning("Mail composer unavailable (\(error)) — falling back to mailto:", logger: .ui)
+			_ = await EmailController.shared.openMailto(
+				subject: subject(),
+				body: body,
+				to: SupportRequest.supportEmailAddress
+			)
+		}
+	}
+
+	static func progressDescription(_ progress: NativeModelConversionProgress) -> String {
+		var values = [progress.phase.rawValue]
+		if progress.totalUnitCount > 0 {
+			values.append("\(progress.completedUnitCount)/\(progress.totalUnitCount)")
+		}
+		if let operationName = progress.operationName {
+			values.append(operationName)
+		}
+		return values.joined(separator: " · ")
+	}
+}
+
 /// The report itself, without a navigation container — pushable onto an existing stack.
 ///
 /// This view deliberately reads no model or user-document paths. The report's protocol values are
@@ -72,6 +158,12 @@ struct NativeModelConversionReportContent: View {
 		Group {
 			List {
 				Section(L10n.Import.conversionLogStatus) {
+					// The identity of the model that failed — the whole reason this report is worth
+					// sending (AIA-0778). Without it a support mail says which *phase* failed and
+					// nothing about *what* failed, so it cannot tell anyone which models the app does
+					// not yet support. A filename is not a path: the report's path-free promise is
+					// about never recording where in the user's documents a file lives.
+					LabeledContent(L10n.Import.conversionLogSourceFile, value: report.sourcePackageFilename)
 					LabeledContent(L10n.Import.conversionLogState, value: report.state.rawValue)
 					LabeledContent(L10n.Import.conversionLogSourceVersion, value: report.nativeConverterPackageVersion)
 					LabeledContent(
@@ -158,7 +250,10 @@ struct NativeModelConversionReportContent: View {
 							Label(L10n.Common.share, systemImage: "square.and.arrow.up")
 						}
 					} label: {
-						Label(L10n.Support.title, systemImage: "square.and.arrow.up")
+						// Named for the job, not the mechanism (AIA-0778). Behind a generic share
+						// glyph this read as "export this somewhere", and a user looking for a way to
+						// report a failed conversion had no reason to open it.
+						Label(L10n.Import.reportConversion, systemImage: "exclamationmark.bubble")
 					}
 				}
 				if report.state == .registered {
@@ -178,50 +273,10 @@ struct NativeModelConversionReportContent: View {
 		}
 	}
 
-	/// A plain-text rendering of the report for the share sheet. Like the on-screen report it is
-	/// path-free: it contains only the report's own protocol values (state, converter identity,
-	/// diagnostic, metrics, and the event log).
+	/// Both the share sheet here and the failure alert send the identical text; see
+	/// ``NativeModelConversionReporting``.
 	private var logText: String {
-		var lines = [
-			"AI Archeology — Native Model Conversion Log",
-			"State: \(report.state.rawValue)",
-			"Converter: \(report.nativeConverterPackageVersion) (revision \(report.nativeConverterConversionRevision))"
-		]
-		if let diagnostic = report.diagnostic {
-			lines += [
-				"",
-				"Diagnostic:",
-				"  Code: \(diagnostic.code)",
-				"  Phase: \(diagnostic.phase.rawValue)",
-				"  Message: \(diagnostic.message)"
-			]
-		}
-		if let metrics = report.metrics {
-			lines += [
-				"",
-				"Metrics:",
-				"  Input bytes: \(metrics.sourceFootprint.totalByteCount)",
-				"  Output bytes: \(metrics.emission.outputModelByteCount)",
-				"  Operations: \(metrics.emission.operationCount)"
-			]
-		}
-		lines += ["", "Events:"]
-		for entry in report.entries {
-			var parts = [entry.state.rawValue]
-			if let progress = entry.progress {
-				parts.append(progressDescription(progress))
-			}
-			if let diagnostic = entry.diagnostic {
-				parts.append("\(diagnostic.code): \(diagnostic.message)")
-			}
-			let timestamp = entry.timestamp.formatted(date: .abbreviated, time: .standard)
-			lines.append("  \(timestamp) — \(parts.joined(separator: " · "))")
-		}
-		return lines.joined(separator: "\n")
-	}
-
-	private var reportSubject: String {
-		"\(L10n.Support.title) — \(L10n.Import.conversionLog)"
+		NativeModelConversionReporting.logText(for: report)
 	}
 
 	/// Sends the log through the app's shared support-mail path, falling back to the user's default
@@ -229,31 +284,11 @@ struct NativeModelConversionReportContent: View {
 	/// report. The plain-text Share option remains for when mail is unavailable entirely.
 	@MainActor
 	private func emailReport() async {
-		do {
-			try EmailController.shared.sendEmail(
-				subject: reportSubject,
-				body: logText,
-				to: SupportRequest.supportEmailAddress
-			)
-		} catch {
-			LoggingPolicy.warning("Mail composer unavailable (\(error)) — falling back to mailto:", logger: .ui)
-			_ = await EmailController.shared.openMailto(
-				subject: reportSubject,
-				body: logText,
-				to: SupportRequest.supportEmailAddress
-			)
-		}
+		await NativeModelConversionReporting.email(report)
 	}
 
 	private func progressDescription(_ progress: NativeModelConversionProgress) -> String {
-		var values = [progress.phase.rawValue]
-		if progress.totalUnitCount > 0 {
-			values.append("\(progress.completedUnitCount)/\(progress.totalUnitCount)")
-		}
-		if let operationName = progress.operationName {
-			values.append(operationName)
-		}
-		return values.joined(separator: " · ")
+		NativeModelConversionReporting.progressDescription(progress)
 	}
 
 	private func formattedByteCount(_ byteCount: UInt64) -> String {

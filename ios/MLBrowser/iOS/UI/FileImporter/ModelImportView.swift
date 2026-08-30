@@ -158,9 +158,16 @@ struct ModelImportView: View {
 	private func importAlerts(_ content: some View) -> some View {
 		content
 		.alert(L10n.Alert.Error.title, isPresented: $showErrorAlert) {
-			if nativeConversionReport != nil {
+			if let report = nativeConversionReport {
+				// Reporting offered where the failure is announced, not only after the user has
+				// opened the log and found a toolbar menu (AIA-0778). A conversion that produced no
+				// Core ML model is the only way the app learns which models it does not yet support,
+				// so the path to sending one must be visible at the moment it fails.
+				Button(L10n.Import.reportConversion) {
+					Task { await NativeModelConversionReporting.email(report) }
+				}
 				Button(L10n.Import.showConversionLog) {
-					presentedNativeConversionReport = nativeConversionReport
+					presentedNativeConversionReport = report
 				}
 			}
 			Button(L10n.Common.ok, role: .cancel) { }

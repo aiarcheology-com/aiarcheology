@@ -371,6 +371,7 @@
 		B10000000000000000000013 /* NativeModelConversionImportReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* NativeModelConversionImportReport.swift */; };
 		B10000000000000000000015 /* NativeModelConversionReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* NativeModelConversionReportView.swift */; };
 		B10000000000000000000017 /* NativeModelConversionImportReportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* NativeModelConversionImportReportTests.swift */; };
+		94D79E1B2EE3A1B00027C9FA /* NativeModelConversionReportingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79E1A2EE3A1B00027C9FA /* NativeModelConversionReportingTests.swift */; };
 		B10000000000000000000019 /* NativeModelConversionExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* NativeModelConversionExporter.swift */; };
 		B10000000000000000000021 /* NativeModelConversionExporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* NativeModelConversionExporterTests.swift */; };
 		B2B33189971A3706CE930103 /* ModelAssetStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2584DEF459E2929567E5582F /* ModelAssetStore.swift */; };
@@ -777,6 +778,7 @@
 		B10000000000000000000012 /* NativeModelConversionImportReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeModelConversionImportReport.swift; sourceTree = "<group>"; };
 		B10000000000000000000014 /* NativeModelConversionReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeModelConversionReportView.swift; sourceTree = "<group>"; };
 		B10000000000000000000016 /* NativeModelConversionImportReportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeModelConversionImportReportTests.swift; sourceTree = "<group>"; };
+		94D79E1A2EE3A1B00027C9FA /* NativeModelConversionReportingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeModelConversionReportingTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000018 /* NativeModelConversionExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeModelConversionExporter.swift; sourceTree = "<group>"; };
 		B10000000000000000000020 /* NativeModelConversionExporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeModelConversionExporterTests.swift; sourceTree = "<group>"; };
 		B3AA71FCC687FDCCBD2E764F /* SubscriptionStatusView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionStatusView.swift; sourceTree = "<group>"; };
@@ -1339,6 +1341,7 @@
 				B10000000000000000000003 /* NativeModelGraphTests.swift */,
 				B10000000000000000000010 /* NativeModelConversionPerformanceTests.swift */,
 				B10000000000000000000016 /* NativeModelConversionImportReportTests.swift */,
+				94D79E1A2EE3A1B00027C9FA /* NativeModelConversionReportingTests.swift */,
 				B10000000000000000000020 /* NativeModelConversionExporterTests.swift */,
 				94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */,
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
@@ -2253,6 +2256,7 @@
 				B10000000000000000000004 /* NativeModelGraphTests.swift in Sources */,
 				B10000000000000000000011 /* NativeModelConversionPerformanceTests.swift in Sources */,
 				B10000000000000000000017 /* NativeModelConversionImportReportTests.swift in Sources */,
+				94D79E1B2EE3A1B00027C9FA /* NativeModelConversionReportingTests.swift in Sources */,
 				B10000000000000000000021 /* NativeModelConversionExporterTests.swift in Sources */,
 				94D79C942EE37DBF0027C9FA /* HostPlatformTests.swift in Sources */,
 				94D79C952EE37DBF0027C9FA /* BundleExtensionsTests.swift in Sources */,
