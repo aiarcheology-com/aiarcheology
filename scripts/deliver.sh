@@ -91,6 +91,12 @@ PREFLIGHT_WOULD_FAIL=0
 # with is the one that has to be exercised before it ships.
 EXECUTION_ENVIRONMENT="production"
 ALLOW_STAGING_UPLOAD=0
+# Prepended to the tester notes of a non-production build. Defined once because two places must
+# agree on it: build_whatsnew_json, which prepends it, and the preflight length check, which has to
+# measure the payload that will actually be published rather than the file on disk.
+STAGING_NOTES_PREFIX="STAGING BACKEND — do not report sync or sign-in issues.
+
+"
 
 # Convenience: source ios/asc.env (op:// references for the ASC key) if present AND the caller has
 # provided NO ASC_* credential in the environment. Explicit env vars always win — sourcing is
@@ -511,7 +517,20 @@ preflight() {
         # rejected. Matching the publisher's measure is the point — a third measure is a third
         # answer.
         if [[ -f "$WHATSNEW_FILE" ]]; then
-            whatsnew_text="$(cat "$WHATSNEW_FILE")"
+            # Measure the payload as it will be PUBLISHED, not the file on disk. Two things happen
+            # to it in build_whatsnew_json before the cap is applied, and neither was accounted for
+            # here — so this check could both reject a file that fits and pass one that does not:
+            #
+            #   1. The first 'Build:' line is rewritten to the resolved build number. That line
+            #      carries the ticket list, so the file is routinely longer than what ships. A
+            #      deliberately wide placeholder keeps the estimate conservative: a real build
+            #      number is shorter, so a pass here is a pass there.
+            #   2. A non-production build gets the staging banner prepended (AIA-0791). Without
+            #      this, publishing would fail at the `notes` step — after the build was uploaded.
+            whatsnew_text="$(awk '!done && /^Build:/ { print "Build: 9999999999"; done=1; next } { print }' "$WHATSNEW_FILE")"
+            if [[ "$EXECUTION_ENVIRONMENT" != "production" ]]; then
+                whatsnew_text="${STAGING_NOTES_PREFIX}${whatsnew_text}"
+            fi
             if (( ${#whatsnew_text} > WHATSNEW_MAX )); then
                 preflight_fail "$(basename "$WHATSNEW_FILE") is ${#whatsnew_text} characters; App Store Connect caps whatsNew at ${WHATSNEW_MAX}. Prune the sections for builds that already shipped — the file is notes for THIS build, not a changelog."
             fi
@@ -766,9 +785,7 @@ build_whatsnew_json() {
     # A staging build is indistinguishable from a production one in the TestFlight UI, so say so
     # where the tester will read it — otherwise they report sign-in and sync as bugs (AIA-0791).
     if [[ "$EXECUTION_ENVIRONMENT" != "production" ]]; then
-        text="STAGING BACKEND — do not report sync or sign-in issues.
-
-${text}"
+        text="${STAGING_NOTES_PREFIX}${text}"
     fi
     # The file MUST carry a 'Build:' line so the real build number is stamped — never publish the
     # unresolved placeholder (e.g. 'Build: TBD') to testers.
@@ -938,10 +955,11 @@ main() {
     fi
     # A staging build on TestFlight is indistinguishable from a production one in the TestFlight
     # UI, so a tester cannot tell why sync fails. Exporting one locally is fine; uploading is not
-    # (AIA-0791).
-    if [[ "$SUBCOMMAND" == "deliver" && "$EXPORT_ONLY" != 1 && "$DRY_RUN" != 1 \
+    # (AIA-0791). Routed through preflight_fail rather than die so a --dry-run rehearsal reports
+    # "WOULD FAIL LIVE" instead of silently succeeding at something the live run refuses.
+    if [[ "$SUBCOMMAND" == "deliver" && "$EXPORT_ONLY" != 1 \
           && "$EXECUTION_ENVIRONMENT" != "production" && "$ALLOW_STAGING_UPLOAD" != 1 ]]; then
-        die "Refusing to upload a '${EXECUTION_ENVIRONMENT}' build to TestFlight. Pass --allow-staging-upload if that is genuinely what you want."
+        preflight_fail "refusing to upload a '${EXECUTION_ENVIRONMENT}' build to TestFlight. Pass --allow-staging-upload if that is genuinely what you want."
     fi
 
     # Parent-owned temp dir (0700) for the .p8 + cached responses; removed by the EXIT trap.

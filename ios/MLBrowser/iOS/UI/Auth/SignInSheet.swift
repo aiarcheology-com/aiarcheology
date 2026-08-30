@@ -139,10 +139,12 @@ struct SignInSheet: View {
 	/// the mismatched pair this ticket exists to make unrepresentable.
 	@MainActor
 	private func switchBackend(to newEnvironment: BackendEnvironment) async {
-		let moved = await BackendEnvironment.switch(to: newEnvironment)
-		// Re-sync the control from the truth, so a refused or failed switch does not leave the
-		// segmented picker showing an instance the app is not pointed at.
-		if moved == false { debugEnvironment = BackendEnvironment.current }
+		_ = await BackendEnvironment.switch(to: newEnvironment)
+		// Re-sync from the truth after EVERY switch, not only a refused one. Two taps in quick
+		// succession run two of these concurrently: the second is refused while the first is still
+		// awaiting Clerk, and only the first's completion knows the final environment. An
+		// on-failure-only resync would leave the picker showing the refused tap's value.
+		debugEnvironment = BackendEnvironment.current
 	}
 	#endif
 }

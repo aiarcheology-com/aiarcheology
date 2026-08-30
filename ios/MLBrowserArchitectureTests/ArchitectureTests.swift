@@ -1086,4 +1086,54 @@ final class ArchitectureTests: XCTestCase {
         }
         return line
     }
+
+    /// The findings Worker is chosen from the build-time environment and nothing else.
+    ///
+    /// **Why the unit tests do not cover this.** `BackendEnvironmentTests` pins the *mapping* --
+    /// `.development` to the staging Worker, `.production` to the live one -- through an injected
+    /// seam. That is the half that was never broken. AIA-0791 shipped with a correct mapping and a
+    /// wrong **argument**: the Clerk key came from `AppEnvironment.isAppStoreDistribution` and the
+    /// Worker from a `UserDefaults` value, so the two disagreed on every App-Store-classified build
+    /// and every request came back 401. Hardcoding `.development` at a call site today fails no
+    /// test in the suite. This is that test, and it has to be a source scan: the offending value
+    /// would be a compile-time-valid `BackendEnvironment`.
+    ///
+    /// `FindingsCloudTransport.swift` is exempt because the mapping lives there and legitimately
+    /// takes the environment as a parameter.
+    func testFindingsWorkerIsChosenOnlyFromTheBuildTimeEnvironment() throws {
+        let call = "FindingsCloudEndpoint.baseURL(for:"
+        let onlyPermittedArgument = "BackendEnvironment.current"
+        var callSiteCount = 0
+        var offenders: [String] = []
+
+        for fileURL in Self.productionSwiftFiles() {
+            let relative = Self.relativePath(for: fileURL)
+            guard relative.hasSuffix("Services/FindingsCloudTransport.swift") == false else { continue }
+
+            for (index, rawLine) in try Self.readLines(of: fileURL).enumerated() {
+                let line = Self.strippingTrailingLineComment(rawLine)
+                guard let range = line.range(of: call) else { continue }
+                callSiteCount += 1
+                let argument = line[range.upperBound...].trimmingCharacters(in: .whitespaces)
+                guard argument.hasPrefix(onlyPermittedArgument) == false else { continue }
+                offenders.append("\(relative):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+
+        // Fail closed. Zero call sites means the API was renamed and this rule silently stopped
+        // guarding anything -- which is worse than a rule that was never written.
+        XCTAssertGreaterThan(
+            callSiteCount,
+            0,
+            "No `\(call)` call sites found in production sources. The API was renamed or moved; update this rule rather than deleting it."
+        )
+        XCTAssertTrue(
+            offenders.isEmpty,
+            """
+            The findings Worker must be chosen from `\(onlyPermittedArgument)` and nothing else \
+            (AIA-0791). A second source of truth is how cloud sync died on every App Store build:
+            \(offenders.joined(separator: "\n"))
+            """
+        )
+    }
 }

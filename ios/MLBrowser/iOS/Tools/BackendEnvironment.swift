@@ -86,12 +86,15 @@ extension BackendEnvironment {
 
     @MainActor
     static func `switch`(to environment: BackendEnvironment) async -> Bool {
+        // The re-entrancy guard comes FIRST, before the already-there check. The other order has
+        // a race: with a switch to production in flight, `current` still reads development, so a
+        // second tap back to development would take the already-there path and report success —
+        // and then the first switch lands on production under a control that says development.
+        // Refuse rather than queue; the caller resynchronises from `current` afterwards.
+        guard isSwitching == false else { return false }
         // Already there: report success so the caller does not resynchronise the control away
         // from a value that is in fact correct.
         guard environment != current else { return true }
-        // Refuse rather than queue. The caller re-reads `current` on a `false`, so a refused
-        // second tap puts the control back on the truth instead of racing the first switch.
-        guard isSwitching == false else { return false }
         isSwitching = true
         defer { isSwitching = false }
 
