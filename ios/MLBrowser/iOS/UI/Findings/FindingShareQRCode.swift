@@ -68,7 +68,7 @@ enum FindingShareQRCode {
 	/// The budget is a ceiling, not a size: a finding shared from `ags.cuzk.cz/av/` produces a link
 	/// near 150 characters, which is a version-11 symbol at 61 modules and needs 77pt — so it sits on
 	/// the floor — while the 400-character worst case needs 99pt. Fixing every code at the worst case
-	/// would spend 30pt of card on symbols that do not need it, and on a card where the badge now
+	/// would spend 19pt of card on symbols that do not need it, and on a card where the badge now
 	/// *reserves* its width from the text beside it, that width is the metadata block's to lose.
 	static func fittedPointSize(moduleCount: CGFloat) -> CGFloat {
 		let needed = (moduleCount * minimumPixelsPerModule / renderScale).rounded(.up)
