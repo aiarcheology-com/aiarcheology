@@ -1,61 +1,52 @@
-Build: AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735, AIA-0779, AIA-0782
+Build: AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735, AIA-0779, AIA-0782, AIA-0763, AIA-0765,
+AIA-0783
 
-Test Focus: your existing findings must survive the update, a shared link must point at the right
-place, an edit on one device must reach the other on its own, and the subscription screen must
-never be a dead end.
+Test Focus: detection boxes must sit on what they found, the two questions the app asks must never
+share a screen, and your existing findings must survive the update.
 
-- YOUR EXISTING FINDINGS MUST ALL STILL BE THERE. Storage changed in this build. Update from the
-  build you were running rather than deleting the app first — a fresh install cannot test this.
-  Open Findings: every finding still listed, with its picture, title and red box in the right place.
+- NEW: THE BOX MUST BE ON THE OBJECT. Turn on a detection model, set the shape to Rectangle and
+  turn labels on. Point it at a page with several objects. The blue box must sit ON the thing, not
+  below it — labels used to push it down the page, further the more classes were found. Compare a
+  page whose picture already has boxes drawn into it: ours should line up with those.
 
-- TWO DEVICES, ONE ACCOUNT. Sign both into the same account. On A, open Findings and leave it open.
-  On B, edit a finding's title. On A, close Findings and open it again: B's change should be there
-  without you pressing anything.
+- NEW: ONE LABEL, AND YOU CAN READ IT. Each box gets a single label, "class 0.42", above it — not
+  a row of six-letter fragments. It must be readable on a busy photo, on a SMALL box (it may stick
+  out past the box, that is intended), and at the very top of the page (it tucks inside instead of
+  going off-screen). Try Circle and Point too. Then change the annotation colour in the model's
+  settings, including a pale one like yellow: the text must stay readable on every colour.
 
-- Pull down on the findings list to fetch again. The spinner must stay until the fetch has really
-  finished.
+- NEW: THE NUMBER MUST VARY. Confidences used to all read 1.00. Now they should differ per box,
+  and if you raise Detection Confidence in the model's settings to 50%, every label you can see
+  must read 0.50 or higher. Findings saved before this build still show their old 100% — expected,
+  the real value was never stored.
 
-- Synchronize (the renamed button) still works both ways: in Airplane Mode it should say there is
-  no connection, on a working connection that everything is up to date. Its question mark explains
-  what it does — please tell us whether that answers the question you would have asked.
+- NEW: ONE QUESTION AT A TIME. Both the telemetry question and the back-up question are now the
+  same style of card. To get both at once: save 2-3 findings signed out, then Settings > Restore
+  Defaults, then sign in. Telemetry must come FIRST, alone; the back-up question must appear only
+  after you answer it, and it must NOT be forgotten. Tap fast on "Not now" — the second tap must
+  NOT hit the back-up card's buttons underneath. Check both cards on iPad and with Larger Text
+  turned up: they should stay a centred card and never fill the whole window.
+
+- NEW: on a Mac, the drawer's Add Model button must read "Add Model" in full. It was showing as a
+  small blue circle with just "M" in it.
+
+- YOUR EXISTING FINDINGS MUST ALL STILL BE THERE. Storage changed. Update from the build you were
+  running rather than deleting the app first — a fresh install cannot test this. Every finding
+  still listed, with its picture, title and box in the right place.
+
+- TWO DEVICES, ONE ACCOUNT. On A, open Findings and leave it open. On B, edit a finding's title.
+  On A, close Findings and reopen: B's change should be there without you pressing anything.
 
 - IF YOU HAVE EVER TAPPED "Keep on This Device": Synchronize must leave those findings local,
-  however many times you press it. Only "Back Up My Findings", now inside the question-mark sheet,
-  still sends them. Check both halves.
-
-- EVERY ROW SAYS WHETHER IT IS IN THE CLOUD. Green cloud with a tick = backed up and current; grey
-  upload cloud = not up there yet; grey cloud with a line through it = kept on this device. Signed
-  OUT there must be no icon at all, and signing in as a different account must recalculate the
-  marks rather than still showing the previous account's.
+  however many times you press it. Only "Back Up My Findings", inside the question-mark sheet,
+  still sends them.
 
 - A shared link points where the detection actually was. Before saving, pinch and drag to crop in
-  tight — the case that was broken. Share it with the link on and open it: under "Where on the
-  page" the mark should sit where the thing was. Cropping harder must not move it. Findings saved
-  before this build show no "Where on the page" section at all: deliberate.
+  tight. Share with the link on and open it: the mark under "Where on the page" should sit where
+  the thing was. Findings saved before this build show no such section: deliberate.
 
-- Findings toolbar: Export and Import now sit inside one button called Data, beside an arrows
-  button for sorting. Check the title is not squashed, also with Larger Text turned up.
+- Deleting your account offers your findings first: Delete Account must say they are NOT deleted
+  with the account and offer "Export First…". With nothing saved, that choice must NOT appear.
 
-- Sorting: Date (the default and the old order), Alphabetical, Website, plus Reverse. Worth real
-  attention: a finding with no website sits at the bottom under Website and must STILL be there
-  after Reverse. Same with no date or no title. The choice resets to Date when you reopen Findings.
-
-- Coming back online fixes itself. Airplane Mode on, launch the app, then turn the network on and
-  WAIT in the app: you should be signed in again and "Back Up My Findings" should reappear on its
-  own.
-
-- The tour points at what to press: Settings, then Replay the introduction. With Reduce Motion the
-  highlight is steady instead. Detection colours are vivid now; models you have keep theirs.
-
-- NEW: deleting your account offers your findings first. On the subscription screen tap Delete
-  Account. If this device has saved findings, the confirmation now says they are NOT deleted with
-  the account and offers "Export First…" — check the ZIP really reaches the share sheet, and that
-  the warning that deleting does not cancel App Store billing is still there. With nothing saved,
-  that export choice must NOT appear.
-
-- NEW: subscribing on an Apple Account that is already subscribed. Needs a Sandbox or TestFlight
-  account that already holds the subscription. Tap Subscribe; if Apple answers that you are
-  currently subscribed, tap Cancel. Before, that left you stuck with nothing to do. Now you should
-  be let straight in, or get an alert titled "Subscription Found" telling you to tap Restore
-  Purchases, which should then work. On an account that is NOT subscribed, cancelling a real
-  purchase sheet must still say nothing at all.
+- Subscribing on an Apple Account that already holds the subscription must let you in or point you
+  at Restore Purchases, never dead-end.

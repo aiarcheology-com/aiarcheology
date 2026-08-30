@@ -218,6 +218,7 @@
 		94D79C822EE35B9B0027C9FA /* EnvironmentValues+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C812EE35B9B0027C9FA /* EnvironmentValues+Extensions.swift */; };
 		94D79C842EE3616C0027C9FA /* SheetDismissButtonModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C832EE3616C0027C9FA /* SheetDismissButtonModifier.swift */; };
 		94D79C8A2EE36BF40027C9FA /* SnapAdjustmentOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C892EE36BF40027C9FA /* SnapAdjustmentOverlay.swift */; };
+		94D79D0B2EE36BF40027C9FA /* ConsentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79D0A2EE36BF40027C9FA /* ConsentCard.swift */; };
 		94D79C8C2EE37B0D0027C9FA /* FileManagerExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C8B2EE37B0D0027C9FA /* FileManagerExtensionsTests.swift */; };
 		94D79C942EE37DBF0027C9FA /* HostPlatformTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C902EE37DBF0027C9FA /* HostPlatformTests.swift */; };
 		94D79C952EE37DBF0027C9FA /* BundleExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C8E2EE37DBF0027C9FA /* BundleExtensionsTests.swift */; };
@@ -631,6 +632,7 @@
 		94D79C812EE35B9B0027C9FA /* EnvironmentValues+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnvironmentValues+Extensions.swift"; sourceTree = "<group>"; };
 		94D79C832EE3616C0027C9FA /* SheetDismissButtonModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetDismissButtonModifier.swift; sourceTree = "<group>"; };
 		94D79C892EE36BF40027C9FA /* SnapAdjustmentOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAdjustmentOverlay.swift; sourceTree = "<group>"; };
+		94D79D0A2EE36BF40027C9FA /* ConsentCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsentCard.swift; sourceTree = "<group>"; };
 		94D79C8B2EE37B0D0027C9FA /* FileManagerExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileManagerExtensionsTests.swift; sourceTree = "<group>"; };
 		94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironmentTests.swift; sourceTree = "<group>"; };
 		94D79C8E2EE37DBF0027C9FA /* BundleExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleExtensionsTests.swift; sourceTree = "<group>"; };
@@ -1009,6 +1011,7 @@
 				8A4F0E192F110A0300ABCDEF /* LocationSheetView.swift */,
 				8A7740D62B1908DD002E90D9 /* SnapAdjustmentView.swift */,
 				94D79C892EE36BF40027C9FA /* SnapAdjustmentOverlay.swift */,
+				94D79D0A2EE36BF40027C9FA /* ConsentCard.swift */,
 				8A4256E32B1E0BA3009153B1 /* EmailController.swift */,
 				8AC393B72B2B9E1800C9BA57 /* AlertItem.swift */,
 				952E8A6BBB23D84896D53765 /* Auth */,
@@ -2092,6 +2095,7 @@
 				942B1DE02EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */,
 				8AD3A8342B2F02280058E018 /* DownloadItem+CoreDataProperties.swift in Sources */,
 				94D79C8A2EE36BF40027C9FA /* SnapAdjustmentOverlay.swift in Sources */,
+				94D79D0B2EE36BF40027C9FA /* ConsentCard.swift in Sources */,
 				8AC650A32B2B4BB000922648 /* DeepState.swift in Sources */,
 				8A112CCB2AC2BCBC00786384 /* Detector.swift in Sources */,
 				8A4F0E262F110A0500ABCDEF /* DetectionTiling.swift in Sources */,

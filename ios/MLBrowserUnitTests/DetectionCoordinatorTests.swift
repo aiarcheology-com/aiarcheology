@@ -275,6 +275,10 @@ final class AnnotationSoundEventCoordinatorTests: XCTestCase {
 		/// The coordinator never reads this; the fake reports a healthy device so a settings-screen
 		/// concern cannot leak into these detection-path assertions.
 		func deviceOutputVolume() async -> Float { 1 }
+
+		/// Backgrounding is driven from the scene, not from the coordinator under test here (#785).
+		func suspend() async {}
+		func resume() async {}
 	}
 
 	private func detection(

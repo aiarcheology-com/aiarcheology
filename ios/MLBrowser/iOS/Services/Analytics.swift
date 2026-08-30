@@ -305,6 +305,14 @@ final class AnalyticsState: ObservableObject {
 	/// What the consent gate should render. Replaces the old `shouldShowChoice` Bool (AIA-0536).
 	@Published private(set) var consentPresentation: AnalyticsConsentPresentation
 
+	// Deliberately **no** "is the consent question on screen" flag here (AIA-0763). Whether a
+	// question is being asked is a property of a *window*, not of the app: this object is shared by
+	// every scene, and the app supports multiple ones. Two iPad windows would have written to one
+	// cell and the last writer would have decided for both — closing the question in one window
+	// while the other still asked it would have let the back-up card draw over that other window.
+	// It travels up the view tree as `ConsentQuestionOnScreenKey` instead, which is per-window by
+	// construction. See `ConsentCard.swift`.
+
 	/// Whether analytics is actually sending right now, for the Settings toggle to display.
 	///
 	/// Derived rather than read from `Settings.analyticsEnabled` directly: that field is only the

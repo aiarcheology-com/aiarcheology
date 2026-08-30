@@ -190,6 +190,34 @@ private final class BackgroundRefreshCompletion: @unchecked Sendable {
 	}
 }
 
+/// Keeps the app running long enough to finish one short piece of teardown after it leaves the
+/// foreground (#785).
+///
+/// A notification handler is synchronous, so work that has to hop to an actor cannot be awaited
+/// there. Without an assertion the process can be suspended before the hop lands, which is exactly
+/// what the teardown existed to prevent.
+///
+/// A class rather than a bare identifier so the expiration handler has something to call: the
+/// system reclaims the assertion if it is held too long, and an assertion that expires unhandled
+/// terminates the app.
+@MainActor
+final class BackgroundTaskAssertion {
+	private var identifier: UIBackgroundTaskIdentifier = .invalid
+
+	init(name: String) {
+		identifier = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
+			self?.end()
+		}
+	}
+
+	/// Idempotent: the expiration handler and the completing work race, and only one may end it.
+	func end() {
+		guard identifier != .invalid else { return }
+		UIApplication.shared.endBackgroundTask(identifier)
+		identifier = .invalid
+	}
+}
+
 @main
 struct MLBrowser: App {
 	@UIApplicationDelegateAdaptor(BackgroundDownloadAppDelegate.self) var appDelegate
@@ -348,6 +376,20 @@ struct MLBrowser: App {
 				LoggingPolicy.info("App entering background", logger: .lifecycle)
 				LoggingPolicy.flushApplicationLog()
 				appState.analytics.flushDetectionSessionSummary()
+				// Ends any sounding annotation voice before the process is suspended, and refuses
+				// new ones until the app is back (#785). A player left alive across a suspend
+				// outlives the shared audio session the system tears down, and the retention task
+				// that eventually released it then deallocated a player whose queue was already gone.
+				//
+				// Held under a background-task assertion because this handler cannot await: the stop
+				// reaches the player through an actor hop, and without the assertion the process may
+				// be suspended before the hop lands — which is the state the stop exists to prevent,
+				// so an unheld `Task` would leave the comment above claiming more than it delivers.
+				let annotationSoundSuspension = BackgroundTaskAssertion(name: "Annotation sound suspend")
+				Task { @MainActor in
+					await appState.annotationSoundPlayer.suspend()
+					annotationSoundSuspension.end()
+				}
 				if appState.detectionState.ontheflyDetectionEnabled {
 					appState.settings.isDetectionPaused = true
 					appState.detectionState.ontheflyDetectionTapped()
@@ -355,6 +397,7 @@ struct MLBrowser: App {
 			}
 			.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
 				LoggingPolicy.info("App entering foreground", logger: .lifecycle)
+				Task { await appState.annotationSoundPlayer.resume() }
 				if appState.settings.isDetectionPaused {
 					appState.settings.isDetectionPaused = false
 					// Resume is a continuation of the same detection session, not a new run.
@@ -528,7 +571,11 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 		Group {
 			switch display {
 			case .choice:
+				// The root swap: this replaces content, so there is nothing behind the card to
+				// show through its dim. The opaque background belongs here and only here — see
+				// the overlay branch below (AIA-0763).
 				AnalyticsChoiceView(analytics: analytics)
+					.background(Color(uiColor: .systemBackground).ignoresSafeArea())
 			case .content:
 				content
 			case .hold:
@@ -551,48 +598,57 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 		// old root swap did.
 		.overlay {
 			if asksOverContent {
+				// **No opaque background here, unlike the `.choice` branch below** (AIA-0763). The
+				// card dims what is behind it, and there is something behind it on this path — the
+				// app the user is already using. A `systemBackground` under the card would hide the
+				// very content the dim exists to show through.
 				AnalyticsChoiceView(analytics: analytics)
-					.background(Color(uiColor: .systemBackground))
 					.transition(.opacity)
 			}
 		}
 		.onChange(of: display, initial: true) { _, value in
 			if value == .content { hasEverShownContent = true }
 		}
+		// The gate publishes, up its own window's view tree, whether its question is actually
+		// rendered — so the back-up question can hold rather than land on top of it (AIA-0763).
+		//
+		// A preference and not a flag on `AnalyticsState`: that object is shared by every scene and
+		// this fact is per-window. It is also self-clearing, which is what makes stranding
+		// impossible — the value is recomputed with the view tree, so a gate that stops asking, or
+		// that is torn down with its window, reverts to the default without anything having to
+		// remember to write `false`.
+		.preference(key: ConsentQuestionOnScreenKey.self, value: isQuestionOnScreen)
+	}
+
+	/// Whether this gate is putting the telemetry question to the user right now, by either of the
+	/// two routes it has: as the screen the user arrives at, or as an overlay on content.
+	private var isQuestionOnScreen: Bool {
+		display == .choice || asksOverContent
 	}
 }
 
+/// The telemetry question, drawn as a ``ConsentCard`` — the same view type as the back-up question
+/// (AIA-0763).
+///
+/// It used to be a bare full-screen `VStack`: no backdrop, no card, sized to the whole screen. That
+/// is what made the overlap unreadable rather than merely untidy — the back-up card is an overlay
+/// applied further out in the scene, so when both were raised the card sat in the middle of this
+/// screen with this screen's icon above it and its buttons below, and nothing said the two belonged
+/// to different questions.
 private struct AnalyticsChoiceView: View {
 	let analytics: AnalyticsState
 
 	var body: some View {
-		VStack(spacing: 20) {
-			Spacer()
-			Image(systemName: "chart.bar.xaxis")
-				.font(.system(size: 48))
-				.foregroundStyle(.tint)
-				.accessibilityHidden(true)
-			Text(L10n.Analytics.Choice.title)
-				.font(.title2.bold())
-				.multilineTextAlignment(.center)
-			Text(L10n.Analytics.Choice.message)
-				.multilineTextAlignment(.center)
-				.foregroundStyle(.secondary)
-				.padding(.horizontal, 28)
-			Button(L10n.Analytics.Choice.enable) {
-				analytics.chooseAnalytics(enabled: true)
-			}
-			.buttonStyle(.borderedProminent)
-			.controlSize(.large)
-			.testability(Testability.Button.analyticsChoiceEnable)
-			Button(L10n.Analytics.Choice.notNow) {
-				analytics.chooseAnalytics(enabled: false)
-			}
-			.buttonStyle(.bordered)
-			.controlSize(.large)
-			.testability(Testability.Button.analyticsChoiceNotNow)
-			Spacer()
-		}
-		.padding()
+		ConsentCard(
+			systemImage: "chart.bar.xaxis",
+			title: L10n.Analytics.Choice.title,
+			message: L10n.Analytics.Choice.message,
+			primaryTitle: L10n.Analytics.Choice.enable,
+			primaryIdentifier: Testability.Button.analyticsChoiceEnable,
+			primaryAction: { analytics.chooseAnalytics(enabled: true) },
+			secondaryTitle: L10n.Analytics.Choice.notNow,
+			secondaryIdentifier: Testability.Button.analyticsChoiceNotNow,
+			secondaryAction: { analytics.chooseAnalytics(enabled: false) }
+		)
 	}
 }

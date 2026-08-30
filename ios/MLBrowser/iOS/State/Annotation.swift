@@ -121,6 +121,15 @@ protocol AnnotationSoundPlaying: Sendable {
 	/// without importing AVFoundation. It reports **media** volume only: iOS offers no way to read
 	/// the Silent mode switch, which is a separate condition and the one that actually caused #720.
 	func deviceOutputVolume() async -> Float
+
+	/// Ends every sounding voice and refuses new ones until ``resume()`` (#785).
+	///
+	/// Called when the app leaves the foreground. Nothing else guarantees a player is finished
+	/// before the process is suspended and the system tears the shared session down underneath it.
+	func suspend() async
+
+	/// Admits playback again after ``suspend()``. Called when the app returns to the foreground.
+	func resume() async
 }
 
 extension AnnotationSoundPlaying {
@@ -233,6 +242,15 @@ actor AnnotationSoundPlayer: AnnotationSoundPlaying {
 	static let sessionCategory: AVAudioSession.Category = .ambient
 
 	private var activePlayers: [UUID: AVAudioPlayer] = [:]
+
+	/// Set between ``suspend()`` and ``resume()``, i.e. while the app is not in the foreground.
+	///
+	/// A latch and not just a one-shot stop: `suspend()` is reached by an actor hop, so a detection
+	/// pass already in flight when the app backgrounded can deliver its requests *after* it runs.
+	/// Without this the burst would start a fresh voice into a process about to be suspended, which
+	/// is precisely the state `suspend()` exists to leave behind (#785).
+	private var isSuspended = false
+
 	private var admissionPolicy = AnnotationSoundAdmissionPolicy()
 	/// Last environment reported by `logPlaybackEnvironment`, so continuous detection logs
 	/// transitions rather than one line per pass.
@@ -258,6 +276,8 @@ actor AnnotationSoundPlayer: AnnotationSoundPlaying {
 	/// request, so a dense pass does not re-enter AVAudioSession for every annotation.
 	private func startBurst(_ requests: [AnnotationSoundPlaybackRequest]) {
 		guard requests.isEmpty.not else { return }
+		// Nothing may start while the app is on its way out of the foreground; see `isSuspended`.
+		guard isSuspended.not else { return }
 		// Fail closed, as AIA-0716 did. If the category could not be established, the shared session
 		// may still be whatever WebKit left behind — possibly `.playback`, which plays straight
 		// through Silent mode. Staying silent is the only outcome consistent with what the Sound
@@ -293,6 +313,12 @@ actor AnnotationSoundPlayer: AnnotationSoundPlaying {
 	}
 
 	private func startImmediately(_ request: AnnotationSoundPlaybackRequest) {
+		// Re-checked here and not only in `startBurst`: a staggered onset is a detached task that
+		// `suspend()` neither retains nor cancels, so it can wake *after* the app has gone to the
+		// background, find `activePlayers` empty, and start a fresh voice into a process about to be
+		// suspended — the latch defeated by the one path that does not go through the gate (#785).
+		guard isSuspended.not else { return }
+
 		// Re-checked here, not only at admission. A staggered onset was admitted against the voice
 		// count at *scheduling* time — typically near zero, since nothing in the pass had started
 		// yet — so without this the cap could be exceeded by the time the delay elapses. Dropping is
@@ -405,8 +431,35 @@ actor AnnotationSoundPlayer: AnnotationSoundPlaying {
 		AVAudioSession.sharedInstance().outputVolume
 	}
 
+	/// Stops a player **before** the last strong reference to it goes (#785).
+	///
+	/// The retention window is wall-clock — `duration` plus `playerRetentionBufferNanoseconds` — so
+	/// it is a prediction about when the stream ends, not an observation of it. Whenever CoreAudio
+	/// misses render cycles (`HALC_ProxyIOContext::IOWorkLoop: skipping cycle due to overload`) the
+	/// stream outlives the prediction, and deallocating then tore the audio queue down underneath
+	/// the render thread: `EXC_BAD_ACCESS` inside `AVAudioPlayerCpp`, reported from a Mac running
+	/// continuous detection with overlapping annotation sounds.
+	///
+	/// `stop()` is synchronous and undoes `prepareToPlay()`, so after it returns the deallocation
+	/// has nothing left to race.
 	private func releasePlayer(_ id: UUID) {
-		activePlayers.removeValue(forKey: id)
+		activePlayers.removeValue(forKey: id)?.stop()
+	}
+
+	/// Ends every voice and drops the players, so none survives into a suspended process.
+	///
+	/// The retention tasks still fire on their own schedule; `releasePlayer` is a no-op for an id
+	/// already removed here, and calling `stop()` twice on one player is well defined.
+	func suspend() {
+		isSuspended = true
+		for player in activePlayers.values {
+			player.stop()
+		}
+		activePlayers.removeAll()
+	}
+
+	func resume() {
+		isSuspended = false
 	}
 }
 

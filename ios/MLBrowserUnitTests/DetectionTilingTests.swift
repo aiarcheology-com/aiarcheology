@@ -7,6 +7,7 @@
 
 import XCTest
 import UIKit
+import SwiftUI
 @testable import ML_Browser
 
 // MARK: - TileLayout region tests
@@ -425,5 +426,124 @@ final class SnapshotDetectionQueueTests: XCTestCase {
 
 		XCTAssertEqual(started.count, 1)
 		XCTAssertFalse(queue.inFlight)
+	}
+}
+
+// MARK: - The one label a detection shows and saves (AIA-0765)
+
+final class DetectionPrimaryLabelTests: XCTestCase {
+
+	private func object(_ labels: [(String, Float)]) -> DetectedObject {
+		DetectedObject(
+			uuid: UUID(),
+			labels: labels.map { DetectedObject.Label(identifier: $0.0, confidence: $0.1) },
+			confidence: 0.5,
+			boundingBox: CGRect(x: 0.1, y: 0.1, width: 0.2, height: 0.2),
+			regionIndex: 0
+		)
+	}
+
+	func testPrimaryLabel_IsVisionsBestFirstEntry() {
+		let subject = object([("ship", 0.77), ("boat", 0.31)])
+		XCTAssertEqual(subject.primaryLabel?.identifier, "ship")
+		XCTAssertEqual(subject.primaryLabel?.confidence, 0.77)
+	}
+
+	/// The screen, the dedup stage and the saved finding must name the *same* class. This pins them
+	/// to one accessor: a view that re-derived "the best label" by scanning for the maximum would
+	/// disagree with `FindingRepository` here, on any input where the order and the maximum differ.
+	func testPrimaryLabel_AgreesWithTheIdentifierUsedForDedupAndSavedFindings() {
+		let subject = object([("ship", 0.42), ("boat", 0.91)])
+		XCTAssertEqual(subject.primaryLabel?.identifier, subject.primaryLabelIdentifier)
+		XCTAssertEqual(subject.primaryLabel?.identifier, "ship")
+	}
+
+	func testPrimaryLabel_UnlabeledObservation_HasNone() {
+		XCTAssertNil(object([]).primaryLabel)
+		XCTAssertNil(object([]).primaryLabelIdentifier)
+	}
+
+	func testLabelText_IsClassNameAndConfidenceToTwoPlaces() {
+		XCTAssertEqual(DetectionLabelView.text(identifier: "ship", confidence: 0.7712), "ship 0.77")
+	}
+
+	/// The label must show the **detection** score, never the class probability. A single-class
+	/// detector reports every label at 1.0, so drawing `Label.confidence` made every annotation
+	/// read "1.00" however weak the detection was -- the symptom that found this.
+	func testLabelText_ShowsTheDetectionScoreNotTheDegenerateClassProbability() {
+		let subject = DetectedObject(
+			uuid: UUID(),
+			labels: [DetectedObject.Label(identifier: "f3", confidence: 1.0)],
+			confidence: 0.42,
+			boundingBox: CGRect(x: 0.1, y: 0.1, width: 0.2, height: 0.2),
+			regionIndex: 0
+		)
+		let identifier = subject.primaryLabel?.identifier ?? ""
+		XCTAssertEqual(DetectionLabelView.text(identifier: identifier, confidence: subject.confidence), "f3 0.42")
+	}
+
+	/// The number on screen and the number the user's confidence threshold acts on must be the same
+	/// one, or a threshold of 0.5 admits detections whose labels claim something else.
+	func testLabelConfidence_IsTheFieldTheConfidenceFilterUses() {
+		let weak = DetectedObject(
+			uuid: UUID(),
+			labels: [DetectedObject.Label(identifier: "f3", confidence: 1.0)],
+			confidence: 0.2,
+			boundingBox: CGRect(x: 0.1, y: 0.1, width: 0.2, height: 0.2),
+			regionIndex: 0
+		)
+		// `DetectionPresentation.filteredResults` compares `observation.confidence` to the
+		// threshold, so that is the field a label has to report.
+		XCTAssertEqual(weak.confidence, 0.2)
+		XCTAssertNotEqual(weak.primaryLabel?.confidence, weak.confidence)
+	}
+
+	/// Guards the decimal separator. `String(format:)` takes no locale and so always emits a dot;
+	/// the `formatted()` this replaced is locale-aware and renders `0,77` wherever the separator is
+	/// a comma — which, next to an unlocalized class identifier, reads as a second field rather than
+	/// a decimal. A non-ASCII identifier is used to show the class name itself is passed through.
+	func testLabelText_SeparatesTheConfidenceWithADotNotAComma() {
+		let text = DetectionLabelView.text(identifier: "loď", confidence: 0.5)
+		XCTAssertEqual(text, "loď 0.50")
+		XCTAssertFalse(text.contains(","))
+	}
+
+	// MARK: Label legibility on a user-chosen annotation colour
+
+	/// The annotation colour is a user preference with no bounds, so no fixed text colour is
+	/// readable across it. These pin the two ends and the awkward middle.
+	func testLegibleForeground_PicksBlackOnLightAnnotationColours() {
+		XCTAssertEqual(DetectionLabelView.legibleForeground(on: .yellow), .black)
+		XCTAssertEqual(DetectionLabelView.legibleForeground(on: .white), .black)
+	}
+
+	func testLegibleForeground_PicksWhiteOnDarkAnnotationColours() {
+		XCTAssertEqual(DetectionLabelView.legibleForeground(on: .black), .white)
+		XCTAssertEqual(DetectionLabelView.legibleForeground(on: Color(red: 0, green: 0, blue: 0.4)), .white)
+	}
+
+	/// The reported case: a mid pink. Whichever way this resolves, the choice must clear the WCAG
+	/// 4.5:1 ratio for normal text -- the assertion is on the contrast, not on the colour, so it
+	/// stays meaningful if the threshold logic is ever retuned.
+	func testLegibleForeground_MidTonePinkStillClearsTheReadableContrastRatio() {
+		let pink = Color(red: 1, green: 0.41, blue: 0.71)
+		guard let luminance = DetectionLabelView.relativeLuminance(of: pink) else {
+			return XCTFail("a plain sRGB colour must expose its components")
+		}
+		let chosen = DetectionLabelView.legibleForeground(on: pink)
+		let ratio = chosen == .black
+			? (luminance + 0.05) / 0.05
+			: 1.05 / (luminance + 0.05)
+		XCTAssertGreaterThan(ratio, 4.5, "label text must stay readable on the user's annotation colour")
+	}
+
+	func testRelativeLuminance_OrdersColoursByPerceivedBrightness() {
+		let white = DetectionLabelView.relativeLuminance(of: .white)
+		let pink = DetectionLabelView.relativeLuminance(of: Color(red: 1, green: 0.41, blue: 0.71))
+		let black = DetectionLabelView.relativeLuminance(of: .black)
+		XCTAssertEqual(white ?? -1, 1, accuracy: 0.01)
+		XCTAssertEqual(black ?? -1, 0, accuracy: 0.01)
+		XCTAssertGreaterThan(pink ?? -1, black ?? -1)
+		XCTAssertLessThan(pink ?? 2, white ?? 2)
 	}
 }

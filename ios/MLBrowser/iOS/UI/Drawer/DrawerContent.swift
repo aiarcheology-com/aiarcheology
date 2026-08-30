@@ -242,6 +242,12 @@ struct DrawerContent: View {
             settingsSection
         }
         .listStyle(.insetGrouped)
+        // Breathing room under the toolbar (AIA-0783). With no navigation title, the "Available
+        // Models" header sits directly beneath the Add Model button and reads as crowded against
+        // it — most visibly on Mac, where the bar is shallower than on iOS. Applied to the scroll
+        // content rather than as padding on the List, so it spaces the content away from the bar
+        // without insetting the rows themselves.
+        .contentMargins(.top, 12, for: .scrollContent)
         // Names the drawer for VoiceOver now that the navigation title is gone (AIA-0757 D2).
         // `configurationsSection` carries its own header, but the empty branch has none, so without
         // this the first thing a model-less drawer announces is the close button.
@@ -532,6 +538,17 @@ struct DrawerContent: View {
             } label: {
                 Text(L10n.Models.add)
                     .fontWeight(.semibold)
+                    // **The title must not be allowed to compress** (AIA-0783). On macOS
+                    // (Designed for iPad) this item was rendering as a small blue disc showing a
+                    // single "M" — the *middle* character of "Add Model", which is what a
+                    // centre-aligned label does when its container is narrower than the text and
+                    // nothing has pinned the text's own width. `.fixedSize()` makes the label
+                    // report its ideal width as its minimum, so the bar has to lay the item out
+                    // wide enough to show the whole title instead of shrinking it to a glyph.
+                    // `.lineLimit(1)` keeps that ideal width on one line rather than letting it
+                    // resolve as a tall wrapped block.
+                    .lineLimit(1)
+                    .fixedSize()
             }
             // The platform's own prominent style: filled with the tint, white label. Adding a model
             // is the drawer's primary action and the reason the panel exists before any model is
@@ -539,6 +556,12 @@ struct DrawerContent: View {
             // `.tint` rather than a hand-set background — `borderedProminent` fills with the tint,
             // and the app's grey `AccentColor` would otherwise make the fill grey too.
             .buttonStyle(.borderedProminent)
+            // The other half of the AIA-0783 fix, and the half that names the actual shape: a
+            // prominent bar button is free to adopt the platform's circular bar-button shape, and a
+            // circle is a container that cannot be wide. Asking for a capsule keeps the control
+            // free to grow with its title on every platform, and is what the button already looked
+            // like on iOS and iPad — so this pins the shape rather than changing it there.
+            .buttonBorderShape(.capsule)
             .tint(.blue)
             // Keep only the model toggles interactive during the tour (AIA-0333).
             .disabled(tour.isActive)

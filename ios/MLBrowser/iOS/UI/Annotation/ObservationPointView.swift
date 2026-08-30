@@ -15,37 +15,31 @@ struct ObservationPointView: View {
 	var showIdentifiers: Bool
 	var animateDetections: Bool
 
-	@State private var animate = false
+	@State private var phasedOut = false
 
 	var body: some View {
 		let boundingBox = observation.boundingBox
 		let circleSize: CGFloat = 60
 		let center = CGPoint(x: boundingBox.midX * geometry.size.width,
 							 y: (1 - boundingBox.midY) * geometry.size.height)
+		// Marker first, label second (AIA-0765): the filled 60pt disc used to be drawn on top of the
+		// text, which is a large part of why classes were not visible on this symbol.
 		ZStack {
-			if showIdentifiers {
-				HStack {
-					ForEach(observation.labels, id: \.self) { label in
-						Text(" \(String(label.identifier.prefix(6)))|") // TODO: put this number in the annotation settings
-					}
-					.foregroundColor(color)
-				}
-				.position(center)
-			}
-
 			Circle()
 				.fill(color)
-				.frame(width: animate ? circleSize * 1.5 : circleSize, height: animate ? circleSize * 1.5 : circleSize)
-				.opacity(animate ? 0 : 0.5)
+				.frame(width: phasedOut ? circleSize * 1.5 : circleSize, height: phasedOut ? circleSize * 1.5 : circleSize)
+				.opacity(phasedOut ? 0 : 0.5)
 				.position(center)
-				.onAppear {
-					// Static-marker mode (settings.disableDetectionAnimations): leave `animate`
-					// at its initial `false` so the marker holds its visible steady state.
-					guard animateDetections else { return }
-					withAnimation(.easeInOut(duration: phaseOutTime)) {
-						animate = true
-					}
-				}
+
+			if showIdentifiers, let primary = observation.primaryLabel {
+				DetectionLabelView(identifier: primary.identifier, confidence: observation.confidence, color: color)
+					.position(center)
+					// Leaves with the marker. Stopping detection does not tear the annotation views
+					// down — the phase-out *is* how a detection leaves the screen — so a label that
+					// does not read `phasedOut` stays painted over the page after its dot has gone.
+					.opacity(phasedOut ? 0 : 1)
+			}
 		}
+		.detectionPhaseOut($phasedOut, after: phaseOutTime, animated: animateDetections)
 	}
 }

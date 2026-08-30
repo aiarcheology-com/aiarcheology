@@ -118,7 +118,12 @@ final class FindingRepository {
 		finding.author = Self.normalized(metadata.author)
 		finding.gps_ = Self.normalized(metadata.gps)
 		finding.detectionClass = capture.observation.primaryLabelIdentifier
-		finding.detectionConfidence = Double(capture.observation.labels.first?.confidence ?? capture.observation.confidence)
+		// The **observation's** confidence, which is what the annotation draws and what the
+		// confidence threshold filters on (AIA-0765). It used to prefer the first label's
+		// confidence, and that is the class probability: on a single-class detector it is
+		// trivially 1.0, so every saved finding recorded a perfect score regardless of how weak
+		// the detection actually was.
+		finding.detectionConfidence = Double(capture.observation.confidence)
 		finding.modelId = capture.params?.entityId
 		finding.boxX = box.minX
 		finding.boxY = box.minY

@@ -36,8 +36,21 @@ private struct BackupConsentPrompt: ViewModifier {
     @ObservedObject var sync: FindingsSyncCoordinator
 
     func body(content: Content) -> some View {
-        content.overlay {
-            if let request = sync.backupConsentRequest {
+        // `overlayPreferenceValue` rather than `overlay`, so the telemetry gate — a descendant of
+        // this modifier — can say whether it is currently asking, and this question can hold rather
+        // than draw over it (AIA-0763).
+        //
+        // One question at a time. This modifier is applied at the scene root, an ancestor of the
+        // telemetry question, so without this it wins the z-order and lands on top of it, which is
+        // exactly what the report shows. Holding rather than reordering the two keeps the gate's own
+        // state machine untouched: nothing about *when* telemetry consent is asked changes, only
+        // whether this question may share the screen with it.
+        //
+        // Holding is not dropping. `sync.backupConsentRequest` stays set until it is answered, so
+        // the question reappears the moment the telemetry one is dealt with — the same "waits behind
+        // whatever has the floor" behaviour this overlay already had for sheets.
+        content.overlayPreferenceValue(ConsentQuestionOnScreenKey.self) { isTelemetryQuestionOnScreen in
+            if let request = sync.backupConsentRequest, isTelemetryQuestionOnScreen == false {
                 BackupConsentCard(count: request.count) { accepted in
                     // Explicitly discarded: the returned task is for tests to await, and letting it
                     // be the closure's result trips generic inference on the shipping Xcode.
@@ -49,8 +62,9 @@ private struct BackupConsentPrompt: ViewModifier {
     }
 }
 
-/// The dimmed backdrop and the card on it, shaped like `SharedFindingCard` so the two questions the
-/// app can raise over any screen look like the same kind of thing.
+/// The back-up question, drawn as a ``ConsentCard`` — the same view type as the telemetry question,
+/// which is what AIA-0763 asked for. The card treatment itself is unchanged; it simply moved into
+/// the shared type so the other question could adopt it too.
 private struct BackupConsentCard: View {
     let count: Int
     /// Answered exactly once; the coordinator clears the request before acting, so a double tap on
@@ -58,49 +72,21 @@ private struct BackupConsentCard: View {
     let answer: (Bool) -> Void
 
     var body: some View {
-        ZStack {
-            // Not tappable to dismiss. Declining is a recorded decision that stops the outbox
-            // re-deriving these findings and asking again -- too consequential for a stray tap on the
-            // dim. The two buttons are the only exits, and both are always on screen.
-            Color.black.opacity(0.35)
-                .ignoresSafeArea()
-
-            VStack(spacing: 16) {
-                Image(systemName: "icloud.and.arrow.up")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.tint)
-                    .accessibilityHidden(true)
-                Text(L10n.Findings.Sync.Backup.title)
-                    .font(.title2.bold())
-                    .multilineTextAlignment(.center)
-                Text(L10n.Findings.Sync.Backup.message(count))
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
-                Button(L10n.Findings.Sync.Backup.confirm) { answer(true) }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .testability(Testability.Button.backupConsentConfirm)
-                // "Keep on This Device", not "Not Now". The old label made two promises the code does
-                // not keep: that the app would ask again (it would not -- AIA-740), and that
-                // declining stops back-up generally (it does not; findings created while signed in
-                // are the account's by construction and still upload). The label now says only what
-                // the button actually does, to these findings. The general off switch is AIA-744.
-                Button(L10n.Findings.Sync.Backup.keepOnDevice) { answer(false) }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .testability(Testability.Button.backupConsentDecline)
-            }
-            .padding(28)
-            .frame(maxWidth: 420)
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(uiColor: .systemBackground))
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .shadow(radius: 24, y: 8)
-            .padding(24)
-        }
-        // Without this VoiceOver walks straight through the dim into the screen behind it.
-        .accessibilityAddTraits(.isModal)
+        ConsentCard(
+            systemImage: "icloud.and.arrow.up",
+            title: L10n.Findings.Sync.Backup.title,
+            message: L10n.Findings.Sync.Backup.message(count),
+            primaryTitle: L10n.Findings.Sync.Backup.confirm,
+            primaryIdentifier: Testability.Button.backupConsentConfirm,
+            primaryAction: { answer(true) },
+            // "Keep on This Device", not "Not Now". The old label made two promises the code does
+            // not keep: that the app would ask again (it would not -- AIA-740), and that
+            // declining stops back-up generally (it does not; findings created while signed in
+            // are the account's by construction and still upload). The label now says only what
+            // the button actually does, to these findings. The general off switch is AIA-744.
+            secondaryTitle: L10n.Findings.Sync.Backup.keepOnDevice,
+            secondaryIdentifier: Testability.Button.backupConsentDecline,
+            secondaryAction: { answer(false) }
+        )
     }
 }

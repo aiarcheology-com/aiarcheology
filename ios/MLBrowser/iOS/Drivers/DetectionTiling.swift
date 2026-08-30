@@ -31,8 +31,23 @@ struct DetectedObject: Sendable {
 	/// Index into the region list that produced this box (dedup provenance + debugging).
 	let regionIndex: Int
 
+	/// The one label that stands for this detection: its highest-confidence class.
+	///
+	/// **The single definition of "the" label, deliberately** (AIA-0765). Three things need it and
+	/// they must agree: the dedup stage below, the finding written by `FindingRepository`, and the
+	/// text drawn on screen. A second, "better" rule in the view — picking the maximum confidence
+	/// rather than trusting the order — would make the label above a box disagree with the class and
+	/// confidence saved for the finding that box produces.
+	///
+	/// It is `first` and not `max(by:)` because ``labels`` is documented above as Vision's own
+	/// best-first order, so the two agree; `first` is additionally stable on ties, where `max(by:)`
+	/// returns the *last* maximal element.
+	var primaryLabel: Label? {
+		labels.first
+	}
+
 	var primaryLabelIdentifier: String? {
-		labels.first?.identifier
+		primaryLabel?.identifier
 	}
 }
 
