@@ -39,32 +39,37 @@ enum FindingShareQRCode {
 	/// Scannability is decided by pixels per module, so carrying more characters means more modules,
 	/// which means each gets thinner unless the code gets physically bigger. At EC-M a 400-character
 	/// payload is a version-15 symbol — 77 modules, 79 with the generator's quiet zone — and at 3×
-	/// that needs 79pt to hold ``minimumPixelsPerModule``. 88 leaves a little headroom above the
+	/// that needs 99pt to hold ``minimumPixelsPerModule``. 110 leaves a little headroom above the
 	/// densest symbol the contract can produce.
-	static let maximumPointSize: CGFloat = 88
+	static let maximumPointSize: CGFloat = 110
 
-	/// The floor: the fixed size the card carried before AIA-0657.
+	/// The floor: 1.25× the fixed size the card carried before AIA-0657.
 	///
-	/// Chosen rather than derived, for two reasons. A code that shipped at this size for two releases
-	/// is known to scan, so shrinking below it would be trading a proven property for a few points of
-	/// card. And the address printed under the code has to stay readable — at 8pt it needs about
-	/// 84pt, which fits here once allowed to scale to 0.7, and does not fit anything much smaller.
+	/// Chosen rather than derived, for two reasons. A code at the old 64pt shipped for two releases
+	/// and is known to scan, so this cannot go below it. And the address printed under the code has
+	/// to stay readable — at 8pt it needs about 84pt, which fits here once allowed to scale to 0.7.
 	///
-	/// The practical effect: a typical finding's code is 64pt, exactly as before, and only a link
-	/// long enough to need more modules makes it grow.
-	static let minimumPointSize: CGFloat = 64
+	/// The practical effect: a typical finding's code is 80pt, and only a link long enough to need
+	/// more modules makes it grow.
+	static let minimumPointSize: CGFloat = 80
 
 	/// Below roughly this, a code stops surviving being photographed off a screen — which is the only
 	/// way a reposted card is ever scanned.
-	static let minimumPixelsPerModule: CGFloat = 3
+	///
+	/// Raised from 3 to 3.75, the 1.25× that reports of hard-to-scan cards asked for. It is the right
+	/// knob for that complaint rather than the floor alone: this is the term ``fittedPointSize`` is
+	/// built on, so every code grows by the same factor and the sizing stays adaptive. Scaling only
+	/// the floor would have lifted it past the 79-module worst case, leaving every symbol pinned to
+	/// it and the ceiling unreachable — the fitting silently dead.
+	static let minimumPixelsPerModule: CGFloat = 3.75
 
 	/// The size a symbol of `moduleCount` modules (quiet zone included) must be drawn at.
 	///
 	/// The budget is a ceiling, not a size: a finding shared from `ags.cuzk.cz/av/` produces a link
-	/// near 150 characters, which is a version-11 symbol at 61 modules and needs 63pt — while the
-	/// 400-character worst case needs 79pt. Fixing every code at the worst case would spend 16pt of
-	/// card on symbols that do not need it, and on a card where the badge now *reserves* its width
-	/// from the text beside it, that width is the metadata block's to lose.
+	/// near 150 characters, which is a version-11 symbol at 61 modules and needs 77pt — so it sits on
+	/// the floor — while the 400-character worst case needs 99pt. Fixing every code at the worst case
+	/// would spend 30pt of card on symbols that do not need it, and on a card where the badge now
+	/// *reserves* its width from the text beside it, that width is the metadata block's to lose.
 	static func fittedPointSize(moduleCount: CGFloat) -> CGFloat {
 		let needed = (moduleCount * minimumPixelsPerModule / renderScale).rounded(.up)
 		return min(maximumPointSize, max(minimumPointSize, needed))

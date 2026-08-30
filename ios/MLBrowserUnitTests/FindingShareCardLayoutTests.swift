@@ -294,7 +294,7 @@ final class FindingShareCardLayoutTests: XCTestCase {
 	/// superseded version divided the bitmap width by the point size, which cancels to `renderScale`
 	/// by construction and then asserted it was positive — true even if every module were drawn one
 	/// pixel wide, the single failure this budget exists to prevent.
-	func test_fittedPointSizeKeepsThreePixelsPerModuleUpToTheCeiling() {
+	func test_fittedPointSizeKeepsItsPixelsPerModuleUpToTheCeiling() {
 		// 79 modules is the 400-character worst case: 77 plus the generator's quiet zone.
 		for modules in stride(from: 21.0, through: 79.0, by: 2.0) {
 			let points = FindingShareQRCode.fittedPointSize(moduleCount: modules)
