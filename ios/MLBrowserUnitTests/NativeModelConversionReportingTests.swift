@@ -81,15 +81,21 @@ final class NativeModelConversionReportingTests: XCTestCase {
 		XCTAssertFalse(text.contains(report.configurationID.uuidString), text)
 	}
 
-	func testLogText_IsIdenticalWhereverItIsSentFrom() throws {
-		// The failure alert and the log view's share sheet must not drift into two reports; both
-		// call this one function, and this test is what keeps a second copy from reappearing.
-		let report = try failedReport()
+	/// The ticket's definition of a failing conversion, pinned: one that produced no Core ML model
+	/// for a technical reason. Getting this wrong in either direction ruins the signal — a
+	/// registered model reported as a failure is noise, a real failure with no button is a loss.
+	func testReportableFailure_ExcludesSuccessAndUserCancellation() {
+		XCTAssertFalse(NativeModelConversionImportState.registered.isReportableConversionFailure)
+		XCTAssertFalse(NativeModelConversionImportState.cancelled.isReportableConversionFailure)
 
-		XCTAssertEqual(
-			NativeModelConversionReporting.logText(for: report),
-			NativeModelConversionReporting.logText(for: report)
-		)
-		XCTAssertTrue(NativeModelConversionReporting.subject().isEmpty.not)
+		for state: NativeModelConversionImportState in [.staged, .converting, .interrupted, .emitted, .failed] {
+			XCTAssertTrue(state.isReportableConversionFailure, state.rawValue)
+		}
+	}
+
+	/// The subject has to survive being read in a mail client's list: it names the app's support
+	/// channel and the log, and nothing about it is derived from the report.
+	func testSubject_NamesTheConversionLog() {
+		XCTAssertTrue(NativeModelConversionReporting.subject().contains(L10n.Import.conversionLog))
 	}
 }

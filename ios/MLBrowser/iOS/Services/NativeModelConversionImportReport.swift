@@ -31,6 +31,23 @@ enum NativeModelConversionImportState: String, Codable, Equatable, Sendable {
 			false
 		}
 	}
+
+	/// Whether this is a conversion the app can learn from — the ticket's own definition of a
+	/// failing conversion: one that *does not result in a Core ML model, for a technical reason*
+	/// (AIA-0778).
+	///
+	/// `registered` is excluded because a model exists: an error raised afterwards (an export that
+	/// failed, say) reaches the same alert, and offering to report a conversion that succeeded as a
+	/// failing one would poison the very signal this is collected for. `cancelled` is excluded
+	/// because the user stopped it, which says nothing about whether the model is supported.
+	var isReportableConversionFailure: Bool {
+		switch self {
+		case .staged, .converting, .interrupted, .emitted, .failed:
+			true
+		case .registered, .cancelled:
+			false
+		}
+	}
 }
 
 /// The independently durable lifetime of a source package after its converted model is registered.

@@ -163,8 +163,21 @@ struct ModelImportView: View {
 				// opened the log and found a toolbar menu (AIA-0778). A conversion that produced no
 				// Core ML model is the only way the app learns which models it does not yet support,
 				// so the path to sending one must be visible at the moment it fails.
-				Button(L10n.Import.reportConversion) {
-					Task { await NativeModelConversionReporting.email(report) }
+				//
+				// Gated on the state and not merely on a report existing: this alert also carries
+				// errors raised *after* a conversion succeeded, and inviting someone to report a
+				// registered model as a failing conversion would corrupt the signal.
+				if report.state.isReportableConversionFailure {
+					Button(L10n.Import.reportConversion) {
+						Task {
+							// No mail account and no mail app reaches neither tier. Falling through
+							// to the log is not a consolation prize: that screen carries the same
+							// report behind a Share item, so the path stays open instead of ending.
+							if await NativeModelConversionReporting.email(report).not {
+								presentedNativeConversionReport = report
+							}
+						}
+					}
 				}
 				Button(L10n.Import.showConversionLog) {
 					presentedNativeConversionReport = report

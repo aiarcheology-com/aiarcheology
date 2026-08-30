@@ -104,8 +104,14 @@ enum NativeModelConversionReporting {
 
 	/// The app's support-mail tiers: the in-app composer, then the user's default mail app. Both are
 	/// user-driven — nothing here sends anything on its own.
+	///
+	/// - Returns: whether a draft was actually opened. A device with no mail account *and* no mail
+	///   app reaches neither tier, and `EmailController`'s own contract asks callers to handle that
+	///   rather than leave a button that does nothing when pressed. The log view has a Share item
+	///   beside this one; the failure alert has to offer the log instead.
 	@MainActor
-	static func email(_ report: NativeModelConversionImportReport) async {
+	@discardableResult
+	static func email(_ report: NativeModelConversionImportReport) async -> Bool {
 		let body = logText(for: report)
 		do {
 			try EmailController.shared.sendEmail(
@@ -113,9 +119,10 @@ enum NativeModelConversionReporting {
 				body: body,
 				to: SupportRequest.supportEmailAddress
 			)
+			return true
 		} catch {
 			LoggingPolicy.warning("Mail composer unavailable (\(error)) — falling back to mailto:", logger: .ui)
-			_ = await EmailController.shared.openMailto(
+			return await EmailController.shared.openMailto(
 				subject: subject(),
 				body: body,
 				to: SupportRequest.supportEmailAddress
