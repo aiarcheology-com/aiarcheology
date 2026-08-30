@@ -111,7 +111,7 @@ final class FindingsSyncCoordinator: ObservableObject {
     }
 
     var isCloudConfigured: Bool {
-        FindingsCloudEndpoint.baseURL(for: ClerkAuthProvider.selectedEnvironment) != nil
+        FindingsCloudEndpoint.baseURL(for: BackendEnvironment.current) != nil
     }
 
     /// The account is out of room: at least one finding was refused with `quota_exceeded`.
@@ -597,7 +597,7 @@ final class FindingsSyncCoordinator: ObservableObject {
             backupStates = [:]
         }
 
-        guard let baseURL = FindingsCloudEndpoint.baseURL(for: ClerkAuthProvider.selectedEnvironment) else {
+        guard let baseURL = FindingsCloudEndpoint.baseURL(for: BackendEnvironment.current) else {
             // No Worker for this build. Sync is off rather than pointed somewhere wrong.
             return
         }
@@ -1158,7 +1158,7 @@ final class FindingsSyncCoordinator: ObservableObject {
     /// the only copy left, and this ticket is about deleting an account -- not somebody's fieldwork.
     func purgeCloudData() async throws {
         guard let account = authProvider.accountIdentifier else { return }
-        guard let baseURL = FindingsCloudEndpoint.baseURL(for: ClerkAuthProvider.selectedEnvironment) else {
+        guard let baseURL = FindingsCloudEndpoint.baseURL(for: BackendEnvironment.current) else {
             return
         }
 

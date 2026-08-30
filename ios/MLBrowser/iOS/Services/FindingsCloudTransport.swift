@@ -127,10 +127,18 @@ enum FindingsCloudError: Error, Sendable {
 /// That pairing is the check worth running after a production deploy -- a development token
 /// presented to the production Worker must come back 401 (AIA-741).
 ///
+/// Both halves of that pair now come from `BackendEnvironment`, which is fixed at build time.
+/// They used to come from two different places — the Clerk key from the distribution channel, this
+/// URL from a `UserDefaults` value an App-Store-classified build could never write — and so
+/// disagreed permanently on every such build (AIA-0791).
+///
+/// The Worker's own configuration calls the development environment "staging"; this is the one
+/// place the two vocabularies meet.
+///
 /// A `nil` here turns sync off rather than pointing it somewhere wrong, and the back-up button
 /// hides itself when it sees one.
 enum FindingsCloudEndpoint {
-    static func baseURL(for environment: ClerkEnvironment) -> URL? {
+    static func baseURL(for environment: BackendEnvironment) -> URL? {
         switch environment {
         case .development:
             return URL(string: "https://aia-findings-staging.vladimir-slavik.workers.dev")
