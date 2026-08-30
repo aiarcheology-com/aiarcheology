@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 import NativeModelConverter
 
 /// Presents a path-free support and recovery report written by the host app, modally.
@@ -74,6 +75,21 @@ enum NativeModelConversionReporting {
 				"  Message: \(diagnostic.message)"
 			]
 		}
+		// Listed before `metrics` and independently of it: a failed conversion has no metrics at
+		// all, and these are what a support reader can still use (AIA-0778). The byte count is
+		// printed both exactly and in units — the exact number is what gets compared against a
+		// limit, the readable one is what a human reacts to.
+		if let sourceByteCount = report.sourceByteCount {
+			let readable = ByteCountFormatter.string(
+				fromByteCount: Int64(clamping: sourceByteCount),
+				countStyle: .file
+			)
+			lines += ["", "Source bytes: \(sourceByteCount) (\(readable))"]
+		}
+		// Remote imports only; never a local path. See ``NativeModelConversionImportReport/sourceURL``.
+		if let sourceURL = report.sourceURL {
+			lines.append("Source URL: \(sourceURL)")
+		}
 		if let metrics = report.metrics {
 			lines += [
 				"",
@@ -100,6 +116,79 @@ enum NativeModelConversionReporting {
 
 	static func subject() -> String {
 		"\(L10n.Support.title) — \(L10n.Import.conversionLog)"
+	}
+
+	/// Where ``exportedLogFile(for:)`` writes the file it hands to `ShareLink`. Inside the app's
+	/// temporary directory: sandboxed, and purged by the system. The same shape as
+	/// `SupportRequestView`'s `support-log-export`, which is the one share in this app proven to
+	/// survive *Save to Files* on macOS.
+	private static var logExportDirectory: URL {
+		FileManager.default.temporaryDirectory
+			.appendingPathComponent("conversion-log-export", isDirectory: true)
+	}
+
+	/// The log as a **named file on disk**, or `nil` if it could not be written.
+	///
+	/// Three shapes were tried against macOS's Save-to-Files service before this one, and every
+	/// failure ended identically: `SHKSaveToFilesSharingService` could not resolve the item, called
+	/// `-[NSSavePanel setNameFieldStringValue:]` with `nil`, and AppKit raised
+	/// `NSInternalInconsistencyException` from inside ShareKit — terminating the app where no
+	/// `do/catch` of ours can see it (AIA-0778).
+	///
+	/// 1. `ShareLink(item: someString)` — UIKit spills the string to an anonymous `text.txt`;
+	///    *"No eligible items to save"*, because there is no name to save it under.
+	/// 2. `DataRepresentation` + `suggestedFileName` — correctly *named*, and still
+	///    *"No eligible items to save"*: the service wants a file it can resolve, not bytes.
+	/// 3. A file URL whose directory was deleted and recreated on every call — *"Save: timed out
+	///    loading URL"*. This view is instantiated more than once, so a re-render removed the file
+	///    while the share sheet was still loading it.
+	///
+	/// Hence the two rules here, both learned the hard way: hand over a **file URL**, and **never
+	/// remove one that a share may still be holding**. A superseded export is left to the system's
+	/// purge of the temporary directory rather than deleted underneath a share in flight — a stale
+	/// file nobody is reading costs nothing, and deleting a live one costs the whole app.
+	static func exportedLogFile(for report: NativeModelConversionImportReport) -> URL? {
+		let directory = logExportDirectory
+		let file = directory.appendingPathComponent(exportFilename(for: report), isDirectory: false)
+		let text = logText(for: report)
+		do {
+			try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+			// Rewritten only when the contents actually differ, so the repeated calls this view
+			// makes do not churn a file the share sheet may be reading.
+			if let existing = try? String(contentsOf: file, encoding: .utf8), existing == text {
+				return file
+			}
+			try text.write(to: file, atomically: true, encoding: .utf8)
+			return file
+		} catch {
+			// `nil` rather than a throw: the caller's only recourse is to leave the row out, and a
+			// Share button pointing at a file that was never written is worse than no button.
+			LoggingPolicy.warning("Could not write the conversion log for sharing: \(error)", logger: .ui)
+			return nil
+		}
+	}
+
+	/// `<model>-conversion-log.txt`, from a **sanitised** stem.
+	///
+	/// `sourcePackageFilename` is the name of a file the user chose, so it is untrusted for this
+	/// purpose: a `/` or a `..` in it would place the export outside the directory above. Only
+	/// alphanumerics, dashes and underscores survive; anything else becomes a dash, and a stem that
+	/// sanitises away to nothing falls back rather than producing a dotfile or a bare extension.
+	static func exportFilename(for report: NativeModelConversionImportReport) -> String {
+		let stem = (report.sourcePackageFilename as NSString).deletingPathExtension
+		let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+		let sanitised = String(
+			stem.unicodeScalars.map { allowed.contains($0) ? Character($0) : "-" }
+		)
+		.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+		.prefix(60)
+		let name = sanitised.isEmpty ? "model" : String(sanitised)
+		// The configuration id makes the name unique per report. Without it, two conversions of the
+		// same model — or two names that sanitise to the same stem — share one file, and the second
+		// write replaces one the first report's share may still be loading. The stem alone is not
+		// an identity.
+		let identity = report.configurationID.uuidString.prefix(8).lowercased()
+		return "\(name)-\(identity)-conversion-log.txt"
 	}
 
 	/// The app's support-mail tiers: the in-app composer, then the user's default mail app. Both are
@@ -151,6 +240,10 @@ struct NativeModelConversionReportContent: View {
 	let isPreparingExport: Bool
 	let onExport: () -> Void
 
+	/// The temporary file `ShareLink` hands to Files/AirDrop/Messages. `nil` until it is written,
+	/// and if the write fails the Share item stays out of the menu rather than pointing at nothing.
+	@State private var logExportURL: URL?
+
 	init(
 		report: NativeModelConversionImportReport,
 		isPreparingExport: Bool = false,
@@ -187,6 +280,18 @@ struct NativeModelConversionReportContent: View {
 					}
 				}
 
+				// The failure case: no metrics, but the input size was captured before the attempt,
+				// and it is the one number that says how big the model we could not convert was.
+				// Only when `metrics` is absent — otherwise the section below already shows it,
+				// alongside the output figures a success also has.
+				if report.metrics == nil, let sourceByteCount = report.sourceByteCount {
+					Section(L10n.Import.conversionLogMetrics) {
+						LabeledContent(
+							L10n.Import.conversionLogInputBytes,
+							value: formattedByteCount(sourceByteCount)
+						)
+					}
+				}
 				if let metrics = report.metrics {
 					Section(L10n.Import.conversionLogMetrics) {
 						LabeledContent(
@@ -241,6 +346,11 @@ struct NativeModelConversionReportContent: View {
 				}
 			}
 			.navigationTitle(L10n.Import.conversionLog)
+			// Written once the log is on screen rather than on every menu open, so the Share item is
+			// either present and backed by a file or absent.
+			.task(id: report.sourcePackageFilename) {
+				logExportURL = NativeModelConversionReporting.exportedLogFile(for: report)
+			}
 			.toolbar {
 				ToolbarItem(placement: .topBarLeading) {
 					// Available for every state — a failed conversion has no exportable model, but its
@@ -253,14 +363,22 @@ struct NativeModelConversionReportContent: View {
 						} label: {
 							Label(L10n.Support.sendEmail, systemImage: "envelope")
 						}
-						ShareLink(item: logText, preview: SharePreview(L10n.Import.conversionLog)) {
-							Label(L10n.Common.share, systemImage: "square.and.arrow.up")
+						// A written file and no `preview:` — the exact shape of `SupportRequestView`'s
+						// support-log row, which is the one share in this app proven to survive
+						// *Save to Files* on macOS. See
+						// ``NativeModelConversionReporting/exportedLogFile(for:)`` for what the
+						// three departures from it each cost.
+						if let logExportURL {
+							ShareLink(item: logExportURL) {
+								Label(L10n.Common.share, systemImage: "square.and.arrow.up")
+							}
 						}
 					} label: {
-						// Named for the job, not the mechanism (AIA-0778). Behind a generic share
-						// glyph this read as "export this somewhere", and a user looking for a way to
-						// report a failed conversion had no reason to open it.
-						Label(L10n.Import.reportConversion, systemImage: "exclamationmark.bubble")
+						// Text, not a glyph (AIA-0778). Named for the job rather than the mechanism
+						// was the first half; the second is that no icon says "report this failure"
+						// on sight. A user looking for a way to report a failed conversion has to
+						// read the word to know this is it, so the word is what the toolbar shows.
+						Text(L10n.Import.reportConversion)
 					}
 				}
 				if report.state == .registered {
