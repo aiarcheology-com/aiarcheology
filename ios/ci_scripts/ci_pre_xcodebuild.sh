@@ -10,7 +10,10 @@
 #   - CLERK_PUBLISHABLE_KEY: dev/test Clerk publishable key (pk_test_…), mark as Secret.
 #   - CLERK_PUBLISHABLE_KEY_LIVE: production Clerk publishable key (pk_live_…), mark as Secret.
 #       Both are consumed ONLY by the ARCHIVE action (test/build workflows ignore them —
-#       those run the mock auth path). Archive requires BOTH (it ships to TestFlight + App Store).
+#       those run the mock auth path). Archive requires BOTH (it ships to TestFlight + App Store,
+#       and a Debug build can be pointed at either instance). Which key the binary actually uses
+#       is fixed at build time by AIA_BACKEND_ENVIRONMENT, not inferred from the receipt
+#       (AIA-0791) — an Xcode Cloud archive is always `production`.
 #   - CONFIGCAT_SDK_KEY_LIVE: ConfigCat Production environment SDK key, mark as Secret.
 #       Consumed ONLY by the ARCHIVE action. A Release binary reads ConfigCatSDKKeyLive
 #       (the Test-environment key is a Debug-only path), so archive requires this one key.
@@ -65,11 +68,10 @@ ESCAPED_DSN=$(echo "$SENTRY_DSN" | sed 's|://|:$()/$()/|g')
 # get no key — this keeps the test workflows hermetic and independent of Clerk.
 CLERK_LINES=""
 if [[ "${CI_XCODEBUILD_ACTION:-}" == "archive" ]]; then
-    # An archive ships to both TestFlight (uses pk_test_ via the sandbox receipt) and
-    # the App Store (uses pk_live_ via the production receipt), so the binary needs
-    # BOTH keys. Both are public; the app selects at runtime via
-    # AppEnvironment.isAppStoreDistribution (App Store → pk_live_, else pk_test_),
-    # with a non-App-Store override from the sign-in environment switch.
+    # An archive ships to both TestFlight and the App Store from the same binary, and a Debug
+    # build can be pointed at either instance, so the binary carries BOTH public keys. Which one
+    # is used is fixed at build time by AIA_BACKEND_ENVIRONMENT — not inferred from the receipt
+    # (AIA-0791). See AUTH-SUBSCRIPTION.md, "Which backend a build talks to".
     if [[ -z "${CLERK_PUBLISHABLE_KEY:-}" || -z "${CLERK_PUBLISHABLE_KEY_LIVE:-}" ]]; then
         echo "❌ Archive builds require BOTH CLERK_PUBLISHABLE_KEY (pk_test_…) and CLERK_PUBLISHABLE_KEY_LIVE (pk_live_…)."
         echo "   Set both in the Xcode Cloud archive workflow's environment."

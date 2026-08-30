@@ -100,6 +100,52 @@ user on the paywall can still report a bug and still receive a message. The bann
 takes the window state for this reason — a free-window user is unsubscribed but is sitting in the
 app, not on the paywall, so `.paywall`-targeted messages must not fire at them as banners.
 
+## Which backend a build talks to
+
+The Clerk instance and the findings Worker are **one choice**, not two. Each Worker pins exactly
+one Clerk issuer (`cloudflare/findings-worker/wrangler.jsonc`), so a build that signs in against
+one instance and uploads to the other is refused with a 401 on every request.
+
+That choice is `AIA_BACKEND_ENVIRONMENT`, a build setting on the MLBrowser target. It reaches the
+app twice from the same source: as a Swift compilation condition (`BackendEnvironment.configured`,
+non-optional, an invalid value is a compile error) and as an `Info.plist` string that build
+artifacts can be asserted about from shell. `ClerkAuthProvider.publishableKey` and
+`FindingsCloudEndpoint.baseURL` read it and nothing else.
+
+| Build path | Value |
+|-|-|
+| Xcode, Debug | `development` — staging Worker, `pk_test_` Clerk |
+| Xcode / Xcode Cloud, Release | `production`, asserted on the archive in `ci_post_xcodebuild.sh` |
+| `scripts/deliver.sh` | `production` unless `--execution-environment development`; uploading a non-production build additionally needs `--allow-staging-upload` |
+| Debug build, at runtime | either, via the `#if DEBUG` picker in `SignInSheet` — and the app wears a red `PRODUCTION` banner for the whole session while it is |
+
+The compilation condition alone is not a sufficient guard. `SWIFT_ACTIVE_COMPILATION_CONDITIONS`
+is a whitespace-separated **list**, so `AIA_BACKEND_ENVIRONMENT="development production"` still
+defines `AIA_BACKEND_ENV_development` and compiles clean. The "Validate backend environment" run
+script phase does the exact-string comparison that catches that; both guards are needed.
+
+Two settings, one string: the target-level `SWIFT_ACTIVE_COMPILATION_CONDITIONS` **must** keep its
+`$(inherited)`. The project-level Debug value is `DEBUG` with no `$(inherited)` of its own, so
+dropping it removes `DEBUG` from the app module — taking `MockAuthProvider`, every `UI_TESTING`
+run, `DataController`'s mapping-model choice and StoreKit sandbox detection with it, while
+compiling clean. `BackendEnvironmentTests.test_debugFlagSurvivesTheCompilationConditionChange` is
+the tripwire.
+
+There is no runtime fallback, deliberately: falling back to `development` is how cloud sync was
+dead for every App-Store-classified build in 1.0.8 build 1005, and falling back to `production`
+would put test findings in real users' bucket.
+
+**TestFlight runs against production.** A TestFlight build is a release candidate, and under the
+previous policy the archive promoted to the App Store had never had its production path exercised
+by anyone. `--execution-environment development` is the release valve for heavy test cycles.
+
+Distribution-channel inference (`AppEnvironment.distributionChannel`) does **not** decide this and
+must not be reintroduced into it. It cannot be trusted for the purpose: an iOS-app-on-Mac install
+has no receipt at that path, and an iPhone restored from backup has none until
+`SKReceiptRefreshRequest` completes. It still decides other things — Settings' debug section,
+Sentry sampling, StoreKit sandbox detection, and (pre-existing, load-bearing, out of scope here)
+`DataController`'s mapping-model inference and its destructive store-recovery gate.
+
 ## State table
 
 Axes: `isReady` × payments flag × entitlement × free-access window × auth context. Auth no longer

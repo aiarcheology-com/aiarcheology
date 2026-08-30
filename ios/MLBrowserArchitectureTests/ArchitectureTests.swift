@@ -834,10 +834,12 @@ final class ArchitectureTests: XCTestCase {
     /// expensive place any of this could be discovered.
     ///
     /// **Both, not one.** The instances are configured separately (the same per-instance trap
-    /// AIA-741 hit with webhooks), and the app picks between them at runtime:
-    /// `ClerkAuthProvider.publishableKey` returns the production key for App Store builds and the
-    /// dev key everywhere else. Dropping only the dev host leaves production working and every
-    /// tester broken -- the combination least likely to be noticed before release.
+    /// AIA-741 hit with webhooks), and a build picks between them at *build* time:
+    /// `ClerkAuthProvider.publishableKey` returns the key for `BackendEnvironment`, which comes
+    /// from `AIA_BACKEND_ENVIRONMENT` — `production` for Release, `development` for Debug, and
+    /// either one for a Debug build using the `#if DEBUG` picker (AIA-0791). Both hosts must stay
+    /// listed: dropping the dev host breaks passkey sign-in on every Debug and staging build, and
+    /// dropping the production one breaks it for every shipped user.
     ///
     /// The hosts are written out rather than derived: the keys they belong to come from
     /// `Secrets.xcconfig`, which is deliberately not committed. A guard that reads a file the

@@ -285,7 +285,10 @@ is never an app secret.
 
 ### The client half
 
-`FindingsCloudEndpoint.baseURL(for:)` pairs each Clerk environment with its Worker. A `nil` there
+`FindingsCloudEndpoint.baseURL(for:)` takes a `BackendEnvironment` — the same value
+`ClerkAuthProvider.publishableKey` reads, fixed at build time, so the Worker and the Clerk instance
+cannot disagree (AIA-0791). The Worker's own `wrangler.jsonc` calls the client's `development`
+environment `staging`; `FindingsCloudEndpoint` is the one place the two vocabularies meet. A `nil` there
 turns sync off rather than pointing it somewhere wrong, and the back-up button hides itself when it
 sees one — so an unconfigured environment is quiet rather than broken. The consequence is that
 flipping `nil` to a URL changes the failure mode from *hidden* to *visible*, which is why the
