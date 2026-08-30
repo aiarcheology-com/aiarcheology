@@ -34632,12 +34632,6 @@
             "value" : "Файл моделі"
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "模型檔案"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -34645,6 +34639,12 @@
           }
         },
         "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "模型檔案"
+          }
+        },
+        "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "模型檔案"
@@ -37764,12 +37764,6 @@
             "value" : "Повідомити про збій перетворення"
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "回報轉換失敗"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -37777,6 +37771,12 @@
           }
         },
         "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "回報轉換失敗"
+          }
+        },
+        "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "回報轉換失敗"
