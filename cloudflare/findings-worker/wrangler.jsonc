@@ -13,10 +13,9 @@
 
   "env": {
     "staging": {
-      // Finishes purges the user.deleted webhook never completed (AIA-0773). Daily, at 03:00 UTC:
-      // the work is a retry of something already attempted, so latency does not matter, and a
-      // straggler that survives several days is unambiguously a real problem rather than a blip.
-      "triggers": { "crons": ["0 3 * * *"] },
+      // The daily purge sweep has its own trigger so it cannot starve the quarter-hourly reaper.
+      // The latter bounds abandoned and superseded R2 reservations after their 24-hour lifetime.
+      "triggers": { "crons": ["0 3 * * *", "*/15 * * * *"] },
       "r2_buckets": [
         { "binding": "FINDINGS", "bucket_name": "aia-findings-staging", "jurisdiction": "eu" }
       ],
@@ -42,10 +41,9 @@
     },
 
     "production": {
-      // Finishes purges the user.deleted webhook never completed (AIA-0773). Daily, at 03:00 UTC:
-      // the work is a retry of something already attempted, so latency does not matter, and a
-      // straggler that survives several days is unambiguously a real problem rather than a blip.
-      "triggers": { "crons": ["0 3 * * *"] },
+      // The daily purge sweep has its own trigger so it cannot starve the quarter-hourly reaper.
+      // The latter bounds abandoned and superseded R2 reservations after their 24-hour lifetime.
+      "triggers": { "crons": ["0 3 * * *", "*/15 * * * *"] },
       "r2_buckets": [
         { "binding": "FINDINGS", "bucket_name": "aia-findings-production", "jurisdiction": "eu" }
       ],

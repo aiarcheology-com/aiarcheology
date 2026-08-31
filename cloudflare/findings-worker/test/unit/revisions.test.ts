@@ -1,6 +1,12 @@
 import { SELF, env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { reapUnreferencedObjects, STAGING_LIFETIME_MS } from '../../src/store';
+import {
+  commitFinding,
+  modifiedAtForRevision,
+  reapUnreferencedObjects,
+  reapUnreferencedObjectsForFinding,
+  STAGING_LIFETIME_MS,
+} from '../../src/store';
 import { auth, bytes, tokenFor } from './helpers';
 
 const BASE = 'https://worker.test';
@@ -37,6 +43,15 @@ async function usage(token: string): Promise<number> {
 }
 
 describe('immutable finding revisions', () => {
+  it('retains a future revision\'s first clamp even after that clock value passes', async () => {
+    const user = nextUser();
+    const id = findingId('09');
+    const revision = 2_000;
+
+    expect(await modifiedAtForRevision(env, user, id, revision, 1_000)).toBe(1_000);
+    expect(await modifiedAtForRevision(env, user, id, revision, 3_000)).toBe(1_000);
+  });
+
   it('keeps the newer R2 bytes when a stale metadata commit loses its D1 compare-and-set', async () => {
     // This is the race AIA-0754 found. Both image requests pass their initial stale check while no
     // index row exists. The newer metadata commits first; the older metadata then loses D1's CAS.
@@ -76,6 +91,54 @@ describe('immutable finding revisions', () => {
     expect(new Uint8Array(await image.arrayBuffer())).toEqual(bytes(96, 5));
   });
 
+  it('does not let a future revision become newer when its response is retried later', async () => {
+    const token = await tokenFor(nextUser());
+    const id = findingId('06');
+    const future = Date.now() + 60 * 60 * 1000;
+
+    expect((await putImage(token, id, future, bytes(64, 6))).status).toBe(200);
+    expect((await putMeta(token, id, future, { note: 'first future revision' })).status).toBe(200);
+
+    // The later edit is genuinely newer in the server's LWW order. The old implementation
+    // re-clamped the future retry here, letting it win merely because this clock had advanced.
+    await new Promise<void>((resolve) => setTimeout(resolve, 2));
+    const later = Date.now();
+    expect((await putMeta(token, id, later, { note: 'genuinely newer' })).status).toBe(200);
+
+    const staleRetry = await putMeta(token, id, future, { note: 'first future revision' });
+    expect(staleRetry.status).toBe(409);
+    const meta = await SELF.fetch(`${BASE}/v1/findings/${id}/meta`, { headers: auth(token) });
+    expect(await meta.json()).toEqual({ note: 'genuinely newer' });
+  });
+
+  it('keeps a future tombstone stale when a later edit resurrects the finding', async () => {
+    const token = await tokenFor(nextUser());
+    const id = findingId('08');
+    const initial = Date.now() - 2_000;
+    const future = Date.now() + 60 * 60 * 1000;
+    expect((await putMeta(token, id, initial, { note: 'before delete' })).status).toBe(200);
+    expect(
+      (
+        await SELF.fetch(`${BASE}/v1/findings/${id}?modifiedAt=${future}`, {
+          method: 'DELETE',
+          headers: auth(token),
+        })
+      ).status,
+    ).toBe(200);
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 2));
+    const later = Date.now();
+    expect((await putMeta(token, id, later, { note: 'resurrected' })).status).toBe(200);
+
+    const staleRetry = await SELF.fetch(`${BASE}/v1/findings/${id}?modifiedAt=${future}`, {
+      method: 'DELETE',
+      headers: auth(token),
+    });
+    expect(staleRetry.status).toBe(409);
+    const meta = await SELF.fetch(`${BASE}/v1/findings/${id}/meta`, { headers: auth(token) });
+    expect(await meta.json()).toEqual({ note: 'resurrected' });
+  });
+
   it('reclaims an interrupted upload after its bounded staging lifetime', async () => {
     // The image is deliberately not followed by metadata, simulating an app crash or uninstall.
     // A subsequent device cannot name this id, so the maintenance job is the only way to release
@@ -95,7 +158,10 @@ describe('immutable finding revisions', () => {
       .bind(now - STAGING_LIFETIME_MS - 1, user, id, revision)
       .run();
 
-    expect(await reapUnreferencedObjects(env, now)).toBe(1);
+    // A replay must not renew this lifetime: otherwise a client that keeps retrying after a lost
+    // response could retain unreachable R2 bytes for ever.
+    expect((await putImage(token, id, revision, bytes(128))).status).toBe(200);
+    expect((await reapUnreferencedObjects(env, now)).reaped).toBe(1);
     expect(await usage(token)).toBe(0);
     expect((await env.FINDINGS.list({ prefix: `findings/${user}/${id}/` })).objects).toEqual([]);
   });
@@ -120,9 +186,34 @@ describe('immutable finding revisions', () => {
       .bind(now - STAGING_LIFETIME_MS - 1, user, id, oldRevision)
       .run();
 
-    expect(await reapUnreferencedObjects(env, now)).toBe(2);
+    expect((await reapUnreferencedObjects(env, now)).reaped).toBe(2);
     const image = await SELF.fetch(`${BASE}/v1/findings/${id}/image`, { headers: auth(token) });
     expect(new Uint8Array(await image.arrayBuffer())).toEqual(bytes(96, 4));
+    const meta = await SELF.fetch(`${BASE}/v1/findings/${id}/meta`, { headers: auth(token) });
+    expect(await meta.json()).toEqual({ note: 'new' });
+  });
+
+  it('does not delete a live revision that commits after a tombstone', async () => {
+    const user = nextUser();
+    const token = await tokenFor(user);
+    const id = findingId('07');
+    const oldRevision = Date.now() - 2_000;
+    const tombstoneRevision = oldRevision + 100;
+    const newRevision = tombstoneRevision + 100;
+
+    expect((await putImage(token, id, oldRevision, bytes(64, 7))).status).toBe(200);
+    expect((await putMeta(token, id, oldRevision, { note: 'old' })).status).toBe(200);
+
+    // This is the state immediately before DELETE's cleanup. A newer metadata write then
+    // resurrects the finding, exactly as a second device can do between a real DELETE's D1 commit
+    // and its former prefix-wide R2 deletion.
+    await commitFinding(env, user, id, tombstoneRevision, true, Date.now());
+    expect((await putImage(token, id, newRevision, bytes(96, 8))).status).toBe(200);
+    expect((await putMeta(token, id, newRevision, { note: 'new' })).status).toBe(200);
+
+    expect((await reapUnreferencedObjectsForFinding(env, user, id)).reaped).toBe(2);
+    const image = await SELF.fetch(`${BASE}/v1/findings/${id}/image`, { headers: auth(token) });
+    expect(new Uint8Array(await image.arrayBuffer())).toEqual(bytes(96, 8));
     const meta = await SELF.fetch(`${BASE}/v1/findings/${id}/meta`, { headers: auth(token) });
     expect(await meta.json()).toEqual({ note: 'new' });
   });

@@ -24,11 +24,7 @@ interface StoredObject {
   findingId: string;
   revision: number;
   kind: ObjectKind;
-  bytes: number;
-  createdAt: number;
 }
-
-type ReapCandidate = StoredObject;
 
 /// Clerk user ids and finding ids both land in an R2 key, so both are validated before a key is
 /// built rather than sanitised afterwards. Findings are UUIDs on the client; anything else is a
@@ -116,6 +112,51 @@ async function globalBytes(env: Env): Promise<number> {
   return row?.value ?? 0;
 }
 
+/// Returns the immutable last-write-wins value for one client revision.
+///
+/// A timestamp at or before receipt time is already deterministic. Only a future timestamp needs
+/// durable state: its first arrival is clamped to receipt time and every retry must reuse that
+/// value. Otherwise a lost-response retry could become newer than a genuine later edit merely by
+/// waiting for the server clock to catch up.
+export async function modifiedAtForRevision(
+  env: Env,
+  userId: string,
+  findingId: string,
+  revision: number,
+  now: number,
+): Promise<number> {
+  const stored = await env.DB.prepare(
+    `SELECT lww_at AS modifiedAt FROM finding_revision
+      WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3`,
+  )
+    .bind(userId, findingId, revision)
+    .first<{ modifiedAt: number }>();
+  if (stored !== null) return stored.modifiedAt;
+  if (revision <= now) return revision;
+
+  await env.DB
+    .prepare(
+      `INSERT INTO finding_revision (user_id, finding_id, revision, lww_at)
+       SELECT ?1, ?2, ?3, ?4
+        WHERE NOT EXISTS (SELECT 1 FROM user_state WHERE user_id = ?1 AND deleting = 1)
+       ON CONFLICT (user_id, finding_id, revision) DO NOTHING`,
+    )
+    .bind(userId, findingId, revision, now)
+    .run();
+
+  const row = await env.DB.prepare(
+    `SELECT lww_at AS modifiedAt FROM finding_revision
+      WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3`,
+  )
+    .bind(userId, findingId, revision)
+    .first<{ modifiedAt: number }>();
+  if (row !== null) return row.modifiedAt;
+  if (await isDeleting(env, userId)) {
+    throw new ApiError('account_deleting', 'This account is being deleted.');
+  }
+  throw new ApiError('internal', 'The revision could not be assigned an ordering timestamp.');
+}
+
 async function bytesForObject(
   env: Env,
   userId: string,
@@ -134,10 +175,10 @@ async function bytesForObject(
 
 /// Reserves storage for one immutable revision before it is written to R2.
 ///
-/// An equal `modifiedAt` is the outbox's idempotency key. A retry may renew the reservation, but it
-/// may not silently change its byte size: R2 accepts this key only once, so accepting a different
-/// body would make D1 account for bytes it cannot possibly publish. A changed body must receive a
-/// new revision from the client.
+/// An equal `modifiedAt` is the outbox's idempotency key. A retry retains the original reservation
+/// time and may not silently change its byte size: R2 accepts this key only once, so accepting a
+/// different body would make D1 account for bytes it cannot possibly publish. A changed body must
+/// receive a new revision from the client.
 export async function reserveBytes(
   env: Env,
   userId: string,
@@ -177,7 +218,7 @@ export async function reserveBytes(
               AND (SELECT COALESCE(SUM(value), 0) FROM counter WHERE key LIKE 'user:%' AND key <> ?10)
                   + (SELECT COALESCE(SUM(bytes), 0) FROM object_bytes WHERE user_id = ?1) - ?7 + ?5 <= ?9
            ON CONFLICT (user_id, finding_id, revision, kind) DO UPDATE SET
-             created_at = excluded.created_at
+             created_at = object_bytes.created_at
            WHERE object_bytes.reaping_at IS NULL AND object_bytes.bytes = excluded.bytes`,
       )
       .bind(
@@ -217,16 +258,6 @@ export async function reserveBytes(
   }
 
   return usageFor(env, userId);
-}
-
-/// Releases every revision recorded for a finding. The caller tombstones it and removes the R2
-/// prefix first; this only releases the quota after that durable deletion succeeds.
-export async function releaseBytes(env: Env, userId: string, findingId: string): Promise<void> {
-  await env.DB.batch([
-    env.DB.prepare('DELETE FROM object_bytes WHERE user_id = ?1 AND finding_id = ?2').bind(userId, findingId),
-    env.DB.prepare(RECOMPUTE_USER).bind(userCounterKey(userId), userId),
-    env.DB.prepare(RECOMPUTE_GLOBAL),
-  ]);
 }
 
 /// Whether this account is being erased.
@@ -400,11 +431,12 @@ export async function listSince(env: Env, userId: string, cursor: string | null,
   };
 }
 
-/// A reservation is given a full day to finish image then metadata. The daily cron makes the true
-/// maximum just under two days, while a crashed or uninstalled client can never hold quota forever.
+/// A reservation is given a full day to finish image then metadata. The quarter-hourly cron normally
+/// reclaims it within the following 15 minutes, while a crashed or uninstalled client can never
+/// renew its lifetime by replaying the same revision.
 export const STAGING_LIFETIME_MS = 24 * 60 * 60 * 1000;
 const REAP_LEASE_MS = 15 * 60 * 1000;
-const MAX_REAPED_OBJECTS_PER_RUN = 20;
+const MAX_REAPED_OBJECTS_PER_RUN = 500;
 
 const IS_ACTIVE_REFERENCE = `EXISTS (
   SELECT 1 FROM finding f
@@ -417,69 +449,110 @@ const IS_ACTIVE_REFERENCE = `EXISTS (
            AND f.image_revision = object_bytes.revision))
 )`;
 
+const CANDIDATE_IS_ACTIVE_REFERENCE = `EXISTS (
+  SELECT 1 FROM finding f
+   WHERE f.user_id = candidate.user_id
+     AND f.id = candidate.finding_id
+     AND f.deleted = 0
+     AND ((candidate.kind = 'meta' AND f.meta_revision = candidate.revision)
+       OR (candidate.kind = 'image' AND f.image_revision = candidate.revision))
+)`;
+
+export interface ReapResult {
+  reaped: number;
+  /// The batch was full, so another run may have more eligible objects to collect.
+  atCapacity: boolean;
+}
+
+async function deleteClaimedObjects(env: Env, token: string): Promise<ReapResult> {
+  const claimed = await env.DB.prepare(
+    `SELECT user_id AS userId, finding_id AS findingId, revision, kind
+       FROM object_bytes WHERE reaping_token = ?1`,
+  )
+    .bind(token)
+    .all<StoredObject>();
+  if (claimed.results.length === 0) return { reaped: 0, atCapacity: false };
+
+  await env.FINDINGS.delete(
+    claimed.results.map((candidate) => objectKey(candidate.userId, candidate.findingId, candidate.revision, candidate.kind)),
+  );
+
+  const users = [...new Set(claimed.results.map((candidate) => candidate.userId))];
+  await env.DB.batch([
+    // Recompute before deleting the claimed rows, excluding this lease. A concurrent reaper's
+    // lease remains charged until that reaper actually deletes its R2 objects.
+    ...users.map((userId) =>
+      env.DB
+        .prepare(
+          `UPDATE counter SET value =
+             (SELECT COALESCE(SUM(bytes), 0) FROM object_bytes
+               WHERE user_id = ?2 AND (reaping_token IS NULL OR reaping_token <> ?3))
+           WHERE key = ?1`,
+        )
+        .bind(userCounterKey(userId), userId, token),
+    ),
+    env.DB.prepare('DELETE FROM object_bytes WHERE reaping_token = ?1').bind(token),
+    env.DB.prepare(RECOMPUTE_GLOBAL),
+  ]);
+
+  return { reaped: claimed.results.length, atCapacity: claimed.results.length === MAX_REAPED_OBJECTS_PER_RUN };
+}
+
 /// Reclaims staged reservations and revisions no longer referenced by a live index row.
 ///
 /// D1 and R2 cannot share a transaction. Claiming a row with `reaping_at` before deleting its R2
 /// key closes that gap: reservation and commit both refuse a claimed row, so no request can publish
 /// the key after it has been selected for deletion. An abandoned claim becomes eligible again after
 /// its short lease, making a crash in this Worker recoverable too.
-export async function reapUnreferencedObjects(env: Env, now = Date.now()): Promise<number> {
+export async function reapUnreferencedObjects(env: Env, now = Date.now()): Promise<ReapResult> {
   const cutoff = now - STAGING_LIFETIME_MS;
   const leaseCutoff = now - REAP_LEASE_MS;
-  const candidates = await env.DB.prepare(
-    `SELECT user_id AS userId, finding_id AS findingId, revision, kind, bytes, created_at AS createdAt
-       FROM object_bytes
-      WHERE created_at <= ?1
-        AND (reaping_at IS NULL OR reaping_at <= ?2)
-        AND NOT ${IS_ACTIVE_REFERENCE}
-      ORDER BY created_at ASC
-      LIMIT ?3`,
-  )
-    .bind(cutoff, leaseCutoff, MAX_REAPED_OBJECTS_PER_RUN)
-    .all<ReapCandidate>();
-
-  const claimed: StoredObject[] = [];
-  for (const candidate of candidates.results) {
-    const claim = await env.DB.prepare(
-      `UPDATE object_bytes SET reaping_at = ?5
-        WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3 AND kind = ?4
-          AND created_at <= ?6
-          AND (reaping_at IS NULL OR reaping_at <= ?7)
-          AND NOT ${IS_ACTIVE_REFERENCE}`,
-    )
-      .bind(
-        candidate.userId,
-        candidate.findingId,
-        candidate.revision,
-        candidate.kind,
-        now,
-        cutoff,
-        leaseCutoff,
+  const token = crypto.randomUUID();
+  await env.DB.prepare(
+    `UPDATE object_bytes
+        SET reaping_at = ?1, reaping_token = ?2
+      WHERE rowid IN (
+        SELECT candidate.rowid FROM object_bytes candidate
+         WHERE candidate.created_at <= ?3
+           AND (candidate.reaping_at IS NULL OR candidate.reaping_at <= ?4)
+           AND NOT ${CANDIDATE_IS_ACTIVE_REFERENCE}
+         ORDER BY candidate.created_at ASC
+         LIMIT ?5
       )
-      .run();
-    if (claim.meta.changes === 1) {
-      claimed.push(candidate);
-    }
-  }
+        AND (reaping_at IS NULL OR reaping_at <= ?4)
+        AND NOT ${IS_ACTIVE_REFERENCE}`,
+  )
+    .bind(now, token, cutoff, leaseCutoff, MAX_REAPED_OBJECTS_PER_RUN)
+    .run();
+  return deleteClaimedObjects(env, token);
+}
 
-  if (claimed.length === 0) return 0;
-
-  await env.FINDINGS.delete(
-    claimed.map((candidate) => objectKey(candidate.userId, candidate.findingId, candidate.revision, candidate.kind)),
-  );
-
-  const users = [...new Set(claimed.map((candidate) => candidate.userId))];
-  await env.DB.batch([
-    ...claimed.map((candidate) =>
-      env.DB
-        .prepare(
-          `DELETE FROM object_bytes
-            WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3 AND kind = ?4 AND reaping_at = ?5`,
-        )
-        .bind(candidate.userId, candidate.findingId, candidate.revision, candidate.kind, now),
-    ),
-    ...users.map((userId) => env.DB.prepare(RECOMPUTE_USER).bind(userCounterKey(userId), userId)),
-    env.DB.prepare(RECOMPUTE_GLOBAL),
-  ]);
-  return claimed.length;
+/// Deletes the revisions a tombstone made unreachable without touching a finding that has since
+/// been resurrected. The same D1 claim used by scheduled cleanup is the hand-off to R2 deletion:
+/// a later metadata commit sees the lease and cannot publish a row this deletion is about to erase.
+export async function reapUnreferencedObjectsForFinding(
+  env: Env,
+  userId: string,
+  findingId: string,
+  now = Date.now(),
+): Promise<ReapResult> {
+  const leaseCutoff = now - REAP_LEASE_MS;
+  const token = crypto.randomUUID();
+  await env.DB.prepare(
+    `UPDATE object_bytes
+        SET reaping_at = ?1, reaping_token = ?2
+      WHERE rowid IN (
+        SELECT candidate.rowid FROM object_bytes candidate
+         WHERE candidate.user_id = ?3 AND candidate.finding_id = ?4
+           AND (candidate.reaping_at IS NULL OR candidate.reaping_at <= ?5)
+           AND NOT ${CANDIDATE_IS_ACTIVE_REFERENCE}
+         ORDER BY candidate.created_at ASC
+         LIMIT ?6
+      )
+        AND (reaping_at IS NULL OR reaping_at <= ?5)
+        AND NOT ${IS_ACTIVE_REFERENCE}`,
+  )
+    .bind(now, token, userId, findingId, leaseCutoff, MAX_REAPED_OBJECTS_PER_RUN)
+    .run();
+  return deleteClaimedObjects(env, token);
 }

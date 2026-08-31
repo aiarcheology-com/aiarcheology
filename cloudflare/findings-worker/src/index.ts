@@ -8,11 +8,12 @@ import {
   findingRow,
   isDeleting,
   listSince,
+  modifiedAtForRevision,
   objectKey,
   objectReference,
   readBodyWithCap,
   reapUnreferencedObjects,
-  releaseBytes,
+  reapUnreferencedObjectsForFinding,
   requireFindingId,
   reserveBytes,
   usageFor,
@@ -22,6 +23,9 @@ import type { Env } from './env';
 
 const DEFAULT_PAGE = 200;
 const MAX_PAGE = 500;
+const PURGE_CRON = '0 3 * * *';
+const REAPER_CRON = '*/15 * * * *';
+const MAX_DELETE_REAP_BATCHES = 10;
 
 /// Every write carries `?modifiedAt=<ms since epoch>`.
 ///
@@ -30,13 +34,11 @@ const MAX_PAGE = 500;
 /// to be comparable with the edit it is racing.
 interface ModifiedAt {
   /// The client timestamp that names the immutable R2 revision. Image and metadata requests from
-  /// one outbox item carry the same value, even if their separate arrivals are clamped differently.
+  /// one outbox item carry the same value.
   revision: number;
-  /// The server-bounded timestamp used for last-write-wins in D1.
-  value: number;
 }
 
-function requireModifiedAt(url: URL, now: number): ModifiedAt {
+function requireModifiedAt(url: URL): ModifiedAt {
   const raw = url.searchParams.get('modifiedAt');
   const value = Number(raw);
   if (raw === null || !Number.isFinite(value) || value < 0) {
@@ -46,9 +48,7 @@ function requireModifiedAt(url: URL, now: number): ModifiedAt {
   if (!Number.isSafeInteger(revision)) {
     throw new ApiError('bad_request', 'The modifiedAt value is outside the supported range.');
   }
-  // A device with a fast clock could otherwise win every future conflict for ever. Clamping to
-  // receipt time bounds that; it does not fix clock skew, and is not meant to.
-  return { revision, value: Math.min(revision, now) };
+  return { revision };
 }
 
 /// Last-write-wins, decided server-side so a stale device cannot clobber a newer cloud copy.
@@ -84,17 +84,13 @@ async function refuseIfAccountVanished(
   throw new ApiError('account_deleting', 'This account is being deleted.');
 }
 
-/// A tombstone has made every revision of this finding unreachable. Remove its whole prefix before
-/// releasing D1's storage rows: if R2 deletion cannot finish, the rows stay to keep the data charged
-/// and the scheduled reaper can retry it. The normal 50 MB quota makes this loop tiny; the bound
-/// keeps a malicious backlog from spending an entire Worker invocation.
+/// Removes only revisions that still have no live index reference after the tombstone. A later
+/// metadata commit can resurrect the finding between these steps, so deleting the whole prefix or
+/// all storage rows would corrupt that newer state.
 async function deleteFindingObjects(env: Env, userId: string, id: string): Promise<void> {
-  const prefix = `findings/${userId}/${id}/`;
-  for (let batch = 0; batch < 15; batch += 1) {
-    const listing = await env.FINDINGS.list({ prefix, limit: 500 });
-    if (listing.objects.length === 0) return;
-    await env.FINDINGS.delete(listing.objects.map((object) => object.key));
-    if (listing.truncated === false) return;
+  for (let batch = 0; batch < MAX_DELETE_REAP_BATCHES; batch += 1) {
+    const reaped = await reapUnreferencedObjectsForFinding(env, userId, id);
+    if (reaped.atCapacity === false) return;
   }
   throw new ApiError('internal', 'The finding has too many stored revisions; delete it again to finish.');
 }
@@ -173,11 +169,12 @@ async function handle(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === 'PUT' && kind === 'image') {
-    const modified = requireModifiedAt(url, now);
+    const modified = requireModifiedAt(url);
+    const modifiedAt = await modifiedAtForRevision(env, userId, id, modified.revision, now);
     // The image is guarded by the same staleness rule as the meta it belongs to. Without it, an
     // older device's image could overwrite the newer one already paired with a committed meta,
     // and the finding would be torn: new notes, old picture.
-    await refuseIfStale(env, userId, id, modified.value);
+    await refuseIfStale(env, userId, id, modifiedAt);
     const body = await readBodyWithCap(request, env.IMAGE_BYTE_LIMIT);
     const usage = await reserveBytes(env, userId, id, modified.revision, 'image', body.byteLength, now);
     await env.FINDINGS.put(objectKey(userId, id, modified.revision, 'image'), body, {
@@ -187,12 +184,13 @@ async function handle(request: Request, env: Env): Promise<Response> {
       httpMetadata: { contentType: 'image/jpeg' },
     });
     await refuseIfAccountVanished(env, userId, id, modified.revision, 'image');
-    return json({ modifiedAt: modified.value, bytes: body.byteLength, usage });
+    return json({ modifiedAt, bytes: body.byteLength, usage });
   }
 
   if (request.method === 'PUT' && kind === 'meta') {
-    const modified = requireModifiedAt(url, now);
-    await refuseIfStale(env, userId, id, modified.value);
+    const modified = requireModifiedAt(url);
+    const modifiedAt = await modifiedAtForRevision(env, userId, id, modified.revision, now);
+    await refuseIfStale(env, userId, id, modifiedAt);
     const body = await readBodyWithCap(request, env.META_BYTE_LIMIT);
     try {
       JSON.parse(new TextDecoder().decode(body));
@@ -208,19 +206,19 @@ async function handle(request: Request, env: Env): Promise<Response> {
     // The index row is written last and is the commit point. `deleted` returns to 0 here on
     // purpose: an edit that outlives a tombstone brings the finding back, which is what
     // last-write-wins means when one of the writes was a delete.
-    const finding = await commitFinding(env, userId, id, modified.value, false, now, modified.revision);
+    const finding = await commitFinding(env, userId, id, modifiedAt, false, now, modified.revision);
     return json({ finding, usage });
   }
 
   if (request.method === 'DELETE' && kind === undefined) {
-    const modified = requireModifiedAt(url, now);
-    await refuseIfStale(env, userId, id, modified.value);
+    const modified = requireModifiedAt(url);
+    const modifiedAt = await modifiedAtForRevision(env, userId, id, modified.revision, now);
+    await refuseIfStale(env, userId, id, modifiedAt);
     // Tombstone first. A crash after this point leaves bytes that are merely unreachable and are
     // reclaimed by a retry; the other order would leave a live index row pointing at objects that
     // are already gone, which reads as corruption on every device that syncs it.
-    const finding = await commitFinding(env, userId, id, modified.value, true, now);
+    const finding = await commitFinding(env, userId, id, modifiedAt, true, now);
     await deleteFindingObjects(env, userId, id);
-    await releaseBytes(env, userId, id);
     return json({ finding, usage: await usageFor(env, userId) });
   }
 
@@ -249,22 +247,34 @@ export default {
   /// retry schedule is finite. Logged distinctly so the line is worth alerting on -- a sweep that
   /// keeps finding the same straggler is the signal that something needs a human, and it is the
   /// only such signal this service can raise for itself.
-  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+  async scheduled(event: ScheduledController, env: Env): Promise<void> {
     const started = Date.now();
     try {
-      const result = await sweepIncompleteFences(env);
-      // A full account purge can use 32 R2 subrequests. Keep that recovery isolated from ordinary
-      // maintenance so it always fits the Worker budget; a later daily run catches the latter.
-      const reaped = result.incomplete === 0 ? await reapUnreferencedObjects(env) : 0;
-      if (result.incomplete > 0 || reaped > 0) {
+      if (event.cron === PURGE_CRON) {
+        const result = await sweepIncompleteFences(env);
+        if (result.incomplete === 0) return;
         console.log(
           JSON.stringify({
-            sweep: result.incomplete > 0 ? (result.purged === true ? 'purged' : 'incomplete') : 'maintenance',
+            sweep: result.purged === true ? 'purged' : 'incomplete',
             remaining: result.incomplete,
-            reaped,
             durationMs: Date.now() - started,
           }),
         );
+        return;
+      }
+
+      if (event.cron === REAPER_CRON) {
+        const result = await reapUnreferencedObjects(env);
+        if (result.reaped > 0 || result.atCapacity) {
+          console.log(
+            JSON.stringify({
+              sweep: 'reap',
+              reaped: result.reaped,
+              backlog: result.atCapacity,
+              durationMs: Date.now() - started,
+            }),
+          );
+        }
       }
     } catch (error) {
       console.log(

@@ -68,6 +68,7 @@ export async function purgeAccount(env: Env, userId: string): Promise<PurgeResul
          (SELECT COALESCE(SUM(value), 0) FROM counter WHERE key LIKE 'user:%') WHERE key = 'global_bytes'`,
     ),
     env.DB.prepare('DELETE FROM object_bytes WHERE user_id = ?1').bind(userId),
+    env.DB.prepare('DELETE FROM finding_revision WHERE user_id = ?1').bind(userId),
     env.DB.prepare('DELETE FROM finding WHERE user_id = ?1').bind(userId),
   ]);
 

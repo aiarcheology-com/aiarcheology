@@ -13,7 +13,7 @@ its "Rule zero" before touching anything: **no script, test or agent may reach
 |-|-|
 | Auth | Clerk session token, verified against the instance's public JWKS. No Clerk secret. |
 | Objects | `findings/<clerk-user-id>/<finding-id>/<modified-at>/{meta.json,image.jpg}` in R2 |
-| Index | D1: `finding` (sync truth and selected object revisions), `object_bytes` (storage truth), `counter` (account total) |
+| Index | D1: `finding` (sync truth and selected object revisions), `finding_revision` (stable future-clock ordering), `object_bytes` (storage truth), `counter` (account total) |
 | Quota | 50 MB per user, plus an account-wide ceiling. Authenticated JSON responses carry `usage`. |
 
 ## API
@@ -68,11 +68,15 @@ publishes. A losing writer can therefore leave only an unreferenced revision; it
 the winner's bytes. Byte accounting runs *before* each R2 write, so a failed write over-counts --
 the safe direction for a cost guard -- rather than under-counts.
 
-**Uncommitted bytes have a bounded lifetime.** Each object reservation has a timestamp. The daily
-maintenance run reclaims an object with no live index reference after 24 hours (at most just under
-48 hours with the cron cadence), releasing its R2 key and quota together. It claims the D1 row before
-deleting R2, so a very late retry receives a retryable error instead of racing cleanup into deleting
-a revision that just became live.
+**A future client timestamp is clamped once.** Its first request records the server-bounded ordering
+value; an idempotent retry reuses it. A lost response therefore cannot let an old revision become
+newer merely because the server clock advanced.
+
+**Uncommitted bytes have a bounded lifetime.** Each object reservation has a non-renewable timestamp.
+A dedicated quarter-hourly run reclaims no-longer-referenced objects after 24 hours, releasing their
+R2 keys and quota together. It claims up to 500 D1 rows before deleting R2, so a very late retry
+receives a retryable error instead of racing cleanup into deleting a revision that just became live;
+a full batch is logged as backlog for operations to investigate.
 
 **Bodies are buffered under a hard cap, not streamed.** `Content-Length` is not trusted, so the cap
 is enforced against bytes actually read, and refusing before anything reaches the bucket is the
@@ -112,7 +116,7 @@ backstop silently. Spending that budget refusing events we do not care about buy
 
 - **An image write is only published by the metadata write that follows it.** A client that sends an
   image and never commits its metadata leaves the index row advertising the old state, and no other
-  device can tell for up to the staging lifetime. The client contract is image *then* metadata,
+  device can tell until the 24-hour staging lifetime expires. The client contract is image *then* metadata,
   always.
 - **Staleness is checked before the body is read**, so a 16 MB upload is refused only after it has
   been sent. A client should compare against the list endpoint's `modifiedAt` before uploading.

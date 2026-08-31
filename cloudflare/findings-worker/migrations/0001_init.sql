@@ -19,6 +19,19 @@ CREATE TABLE finding (
 
 CREATE INDEX finding_by_user_received ON finding (user_id, received_at);
 
+-- A future-dated client revision is clamped once, when first seen. Retaining that mapping makes a
+-- lost-response retry use the same last-write-wins value rather than becoming newer merely because
+-- it arrived later. Ordinary revisions need no row: their timestamp is already deterministic.
+CREATE TABLE finding_revision (
+  user_id    TEXT    NOT NULL,
+  finding_id TEXT    NOT NULL,
+  revision   INTEGER NOT NULL,
+  lww_at     INTEGER NOT NULL,
+  PRIMARY KEY (user_id, finding_id, revision)
+);
+
+CREATE INDEX finding_revision_by_user ON finding_revision (user_id);
+
 -- Storage truth, deliberately separate from sync truth. Each immutable R2 object has one row.
 -- An image uploaded whose meta never commits leaves no `finding` row, but it does occupy bytes --
 -- counting here rather than off the index is what stops an abandoned upload from being free
@@ -31,6 +44,7 @@ CREATE TABLE object_bytes (
   bytes      INTEGER NOT NULL,
   created_at INTEGER NOT NULL,
   reaping_at INTEGER,
+  reaping_token TEXT,
   PRIMARY KEY (user_id, finding_id, revision, kind)
 );
 
