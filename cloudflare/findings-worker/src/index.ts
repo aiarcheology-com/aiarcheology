@@ -8,10 +8,14 @@ import {
   findingRow,
   isDeleting,
   listSince,
+  migrateLegacyObjects,
   objectKey,
+  objectReference,
   readBodyWithCap,
+  reapUnreferencedObjects,
   releaseBytes,
   requireFindingId,
+  revisionReference,
   reserveBytes,
   usageFor,
   type FindingRow,
@@ -26,15 +30,27 @@ const MAX_PAGE = 500;
 /// It is a query parameter rather than a field inside meta.json because DELETE has no body and
 /// still needs an ordering key -- a tombstone is just another row carrying `modifiedAt`, and it has
 /// to be comparable with the edit it is racing.
-function requireModifiedAt(url: URL, now: number): number {
+interface ModifiedAt {
+  /// The client timestamp that names the immutable R2 revision. Image and metadata requests from
+  /// one outbox item carry the same value, even if their separate arrivals are clamped differently.
+  revision: number;
+  /// The server-bounded timestamp used for last-write-wins in D1.
+  value: number;
+}
+
+function requireModifiedAt(url: URL, now: number): ModifiedAt {
   const raw = url.searchParams.get('modifiedAt');
   const value = Number(raw);
   if (raw === null || !Number.isFinite(value) || value < 0) {
     throw new ApiError('bad_request', 'A numeric modifiedAt (ms since epoch) is required.');
   }
+  const revision = Math.trunc(value);
+  if (!Number.isSafeInteger(revision)) {
+    throw new ApiError('bad_request', 'The modifiedAt value is outside the supported range.');
+  }
   // A device with a fast clock could otherwise win every future conflict for ever. Clamping to
   // receipt time bounds that; it does not fix clock skew, and is not meant to.
-  return Math.min(Math.trunc(value), now);
+  return { revision, value: Math.min(revision, now) };
 }
 
 /// Last-write-wins, decided server-side so a stale device cannot clobber a newer cloud copy.
@@ -58,10 +74,31 @@ async function refuseIfStale(env: Env, userId: string, id: string, incoming: num
 ///
 /// So the write checks the fence again on the other side and removes itself. The purge's own
 /// re-listing catches the opposite ordering, and between them nothing outlives an erasure.
-async function refuseIfAccountVanished(env: Env, userId: string, id: string, kind: 'meta' | 'image'): Promise<void> {
+async function refuseIfAccountVanished(
+  env: Env,
+  userId: string,
+  id: string,
+  revision: number,
+  kind: 'meta' | 'image',
+): Promise<void> {
   if ((await isDeleting(env, userId)) === false) return;
-  await env.FINDINGS.delete(objectKey(userId, id, kind));
+  await env.FINDINGS.delete(objectKey(userId, id, revisionReference(revision), kind));
   throw new ApiError('account_deleting', 'This account is being deleted.');
+}
+
+/// A tombstone has made every revision of this finding unreachable. Remove its whole prefix before
+/// releasing D1's storage rows: if R2 deletion cannot finish, the rows stay to keep the data charged
+/// and the scheduled reaper can retry it. The normal 50 MB quota makes this loop tiny; the bound
+/// keeps a malicious backlog from spending an entire Worker invocation.
+async function deleteFindingObjects(env: Env, userId: string, id: string): Promise<void> {
+  const prefix = `findings/${userId}/${id}/`;
+  for (let batch = 0; batch < 15; batch += 1) {
+    const listing = await env.FINDINGS.list({ prefix, limit: 500 });
+    if (listing.objects.length === 0) return;
+    await env.FINDINGS.delete(listing.objects.map((object) => object.key));
+    if (listing.truncated === false) return;
+  }
+  throw new ApiError('internal', 'The finding has too many stored revisions; delete it again to finish.');
 }
 
 async function handle(request: Request, env: Env): Promise<Response> {
@@ -116,11 +153,9 @@ async function handle(request: Request, env: Env): Promise<Response> {
   const kind = match[2] as 'meta' | 'image' | undefined;
 
   if (request.method === 'GET' && kind !== undefined) {
-    const row = await findingRow(env, userId, id);
-    if (row === null || row.deleted) {
-      throw new ApiError('not_found', 'No such finding.');
-    }
-    const object = await env.FINDINGS.get(objectKey(userId, id, kind));
+    const reference = await objectReference(env, userId, id, kind);
+    if (reference === null) throw new ApiError('not_found', 'That part of the finding is not stored.');
+    const object = await env.FINDINGS.get(objectKey(userId, id, reference, kind));
     if (object === null) {
       throw new ApiError('not_found', 'That part of the finding is not stored.');
     }
@@ -140,49 +175,53 @@ async function handle(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === 'PUT' && kind === 'image') {
-    const modifiedAt = requireModifiedAt(url, now);
+    const modified = requireModifiedAt(url, now);
     // The image is guarded by the same staleness rule as the meta it belongs to. Without it, an
     // older device's image could overwrite the newer one already paired with a committed meta,
     // and the finding would be torn: new notes, old picture.
-    await refuseIfStale(env, userId, id, modifiedAt);
+    await refuseIfStale(env, userId, id, modified.value);
     const body = await readBodyWithCap(request, env.IMAGE_BYTE_LIMIT);
-    const usage = await reserveBytes(env, userId, id, 'image', body.byteLength);
-    await env.FINDINGS.put(objectKey(userId, id, 'image'), body, {
+    const usage = await reserveBytes(env, userId, id, modified.revision, 'image', body.byteLength, now);
+    await env.FINDINGS.put(objectKey(userId, id, revisionReference(modified.revision), 'image'), body, {
+      // Equal timestamps are idempotent retries. A different request can never replace an object
+      // that already owns this revision key, even if the index compare-and-set later refuses it.
+      onlyIf: new Headers({ 'if-none-match': '*' }),
       httpMetadata: { contentType: 'image/jpeg' },
     });
-    await refuseIfAccountVanished(env, userId, id, 'image');
-    return json({ modifiedAt, bytes: body.byteLength, usage });
+    await refuseIfAccountVanished(env, userId, id, modified.revision, 'image');
+    return json({ modifiedAt: modified.value, bytes: body.byteLength, usage });
   }
 
   if (request.method === 'PUT' && kind === 'meta') {
-    const modifiedAt = requireModifiedAt(url, now);
-    await refuseIfStale(env, userId, id, modifiedAt);
+    const modified = requireModifiedAt(url, now);
+    await refuseIfStale(env, userId, id, modified.value);
     const body = await readBodyWithCap(request, env.META_BYTE_LIMIT);
     try {
       JSON.parse(new TextDecoder().decode(body));
     } catch {
       throw new ApiError('bad_request', 'The metadata is not valid JSON.');
     }
-    const usage = await reserveBytes(env, userId, id, 'meta', body.byteLength);
-    await env.FINDINGS.put(objectKey(userId, id, 'meta'), body, {
+    const usage = await reserveBytes(env, userId, id, modified.revision, 'meta', body.byteLength, now);
+    await env.FINDINGS.put(objectKey(userId, id, revisionReference(modified.revision), 'meta'), body, {
+      onlyIf: new Headers({ 'if-none-match': '*' }),
       httpMetadata: { contentType: 'application/json' },
     });
-    await refuseIfAccountVanished(env, userId, id, 'meta');
+    await refuseIfAccountVanished(env, userId, id, modified.revision, 'meta');
     // The index row is written last and is the commit point. `deleted` returns to 0 here on
     // purpose: an edit that outlives a tombstone brings the finding back, which is what
     // last-write-wins means when one of the writes was a delete.
-    const finding = await commitFinding(env, userId, id, modifiedAt, false, now);
+    const finding = await commitFinding(env, userId, id, modified.value, false, now, modified.revision);
     return json({ finding, usage });
   }
 
   if (request.method === 'DELETE' && kind === undefined) {
-    const modifiedAt = requireModifiedAt(url, now);
-    await refuseIfStale(env, userId, id, modifiedAt);
+    const modified = requireModifiedAt(url, now);
+    await refuseIfStale(env, userId, id, modified.value);
     // Tombstone first. A crash after this point leaves bytes that are merely unreachable and are
     // reclaimed by a retry; the other order would leave a live index row pointing at objects that
     // are already gone, which reads as corruption on every device that syncs it.
-    const finding = await commitFinding(env, userId, id, modifiedAt, true, now);
-    await env.FINDINGS.delete([objectKey(userId, id, 'meta'), objectKey(userId, id, 'image')]);
+    const finding = await commitFinding(env, userId, id, modified.value, true, now);
+    await deleteFindingObjects(env, userId, id);
     await releaseBytes(env, userId, id);
     return json({ finding, usage: await usageFor(env, userId) });
   }
@@ -216,11 +255,17 @@ export default {
     const started = Date.now();
     try {
       const result = await sweepIncompleteFences(env);
-      if (result.incomplete > 0) {
+      // A full account purge can use 32 R2 subrequests. Keep that recovery isolated from ordinary
+      // maintenance so it always fits the Worker budget; a later daily run catches the latter.
+      const reaped = result.incomplete === 0 ? await reapUnreferencedObjects(env) : 0;
+      const migrated = result.incomplete === 0 ? await migrateLegacyObjects(env) : 0;
+      if (result.incomplete > 0 || reaped > 0 || migrated > 0) {
         console.log(
           JSON.stringify({
-            sweep: result.purged === true ? 'purged' : 'incomplete',
+            sweep: result.incomplete > 0 ? (result.purged === true ? 'purged' : 'incomplete') : 'maintenance',
             remaining: result.incomplete,
+            reaped,
+            migrated,
             durationMs: Date.now() - started,
           }),
         );

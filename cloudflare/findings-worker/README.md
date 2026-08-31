@@ -12,8 +12,8 @@ its "Rule zero" before touching anything: **no script, test or agent may reach
 | | |
 |-|-|
 | Auth | Clerk session token, verified against the instance's public JWKS. No Clerk secret. |
-| Objects | `findings/<clerk-user-id>/<finding-id>/{meta.json,image.jpg}` in R2 |
-| Index | D1: `finding` (sync truth), `object_bytes` (storage truth), `counter` (account total) |
+| Objects | `findings/<clerk-user-id>/<finding-id>/<modified-at>/{meta.json,image.jpg}` in R2 |
+| Index | D1: `finding` (sync truth and selected object revisions), `object_bytes` (storage truth), `counter` (account total) |
 | Quota | 50 MB per user, plus an account-wide ceiling. Authenticated JSON responses carry `usage`. |
 
 ## API
@@ -62,11 +62,17 @@ behind another device's high-water mark and that device would never see it. `rec
 per-user monotonic server clock, and the cursor is the `(received_at, id)` pair so a page boundary
 cannot fall between two findings that share an instant.
 
-**The index row is the commit point.** Image, then metadata, then the row. A crash between the R2
-writes leaves orphan bytes that a retry overwrites; the reverse order leaves an index row pointing
-at an object that is not there, which reads as corruption on every device that syncs it. Byte
-accounting runs *before* each R2 write, so a failed write over-counts -- the safe direction for a
-cost guard -- rather than under-counts.
+**The index row is the commit point.** Image, then metadata, then the row. Every R2 key includes
+the request's `modifiedAt`, and the winning row records the exact metadata and image revision it
+publishes. A losing writer can therefore leave only an unreferenced revision; it can never overwrite
+the winner's bytes. Byte accounting runs *before* each R2 write, so a failed write over-counts --
+the safe direction for a cost guard -- rather than under-counts.
+
+**Uncommitted bytes have a bounded lifetime.** Each object reservation has a timestamp. The daily
+maintenance run reclaims an object with no live index reference after 24 hours (at most just under
+48 hours with the cron cadence), releasing its R2 key and quota together. It claims the D1 row before
+deleting R2, so a very late retry receives a retryable error instead of racing cleanup into deleting
+a revision that just became live.
 
 **Bodies are buffered under a hard cap, not streamed.** `Content-Length` is not trusted, so the cap
 is enforced against bytes actually read, and refusing before anything reaches the bucket is the
@@ -104,14 +110,10 @@ backstop silently. Spending that budget refusing events we do not care about buy
 
 ## Known gaps, written down rather than discovered later
 
-- **Orphan bytes are charged but cannot be listed.** An image uploaded whose metadata never commits
-  occupies storage and counts against the user, deliberately — otherwise an abandoned upload would
-  be free storage. But nothing enumerates them, so "prune findings" is not advice that reaches
-  them. The uploading client knows the id and can `DELETE` it; another device cannot. A reaper is
-  the missing half.
 - **An image write is only published by the metadata write that follows it.** A client that sends an
   image and never commits its metadata leaves the index row advertising the old state, and no other
-  device can tell. The client contract is image *then* metadata, always.
+  device can tell for up to the staging lifetime. The client contract is image *then* metadata,
+  always.
 - **Staleness is checked before the body is read**, so a 16 MB upload is refused only after it has
   been sent. A client should compare against the list endpoint's `modifiedAt` before uploading.
 - **The staging expiry rule deletes R2 objects without touching D1**, so a forgotten test run can
@@ -127,8 +129,6 @@ backstop silently. Spending that budget refusing events we do not care about buy
 - **D1 Time Travel retains purged rows for about 30 days**, and the fence row keeps a Clerk user id
   after erasure. Both belong in the retention record rather than behind a claim of instantaneous
   complete erasure.
-- **A stale check and the write that follows it are not one atomic step.** Immutable, revision-scoped
-  keys would close it; at one-user-per-account that has not been worth the complexity.
 
 ## Working on it
 
@@ -163,6 +163,11 @@ it created; the bucket's 7-day expiry rule is a backstop for a crashed run, not 
 npm run migrate:staging
 npm run deploy:staging
 ```
+
+`0003_revisioned_objects.sql` is a server-side migration: apply it **before** deploying this code.
+It preserves existing objects at their legacy paths, then the daily maintenance run copies each live
+object to its immutable revision path with a conditional R2 write before changing the index reference
+and removing the legacy copy.
 
 Production is deployed and carries the real Clerk issuer (`clerk.aiarcheology.com`, AIA-741). Note
 what that changed: the placeholder values used to be the safety net — a premature production deploy
