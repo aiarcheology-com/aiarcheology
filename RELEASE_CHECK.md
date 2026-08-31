@@ -23,22 +23,37 @@ broken feature.** That is the trade this file exists to catch.
 
 - [x] `wrangler deploy --env production` has run, and `wrangler deployments list --name
       aia-findings-production` shows it. **Done 2026-08-26** (AIA-741).
-- [ ] `wrangler d1 migrations apply aia-findings-production --remote --env production` has run for
-      **`0003_revisions.sql`**. ~~Done 2026-08-26; both migrations applied~~ — **re-opened
-      2026-08-31 (AIA-0753, AIA-0754).** The 2026-08-26 run applied `0001` and `0002` and closed
-      this gate honestly; what re-opens it is a *third* migration, which introduces revision-scoped
-      storage and which neither database has seen. Until it runs, the deployed code queries
-      `finding.meta_revision`, `finding_revision` and `object_bytes.revision` against a schema that
-      has none of them, and every findings route answers "no such column".
-      **Both environments need it** — staging applied `0001` on 2026-08-25 and production on
-      2026-08-26, verified by reading `d1_migrations` on each.
-      Note what this gate is now for, because the first attempt at the change got it wrong: the
-      schema arrived as an in-place rewrite of `0001_init.sql`, and wrangler tracks migrations by
+- [x] `wrangler d1 migrations apply … --remote` has run for **`0003_revisions.sql`** on **both**
+      environments. Re-opened 2026-08-31 after the 2026-08-26 run (which applied `0001` and `0002`
+      and closed it honestly); a *third* migration introducing revision-scoped storage is what
+      re-opened it. **Done 2026-08-31** — staging first as a rehearsal, then production; both
+      ledgers now report `✅ No migrations to apply!`.
+
+      | | before | after |
+      |-|-|-|
+      | staging | 1 finding, 1 object, **7 fences** | 0, 0, **7 fences**, `global_bytes` 0 |
+      | production | 1 finding, 2 objects, **4 fences**, 1 081 707 bytes | 0, 0, **4 fences**, `global_bytes` 0 |
+
+      Deployed after the migration, never before: production Worker version
+      `91a55178-ed42-4ef2-b4e2-5c2113209ec5`. Post-deploy probes: `/health` 200, and an
+      unauthenticated and a malformed-token request each answer **401, not 500** — which is what
+      says the code and the schema agree.
+
+      What this gate is now for, because the first attempt at the change got it wrong: the schema
+      arrived as an in-place rewrite of `0001_init.sql`, and wrangler tracks migrations by
       **filename** with no content hash, so a rewritten file is skipped wherever it has already run
-      and the deploy would have failed silently. Ticking this means the `0003` run is confirmed in
-      the ledger, not that a file was edited. Applying it **clears the pre-revision `finding` and
-      `object_bytes` rows** (one acceptance-pass finding per database) and preserves `user_state`;
-      see `cloudflare/findings-worker/PROVISIONING.md`.
+      and the deploy fails silently. **Ticking this means a run is confirmed in the ledger, not
+      that a file was edited.** Applying `0003` cleared the pre-revision `finding` and
+      `object_bytes` rows and preserved `user_state` — see
+      `cloudflare/findings-worker/PROVISIONING.md`, which also records that this one-time reset must
+      not be repeated once real findings exist.
+
+- [ ] **The existing backed-up finding re-uploads after the reset.** One live finding
+      (`user_3IcffP4r…`, backed up 2026-08-31 04:10 UTC) was cleared from production by `0003`; the
+      device copy is untouched. The client tracks `uploaded` in its own ledger
+      (`FindingsSyncLedgerStore`), so it may believe that finding is still backed up and never
+      re-send it. Sign in, press Synchronize, and confirm it returns to the cloud. If it does not,
+      that is a client-side bug and wants its own ticket — the Worker is not involved.
 - [x] `CLERK_WEBHOOK_SECRET` is set for `--env production`. **Done 2026-08-26**, a fresh secret
       distinct from the development one.
 - [x] The production Clerk instance has a `user.deleted` webhook pointing at the production Worker,
