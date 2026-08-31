@@ -39,6 +39,10 @@ final class DetectionCoordinator: ObservableObject {
 	/// Called only from the real apply path. Presentation-only refreshes deliberately do not reach
 	/// this callback, so changing a display preference cannot replay an annotation sound (AIA-0716).
 	private var onAppliedResults: ((UInt64, [DetectionResult]) -> Void)?
+	/// Temporary AIA annotation trace hook. Runs only when a *final* detector result passed every
+	/// coordinator guard, so the view can distinguish a presentable result from an inference result
+	/// that was discarded before reaching its overlay.
+	private let onFinalFrameApplied: ((UInt64, [DetectionResult]) -> Void)?
 
 	private let queue = SnapshotDetectionQueue()
 	/// Invalidation token: a pass that started before an interaction/capture/geometry change must
@@ -47,6 +51,9 @@ final class DetectionCoordinator: ObservableObject {
 	/// Monotonic identity for actual snapshot passes. A partial and its final result intentionally
 	/// share one id, letting the sound coordinator suppress a second playback for the same pass.
 	private var nextPassID: UInt64 = 0
+	/// Avoid six identical trace lines when a tiled detector publishes several partial results after
+	/// a pass becomes invalid. This is diagnostic-only state; it never participates in decisions.
+	private var lastTracedDropPassID: UInt64?
 	/// Live-mirrored from the view (the tiling-scheme settings can change mid-session); read at
 	/// pass start. A mid-burst toggle self-heals on the next snapshot.
 	var tiling: TilingScheme
@@ -64,12 +71,14 @@ final class DetectionCoordinator: ObservableObject {
 			@escaping @MainActor @Sendable ([DetectionResult]) -> Void
 		) async -> [DetectionResult],
 		onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
-		onAppliedResults: ((UInt64, [DetectionResult]) -> Void)? = nil
+		onAppliedResults: ((UInt64, [DetectionResult]) -> Void)? = nil,
+		onFinalFrameApplied: ((UInt64, [DetectionResult]) -> Void)? = nil
 	) {
 		self.tiling = tiling
 		self.detect = detect
 		self.onFrameChanged = onFrameChanged
 		self.onAppliedResults = onAppliedResults
+		self.onFinalFrameApplied = onFinalFrameApplied
 	}
 
 	/// Bind the live apply-time guards from the view's CONNECTED state. Call from `.onAppear`, NOT
@@ -130,20 +139,56 @@ final class DetectionCoordinator: ObservableObject {
 			let startGeneration = self.generation
 			let passTiling = self.tiling
 			Task {
-				let applyIfCurrent: @MainActor @Sendable ([DetectionResult]) -> Void = { [weak self] observations in
+				let applyIfCurrent: @MainActor @Sendable ([DetectionResult], Bool) -> Void = { [weak self] observations, isFinal in
 					guard let self else { return }
+					let groupCount = observations.count
+					let objectCount = observations.reduce(0) { $0 + $1.observations.count }
 					// Discard if invalidated since this pass began (stale geometry/interaction/capture).
-					guard self.generation == startGeneration else { return }
+					guard self.generation == startGeneration else {
+						self.traceDroppedOutput(
+							passID: passID,
+							reason: "stale-generation expected=\(startGeneration) actual=\(self.generation)",
+							groupCount: groupCount,
+							objectCount: objectCount
+						)
+						return
+					}
 					// Live re-checks: interaction or a capture may have begun after the generation was
 					// snapshotted but before SwiftUI delivered the matching `.onChange`.
-					guard self.isInteracting() == false, self.isCapturing() == false else { return }
+					guard self.isInteracting() == false else {
+						self.traceDroppedOutput(
+							passID: passID,
+							reason: "interaction-active",
+							groupCount: groupCount,
+							objectCount: objectCount
+						)
+						return
+					}
+					guard self.isCapturing() == false else {
+						self.traceDroppedOutput(
+							passID: passID,
+							reason: "finding-capture-active",
+							groupCount: groupCount,
+							objectCount: objectCount
+						)
+						return
+					}
 					// Image and results are applied as ONE value: the cached snapshot is always the exact
 					// frame the displayed boxes came from.
 					self.setApplied(AppliedDetectionFrame(image: image, results: observations), passID: passID)
+					if isFinal {
+						LoggingPolicy.debug(
+							"[ANNOTATION TRACE] pass=\(passID) final result applied: generation=\(startGeneration), groups=\(groupCount), objects=\(objectCount)",
+							logger: .ui
+						)
+						self.onFinalFrameApplied?(passID, observations)
+					}
 				}
-				let observations = await self.detect(image, passTiling, applyIfCurrent)
+				let observations = await self.detect(image, passTiling) { observations in
+					applyIfCurrent(observations, false)
+				}
 				done()
-				applyIfCurrent(observations)
+				applyIfCurrent(observations, true)
 			}
 		}
 	}
@@ -162,6 +207,20 @@ final class DetectionCoordinator: ObservableObject {
 		if clearFrame { setApplied(nil) }
 		// A coalesced snapshot captured against the now-stale state must not start.
 		queue.cancelPending()
+	}
+
+	private func traceDroppedOutput(
+		passID: UInt64,
+		reason: String,
+		groupCount: Int,
+		objectCount: Int
+	) {
+		guard lastTracedDropPassID != passID else { return }
+		lastTracedDropPassID = passID
+		LoggingPolicy.debug(
+			"[ANNOTATION TRACE] pass=\(passID) result dropped: \(reason), groups=\(groupCount), objects=\(objectCount)",
+			logger: .ui
+		)
 	}
 
 	/// Single write path for the displayed frame: the screen's mirror updates in the same statement,

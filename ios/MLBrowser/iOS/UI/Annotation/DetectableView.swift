@@ -49,6 +49,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 	/// Asks the session to queue a current-run snapshot after this view invalidates an old frame for
 	/// a layout change. The session owns the request so a paused run cannot restart itself here.
 	let contentGeometryDidChange: () -> Void
+	/// Asks the session for a replacement after an interaction invalidated the current frame. The
+	/// session owns the request so an idle transition cannot restart a paused run.
+	let contentInteractionDidEnd: () -> Void
 	/// Receives the exact presentation-filtered frame that this view overlays, so finding capture
 	/// cannot select an observation hidden by the per-model confidence setting.
 	private let onFrameChanged: ((AppliedDetectionFrame?) -> Void)?
@@ -90,6 +93,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         detectionActive: Bool = false,
         acceptsSnapshot: @escaping SnapshotRequestAcceptance,
         contentGeometryDidChange: @escaping () -> Void,
+		contentInteractionDidEnd: @escaping () -> Void,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
@@ -106,6 +110,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 		self.detectionActive = detectionActive
 		self.acceptsSnapshot = acceptsSnapshot
 		self.contentGeometryDidChange = contentGeometryDidChange
+		self.contentInteractionDidEnd = contentInteractionDidEnd
         self.isCapturingFinding = isCapturingFinding
 		self.onFrameChanged = onFrameChanged
         self.onInteractionStateChanged = onInteractionStateChanged
@@ -113,15 +118,25 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // The detect seam is @MainActor (DeepDrivers is); the heavy work hops to the engine actor
         // inside detect(). Guards are bound later from the installed view's connected state
         // (.onAppear → bindGuards) — a view's own @State isn't wired to storage at init time.
-        self._coordinator = StateObject(wrappedValue: DetectionCoordinator(
-            tiling: tiling,
-            detect: { image, tiling, onPartialResults in
-                await drivers.detect(on: image, tiling: tiling, onPartialResults: onPartialResults)
-            },
-            onFrameChanged: { frame in
-                onFrameChanged?(DetectionPresentation.filteredFrame(frame))
-            }
-        ))
+		self._coordinator = StateObject(wrappedValue: DetectionCoordinator(
+			tiling: tiling,
+			detect: { image, tiling, onPartialResults in
+				await drivers.detect(on: image, tiling: tiling, onPartialResults: onPartialResults)
+			},
+			onFrameChanged: { frame in
+				onFrameChanged?(DetectionPresentation.filteredFrame(frame))
+			},
+			onFinalFrameApplied: { passID, rawResults in
+				let rawCount = rawResults.reduce(0) { $0 + $1.observations.count }
+				let renderedCount = DetectionPresentation.filteredResults(rawResults).reduce(0) {
+					$0 + $1.observations.count
+				}
+				LoggingPolicy.debug(
+					"[ANNOTATION TRACE] pass=\(passID) overlay candidate: raw=\(rawCount), rendered=\(renderedCount)",
+					logger: .ui
+				)
+			}
+		))
     }
     
     private var isInteracting: Bool {
@@ -224,17 +239,27 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 				contentGeometryDidChange()
             }
         }
-        .onSnapshot { image, _, request in
-			guard acceptsSnapshot(request) else { return }
-            // Skip detection while content is being manipulated - geometry is changing
-            guard !isInteracting else {
-                LoggingPolicy.debug("Detection snapshot skipped during content interaction", logger: .ui)
-                return
-            }
-            // The frozen frame must outlive the save dialog; new passes resume with
-            // the timer once the capture ends.
-            guard isCapturingFinding.wrappedValue.not else { return }
-            if AppEnvironment.isRunningUITests {
+		.onSnapshot { image, _, request in
+			guard acceptsSnapshot(request) else {
+				LoggingPolicy.debug(
+					"[ANNOTATION TRACE] snapshot request rejected by detection session: run=\(request.runID)",
+					logger: .ui
+				)
+				return
+			}
+			// Skip detection while content is being manipulated - geometry is changing
+			guard !isInteracting else {
+				LoggingPolicy.debug("[ANNOTATION TRACE] snapshot skipped: content interaction active", logger: .ui)
+				return
+			}
+			// The frozen frame must outlive the save dialog; new passes resume with
+			// the timer once the capture ends.
+			guard isCapturingFinding.wrappedValue.not else {
+				LoggingPolicy.debug("[ANNOTATION TRACE] snapshot skipped: finding capture active", logger: .ui)
+				return
+			}
+			LoggingPolicy.debug("[ANNOTATION TRACE] snapshot accepted: run=\(request.runID)", logger: .ui)
+			if AppEnvironment.isRunningUITests {
                 deliveredSnapshotCount += 1
             }
             // Classification branch (AIA-0374): parallel consumer of the same snapshot,
@@ -276,6 +301,11 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 // finding flashes again once the content settles and re-qualifies
                 // (0→n; AIA-0374 accepted behavior).
                 flashController.resetOnInteraction()
+			} else if isCapturingFinding.wrappedValue.not {
+				// Interaction clears the current frame and rejects output that completes while the
+				// page is moving. Once it settles, do not leave an empty overlay until the timer's
+				// next cadence; the session emits a run-scoped replacement request instead.
+				contentInteractionDidEnd()
             }
             // Notify external observer if provided
             onInteractionStateChanged?(state)
@@ -305,6 +335,12 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 			// The callback re-filters the retained raw frame, keeping the parent pick state in
 			// lockstep with the annotations without an inference pass or model reload.
 			coordinator.refreshPresentation()
+		}
+		.onChange(of: renderedDetectionCount) { oldValue, newValue in
+			LoggingPolicy.debug(
+				"[ANNOTATION TRACE] overlay state: rendered \(oldValue) -> \(newValue), interacting=\(isInteracting), capturing=\(isCapturingFinding.wrappedValue)",
+				logger: .ui
+			)
 		}
         // AIA-0317: publish the live rendered-annotation count for UI tests. Attached at the body
         // root (outside the ZStack's SnapableGroup), so the 1pt marker is never in the detection

@@ -223,6 +223,7 @@ struct WebScreenView: View {
             detectionActive: detectionActive,
 			acceptsSnapshot: { appState.detectionState.accepts($0) },
 			contentGeometryDidChange: { appState.detectionState.contentGeometryDidChange() },
+			contentInteractionDidEnd: { appState.detectionState.contentInteractionDidEnd() },
             isCapturingFinding: $isCapturingFinding,
             onFrameChanged: { frame in
                 appliedFrame = frame
