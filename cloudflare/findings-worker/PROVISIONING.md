@@ -120,13 +120,20 @@ acceptance-pass finding. **It must not be repeated once real findings exist.**
 
 R2 is untouched by the migration. Objects under the old key layout become strays that neither reaper
 enumerates (both iterate `object_bytes`). They remain erasable by account purge, which deletes by
-prefix; to clear them by hand after deploying:
+prefix, so nothing survives an erasure request; what they cost until then is quota-free bucket space.
 
-```sh
-npx wrangler r2 object list aia-findings-staging --prefix findings/   # inspect first
+Wrangler has no `r2 object list` — only `get`, `put` and `delete` — so enumerate them from the
+dashboard (R2 → the bucket → Objects) or the S3-compatible API, and remove only keys whose path has
+**no `<revision>` segment** between the finding id and the filename:
+
+```
+findings/<user>/<finding>/meta.json              <- old layout, safe to delete
+findings/<user>/<finding>/<revision>/meta.json   <- current, referenced by the index
 ```
 
-Delete only keys whose path has no `<revision>` segment between the finding id and the filename.
+Verified on staging 2026-08-31: after `0003` and a full e2e run, `object_bytes` and `global_bytes`
+both settle at 0, so any remaining object under the old layout is accounted for nowhere and is safe
+to remove once identified.
 
 ## Environments: bindings are NOT inherited
 
