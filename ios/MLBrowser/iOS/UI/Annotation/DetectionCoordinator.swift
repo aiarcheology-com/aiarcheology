@@ -197,7 +197,6 @@ final class DetectionCoordinator: ObservableObject {
 		queue.cancelPending()
 	}
 
-
 	/// Single write path for the displayed frame: the screen's mirror updates in the same statement,
 	/// so the two can never diverge.
 	private func setApplied(_ frame: AppliedDetectionFrame?, passID: UInt64? = nil) {
