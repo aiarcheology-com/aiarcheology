@@ -55,6 +55,11 @@ final class DetectionCoordinator: ObservableObject {
 	/// arrives before the view appears and binds them (see `bindGuards`).
 	private var isInteracting: () -> Bool = { false }
 	private var isCapturing: () -> Bool = { false }
+	/// Whether any detector is registered right now.
+	///
+	/// Defaults to `true` — "assume there is one" — so an unbound coordinator behaves exactly as it
+	/// did before this guard existed, and only a view that binds the real answer gets the new one.
+	private var hasDetectors: () -> Bool = { true }
 
 	init(
 		tiling: TilingScheme = [],
@@ -76,9 +81,17 @@ final class DetectionCoordinator: ObservableObject {
 	/// the initializer: a view's own `@State` is not wired to persistent storage at init time, so a
 	/// closure captured there would read a dead initial value. Once bound from the installed view,
 	/// the closures reach the same `@State`/`Binding` boxes the old in-view apply site read live.
-	func bindGuards(isInteracting: @escaping () -> Bool, isCapturing: @escaping () -> Bool) {
+	/// - Parameter hasDetectors: defaults to "there is one", which is how this behaved before the
+	///   guard existed — so a caller that does not care about the model-swap window, every existing
+	///   test included, keeps exactly its old semantics rather than silently acquiring new ones.
+	func bindGuards(
+		isInteracting: @escaping () -> Bool,
+		isCapturing: @escaping () -> Bool,
+		hasDetectors: @escaping () -> Bool = { true }
+	) {
 		self.isInteracting = isInteracting
 		self.isCapturing = isCapturing
+		self.hasDetectors = hasDetectors
 	}
 
 	/// Binds the automatic-sound receiver after the view's environment is connected. As with the
@@ -129,6 +142,10 @@ final class DetectionCoordinator: ObservableObject {
 			self.nextPassID &+= 1
 			let startGeneration = self.generation
 			let passTiling = self.tiling
+			// Whether anything was registered to answer this pass, read BEFORE it runs. Read after,
+			// and a driver that finished registering mid-pass would make an empty result look
+			// authoritative — the one reading that must not happen (AIA-0808).
+			let startedWithDetectors = self.hasDetectors()
 			Task {
 				let applyIfCurrent: @MainActor @Sendable ([DetectionResult]) -> Void = { [weak self] observations in
 					guard let self else { return }
@@ -136,7 +153,23 @@ final class DetectionCoordinator: ObservableObject {
 					guard self.generation == startGeneration else { return }
 					// Live re-checks: interaction or a capture may have begun after the generation was
 					// snapshotted but before SwiftUI delivered the matching `.onChange`.
-					guard self.isInteracting() == false, self.isCapturing() == false else { return }
+					guard self.isInteracting() == false else { return }
+					guard self.isCapturing() == false else { return }
+					// "Nobody was asked" is not "nothing is there" (AIA-0808).
+					//
+					// `DeepDrivers.detect` snapshots the registered detectors and loops over them, so
+					// with none registered it returns an empty array — indistinguishable, at this
+					// point, from a detector that looked and found nothing. A model swap unregisters
+					// before it loads, and loading a YOLO package takes ~2s, during which the timer
+					// keeps firing: every tick applied an empty frame and wiped the overlay. That is
+					// the reported "annotations disappear after changing the model", and the log
+					// showed it exactly — `groups=0` passes bracketed by unload/register.
+					//
+					// An empty result from a pass that had no detector is therefore no answer at all,
+					// and the displayed frame is left alone until a real one arrives. A pass that DID
+					// have a detector and returned nothing still clears, because that is a genuine
+					// answer.
+					guard startedWithDetectors || observations.isEmpty == false else { return }
 					// Image and results are applied as ONE value: the cached snapshot is always the exact
 					// frame the displayed boxes came from.
 					self.setApplied(AppliedDetectionFrame(image: image, results: observations), passID: passID)

@@ -23,6 +23,8 @@ final class DetectionCoordinatorTests: XCTestCase {
 	/// Live apply-time guard state, bound via `bindGuards` and read at apply time.
 	private var interacting = false
 	private var capturing = false
+	/// Whether a detector is registered. False models the model-swap window (AIA-0808).
+	private var detectorsRegistered = true
 	/// Every write mirrored to `onFrameChanged`, in order (nil applies included).
 	private var frameChanges: [AppliedDetectionFrame?] = []
 	private var appliedResultEvents: [(UInt64, [DetectionResult])] = []
@@ -45,7 +47,8 @@ final class DetectionCoordinatorTests: XCTestCase {
 		)
 		coordinator.bindGuards(
 			isInteracting: { [weak self] in self?.interacting ?? false },
-			isCapturing: { [weak self] in self?.capturing ?? false }
+			isCapturing: { [weak self] in self?.capturing ?? false },
+			hasDetectors: { [weak self] in self?.detectorsRegistered ?? true }
 		)
 		return coordinator
 	}
@@ -159,7 +162,8 @@ final class DetectionCoordinatorTests: XCTestCase {
 		)
 		coordinator.bindGuards(
 			isInteracting: { [weak self] in self?.interacting ?? false },
-			isCapturing: { [weak self] in self?.capturing ?? false }
+			isCapturing: { [weak self] in self?.capturing ?? false },
+			hasDetectors: { [weak self] in self?.detectorsRegistered ?? true }
 		)
 
 		coordinator.ingest(snapshot: UIImage())
@@ -255,6 +259,70 @@ final class DetectionCoordinatorTests: XCTestCase {
 		coordinator.setCapturing(true)
 		// Capture freezes the displayed frame — it must NOT be cleared.
 		XCTAssertNotNil(coordinator.appliedFrame)
+		XCTAssertTrue(coordinator.appliedFrame?.image === snapshot)
+	}
+
+	// MARK: - The model-swap window (AIA-0808)
+
+	/// The reported bug, reduced. Changing a model unregisters the old driver before loading the new
+	/// one, and loading a YOLO package takes about two seconds. `DeepDrivers.detect` loops over the
+	/// registered detectors, so with none registered it returns an empty array — and the snapshot
+	/// timer keeps firing throughout, so every tick applied an empty frame and wiped the overlay.
+	/// The user's log showed it plainly: `groups=0` passes bracketed by unload and register.
+	///
+	/// Nobody was asked, so nothing was answered. The displayed frame must survive untouched.
+	func testEmptyResultWithNoDetectorRegistered_LeavesTheDisplayedFrameAlone() async {
+		let coordinator = makeCoordinator()
+		let firstSnapshot = await applyFrame(coordinator, results: [cannedResult()])
+		XCTAssertEqual(coordinator.appliedFrame?.results.count, 1)
+
+		// The swap begins: the old driver is unregistered and the new one is still loading.
+		detectorsRegistered = false
+		coordinator.ingest(snapshot: UIImage())
+		await awaitDetectSuspended()
+		resumeDetect(with: [])
+		await settleForDiscard()
+
+		XCTAssertEqual(coordinator.appliedFrame?.results.count, 1, "the empty pass wiped the overlay")
+		XCTAssertTrue(coordinator.appliedFrame?.image === firstSnapshot, "the displayed frame was replaced")
+		XCTAssertEqual(frameChanges.count, 1, "a no-answer pass must not reach the mirror at all")
+	}
+
+	/// The other half, and the reason this is a guard rather than a blanket "ignore empty results":
+	/// a detector that ran and found nothing is a real answer, and the boxes must go.
+	func testEmptyResultWithADetectorRegistered_StillClearsTheOverlay() async {
+		let coordinator = makeCoordinator()
+		await applyFrame(coordinator, results: [cannedResult()])
+		XCTAssertEqual(coordinator.appliedFrame?.results.count, 1)
+
+		coordinator.ingest(snapshot: UIImage())
+		await awaitDetectSuspended()
+		resumeDetect(with: [])
+		await settle(
+			until: { coordinator.appliedFrame?.results.isEmpty == true },
+			"a detector that found nothing must clear the overlay"
+		)
+
+		XCTAssertEqual(coordinator.appliedFrame?.results.count, 0)
+	}
+
+	/// A non-empty result is always an answer, whatever the registry looked like when the pass
+	/// began — the guard keys on emptiness too, so a late-registering driver's real findings are
+	/// never suppressed.
+	func testNonEmptyResultAppliesEvenIfThePassBeganWithNoDetector() async {
+		let coordinator = makeCoordinator()
+		detectorsRegistered = false
+
+		let snapshot = UIImage()
+		coordinator.ingest(snapshot: snapshot)
+		await awaitDetectSuspended()
+		resumeDetect(with: [cannedResult()])
+		await settle(
+			until: { coordinator.appliedFrame != nil },
+			"a real result must apply regardless of the registry state at pass start"
+		)
+
+		XCTAssertEqual(coordinator.appliedFrame?.results.count, 1)
 		XCTAssertTrue(coordinator.appliedFrame?.image === snapshot)
 	}
 }

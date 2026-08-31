@@ -122,6 +122,14 @@ final class DetectionSessionState: ObservableObject {
 		snap.requestSnapshot(for: detectionRunID)
 	}
 
+	/// A web-content interaction finished. Its start invalidates the displayed frame and can discard
+	/// an inference result that was already in flight; request a current-run replacement as soon as
+	/// the content is stable instead of leaving the overlay empty until the next timer tick.
+	func contentInteractionDidEnd() {
+		guard ontheflyDetectionEnabled else { return }
+		snap.requestSnapshot(for: detectionRunID)
+	}
+
 	/// The apply-time truth for a snapshot. This lives beside the lifecycle transitions so a
 	/// SwiftUI mirror that has not rendered the most recent PLAY/PAUSE change cannot admit stale
 	/// work by accident.

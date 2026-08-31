@@ -208,6 +208,7 @@
 		94A41300F000000000000003 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 94A41300F000000000000002 /* HuggingFace */; };
 		94AA03070000000000000002 /* BrowsingHistoryRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AA03070000000000000001 /* BrowsingHistoryRefreshTests.swift */; };
 		94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000A0001 /* WebViewLoadErrorLevelTests.swift */; };
+		94AB0C2960296000000B0002 /* WebViewInteractionSettleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000B0001 /* WebViewInteractionSettleTests.swift */; };
 		94AB0C2960296000000A0012 /* WebContentRecoveryPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000A0011 /* WebContentRecoveryPolicyTests.swift */; };
 		94AB0C2960296000000A0022 /* WebLoadFailureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000A0021 /* WebLoadFailureTests.swift */; };
 		94AE91762F0D9E2F00B326B7 /* Color+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AE91752F0D9E2800B326B7 /* Color+Extension.swift */; };
@@ -628,6 +629,7 @@
 		949DB6E12EE4F1B0002E904E /* DemoDataManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManagerTests.swift; sourceTree = "<group>"; };
 		94AA03070000000000000001 /* BrowsingHistoryRefreshTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowsingHistoryRefreshTests.swift; sourceTree = "<group>"; };
 		94AB0C2960296000000A0001 /* WebViewLoadErrorLevelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewLoadErrorLevelTests.swift; sourceTree = "<group>"; };
+		94AB0C2960296000000B0001 /* WebViewInteractionSettleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewInteractionSettleTests.swift; sourceTree = "<group>"; };
 		94AB0C2960296000000A0011 /* WebContentRecoveryPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebContentRecoveryPolicyTests.swift; sourceTree = "<group>"; };
 		94AB0C2960296000000A0021 /* WebLoadFailureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLoadFailureTests.swift; sourceTree = "<group>"; };
 		94AE91752F0D9E2800B326B7 /* Color+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Extension.swift"; sourceTree = "<group>"; };
@@ -1356,6 +1358,7 @@
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
 				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
 				94AB0C2960296000000A0001 /* WebViewLoadErrorLevelTests.swift */,
+				94AB0C2960296000000B0001 /* WebViewInteractionSettleTests.swift */,
 				94AB0C2960296000000A0011 /* WebContentRecoveryPolicyTests.swift */,
 				94AB0C2960296000000A0021 /* WebLoadFailureTests.swift */,
 				940A10042F0500010000A004 /* LocalizationTests.swift */,
@@ -2327,6 +2330,7 @@
 				63CDF1E9BC41E124832411D6 /* TourStateTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
 				94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */,
+				94AB0C2960296000000B0002 /* WebViewInteractionSettleTests.swift in Sources */,
 				94AB0C2960296000000A0012 /* WebContentRecoveryPolicyTests.swift in Sources */,
 				94AB0C2960296000000A0022 /* WebLoadFailureTests.swift in Sources */,
 				940A10052F0500010000A005 /* LocalizationTests.swift in Sources */,

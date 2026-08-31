@@ -168,6 +168,35 @@ final class DetectionSessionStateTests: XCTestCase {
         XCTAssertNil(received)
     }
 
+	func testContentInteractionDidEnd_RequestsANewSnapshotForTheActiveRun() {
+		var requests: [SnapshotRequest] = []
+		let cancellable = snapState.combinedPublishers.sink { requests.append($0) }
+		defer { cancellable.cancel() }
+
+		sut.ontheflyDetectionTapped()
+		guard let initialRequest = requests.last else {
+			return XCTFail("Starting detection should issue its initial request")
+		}
+
+		sut.contentInteractionDidEnd()
+
+		guard let replacementRequest = requests.last else {
+			return XCTFail("A settled interaction should issue a replacement request")
+		}
+		XCTAssertEqual(replacementRequest.runID, sut.detectionRunID)
+		XCTAssertGreaterThan(replacementRequest.sequence, initialRequest.sequence)
+	}
+
+	func testContentInteractionDidEnd_DoesNotRequestWhileDetectionIsStopped() {
+		var received: SnapshotRequest?
+		let cancellable = snapState.combinedPublishers.sink { received = $0 }
+		defer { cancellable.cancel() }
+
+		sut.contentInteractionDidEnd()
+
+		XCTAssertNil(received)
+	}
+
     // MARK: - Chrome Visibility Tests
     //
     // Uniform rule: every detection start hides chrome, every stop shows it,

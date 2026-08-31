@@ -41,27 +41,24 @@ final class DeepState: ObservableObject {
 
 		let configurations = repository.selectAll()
 		do {
+			// Launch-time loads go through the SAME path as a live enable or type switch, rather
+			// than a second copy of it (AIA-0808).
+			//
+			// This used to be its own inline `Task` with weaker guards, and the gap was the whole
+			// bug: it never touched `driverLoadGenerations`, and after `await loadFile()` it
+			// re-checked only `current.enabled` — not the generation, not the model type — before
+			// registering with the `config.modelType` it had captured *before* the load. So a
+			// configuration change made while the launch load was still in flight did not supersede
+			// it. The user switches type, the live path loads and registers the new driver
+			// correctly, and then the launch load completes and registers the stale one on top,
+			// filed under the type it had at launch. The drawer card looks right and the runtime
+			// driver is not the one it names.
+			//
+			// `loadAndRegisterDriver` already has the guards this needed, all four of them, and has
+			// had them since AIA-0402. There was never a reason for two versions of this logic.
 			try configurations.forEach { config in
 				guard config.enabled == true else { return }
-				guard let driver = try self.createDriver(from: config) else { return }
-				
-				Task {
-					do {
-						try await driver.loadFile()
-						// The configuration may have been deleted (e.g. reset) or disabled
-						// while the model was loading.
-						guard let current = selectConfiguration(config.entityId), current.enabled else {
-							await driver.unload()
-							return
-						}
-						register(driver: driver, along: config.modelType)
-						LoggingPolicy.info("Driver successfully loaded and registered for configuration \(config.entityId.uuidString)", logger: .drivers)
-					} catch {
-						LoggingPolicy.error("Failed to load driver for configuration \(config.entityId.uuidString)", error: error, logger: .drivers)
-						DefaultCrashReporter.shared.recordError(error, context: ["operation": "loadDriver", "configId": config.entityId.uuidString])
-						deepStateError = error
-					}
-				}
+				try loadAndRegisterDriver(entityId: config.entityId, expectedType: config.modelType)
 			}
 		} catch {
 			// Send it to the upper layers to show the error to the user
