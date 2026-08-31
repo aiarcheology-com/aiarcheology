@@ -99,7 +99,7 @@ async function refuseIfAccountVanished(
 /// So the write checks its reservation again on the other side and removes itself. `internal` is
 /// retryable, which is the right answer: the revision is genuinely gone and the client should
 /// re-reserve rather than park a finding that nothing is wrong with.
-async function refuseIfReservationReclaimed(
+export async function refuseIfReservationReclaimed(
   env: Env,
   userId: string,
   id: string,

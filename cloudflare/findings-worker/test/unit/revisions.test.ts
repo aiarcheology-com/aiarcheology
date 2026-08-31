@@ -3,11 +3,27 @@ import { describe, expect, it } from 'vitest';
 import {
   commitFinding,
   modifiedAtForRevision,
+  objectKey,
   reapUnreferencedObjects,
   reapUnreferencedObjectsForFinding,
+  reserveBytes,
   STAGING_LIFETIME_MS,
 } from '../../src/store';
+import { refuseIfReservationReclaimed } from '../../src/index';
 import { auth, bytes, tokenFor } from './helpers';
+
+/// Marks an object row as claimed by a reaper, which is the one state a request cannot produce for
+/// itself: the claim is taken by the scheduled run or by a delete on another device, always between
+/// two statements of somebody else's request. Setting it directly is how a single-threaded test
+/// reaches the interleaving the guards exist for.
+async function claimForReaping(userId: string, findingId: string, revision: number, kind: string): Promise<void> {
+  await env.DB.prepare(
+    `UPDATE object_bytes SET reaping_at = ?1, reaping_token = 'test-claim'
+      WHERE user_id = ?2 AND finding_id = ?3 AND revision = ?4 AND kind = ?5`,
+  )
+    .bind(Date.now(), userId, findingId, revision, kind)
+    .run();
+}
 
 const BASE = 'https://worker.test';
 
@@ -111,6 +127,64 @@ describe('immutable finding revisions', () => {
     const image = await SELF.fetch(`${BASE}/v1/findings/${id}/image`, { headers: auth(token) });
     expect(image.status).toBe(200);
     expect(new Uint8Array(await image.arrayBuffer())).toEqual(bytes(96, 4));
+  });
+
+  it('deletes its own object, rather than orphaning it, when the reservation was reclaimed mid-write', async () => {
+    // The far-side guard on every PUT. `reserveBytes` refuses a claimed row, but only BEFORE
+    // `FINDINGS.put`; a reaper that claims the row and deletes the key in between leaves
+    // `if-none-match: *` looking at absent bytes, so the put succeeds and the reaper's batch then
+    // removes the row. What survives is an R2 object no `object_bytes` row names -- uncounted, and
+    // invisible to both reapers because both iterate that table. For this payload that is a
+    // photograph outliving its own deletion, so the write has to clean up after itself.
+    const user = nextUser();
+    const id = findingId('12');
+    const revision = Date.now() - 1_000;
+    const key = objectKey(user, id, revision, 'image');
+
+    await reserveBytes(env, user, id, revision, 'image', 64, Date.now());
+    await env.FINDINGS.put(key, bytes(64, 5));
+    expect(await env.FINDINGS.head(key)).not.toBeNull();
+
+    // The reaper claims the row while this request is inside its put.
+    await claimForReaping(user, id, revision, 'image');
+
+    await expect(refuseIfReservationReclaimed(env, user, id, revision, 'image')).rejects.toMatchObject({
+      // Retryable, deliberately: the revision is genuinely gone and the client should re-reserve,
+      // not park a finding that has nothing wrong with it.
+      code: 'internal',
+    });
+
+    // The point of the guard. Without it this object is still here, and nothing will ever find it.
+    expect(await env.FINDINGS.head(key)).toBeNull();
+  });
+
+  it('reports a reclaimed reservation as retryable, not as terminal staleness', async () => {
+    // `incomingMeta` is one of two reasons `commitFinding` declines, and only the other is
+    // staleness. Reporting a reclaimed reservation as `stale` is not a cosmetic mislabel: `stale`
+    // is terminal, so the outbox parks an edit that is genuinely the newest there is -- and names
+    // an older tombstone as its winner. Ordering is decided first, because the compare-and-set
+    // refuses only strictly older writes, so anything at or above the stored value that still
+    // fails must have failed on the reservation.
+    const token = await tokenFor(nextUser());
+    const user = `user_revision_${sequence}`;
+    const id = findingId('13');
+    const stored = Date.now() - 2_000;
+    const newer = stored + 500;
+
+    expect((await putMeta(token, id, stored, { note: 'stored' })).status).toBe(200);
+
+    // A newer edit reserves its metadata, then a delete on another device claims the row.
+    await reserveBytes(env, user, id, newer, 'meta', 32, Date.now());
+    await claimForReaping(user, id, newer, 'meta');
+
+    await expect(commitFinding(env, user, id, newer, false, Date.now(), newer)).rejects.toMatchObject({
+      code: 'internal',
+    });
+
+    // And the genuinely older write is still terminal, which is the case this must not swallow.
+    await expect(commitFinding(env, user, id, stored - 1_000, false, Date.now(), stored - 1_000)).rejects.toMatchObject({
+      code: 'stale',
+    });
   });
 
   it('keeps one immutable revision when a fast client clock is clamped between image and metadata', async () => {
