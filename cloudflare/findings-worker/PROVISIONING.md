@@ -101,6 +101,40 @@ npx wrangler d1 migrations apply aia-findings-staging --env staging --remote
 conditional `UPDATE ... WHERE key = 'global_bytes'`, and against a missing row it changes nothing
 and reports no error, so an unseeded counter would fail OPEN.
 
+**Never edit a migration that has been applied anywhere.** Wrangler records applied migrations by
+**filename** in each database's `d1_migrations` table and stores no content hash, so a rewritten
+file is silently skipped on every database that already ran it — schema and code then disagree with
+no error until the first query hits a column that was never created. Both live databases have run
+`0001` and `0002` since 2026-08-26. A schema change is always a new numbered file.
+
+### 1.0.8 — `0003_revisions.sql` discards the pre-revision rows
+
+`0003` introduces revision-scoped storage (AIA-0753, AIA-0754). `objectKey()` now addresses
+`findings/<user>/<finding>/<revision>/<kind>`, and nothing can name an object written under the old
+unrevisioned key, so the migration clears `finding` and rebuilds `object_bytes` rather than carrying
+forward index rows that would 404 on read. `user_state` is preserved: it holds the account-deletion
+fences, which are write-once and never cleared.
+
+This is sound only because no release has shipped cloud sync — each database held a single
+acceptance-pass finding. **It must not be repeated once real findings exist.**
+
+R2 is untouched by the migration. Objects under the old key layout become strays that neither reaper
+enumerates (both iterate `object_bytes`). They remain erasable by account purge, which deletes by
+prefix, so nothing survives an erasure request; what they cost until then is quota-free bucket space.
+
+Wrangler has no `r2 object list` — only `get`, `put` and `delete` — so enumerate them from the
+dashboard (R2 → the bucket → Objects) or the S3-compatible API, and remove only keys whose path has
+**no `<revision>` segment** between the finding id and the filename:
+
+```
+findings/<user>/<finding>/meta.json              <- old layout, safe to delete
+findings/<user>/<finding>/<revision>/meta.json   <- current, referenced by the index
+```
+
+Verified on staging 2026-08-31: after `0003` and a full e2e run, `object_bytes` and `global_bytes`
+both settle at 0, so any remaining object under the old layout is accounted for nowhere and is safe
+to remove once identified.
+
 ## Environments: bindings are NOT inherited
 
 Every binding declared at the top level must be **re-declared inside each `env` block** with that

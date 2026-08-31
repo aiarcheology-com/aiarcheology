@@ -37,15 +37,17 @@ describe('per-user quota', () => {
     expect(body.error.retryable).toBe(false);
   });
 
-  it('charges only the difference when an object is replaced', async () => {
-    // Otherwise editing the same finding repeatedly would walk a user over their cap while the
-    // bucket held one object all along.
+  it('charges a staged replacement until the reaper can prove it lost or was superseded', async () => {
+    // Revisioned keys deliberately keep both objects until the newer one commits and maintenance
+    // reclaims the old revision. Charging that short overlap is the safe direction: a crash cannot
+    // turn a real R2 object into unmetered storage.
     const token = await tokenFor(nextUser());
     const id = findingId('04');
-    await putImage(token, id, 2000);
-    const replaced = await putImage(token, id, 2048, Date.now() + 1);
+    const modifiedAt = Date.now() - 100;
+    await putImage(token, id, 2000, modifiedAt);
+    const replaced = await putImage(token, id, 2048, modifiedAt + 1);
     expect(replaced.status).toBe(200);
-    expect(((await replaced.json()) as { usage: { used: number } }).usage.used).toBe(2048);
+    expect(((await replaced.json()) as { usage: { used: number } }).usage.used).toBe(4048);
   });
 
   it('reports usage against the limit on every write, so the client can warn before it blocks', async () => {
