@@ -10,7 +10,14 @@ what looters want. Losing it is bad; leaking it is worse.
 
 Implemented across AIA-713: the Worker in `cloudflare/findings-worker/` (#726), the client in
 `ios/MLBrowser/iOS/State/FindingsSyncCoordinator.swift` and
-`ios/MLBrowser/iOS/Services/FindingsSyncLedger.swift` (#727), account deletion (#728).
+`ios/MLBrowser/iOS/Services/FindingsSyncLedger.swift` (#727), account deletion (#728). Storage became
+revisioned and self-reclaiming in #806 (AIA-0753, AIA-0754), deployed to production 2026-08-31 by
+`0003_revisions.sql`.
+
+D1 holds five tables: `finding` (sync truth, and the revisions it selects), `finding_revision`
+(stable ordering for a future-dated client clock), `object_bytes` (storage truth, one row per
+immutable revision), `counter` (per-account and global byte totals) and `user_state` (the
+account-deletion fences).
 
 ## 1. Shape
 
@@ -19,16 +26,24 @@ iOS app ──HTTPS, Clerk session token──▶ Cloudflare Worker ──▶ R2
                                                           └─▶ D1        index + quota
 ```
 
-One object per finding, never an archive:
+One object per finding **revision**, never an archive:
 
 ```
-findings/<clerk-user-id>/<finding-id>/meta.json
-findings/<clerk-user-id>/<finding-id>/image.jpg
+findings/<clerk-user-id>/<finding-id>/<modified-at>/meta.json
+findings/<clerk-user-id>/<finding-id>/<modified-at>/image.jpg
 ```
 
 A zip would force a full read-modify-write to change one finding, break per-item retry, and make
 quota accounting impossible without unzipping it. The export ZIP remains the user-facing backup;
 individual objects are the sync format.
+
+**Objects are immutable, and the `<modified-at>` segment is what makes them so** (AIA-0754). Without
+it both devices in a conflict write the same key, and the loser's bytes can land *after* the winner's
+— so the index commits one revision while R2 holds another's content. A finding torn that way looks
+perfectly healthy: new notes, old photograph, no error anywhere. Each write now owns its own key, the
+index row records exactly which metadata and image revision it publishes, and a losing writer can
+leave only an unreferenced object. Reads resolve through the index (`objectReference`), so a key that
+exists but was never committed is never visible.
 
 Storage keys are namespaced by the **verified** Clerk `sub`, never by anything the client supplies.
 Two accounts using the same finding id stay apart — a case the index lookup alone would not catch.
@@ -72,7 +87,11 @@ and hand this device a false win over the edit it just received.
   round on a poll would leave the loser wrong for ever if the cursor had already passed it.
 - A future-dated client clock is **clamped to receipt time**, and the client adopts what the server
   stored. A device that kept its own value would see the row as perpetually newer and re-upload it
-  on every sync.
+  on every sync. The clamp is recorded in `finding_revision` and reused for that revision for ever:
+  a lost response retried an hour later must not become newer merely because the server clock caught
+  up in the meantime. Only future timestamps need a row — one already at or before receipt time is
+  its own answer. Note the raw client value, not the clamped one, remains the R2 key, so a finding's
+  image and metadata always share a revision even though they arrive in separate requests.
 - Timestamps are compared and stored in **whole milliseconds**. `Date` carries sub-millisecond
   precision and the wire carries integers; `1000.7 > 1000` is a difference that never closes.
 - Rows migrated from model 0.0.0/0.0.1 arrive with `modifiedAt == nil`. Fall back to
@@ -132,12 +151,22 @@ that finding, so deleting while signed out — or as somebody else — still rea
 
 `image.jpg` → `meta.json` → **index row**. The index row is the commit point.
 
-A crash between the two R2 writes leaves orphan bytes that the next retry overwrites. The reverse
-order leaves an index row pointing at an object that is not there, which reads as corruption on
-every device that syncs it.
+The reverse order leaves an index row pointing at an object that is not there, which reads as
+corruption on every device that syncs it.
+
+A crash between the two R2 writes leaves bytes with no index row. Those are **not** overwritten by
+the next retry — a retry carrying changed content gets a new revision and therefore a new key, so
+nothing is ever clobbered. They are reclaimed instead; see *Reclaiming what was never committed*.
 
 Byte accounting runs *before* each R2 write, so a failed write over-counts — the safe direction for
 a cost guard — rather than under-counts exactly when a crash left bytes in the bucket.
+
+Each write also re-checks its own reservation on the **far** side of the R2 put, and deletes the
+object it just wrote if that reservation is gone (AIA-0753). The near-side check cannot cover this:
+cleanup can claim the row and delete the key *between* the reservation and the write, and the write
+then succeeds against an absent key. What that leaves is an object no index row names and no cleanup
+pass enumerates — invisible, uncounted, and removable only by erasing the whole account. For this
+payload that is a photograph outliving its own deletion, so the write cleans up after itself.
 
 ### Retry and parking
 
@@ -149,6 +178,13 @@ a cost guard — rather than under-counts exactly when a crash left bytes in the
 
 Parking is deliberately narrow. An outbox that parks on an ambiguous failure quietly stops backing
 somebody up. Editing a parked finding un-parks it: the user changed the thing that was refused.
+
+Which is why `stale` is decided on **ordering alone**. A commit is refused for two different
+reasons — the write really is older, or its reservation was reclaimed underneath it — and the second
+is not staleness at all. Reporting it as `stale` would hand the outbox a terminal answer for an edit
+that is genuinely the newest there is, and name an older tombstone as the winner it should apply.
+The compare-and-set refuses only strictly older writes, so anything at or above the stored value that
+still fails must have failed on its reservation, and gets a retryable error instead.
 
 Triggers are the app coming to the front, connectivity returning, and a local save. A trigger that
 arrives mid-cycle schedules another cycle rather than being dropped. There is no timer — a sync with
@@ -174,8 +210,33 @@ A quota park is not permanent. Deleting a backed-up finding frees room, and the 
 lifted on the same cycle — otherwise the advice the app gives ("remove or export findings") would
 not work.
 
-Storage is accounted separately from sync: `object_bytes` records what is actually stored, including
-an image whose metadata never committed, so an abandoned upload is not free storage.
+Storage is accounted separately from sync: `object_bytes` records what is actually stored — one row
+per immutable revision, live and superseded and merely staged alike — so an abandoned upload is not
+free storage.
+
+### Reclaiming what was never committed
+
+An upload that reserves bytes and never commits, and a revision the index has moved past, both hold
+storage that nothing will ever read. Left alone they are permanent: a reinstalled app never learns
+the id, so it cannot delete or even see them, and an account could be storage-blocked by objects its
+owner has no way to reach (AIA-0753).
+
+A reservation therefore has a **bounded, non-renewable** lifetime of 24 hours. A quarter-hourly
+scheduled run claims expired rows that no live index row references, deletes their R2 keys, and
+releases their bytes — up to 500 per run. Replaying the same revision does not extend the clock: the
+original `created_at` is preserved, so a crashed or uninstalled client cannot renew a reservation
+indefinitely.
+
+D1 and R2 cannot share a transaction, so the claim is the hand-off. A claimed row is refused by both
+reservation and commit, which is what stops a request publishing a key that is about to be deleted;
+an abandoned claim expires after a short lease, so a crash mid-sweep is recoverable.
+
+Deleting a finding runs the same reclamation immediately for that finding, so the quota comes back
+at once rather than a day later — otherwise "storage full, delete findings you no longer need" would
+be advice that does not work. It collects only revisions **strictly older than the tombstone**. A
+revision at or above it can still win the commit compare-and-set and resurrect the finding, and
+collecting one would either park a genuinely newer edit as terminal `stale` or commit its metadata
+with the image silently removed behind a `200`.
 
 Above 80% the app warns; at 100% it blocks new uploads and says what to do. **Export keeps working
 at 100%** — it is both a data-portability right (GDPR Art. 20) and the only way out of a full
@@ -233,9 +294,15 @@ about 30 days; and the fence row keeps a Clerk user id after erasure.
   add a way for one user to see another's findings.
 - **No field-level merge, no conflict UI, no delete-always-wins.**
 - **No rate limiting yet**, and no CORS — the client is native.
-- **No reaper for orphan bytes.** An image whose metadata never committed is charged to the user but
-  cannot be listed, so "prune findings" does not reach it. Known gap, written down rather than
-  discovered later.
+- ~~**No reaper for orphan bytes.**~~ **Built in AIA-0753** — see *Reclaiming what was never
+  committed*. An image whose metadata never committed is now reclaimed after its 24-hour staging
+  lifetime instead of being charged to the user for ever.
+- **No enumeration of R2 by prefix outside account purge.** Both reclamation paths iterate
+  `object_bytes`, so anything in the bucket that no row names is invisible to them. Nothing produces
+  such an object any more — the far-side reservation check closes the window that did — but objects
+  written before the revisioned layout are exactly this shape and were left in place by
+  `0003_revisions.sql`. They are erased by account purge, which deletes by prefix, and otherwise
+  cleared by hand; `cloudflare/findings-worker/PROVISIONING.md` has the procedure.
 
 ## 11. Environments
 
@@ -281,7 +348,14 @@ is never an app secret.
   the prompt.
 - **A fresh D1 database has no tables.** `wrangler d1 migrations apply <db> --remote --env <env>`
   is a separate step from `deploy`, and skipping it leaves a Worker that answers requests and fails
-  every write.
+  every write. Apply the migration **before** deploying the code that needs it, never after.
+- **Never edit a migration that has already been applied anywhere.** Wrangler records applied
+  migrations by **filename**, with no content hash, so a rewritten file is silently skipped on every
+  database that already ran it — and the failure surfaces only as "no such column" on the first
+  request that needs the new schema. A schema change is always a new numbered file. This is not
+  hypothetical: the revisioned schema was first written as an in-place rewrite of `0001_init.sql`,
+  which both live databases had already applied, and it was caught in review rather than in
+  production.
 
 ### The client half
 
