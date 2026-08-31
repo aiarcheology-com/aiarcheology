@@ -1,4 +1,5 @@
-Build: AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735, AIA-0779, AIA-0782, AIA-0763, AIA-0765, AIA-0783, AIA-0785, AIA-0778, AIA-0791
+Build: AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735, AIA-0779, AIA-0782, AIA-0763, AIA-0765,
+AIA-0783, AIA-0785, AIA-0778, AIA-0791, AIA-0796
 
 Test Focus: detection boxes must sit on what they found, the two questions the app asks must never
 share a screen, and your existing findings must survive the update.
@@ -35,6 +36,10 @@ share a screen, and your existing findings must survive the update.
   sign in again. Findings you BACKED UP earlier do not carry over; the ones on your device are
   untouched. Synchronize must then FINISH, on a Mac too, where it has never once worked.
 
+- NEW: ON A MAC, THE ACCOUNT SCREENS MUST OPEN. Settings > your account: open Delete Account, the
+  email and phone rows, Password, two-factor. Each must show its own screen — Delete Account did
+  nothing on a Mac last build. Cancel each; iPhone and iPad must still work.
+
 - YOUR EXISTING FINDINGS MUST ALL STILL BE THERE. Storage changed. Update from the build you were
   running rather than deleting the app first — a fresh install cannot test this. Every finding
   still listed, with its picture, title and box in the right place.
@@ -46,12 +51,5 @@ share a screen, and your existing findings must survive the update.
   however many times you press it. Only "Back Up My Findings", inside the question-mark sheet,
   still sends them.
 
-- A shared link points where the detection actually was. Before saving, pinch and drag to crop in
-  tight. Share with the link on and open it: the mark under "Where on the page" should sit where
-  the thing was. Findings saved before this build show no such section: deliberate.
-
 - Deleting your account offers your findings first: Delete Account must say they are NOT deleted
   with the account and offer "Export First…". With nothing saved, that choice must NOT appear.
-
-- Subscribing on an Apple Account that already holds the subscription must let you in or point you
-  at Restore Purchases, never dead-end.
