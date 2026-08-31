@@ -157,7 +157,7 @@ export async function modifiedAtForRevision(
   throw new ApiError('internal', 'The revision could not be assigned an ordering timestamp.');
 }
 
-async function bytesForObject(
+export async function bytesForObject(
   env: Env,
   userId: string,
   findingId: string,
@@ -377,6 +377,26 @@ export async function commitFinding(
       throw new ApiError('account_deleting', 'This account is being deleted.');
     }
     const winner = await findingRow(env, userId, findingId);
+
+    // Genuine staleness first, and it is decidable rather than guessed: the compare-and-set is
+    // `excluded.modified_at >= finding.modified_at`, so a strictly older write is exactly the case
+    // it refuses on ordering. Terminal is the right answer there -- no retry makes it newer.
+    if (winner !== null && modifiedAt < winner.modifiedAt) {
+      throw new ApiError('stale', 'A newer version of this finding is already stored.', { winner });
+    }
+
+    // Not older than the winner, so ordering cannot be why this was declined -- what failed was
+    // `incomingMeta`, i.e. the reservation was reclaimed underneath an in-flight commit. Calling
+    // that `stale` is not a cosmetic mislabel: `stale` is terminal, so the outbox would park an
+    // edit that is genuinely the newest there is and name an older tombstone as its winner. The
+    // revision bound in `reapUnreferencedObjectsForFinding` closes the race that made this common;
+    // this keeps the answer honest for whatever still reaches it.
+    if (deleted === false) {
+      const reservation = await bytesForObject(env, userId, findingId, revision, 'meta');
+      if (reservation === null || reservation.reapingAt !== null) {
+        throw new ApiError('internal', 'This upload was reclaimed before it committed; retry it.');
+      }
+    }
     if (winner !== null) {
       throw new ApiError('stale', 'A newer version of this finding is already stored.', { winner });
     }
@@ -437,6 +457,7 @@ export async function listSince(env: Env, userId: string, cursor: string | null,
 export const STAGING_LIFETIME_MS = 24 * 60 * 60 * 1000;
 const REAP_LEASE_MS = 15 * 60 * 1000;
 const MAX_REAPED_OBJECTS_PER_RUN = 500;
+
 
 const IS_ACTIVE_REFERENCE = `EXISTS (
   SELECT 1 FROM finding f
@@ -530,10 +551,32 @@ export async function reapUnreferencedObjects(env: Env, now = Date.now()): Promi
 /// Deletes the revisions a tombstone made unreachable without touching a finding that has since
 /// been resurrected. The same D1 claim used by scheduled cleanup is the hand-off to R2 deletion:
 /// a later metadata commit sees the lease and cannot publish a row this deletion is about to erase.
+///
+/// `belowRevision` is the tombstone's own ordering value, and it is what keeps this from reaping an
+/// upload that is still in flight. The scheduled reaper is protected by `STAGING_LIFETIME_MS` --
+/// nothing younger than a day is ever a candidate -- but a tombstone makes a *fresh* reservation
+/// unreferenced the instant it commits, so this path had no floor at all. Device A uploads an image
+/// and then its metadata while device B deletes the same finding:
+///
+///   * claim between A's `reserveBytes` and `commitFinding` and A's commit fails `incomingMeta`,
+///     which reported terminal `stale` naming B's older tombstone as the winner -- a genuinely
+///     newer edit parked forever, when a hundred milliseconds the other way would have resurrected
+///     it;
+///   * claim only A's image row and A's metadata commit SUCCEEDS with `image_revision = NULL` --
+///     200 returned, photograph silently reaped.
+///
+/// A time-based grace window would have fixed both and broken something else: a delete must return
+/// the bytes to the user's quota *now*, or "storage full -- delete findings you no longer need" is
+/// advice that does not work. The revision bound costs nothing there. A revision at or above the
+/// tombstone can still win the commit compare-and-set and resurrect the finding, so it is left
+/// alone; everything strictly below it lost to this tombstone already and is collected immediately,
+/// which is every revision the deleted finding itself owned. The few rows this declines are not
+/// leaked, only deferred to the scheduled reaper.
 export async function reapUnreferencedObjectsForFinding(
   env: Env,
   userId: string,
   findingId: string,
+  belowRevision: number,
   now = Date.now(),
 ): Promise<ReapResult> {
   const leaseCutoff = now - REAP_LEASE_MS;
@@ -544,15 +587,17 @@ export async function reapUnreferencedObjectsForFinding(
       WHERE rowid IN (
         SELECT candidate.rowid FROM object_bytes candidate
          WHERE candidate.user_id = ?3 AND candidate.finding_id = ?4
+           AND candidate.revision < ?7
            AND (candidate.reaping_at IS NULL OR candidate.reaping_at <= ?5)
            AND NOT ${CANDIDATE_IS_ACTIVE_REFERENCE}
          ORDER BY candidate.created_at ASC
          LIMIT ?6
       )
+        AND revision < ?7
         AND (reaping_at IS NULL OR reaping_at <= ?5)
         AND NOT ${IS_ACTIVE_REFERENCE}`,
   )
-    .bind(now, token, userId, findingId, leaseCutoff, MAX_REAPED_OBJECTS_PER_RUN)
+    .bind(now, token, userId, findingId, leaseCutoff, MAX_REAPED_OBJECTS_PER_RUN, belowRevision)
     .run();
   return deleteClaimedObjects(env, token);
 }

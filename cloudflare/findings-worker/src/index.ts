@@ -4,6 +4,7 @@ import { sweepIncompleteFences } from './sweep';
 import { handleClerkWebhook } from './webhook';
 import { ApiError, errorResponse, json } from './errors';
 import {
+  bytesForObject,
   commitFinding,
   findingRow,
   isDeleting,
@@ -84,12 +85,39 @@ async function refuseIfAccountVanished(
   throw new ApiError('account_deleting', 'This account is being deleted.');
 }
 
+/// Cleans up after an upload whose reservation was reclaimed while the object was being written.
+///
+/// The mirror of `refuseIfAccountVanished`, and the mirror of the bug this whole change exists to
+/// fix. `reserveBytes` refuses a claimed row, but only on the near side of `FINDINGS.put`: a reaper
+/// that claims the row and deletes the key *after* the reservation and *before* the write leaves
+/// `if-none-match: *` looking at absent bytes, so the put SUCCEEDS and the reaper's batch then
+/// deletes the row. What is left is a real R2 object with no `object_bytes` row -- uncounted,
+/// invisible to both reapers (they iterate `object_bytes`), and untouched by a later
+/// `DELETE /findings/:id`, which is row-driven too. Only an account purge, which deletes by prefix,
+/// would ever remove it. For this payload that is a photograph surviving its own deletion.
+///
+/// So the write checks its reservation again on the other side and removes itself. `internal` is
+/// retryable, which is the right answer: the revision is genuinely gone and the client should
+/// re-reserve rather than park a finding that nothing is wrong with.
+async function refuseIfReservationReclaimed(
+  env: Env,
+  userId: string,
+  id: string,
+  revision: number,
+  kind: 'meta' | 'image',
+): Promise<void> {
+  const reservation = await bytesForObject(env, userId, id, revision, kind);
+  if (reservation !== null && reservation.reapingAt === null) return;
+  await env.FINDINGS.delete(objectKey(userId, id, revision, kind));
+  throw new ApiError('internal', 'This upload was reclaimed while it was being stored; retry it.');
+}
+
 /// Removes only revisions that still have no live index reference after the tombstone. A later
 /// metadata commit can resurrect the finding between these steps, so deleting the whole prefix or
 /// all storage rows would corrupt that newer state.
-async function deleteFindingObjects(env: Env, userId: string, id: string): Promise<void> {
+async function deleteFindingObjects(env: Env, userId: string, id: string, belowRevision: number): Promise<void> {
   for (let batch = 0; batch < MAX_DELETE_REAP_BATCHES; batch += 1) {
-    const reaped = await reapUnreferencedObjectsForFinding(env, userId, id);
+    const reaped = await reapUnreferencedObjectsForFinding(env, userId, id, belowRevision);
     if (reaped.atCapacity === false) return;
   }
   throw new ApiError('internal', 'The finding has too many stored revisions; delete it again to finish.');
@@ -183,6 +211,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       onlyIf: new Headers({ 'if-none-match': '*' }),
       httpMetadata: { contentType: 'image/jpeg' },
     });
+    await refuseIfReservationReclaimed(env, userId, id, modified.revision, 'image');
     await refuseIfAccountVanished(env, userId, id, modified.revision, 'image');
     return json({ modifiedAt, bytes: body.byteLength, usage });
   }
@@ -202,6 +231,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       onlyIf: new Headers({ 'if-none-match': '*' }),
       httpMetadata: { contentType: 'application/json' },
     });
+    await refuseIfReservationReclaimed(env, userId, id, modified.revision, 'meta');
     await refuseIfAccountVanished(env, userId, id, modified.revision, 'meta');
     // The index row is written last and is the commit point. `deleted` returns to 0 here on
     // purpose: an edit that outlives a tombstone brings the finding back, which is what
@@ -218,7 +248,9 @@ async function handle(request: Request, env: Env): Promise<Response> {
     // reclaimed by a retry; the other order would leave a live index row pointing at objects that
     // are already gone, which reads as corruption on every device that syncs it.
     const finding = await commitFinding(env, userId, id, modifiedAt, true, now);
-    await deleteFindingObjects(env, userId, id);
+    // Bounded by the tombstone that just won, not by the raw client value: `modifiedAt` is what the
+    // index row now holds, so it is what a competing revision has to beat to resurrect the finding.
+    await deleteFindingObjects(env, userId, id, finding.modifiedAt);
     return json({ finding, usage: await usageFor(env, userId) });
   }
 

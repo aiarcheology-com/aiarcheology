@@ -52,27 +52,65 @@ describe('immutable finding revisions', () => {
     expect(await modifiedAtForRevision(env, user, id, revision, 3_000)).toBe(1_000);
   });
 
-  it('keeps the newer R2 bytes when a stale metadata commit loses its D1 compare-and-set', async () => {
-    // This is the race AIA-0754 found. Both image requests pass their initial stale check while no
-    // index row exists. The newer metadata commits first; the older metadata then loses D1's CAS.
-    // The old layout still returned the stale request's R2 bytes because both requests overwrote the
-    // same key before that CAS. Revision keys make the winner's index refer only to its own bytes.
+  it('keeps the winner\'s R2 bytes when the LOSING image write lands last', async () => {
+    // This is the race AIA-0754 found, and the order of the two image writes is the whole test.
+    //
+    // Both pass `refuseIfStale` because neither has committed metadata yet, so no index row exists
+    // to compare against -- that is what lets a loser still be in flight. Under the old layout both
+    // wrote `findings/<user>/<id>/image.jpg`, so whichever landed SECOND owned the bytes, and the
+    // index committed afterwards named a revision it did not actually hold: new notes, old picture,
+    // no error anywhere. Revision-scoped keys make the two writes disjoint.
+    //
+    // Writing `early` first instead would assert nothing: the newer bytes would land second and be
+    // returned under either layout, which is exactly how the original version of this test passed
+    // against the very code it was meant to pin.
     const token = await tokenFor(nextUser());
     const id = findingId('01');
     const early = Date.now() - 1_000;
     const late = early + 500;
 
-    expect((await putImage(token, id, early, bytes(64, 1))).status).toBe(200);
     expect((await putImage(token, id, late, bytes(96, 2))).status).toBe(200);
+    expect((await putImage(token, id, early, bytes(64, 1))).status).toBe(200);
     expect((await putMeta(token, id, late, { note: 'newer' })).status).toBe(200);
 
     const stale = await putMeta(token, id, early, { note: 'older' });
     expect(stale.status).toBe(409);
 
+    // Under the shared-key layout this reads bytes(64, 1) -- the loser's.
     const image = await SELF.fetch(`${BASE}/v1/findings/${id}/image`, { headers: auth(token) });
     expect(new Uint8Array(await image.arrayBuffer())).toEqual(bytes(96, 2));
     const meta = await SELF.fetch(`${BASE}/v1/findings/${id}/meta`, { headers: auth(token) });
     expect(await meta.json()).toEqual({ note: 'newer' });
+  });
+
+  it('will not reap a revision at or above the tombstone that made it unreferenced', async () => {
+    // The per-finding reap runs on DELETE, where a tombstone makes a *fresh* reservation
+    // unreferenced the instant it commits -- so unlike the scheduled reaper it has no age floor to
+    // hide behind. Without the revision bound this collects an upload that is still in flight: the
+    // image row goes, and the metadata commit that follows succeeds with `image_revision = NULL`,
+    // returning 200 for a finding whose photograph was just deleted.
+    const token = await tokenFor(nextUser());
+    const user = `user_revision_${sequence}`;
+    const id = findingId('11');
+    const doomed = Date.now() - 2_000;
+    const tombstone = doomed + 100;
+    const inFlight = tombstone + 100;
+
+    expect((await putImage(token, id, doomed, bytes(64, 3))).status).toBe(200);
+    expect((await putMeta(token, id, doomed, { note: 'doomed' })).status).toBe(200);
+
+    // Device B deletes while device A has already staged a newer image and not yet committed it.
+    await commitFinding(env, user, id, tombstone, true, Date.now());
+    expect((await putImage(token, id, inFlight, bytes(96, 4))).status).toBe(200);
+
+    // Only the revisions the tombstone actually beat are collected: image + meta at `doomed`.
+    expect((await reapUnreferencedObjectsForFinding(env, user, id, tombstone)).reaped).toBe(2);
+
+    // A's metadata now commits and must carry its image, not a NULL where the picture used to be.
+    expect((await putMeta(token, id, inFlight, { note: 'in flight' })).status).toBe(200);
+    const image = await SELF.fetch(`${BASE}/v1/findings/${id}/image`, { headers: auth(token) });
+    expect(image.status).toBe(200);
+    expect(new Uint8Array(await image.arrayBuffer())).toEqual(bytes(96, 4));
   });
 
   it('keeps one immutable revision when a fast client clock is clamped between image and metadata', async () => {
@@ -211,7 +249,7 @@ describe('immutable finding revisions', () => {
     expect((await putImage(token, id, newRevision, bytes(96, 8))).status).toBe(200);
     expect((await putMeta(token, id, newRevision, { note: 'new' })).status).toBe(200);
 
-    expect((await reapUnreferencedObjectsForFinding(env, user, id)).reaped).toBe(2);
+    expect((await reapUnreferencedObjectsForFinding(env, user, id, tombstoneRevision)).reaped).toBe(2);
     const image = await SELF.fetch(`${BASE}/v1/findings/${id}/image`, { headers: auth(token) });
     expect(new Uint8Array(await image.arrayBuffer())).toEqual(bytes(96, 8));
     const meta = await SELF.fetch(`${BASE}/v1/findings/${id}/meta`, { headers: auth(token) });
