@@ -23,8 +23,22 @@ broken feature.** That is the trade this file exists to catch.
 
 - [x] `wrangler deploy --env production` has run, and `wrangler deployments list --name
       aia-findings-production` shows it. **Done 2026-08-26** (AIA-741).
-- [x] `wrangler d1 migrations apply aia-findings-production --remote --env production` has run —
-      the production database had **0 tables**. **Done 2026-08-26**; both migrations applied.
+- [ ] `wrangler d1 migrations apply aia-findings-production --remote --env production` has run for
+      **`0003_revisions.sql`**. ~~Done 2026-08-26; both migrations applied~~ — **re-opened
+      2026-08-31 (AIA-0753, AIA-0754).** The 2026-08-26 run applied `0001` and `0002` and closed
+      this gate honestly; what re-opens it is a *third* migration, which introduces revision-scoped
+      storage and which neither database has seen. Until it runs, the deployed code queries
+      `finding.meta_revision`, `finding_revision` and `object_bytes.revision` against a schema that
+      has none of them, and every findings route answers "no such column".
+      **Both environments need it** — staging applied `0001` on 2026-08-25 and production on
+      2026-08-26, verified by reading `d1_migrations` on each.
+      Note what this gate is now for, because the first attempt at the change got it wrong: the
+      schema arrived as an in-place rewrite of `0001_init.sql`, and wrangler tracks migrations by
+      **filename** with no content hash, so a rewritten file is skipped wherever it has already run
+      and the deploy would have failed silently. Ticking this means the `0003` run is confirmed in
+      the ledger, not that a file was edited. Applying it **clears the pre-revision `finding` and
+      `object_bytes` rows** (one acceptance-pass finding per database) and preserves `user_state`;
+      see `cloudflare/findings-worker/PROVISIONING.md`.
 - [x] `CLERK_WEBHOOK_SECRET` is set for `--env production`. **Done 2026-08-26**, a fresh secret
       distinct from the development one.
 - [x] The production Clerk instance has a `user.deleted` webhook pointing at the production Worker,
