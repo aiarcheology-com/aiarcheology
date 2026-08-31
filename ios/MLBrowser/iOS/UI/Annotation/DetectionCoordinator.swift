@@ -39,10 +39,6 @@ final class DetectionCoordinator: ObservableObject {
 	/// Called only from the real apply path. Presentation-only refreshes deliberately do not reach
 	/// this callback, so changing a display preference cannot replay an annotation sound (AIA-0716).
 	private var onAppliedResults: ((UInt64, [DetectionResult]) -> Void)?
-	/// Temporary AIA annotation trace hook. Runs only when a *final* detector result passed every
-	/// coordinator guard, so the view can distinguish a presentable result from an inference result
-	/// that was discarded before reaching its overlay.
-	private let onFinalFrameApplied: ((UInt64, [DetectionResult]) -> Void)?
 
 	private let queue = SnapshotDetectionQueue()
 	/// Invalidation token: a pass that started before an interaction/capture/geometry change must
@@ -51,15 +47,6 @@ final class DetectionCoordinator: ObservableObject {
 	/// Monotonic identity for actual snapshot passes. A partial and its final result intentionally
 	/// share one id, letting the sound coordinator suppress a second playback for the same pass.
 	private var nextPassID: UInt64 = 0
-	/// Avoid six identical trace lines when a tiled detector publishes several partial results after
-	/// a pass becomes invalid. This is diagnostic-only state; it never participates in decisions.
-	///
-	/// Keyed on the pass AND the reason, not the pass alone. One pass can be dropped for different
-	/// reasons in turn — partials refused because an interaction is active, then the final refused
-	/// because the generation moved on — and a pass-only key silently suppresses the second. For
-	/// instrumentation whose entire job is to say *why* the overlay is empty, that reports the wrong
-	/// cause, which is worse than reporting none.
-	private var lastTracedDrop: (passID: UInt64, reason: String)?
 	/// Live-mirrored from the view (the tiling-scheme settings can change mid-session); read at
 	/// pass start. A mid-burst toggle self-heals on the next snapshot.
 	var tiling: TilingScheme
@@ -68,6 +55,11 @@ final class DetectionCoordinator: ObservableObject {
 	/// arrives before the view appears and binds them (see `bindGuards`).
 	private var isInteracting: () -> Bool = { false }
 	private var isCapturing: () -> Bool = { false }
+	/// Whether any detector is registered right now.
+	///
+	/// Defaults to `true` — "assume there is one" — so an unbound coordinator behaves exactly as it
+	/// did before this guard existed, and only a view that binds the real answer gets the new one.
+	private var hasDetectors: () -> Bool = { true }
 
 	init(
 		tiling: TilingScheme = [],
@@ -77,23 +69,29 @@ final class DetectionCoordinator: ObservableObject {
 			@escaping @MainActor @Sendable ([DetectionResult]) -> Void
 		) async -> [DetectionResult],
 		onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
-		onAppliedResults: ((UInt64, [DetectionResult]) -> Void)? = nil,
-		onFinalFrameApplied: ((UInt64, [DetectionResult]) -> Void)? = nil
+		onAppliedResults: ((UInt64, [DetectionResult]) -> Void)? = nil
 	) {
 		self.tiling = tiling
 		self.detect = detect
 		self.onFrameChanged = onFrameChanged
 		self.onAppliedResults = onAppliedResults
-		self.onFinalFrameApplied = onFinalFrameApplied
 	}
 
 	/// Bind the live apply-time guards from the view's CONNECTED state. Call from `.onAppear`, NOT
 	/// the initializer: a view's own `@State` is not wired to persistent storage at init time, so a
 	/// closure captured there would read a dead initial value. Once bound from the installed view,
 	/// the closures reach the same `@State`/`Binding` boxes the old in-view apply site read live.
-	func bindGuards(isInteracting: @escaping () -> Bool, isCapturing: @escaping () -> Bool) {
+	/// - Parameter hasDetectors: defaults to "there is one", which is how this behaved before the
+	///   guard existed — so a caller that does not care about the model-swap window, every existing
+	///   test included, keeps exactly its old semantics rather than silently acquiring new ones.
+	func bindGuards(
+		isInteracting: @escaping () -> Bool,
+		isCapturing: @escaping () -> Bool,
+		hasDetectors: @escaping () -> Bool = { true }
+	) {
 		self.isInteracting = isInteracting
 		self.isCapturing = isCapturing
+		self.hasDetectors = hasDetectors
 	}
 
 	/// Binds the automatic-sound receiver after the view's environment is connected. As with the
@@ -144,58 +142,41 @@ final class DetectionCoordinator: ObservableObject {
 			self.nextPassID &+= 1
 			let startGeneration = self.generation
 			let passTiling = self.tiling
+			// Whether anything was registered to answer this pass, read BEFORE it runs. Read after,
+			// and a driver that finished registering mid-pass would make an empty result look
+			// authoritative — the one reading that must not happen (AIA-0808).
+			let startedWithDetectors = self.hasDetectors()
 			Task {
-				let applyIfCurrent: @MainActor @Sendable ([DetectionResult], Bool) -> Void = { [weak self] observations, isFinal in
+				let applyIfCurrent: @MainActor @Sendable ([DetectionResult]) -> Void = { [weak self] observations in
 					guard let self else { return }
-					let groupCount = observations.count
-					let objectCount = observations.reduce(0) { $0 + $1.observations.count }
 					// Discard if invalidated since this pass began (stale geometry/interaction/capture).
-					guard self.generation == startGeneration else {
-						self.traceDroppedOutput(
-							passID: passID,
-							reason: "stale-generation",
-							detail: "expected=\(startGeneration) actual=\(self.generation)",
-							groupCount: groupCount,
-							objectCount: objectCount
-						)
-						return
-					}
+					guard self.generation == startGeneration else { return }
 					// Live re-checks: interaction or a capture may have begun after the generation was
 					// snapshotted but before SwiftUI delivered the matching `.onChange`.
-					guard self.isInteracting() == false else {
-						self.traceDroppedOutput(
-							passID: passID,
-							reason: "interaction-active",
-							groupCount: groupCount,
-							objectCount: objectCount
-						)
-						return
-					}
-					guard self.isCapturing() == false else {
-						self.traceDroppedOutput(
-							passID: passID,
-							reason: "finding-capture-active",
-							groupCount: groupCount,
-							objectCount: objectCount
-						)
-						return
-					}
+					guard self.isInteracting() == false else { return }
+					guard self.isCapturing() == false else { return }
+					// "Nobody was asked" is not "nothing is there" (AIA-0808).
+					//
+					// `DeepDrivers.detect` snapshots the registered detectors and loops over them, so
+					// with none registered it returns an empty array — indistinguishable, at this
+					// point, from a detector that looked and found nothing. A model swap unregisters
+					// before it loads, and loading a YOLO package takes ~2s, during which the timer
+					// keeps firing: every tick applied an empty frame and wiped the overlay. That is
+					// the reported "annotations disappear after changing the model", and the log
+					// showed it exactly — `groups=0` passes bracketed by unload/register.
+					//
+					// An empty result from a pass that had no detector is therefore no answer at all,
+					// and the displayed frame is left alone until a real one arrives. A pass that DID
+					// have a detector and returned nothing still clears, because that is a genuine
+					// answer.
+					guard startedWithDetectors || observations.isEmpty == false else { return }
 					// Image and results are applied as ONE value: the cached snapshot is always the exact
 					// frame the displayed boxes came from.
 					self.setApplied(AppliedDetectionFrame(image: image, results: observations), passID: passID)
-					if isFinal {
-						LoggingPolicy.debug(
-							"[ANNOTATION TRACE] pass=\(passID) final result applied: generation=\(startGeneration), groups=\(groupCount), objects=\(objectCount)",
-							logger: .ui
-						)
-						self.onFinalFrameApplied?(passID, observations)
-					}
 				}
-				let observations = await self.detect(image, passTiling) { observations in
-					applyIfCurrent(observations, false)
-				}
+				let observations = await self.detect(image, passTiling, applyIfCurrent)
 				done()
-				applyIfCurrent(observations, true)
+				applyIfCurrent(observations)
 			}
 		}
 	}
@@ -216,25 +197,6 @@ final class DetectionCoordinator: ObservableObject {
 		queue.cancelPending()
 	}
 
-	/// - Parameters:
-	///   - reason: the stable cause, and the dedup key. It must NOT carry varying values — a key
-	///     that changes per call silences nothing, which is the flood this exists to prevent.
-	///   - detail: the varying part, logged but never keyed on.
-	private func traceDroppedOutput(
-		passID: UInt64,
-		reason: String,
-		detail: String? = nil,
-		groupCount: Int,
-		objectCount: Int
-	) {
-		guard lastTracedDrop?.passID != passID || lastTracedDrop?.reason != reason else { return }
-		lastTracedDrop = (passID, reason)
-		let suffix = detail.map { " (\($0))" } ?? ""
-		LoggingPolicy.debug(
-			"[ANNOTATION TRACE] pass=\(passID) result dropped: \(reason)\(suffix), groups=\(groupCount), objects=\(objectCount)",
-			logger: .ui
-		)
-	}
 
 	/// Single write path for the displayed frame: the screen's mirror updates in the same statement,
 	/// so the two can never diverge.

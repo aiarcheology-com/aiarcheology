@@ -125,16 +125,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 			},
 			onFrameChanged: { frame in
 				onFrameChanged?(DetectionPresentation.filteredFrame(frame))
-			},
-			onFinalFrameApplied: { passID, rawResults in
-				let rawCount = rawResults.reduce(0) { $0 + $1.observations.count }
-				let renderedCount = DetectionPresentation.filteredResults(rawResults).reduce(0) {
-					$0 + $1.observations.count
-				}
-				LoggingPolicy.debug(
-					"[ANNOTATION TRACE] pass=\(passID) overlay candidate: raw=\(rawCount), rendered=\(renderedCount)",
-					logger: .ui
-				)
 			}
 		))
     }
@@ -240,30 +230,12 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             }
         }
 		.onSnapshot { image, _, request in
-			guard acceptsSnapshot(request) else {
-				LoggingPolicy.debug(
-					// `run=` leads, and the word "session" is never left sitting in front of a colon.
-					// `LogRedactor.identifierValuePattern` matches `session` followed by `:` and eats
-					// the value after it, so "detection session: run=7" shipped as
-					// "detection session:[redacted]" — the one datum this line exists to carry,
-					// removed from Console and from the default support export alike.
-					"[ANNOTATION TRACE] run=\(request.runID) snapshot request rejected by the detection session",
-					logger: .ui
-				)
-				return
-			}
+			guard acceptsSnapshot(request) else { return }
 			// Skip detection while content is being manipulated - geometry is changing
-			guard !isInteracting else {
-				LoggingPolicy.debug("[ANNOTATION TRACE] snapshot skipped: content interaction active", logger: .ui)
-				return
-			}
+			guard !isInteracting else { return }
 			// The frozen frame must outlive the save dialog; new passes resume with
 			// the timer once the capture ends.
-			guard isCapturingFinding.wrappedValue.not else {
-				LoggingPolicy.debug("[ANNOTATION TRACE] snapshot skipped: finding capture active", logger: .ui)
-				return
-			}
-			LoggingPolicy.debug("[ANNOTATION TRACE] snapshot accepted: run=\(request.runID)", logger: .ui)
+			guard isCapturingFinding.wrappedValue.not else { return }
 			if AppEnvironment.isRunningUITests {
                 deliveredSnapshotCount += 1
             }
@@ -321,7 +293,11 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // storage yet at init time, so a closure captured there reads a dead initial value.
             coordinator.bindGuards(
                 isInteracting: { interactionState.isInteracting },
-                isCapturing: { isCapturingFinding.wrappedValue }
+                isCapturing: { isCapturingFinding.wrappedValue },
+                // Read live, like the other two. A model swap unregisters before it loads, so this
+                // answers false for the ~2s a package takes — the window whose empty results used
+                // to wipe the overlay (AIA-0808).
+                hasDetectors: { drivers.detectors.isEmpty == false }
             )
 			coordinator.bindSoundEvents { passID, rawResults in
 				// Same filter as AnnotationOverlay: a hidden low-confidence observation is not painted
@@ -340,12 +316,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 			// The callback re-filters the retained raw frame, keeping the parent pick state in
 			// lockstep with the annotations without an inference pass or model reload.
 			coordinator.refreshPresentation()
-		}
-		.onChange(of: renderedDetectionCount) { oldValue, newValue in
-			LoggingPolicy.debug(
-				"[ANNOTATION TRACE] overlay state: rendered \(oldValue) -> \(newValue), interacting=\(isInteracting), capturing=\(isCapturingFinding.wrappedValue)",
-				logger: .ui
-			)
 		}
         // AIA-0317: publish the live rendered-annotation count for UI tests. Attached at the body
         // root (outside the ZStack's SnapableGroup), so the 1pt marker is never in the detection
