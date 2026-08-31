@@ -244,7 +244,28 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			case "start":
 				setScrolling(true)
 			case "end":
-				setScrolling(false)
+				// The DOM's idea of "the touch ended" is not the same as "the content stopped
+				// moving". A flick lifts the finger and the page keeps decelerating for as long as
+				// the flick was hard; this message arrives 150 ms after `touchend`, squarely inside
+				// that window. Publishing idle there tells detection the page is still, and the
+				// resulting snapshot is of a frame the content has already scrolled past — boxes
+				// drawn where the objects no longer are.
+				//
+				// It could not self-correct either: `scrollViewDidEndDecelerating` calls
+				// `setScrolling(false)` too, and `setScrolling` returns early when the value has
+				// not changed, so the genuine settle published nothing and the stale overlay stood
+				// until the next timer tick.
+				//
+				// So defer to the scroll view while it is still moving. Both native callbacks below
+				// end in `setScrolling(false)`, and neither can be missed: `didEndDragging` handles
+				// the lift that does not decelerate, `didEndDecelerating` the one that does.
+				let scrollView = message.webView?.scrollView
+				if Self.domInteractionEndSettlesContent(
+					isDragging: scrollView?.isDragging ?? false,
+					isDecelerating: scrollView?.isDecelerating ?? false
+				) {
+					setScrolling(false)
+				}
 			default:
 				break
 			}
@@ -272,6 +293,22 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 
 		public func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
 			setScrolling(false)
+		}
+
+		/// Whether a DOM `end` message may publish idle, given what the scroll view is doing.
+		///
+		/// A value rather than an `if` at the call site, and for the reason this project extracts
+		/// any such decision: `WKScriptMessage` has no public initialiser and `message.webView` is
+		/// read-only, so the branch that consumes this cannot be reached from a test at all. The
+		/// rule it encodes — a flick's `touchend` arrives while the page is still moving, and
+		/// detection must not be told the content is still — is the kind that gets quietly inverted
+		/// by a later edit, so it is stated where a test can hold it.
+		///
+		/// Absent motion state (no web view) settles: the pre-existing behaviour, and the safe
+		/// direction — a missed idle strands the overlay until the next timer tick, whereas an
+		/// early one paints boxes at coordinates the content has scrolled away from.
+		static func domInteractionEndSettlesContent(isDragging: Bool, isDecelerating: Bool) -> Bool {
+			isDragging == false && isDecelerating == false
 		}
 
 		private func setScrolling(_ value: Bool) {

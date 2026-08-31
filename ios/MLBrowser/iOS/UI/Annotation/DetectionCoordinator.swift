@@ -53,7 +53,13 @@ final class DetectionCoordinator: ObservableObject {
 	private var nextPassID: UInt64 = 0
 	/// Avoid six identical trace lines when a tiled detector publishes several partial results after
 	/// a pass becomes invalid. This is diagnostic-only state; it never participates in decisions.
-	private var lastTracedDropPassID: UInt64?
+	///
+	/// Keyed on the pass AND the reason, not the pass alone. One pass can be dropped for different
+	/// reasons in turn — partials refused because an interaction is active, then the final refused
+	/// because the generation moved on — and a pass-only key silently suppresses the second. For
+	/// instrumentation whose entire job is to say *why* the overlay is empty, that reports the wrong
+	/// cause, which is worse than reporting none.
+	private var lastTracedDrop: (passID: UInt64, reason: String)?
 	/// Live-mirrored from the view (the tiling-scheme settings can change mid-session); read at
 	/// pass start. A mid-burst toggle self-heals on the next snapshot.
 	var tiling: TilingScheme
@@ -147,7 +153,8 @@ final class DetectionCoordinator: ObservableObject {
 					guard self.generation == startGeneration else {
 						self.traceDroppedOutput(
 							passID: passID,
-							reason: "stale-generation expected=\(startGeneration) actual=\(self.generation)",
+							reason: "stale-generation",
+							detail: "expected=\(startGeneration) actual=\(self.generation)",
 							groupCount: groupCount,
 							objectCount: objectCount
 						)
@@ -209,16 +216,22 @@ final class DetectionCoordinator: ObservableObject {
 		queue.cancelPending()
 	}
 
+	/// - Parameters:
+	///   - reason: the stable cause, and the dedup key. It must NOT carry varying values — a key
+	///     that changes per call silences nothing, which is the flood this exists to prevent.
+	///   - detail: the varying part, logged but never keyed on.
 	private func traceDroppedOutput(
 		passID: UInt64,
 		reason: String,
+		detail: String? = nil,
 		groupCount: Int,
 		objectCount: Int
 	) {
-		guard lastTracedDropPassID != passID else { return }
-		lastTracedDropPassID = passID
+		guard lastTracedDrop?.passID != passID || lastTracedDrop?.reason != reason else { return }
+		lastTracedDrop = (passID, reason)
+		let suffix = detail.map { " (\($0))" } ?? ""
 		LoggingPolicy.debug(
-			"[ANNOTATION TRACE] pass=\(passID) result dropped: \(reason), groups=\(groupCount), objects=\(objectCount)",
+			"[ANNOTATION TRACE] pass=\(passID) result dropped: \(reason)\(suffix), groups=\(groupCount), objects=\(objectCount)",
 			logger: .ui
 		)
 	}

@@ -242,7 +242,12 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 		.onSnapshot { image, _, request in
 			guard acceptsSnapshot(request) else {
 				LoggingPolicy.debug(
-					"[ANNOTATION TRACE] snapshot request rejected by detection session: run=\(request.runID)",
+					// `run=` leads, and the word "session" is never left sitting in front of a colon.
+					// `LogRedactor.identifierValuePattern` matches `session` followed by `:` and eats
+					// the value after it, so "detection session: run=7" shipped as
+					// "detection session:[redacted]" — the one datum this line exists to carry,
+					// removed from Console and from the default support export alike.
+					"[ANNOTATION TRACE] run=\(request.runID) snapshot request rejected by the detection session",
 					logger: .ui
 				)
 				return
