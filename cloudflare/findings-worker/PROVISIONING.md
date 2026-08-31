@@ -97,13 +97,9 @@ Migrations live in `migrations/` and are applied per environment:
 npx wrangler d1 migrations apply aia-findings-staging --env staging --remote
 ```
 
-`0003_revisioned_objects.sql` changes both D1 and the R2 key layout. A human applies that migration
-before deploying the matching Worker, first in staging and then in production through the normal
-release gate. Existing R2 objects are retained at their old paths; the deployed Worker's bounded
-daily maintenance copies each live object to its revision path before the D1 reference switches and
-the legacy copy is removed, so there is no bulk script that reads or mutates production data.
-
-`0001_init.sql` seeds the `global_bytes` counter row. That seed is load-bearing: the ceiling is a
+For the first Cloudflare release in 1.0.8, applying `0001_init.sql` creates the empty D1 schema;
+there is no existing Cloudflare data to migrate. It seeds the `global_bytes` counter row. That seed
+is load-bearing: the ceiling is a
 conditional `UPDATE ... WHERE key = 'global_bytes'`, and against a missing row it changes nothing
 and reports no error, so an unseeded counter would fail OPEN.
 

@@ -19,24 +19,16 @@ export interface Usage {
   limit: number;
 }
 
-/// The exact R2 layout selected by the index. `legacy` exists only while objects written before
-/// AIA-0754 are copied from their mutable flat path into an immutable revision path.
-export interface ObjectReference {
-  revision: number;
-  legacy: boolean;
-}
-
-interface StoredObject extends ObjectReference {
+interface StoredObject {
   userId: string;
   findingId: string;
+  revision: number;
   kind: ObjectKind;
   bytes: number;
   createdAt: number;
 }
 
-interface ReapCandidate extends Omit<StoredObject, 'legacy'> {
-  legacy: number;
-}
+type ReapCandidate = StoredObject;
 
 /// Clerk user ids and finding ids both land in an R2 key, so both are validated before a key is
 /// built rather than sanitised afterwards. Findings are UUIDs on the client; anything else is a
@@ -50,15 +42,8 @@ export function requireFindingId(raw: string | undefined): string {
   return raw;
 }
 
-export function objectKey(userId: string, findingId: string, reference: ObjectReference, kind: ObjectKind): string {
-  if (reference.legacy) {
-    return `findings/${userId}/${findingId}/${kind === 'image' ? 'image.jpg' : 'meta.json'}`;
-  }
-  return `findings/${userId}/${findingId}/${reference.revision}/${kind === 'image' ? 'image.jpg' : 'meta.json'}`;
-}
-
-export function revisionReference(revision: number): ObjectReference {
-  return { revision, legacy: false };
+export function objectKey(userId: string, findingId: string, revision: number, kind: ObjectKind): string {
+  return `findings/${userId}/${findingId}/${revision}/${kind === 'image' ? 'image.jpg' : 'meta.json'}`;
 }
 
 /// Reads the whole body, refusing the moment it exceeds `cap`.
@@ -141,7 +126,7 @@ async function bytesForObject(
   return env.DB
     .prepare(
       `SELECT bytes, reaping_at AS reapingAt FROM object_bytes
-        WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3 AND kind = ?4 AND legacy = 0`,
+        WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3 AND kind = ?4`,
     )
     .bind(userId, findingId, revision, kind)
     .first<{ bytes: number; reapingAt: number | null }>();
@@ -174,7 +159,7 @@ export async function reserveBytes(
   const existingBytes = existing?.bytes ?? 0;
   const delta = incoming - existingBytes;
   const currentBytes = `COALESCE((SELECT bytes FROM object_bytes
-    WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3 AND kind = ?4 AND legacy = 0), 0)`;
+    WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3 AND kind = ?4), 0)`;
 
   const results = await env.DB.batch([
     env.DB.prepare('INSERT INTO counter (key, value) VALUES (?1, 0) ON CONFLICT (key) DO NOTHING').bind(key),
@@ -184,14 +169,14 @@ export async function reserveBytes(
     // refuse, so it can never delete an object a late retry is about to publish.
     env.DB
       .prepare(
-        `INSERT INTO object_bytes (user_id, finding_id, revision, kind, legacy, bytes, created_at)
-           SELECT ?1, ?2, ?3, ?4, 0, ?5, ?6
+        `INSERT INTO object_bytes (user_id, finding_id, revision, kind, bytes, created_at)
+           SELECT ?1, ?2, ?3, ?4, ?5, ?6
             WHERE ${currentBytes} = ?7
               AND NOT EXISTS (SELECT 1 FROM user_state WHERE user_id = ?1 AND deleting = 1)
               AND (SELECT COALESCE(SUM(bytes), 0) FROM object_bytes WHERE user_id = ?1) - ?7 + ?5 <= ?8
               AND (SELECT COALESCE(SUM(value), 0) FROM counter WHERE key LIKE 'user:%' AND key <> ?10)
                   + (SELECT COALESCE(SUM(bytes), 0) FROM object_bytes WHERE user_id = ?1) - ?7 + ?5 <= ?9
-           ON CONFLICT (user_id, finding_id, revision, kind, legacy) DO UPDATE SET
+           ON CONFLICT (user_id, finding_id, revision, kind) DO UPDATE SET
              created_at = excluded.created_at
            WHERE object_bytes.reaping_at IS NULL AND object_bytes.bytes = excluded.bytes`,
       )
@@ -258,10 +243,10 @@ export async function isDeleting(env: Env, userId: string): Promise<boolean> {
 const FINDING_COLUMNS = `f.id AS id, f.modified_at AS modifiedAt, f.received_at AS receivedAt, f.deleted AS deleted,
   COALESCE((SELECT bytes FROM object_bytes o
      WHERE o.user_id = f.user_id AND o.finding_id = f.id AND o.kind = 'meta'
-       AND o.revision = f.meta_revision AND o.legacy = f.meta_legacy), 0)
+       AND o.revision = f.meta_revision), 0)
   + COALESCE((SELECT bytes FROM object_bytes o
      WHERE o.user_id = f.user_id AND o.finding_id = f.id AND o.kind = 'image'
-       AND o.revision = f.image_revision AND o.legacy = f.image_legacy), 0) AS bytes,
+       AND o.revision = f.image_revision), 0) AS bytes,
   CASE WHEN f.image_revision IS NULL THEN 0 ELSE 1 END AS hasImage`;
 
 interface RawFindingRow {
@@ -292,17 +277,16 @@ export async function objectReference(
   userId: string,
   findingId: string,
   kind: ObjectKind,
-): Promise<ObjectReference | null> {
+): Promise<number | null> {
   const revisionColumn = kind === 'meta' ? 'meta_revision' : 'image_revision';
-  const legacyColumn = kind === 'meta' ? 'meta_legacy' : 'image_legacy';
   const row = await env.DB.prepare(
-    `SELECT ${revisionColumn} AS revision, ${legacyColumn} AS legacy
+    `SELECT ${revisionColumn} AS revision
        FROM finding WHERE user_id = ?1 AND id = ?2 AND deleted = 0`,
   )
     .bind(userId, findingId)
-    .first<{ revision: number | null; legacy: number }>();
+    .first<{ revision: number | null }>();
   if (row === null || row.revision === null) return null;
-  return { revision: row.revision, legacy: row.legacy === 1 };
+  return row.revision;
 }
 
 /// Commits a finding after its immutable metadata object is in R2. The index row names the winning
@@ -319,36 +303,32 @@ export async function commitFinding(
 ): Promise<FindingRow> {
   const incomingMeta = `EXISTS (SELECT 1 FROM object_bytes o
     WHERE o.user_id = ?1 AND o.finding_id = ?2 AND o.revision = ?5
-      AND o.kind = 'meta' AND o.legacy = 0 AND o.reaping_at IS NULL)`;
+      AND o.kind = 'meta' AND o.reaping_at IS NULL)`;
   const incomingImage = `EXISTS (SELECT 1 FROM object_bytes o
     WHERE o.user_id = ?1 AND o.finding_id = ?2 AND o.revision = ?5
-      AND o.kind = 'image' AND o.legacy = 0 AND o.reaping_at IS NULL)`;
+      AND o.kind = 'image' AND o.reaping_at IS NULL)`;
 
   const statement = deleted
     ? `INSERT INTO finding (
-         user_id, id, modified_at, received_at, deleted, meta_revision, meta_legacy, image_revision, image_legacy
+         user_id, id, modified_at, received_at, deleted, meta_revision, image_revision
        )
        SELECT ?1, ?2, ?3,
               MAX(?4, COALESCE((SELECT MAX(received_at) FROM finding WHERE user_id = ?1), 0) + 1),
-              1, NULL, 0, NULL, 0
+              1, NULL, NULL
         WHERE NOT EXISTS (SELECT 1 FROM user_state WHERE user_id = ?1 AND deleting = 1)
        ON CONFLICT (user_id, id) DO UPDATE SET
          modified_at = excluded.modified_at,
          received_at = excluded.received_at,
          deleted = 1,
          meta_revision = NULL,
-         meta_legacy = 0,
-         image_revision = NULL,
-         image_legacy = 0
+         image_revision = NULL
        WHERE excluded.modified_at >= finding.modified_at`
     : `INSERT INTO finding (
-         user_id, id, modified_at, received_at, deleted, meta_revision, meta_legacy, image_revision, image_legacy
+         user_id, id, modified_at, received_at, deleted, meta_revision, image_revision
        )
        SELECT ?1, ?2, ?3,
               MAX(?4, COALESCE((SELECT MAX(received_at) FROM finding WHERE user_id = ?1), 0) + 1),
-              0, ?5, 0,
-              CASE WHEN ${incomingImage} THEN ?5 ELSE NULL END,
-              0
+              0, ?5, CASE WHEN ${incomingImage} THEN ?5 ELSE NULL END
         WHERE NOT EXISTS (SELECT 1 FROM user_state WHERE user_id = ?1 AND deleting = 1)
           AND ${incomingMeta}
        ON CONFLICT (user_id, id) DO UPDATE SET
@@ -356,9 +336,7 @@ export async function commitFinding(
          received_at = excluded.received_at,
          deleted = 0,
          meta_revision = excluded.meta_revision,
-         meta_legacy = 0,
-         image_revision = CASE WHEN ${incomingImage} THEN excluded.image_revision ELSE finding.image_revision END,
-         image_legacy = CASE WHEN ${incomingImage} THEN 0 ELSE finding.image_legacy END
+         image_revision = CASE WHEN ${incomingImage} THEN excluded.image_revision ELSE finding.image_revision END
        WHERE excluded.modified_at >= finding.modified_at`;
 
   const bindings = deleted ? [userId, findingId, modifiedAt, now] : [userId, findingId, modifiedAt, now, revision];
@@ -427,9 +405,6 @@ export async function listSince(env: Env, userId: string, cursor: string | null,
 export const STAGING_LIFETIME_MS = 24 * 60 * 60 * 1000;
 const REAP_LEASE_MS = 15 * 60 * 1000;
 const MAX_REAPED_OBJECTS_PER_RUN = 20;
-// A copied JPEG can be 16 MB and R2 needs a known-length body, so this deliberately stays below
-// half of a Worker's 128 MB memory ceiling even if collection waits until the loop has finished.
-const MAX_LEGACY_MIGRATIONS_PER_RUN = 4;
 
 const IS_ACTIVE_REFERENCE = `EXISTS (
   SELECT 1 FROM finding f
@@ -437,11 +412,9 @@ const IS_ACTIVE_REFERENCE = `EXISTS (
      AND f.id = object_bytes.finding_id
      AND f.deleted = 0
      AND ((object_bytes.kind = 'meta'
-           AND f.meta_revision = object_bytes.revision
-           AND f.meta_legacy = object_bytes.legacy)
+           AND f.meta_revision = object_bytes.revision)
        OR (object_bytes.kind = 'image'
-           AND f.image_revision = object_bytes.revision
-           AND f.image_legacy = object_bytes.legacy))
+           AND f.image_revision = object_bytes.revision))
 )`;
 
 /// Reclaims staged reservations and revisions no longer referenced by a live index row.
@@ -454,7 +427,7 @@ export async function reapUnreferencedObjects(env: Env, now = Date.now()): Promi
   const cutoff = now - STAGING_LIFETIME_MS;
   const leaseCutoff = now - REAP_LEASE_MS;
   const candidates = await env.DB.prepare(
-    `SELECT user_id AS userId, finding_id AS findingId, revision, kind, legacy, bytes, created_at AS createdAt
+    `SELECT user_id AS userId, finding_id AS findingId, revision, kind, bytes, created_at AS createdAt
        FROM object_bytes
       WHERE created_at <= ?1
         AND (reaping_at IS NULL OR reaping_at <= ?2)
@@ -468,10 +441,10 @@ export async function reapUnreferencedObjects(env: Env, now = Date.now()): Promi
   const claimed: StoredObject[] = [];
   for (const candidate of candidates.results) {
     const claim = await env.DB.prepare(
-      `UPDATE object_bytes SET reaping_at = ?6
-        WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3 AND kind = ?4 AND legacy = ?5
-          AND created_at <= ?7
-          AND (reaping_at IS NULL OR reaping_at <= ?8)
+      `UPDATE object_bytes SET reaping_at = ?5
+        WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3 AND kind = ?4
+          AND created_at <= ?6
+          AND (reaping_at IS NULL OR reaping_at <= ?7)
           AND NOT ${IS_ACTIVE_REFERENCE}`,
     )
       .bind(
@@ -479,23 +452,20 @@ export async function reapUnreferencedObjects(env: Env, now = Date.now()): Promi
         candidate.findingId,
         candidate.revision,
         candidate.kind,
-        candidate.legacy,
         now,
         cutoff,
         leaseCutoff,
       )
       .run();
     if (claim.meta.changes === 1) {
-      claimed.push({ ...candidate, legacy: candidate.legacy === 1 });
+      claimed.push(candidate);
     }
   }
 
   if (claimed.length === 0) return 0;
 
   await env.FINDINGS.delete(
-    claimed.map((candidate) =>
-      objectKey(candidate.userId, candidate.findingId, { revision: candidate.revision, legacy: candidate.legacy }, candidate.kind),
-    ),
+    claimed.map((candidate) => objectKey(candidate.userId, candidate.findingId, candidate.revision, candidate.kind)),
   );
 
   const users = [...new Set(claimed.map((candidate) => candidate.userId))];
@@ -504,88 +474,12 @@ export async function reapUnreferencedObjects(env: Env, now = Date.now()): Promi
       env.DB
         .prepare(
           `DELETE FROM object_bytes
-            WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3 AND kind = ?4 AND legacy = ?5 AND reaping_at = ?6`,
+            WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3 AND kind = ?4 AND reaping_at = ?5`,
         )
-        .bind(candidate.userId, candidate.findingId, candidate.revision, candidate.kind, candidate.legacy ? 1 : 0, now),
+        .bind(candidate.userId, candidate.findingId, candidate.revision, candidate.kind, now),
     ),
     ...users.map((userId) => env.DB.prepare(RECOMPUTE_USER).bind(userCounterKey(userId), userId)),
     env.DB.prepare(RECOMPUTE_GLOBAL),
   ]);
   return claimed.length;
-}
-
-/// Copies one bounded page of committed objects from the old mutable paths. `If-None-Match: *`
-/// means a retry or a concurrently uploaded revision can never be overwritten by the migration;
-/// once its target exists, a compare-and-set switches the index to that immutable key.
-export async function migrateLegacyObjects(env: Env, now = Date.now()): Promise<number> {
-  const candidates = await env.DB.prepare(
-    `SELECT user_id AS userId, id AS findingId, meta_revision AS revision, 'meta' AS kind
-       FROM finding
-      WHERE deleted = 0 AND meta_legacy = 1 AND meta_revision IS NOT NULL
-     UNION ALL
-     SELECT user_id AS userId, id AS findingId, image_revision AS revision, 'image' AS kind
-       FROM finding
-      WHERE deleted = 0 AND image_legacy = 1 AND image_revision IS NOT NULL
-      LIMIT ?1`,
-  )
-    .bind(MAX_LEGACY_MIGRATIONS_PER_RUN)
-    .all<{ userId: string; findingId: string; revision: number; kind: ObjectKind }>();
-
-  let migrated = 0;
-  for (const candidate of candidates.results) {
-    const legacy = { revision: candidate.revision, legacy: true };
-    const source = await env.FINDINGS.get(objectKey(candidate.userId, candidate.findingId, legacy, candidate.kind));
-    if (source === null) continue;
-
-    const body = await source.arrayBuffer();
-    await env.FINDINGS.put(
-      objectKey(candidate.userId, candidate.findingId, revisionReference(candidate.revision), candidate.kind),
-      body,
-      {
-        onlyIf: new Headers({ 'if-none-match': '*' }),
-        httpMetadata: { contentType: candidate.kind === 'meta' ? 'application/json' : 'image/jpeg' },
-      },
-    );
-
-    const revisionColumn = candidate.kind === 'meta' ? 'meta_revision' : 'image_revision';
-    const legacyColumn = candidate.kind === 'meta' ? 'meta_legacy' : 'image_legacy';
-    const userCounter = userCounterKey(candidate.userId);
-    const results = await env.DB.batch([
-      env.DB.prepare('INSERT INTO counter (key, value) VALUES (?1, 0) ON CONFLICT (key) DO NOTHING').bind(userCounter),
-      env.DB
-        .prepare(
-          `INSERT INTO object_bytes (user_id, finding_id, revision, kind, legacy, bytes, created_at)
-             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6)
-             ON CONFLICT (user_id, finding_id, revision, kind, legacy) DO NOTHING`,
-        )
-        .bind(candidate.userId, candidate.findingId, candidate.revision, candidate.kind, source.size, now),
-      env.DB
-        .prepare(
-          `UPDATE finding SET ${legacyColumn} = 0
-            WHERE user_id = ?1 AND id = ?2 AND deleted = 0
-              AND ${revisionColumn} = ?3 AND ${legacyColumn} = 1`,
-        )
-        .bind(candidate.userId, candidate.findingId, candidate.revision),
-      env.DB.prepare(RECOMPUTE_USER).bind(userCounter, candidate.userId),
-      env.DB.prepare(RECOMPUTE_GLOBAL),
-    ]);
-    if ((results[2]?.meta.changes ?? 0) !== 1) continue;
-
-    // The index now names the immutable target, so the old key can go straight away instead of
-    // consuming a second copy of a nearly-full account for the staging lifetime. If either durable
-    // delete fails, the row stays unreferenced and the ordinary reaper retries it later.
-    await env.FINDINGS.delete(objectKey(candidate.userId, candidate.findingId, legacy, candidate.kind));
-    await env.DB.batch([
-      env.DB
-        .prepare(
-          `DELETE FROM object_bytes
-            WHERE user_id = ?1 AND finding_id = ?2 AND revision = ?3 AND kind = ?4 AND legacy = 1`,
-        )
-        .bind(candidate.userId, candidate.findingId, candidate.revision, candidate.kind),
-      env.DB.prepare(RECOMPUTE_USER).bind(userCounter, candidate.userId),
-      env.DB.prepare(RECOMPUTE_GLOBAL),
-    ]);
-    migrated += 1;
-  }
-  return migrated;
 }

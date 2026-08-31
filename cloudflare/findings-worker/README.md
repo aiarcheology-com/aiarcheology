@@ -1,7 +1,7 @@
 # findings-worker
 
 The backend for cloud findings (AIA-713 Phase 2). It authenticates a user, enforces a quota, and
-stores one object per finding in R2 with an index in D1.
+stores revisioned finding objects in R2 with an index in D1.
 
 Provisioning, jurisdiction and cost constraints live in [PROVISIONING.md](./PROVISIONING.md). Read
 its "Rule zero" before touching anything: **no script, test or agent may reach
@@ -164,13 +164,10 @@ npm run migrate:staging
 npm run deploy:staging
 ```
 
-`0003_revisioned_objects.sql` is a server-side migration: apply it **before** deploying this code.
-It preserves existing objects at their legacy paths, then the daily maintenance run copies each live
-object to its immutable revision path with a conditional R2 write before changing the index reference
-and removing the legacy copy.
+For the first Cloudflare release in 1.0.8, `migrate:staging` creates the empty D1 schema from
+`0001_init.sql`; it does not move any existing application data.
 
-Production is deployed and carries the real Clerk issuer (`clerk.aiarcheology.com`, AIA-741). Note
-what that changed: the placeholder values used to be the safety net — a premature production deploy
-refused every request. It no longer does. The only thing standing between a mistaken deploy and
-live traffic is the cloud-findings gate list in `RELEASE_CHECK.md`, so treat that list as the
-guard it now is.
+The production configuration carries the real Clerk issuer (`clerk.aiarcheology.com`, AIA-741). The
+placeholder values are therefore not a safety net: the only thing standing between a mistaken deploy
+and live traffic is the cloud-findings gate list in `RELEASE_CHECK.md`, so treat that list as the
+guard it is.

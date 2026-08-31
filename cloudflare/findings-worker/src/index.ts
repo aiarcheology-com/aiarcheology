@@ -8,14 +8,12 @@ import {
   findingRow,
   isDeleting,
   listSince,
-  migrateLegacyObjects,
   objectKey,
   objectReference,
   readBodyWithCap,
   reapUnreferencedObjects,
   releaseBytes,
   requireFindingId,
-  revisionReference,
   reserveBytes,
   usageFor,
   type FindingRow,
@@ -82,7 +80,7 @@ async function refuseIfAccountVanished(
   kind: 'meta' | 'image',
 ): Promise<void> {
   if ((await isDeleting(env, userId)) === false) return;
-  await env.FINDINGS.delete(objectKey(userId, id, revisionReference(revision), kind));
+  await env.FINDINGS.delete(objectKey(userId, id, revision, kind));
   throw new ApiError('account_deleting', 'This account is being deleted.');
 }
 
@@ -182,7 +180,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     await refuseIfStale(env, userId, id, modified.value);
     const body = await readBodyWithCap(request, env.IMAGE_BYTE_LIMIT);
     const usage = await reserveBytes(env, userId, id, modified.revision, 'image', body.byteLength, now);
-    await env.FINDINGS.put(objectKey(userId, id, revisionReference(modified.revision), 'image'), body, {
+    await env.FINDINGS.put(objectKey(userId, id, modified.revision, 'image'), body, {
       // Equal timestamps are idempotent retries. A different request can never replace an object
       // that already owns this revision key, even if the index compare-and-set later refuses it.
       onlyIf: new Headers({ 'if-none-match': '*' }),
@@ -202,7 +200,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       throw new ApiError('bad_request', 'The metadata is not valid JSON.');
     }
     const usage = await reserveBytes(env, userId, id, modified.revision, 'meta', body.byteLength, now);
-    await env.FINDINGS.put(objectKey(userId, id, revisionReference(modified.revision), 'meta'), body, {
+    await env.FINDINGS.put(objectKey(userId, id, modified.revision, 'meta'), body, {
       onlyIf: new Headers({ 'if-none-match': '*' }),
       httpMetadata: { contentType: 'application/json' },
     });
@@ -258,14 +256,12 @@ export default {
       // A full account purge can use 32 R2 subrequests. Keep that recovery isolated from ordinary
       // maintenance so it always fits the Worker budget; a later daily run catches the latter.
       const reaped = result.incomplete === 0 ? await reapUnreferencedObjects(env) : 0;
-      const migrated = result.incomplete === 0 ? await migrateLegacyObjects(env) : 0;
-      if (result.incomplete > 0 || reaped > 0 || migrated > 0) {
+      if (result.incomplete > 0 || reaped > 0) {
         console.log(
           JSON.stringify({
             sweep: result.incomplete > 0 ? (result.purged === true ? 'purged' : 'incomplete') : 'maintenance',
             remaining: result.incomplete,
             reaped,
-            migrated,
             durationMs: Date.now() - started,
           }),
         );

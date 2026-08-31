@@ -1,12 +1,6 @@
 import { SELF, env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import {
-  migrateLegacyObjects,
-  objectKey,
-  reapUnreferencedObjects,
-  revisionReference,
-  STAGING_LIFETIME_MS,
-} from '../../src/store';
+import { reapUnreferencedObjects, STAGING_LIFETIME_MS } from '../../src/store';
 import { auth, bytes, tokenFor } from './helpers';
 
 const BASE = 'https://worker.test';
@@ -96,7 +90,7 @@ describe('immutable finding revisions', () => {
     const now = Date.now();
     await env.DB.prepare(
       `UPDATE object_bytes SET created_at = ?1
-        WHERE user_id = ?2 AND finding_id = ?3 AND revision = ?4 AND kind = 'image' AND legacy = 0`,
+        WHERE user_id = ?2 AND finding_id = ?3 AND revision = ?4 AND kind = 'image'`,
     )
       .bind(now - STAGING_LIFETIME_MS - 1, user, id, revision)
       .run();
@@ -131,44 +125,5 @@ describe('immutable finding revisions', () => {
     expect(new Uint8Array(await image.arrayBuffer())).toEqual(bytes(96, 4));
     const meta = await SELF.fetch(`${BASE}/v1/findings/${id}/meta`, { headers: auth(token) });
     expect(await meta.json()).toEqual({ note: 'new' });
-  });
-
-  it('copies a legacy path before changing the index reference', async () => {
-    const user = nextUser();
-    const token = await tokenFor(user);
-    const id = findingId('04');
-    const revision = Date.now() - 3_000;
-    const body = new TextEncoder().encode('{"note":"legacy"}');
-    const legacy = { revision, legacy: true };
-
-    await env.FINDINGS.put(objectKey(user, id, legacy, 'meta'), body, {
-      httpMetadata: { contentType: 'application/json' },
-    });
-    await env.DB.batch([
-      env.DB.prepare('INSERT INTO counter (key, value) VALUES (?1, ?2)').bind(`user:${user}`, body.byteLength),
-      env.DB.prepare("UPDATE counter SET value = ?1 WHERE key = 'global_bytes'").bind(body.byteLength),
-      env.DB
-        .prepare(
-          `INSERT INTO object_bytes (user_id, finding_id, revision, kind, legacy, bytes, created_at)
-           VALUES (?1, ?2, ?3, 'meta', 1, ?4, ?5)`,
-        )
-        .bind(user, id, revision, body.byteLength, Date.now()),
-      env.DB
-        .prepare(
-          `INSERT INTO finding (
-            user_id, id, modified_at, received_at, deleted, meta_revision, meta_legacy, image_revision, image_legacy
-          ) VALUES (?1, ?2, ?3, ?3, 0, ?3, 1, NULL, 1)`,
-        )
-        .bind(user, id, revision),
-    ]);
-
-    expect(await migrateLegacyObjects(env)).toBe(1);
-    const copied = await env.FINDINGS.get(objectKey(user, id, revisionReference(revision), 'meta'));
-    expect(copied === null ? null : new Uint8Array(await copied.arrayBuffer())).toEqual(body);
-    expect(await env.FINDINGS.get(objectKey(user, id, legacy, 'meta'))).toBeNull();
-    expect(await usage(token)).toBe(body.byteLength);
-
-    const response = await SELF.fetch(`${BASE}/v1/findings/${id}/meta`, { headers: auth(token) });
-    expect(await response.json()).toEqual({ note: 'legacy' });
   });
 });

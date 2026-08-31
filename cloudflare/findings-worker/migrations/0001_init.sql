@@ -10,23 +10,32 @@ CREATE TABLE finding (
   modified_at INTEGER NOT NULL,
   received_at INTEGER NOT NULL,
   deleted     INTEGER NOT NULL DEFAULT 0,
+  -- The immutable R2 revisions selected by this row.  Metadata is required for a live finding;
+  -- image is nullable because clients upload it separately and metadata-only findings are valid.
+  meta_revision  INTEGER,
+  image_revision INTEGER,
   PRIMARY KEY (user_id, id)
 );
 
 CREATE INDEX finding_by_user_received ON finding (user_id, received_at);
 
--- Storage truth, deliberately separate from sync truth. An image uploaded whose meta never
--- commits leaves no `finding` row, but it does occupy bytes -- counting here rather than off the
--- index is what stops an abandoned upload from being free storage.
+-- Storage truth, deliberately separate from sync truth. Each immutable R2 object has one row.
+-- An image uploaded whose meta never commits leaves no `finding` row, but it does occupy bytes --
+-- counting here rather than off the index is what stops an abandoned upload from being free
+-- storage. `created_at` bounds that reservation; `reaping_at` is a cleanup lease.
 CREATE TABLE object_bytes (
   user_id    TEXT    NOT NULL,
   finding_id TEXT    NOT NULL,
+  revision   INTEGER NOT NULL,
   kind       TEXT    NOT NULL,
   bytes      INTEGER NOT NULL,
-  PRIMARY KEY (user_id, finding_id, kind)
+  created_at INTEGER NOT NULL,
+  reaping_at INTEGER,
+  PRIMARY KEY (user_id, finding_id, revision, kind)
 );
 
 CREATE INDEX object_bytes_by_user ON object_bytes (user_id);
+CREATE INDEX object_bytes_reapable ON object_bytes (created_at) WHERE reaping_at IS NULL;
 
 -- Account-wide byte total. D1 meters rows read, so a SUM over every row on each upload is the
 -- cost that would not stay cheap; one counter row is.
