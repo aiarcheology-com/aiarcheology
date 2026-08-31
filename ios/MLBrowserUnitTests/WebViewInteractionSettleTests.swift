@@ -61,7 +61,7 @@ final class WebViewInteractionSettleTests: XCTestCase {
             (false, false, true),
             (false, true, false),
             (true, false, false),
-            (true, true, false),
+            (true, true, false)
         ]
         for row in expected {
             XCTAssertEqual(

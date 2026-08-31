@@ -93,7 +93,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         detectionActive: Bool = false,
         acceptsSnapshot: @escaping SnapshotRequestAcceptance,
         contentGeometryDidChange: @escaping () -> Void,
-		contentInteractionDidEnd: @escaping () -> Void,
+        contentInteractionDidEnd: @escaping () -> Void,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
