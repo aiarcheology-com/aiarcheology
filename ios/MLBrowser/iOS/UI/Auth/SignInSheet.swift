@@ -16,25 +16,21 @@ import ClerkKitUI
 /// lapsed subscriber must be able to reach account recovery and deletion without buying first), the
 /// drawer, Settings, and once after a finding is saved.
 ///
-/// Keeps the dev/prod instance picker the old root screen had: testers need to choose the Clerk
-/// instance *before* signing in, and there is no other moment to offer it.
+/// The dev/prod instance picker the old root screen had is gone from shipping builds: the backend
+/// is fixed at build time (AIA-0791). A Debug build still offers it — see the `#if DEBUG` block.
 struct SignInSheet: View {
 	@ObservedObject var authState: AuthState
 
 	@State private var authPresented = false
-	@State private var clerkEnv: ClerkEnvironment = ClerkAuthProvider.selectedEnvironment
+	#if DEBUG
+	@State private var debugEnvironment: BackendEnvironment = BackendEnvironment.current
+	#endif
 	@Environment(\.dismiss) private var dismiss
 
 	/// Real Clerk-backed auth vs. the DEBUG mock, from the composition root (AIA-0385). The mock
 	/// path has no configured Clerk instance, so the Clerk-dependent `AuthView` is built (and
 	/// presented) only on the real-auth path.
 	@Environment(\.usesRealAuth) private var usesRealAuth
-
-	/// Offer the dev/prod instance switch on non-App-Store real-auth builds only (dev + TestFlight),
-	/// so testers can pick the instance before signing in. Hidden on the App Store (always production).
-	private var showEnvironmentSwitch: Bool {
-		usesRealAuth && AppEnvironment.isAppStoreDistribution == false
-	}
 
 	var body: some View {
 		NavigationStack {
@@ -84,25 +80,26 @@ struct SignInSheet: View {
 					.accessibilityHint(Text(L10n.Auth.SignIn.subtitleBackup))
 					.testability(Testability.Button.authSignIn)
 
-					if showEnvironmentSwitch {
-						// Pick the Clerk instance before signing in. Reconfigures Clerk so the
-						// sign-in sheet targets the chosen instance (no session to clear here).
-						Picker(L10n.Auth.Environment.title, selection: $clerkEnv) {
-							Text(L10n.Auth.Environment.development).tag(ClerkEnvironment.development)
-							Text(L10n.Auth.Environment.production).tag(ClerkEnvironment.production)
+					#if DEBUG
+					// Debug builds only, so it cannot ship. Drives the single value both the Clerk
+					// key and the findings Worker read, so the pair cannot come apart (AIA-0791).
+					// The Release-visible switch this replaces wrote a `UserDefaults` value that
+					// only one half of the pair ever read.
+					//
+					// `usesRealAuth` is kept from the code this replaces: on the mock path Clerk is
+					// never configured, and reconfiguring it there is meaningless.
+					if usesRealAuth {
+						Picker(L10n.Auth.Environment.title, selection: $debugEnvironment) {
+							Text(L10n.Auth.Environment.development).tag(BackendEnvironment.development)
+							Text(L10n.Auth.Environment.production).tag(BackendEnvironment.production)
 						}
 						.pickerStyle(.segmented)
-						.onChange(of: clerkEnv) { _, newEnv in
-							// Re-sync from the persisted value: `switchEnvironment` only persists on
-							// success (e.g. it no-ops if the target instance's key is missing), so
-							// without this the control could show an instance Clerk isn't pointed at.
-							Task {
-								await ClerkAuthProvider.switchEnvironment(to: newEnv)
-								clerkEnv = ClerkAuthProvider.selectedEnvironment
-							}
+						.onChange(of: debugEnvironment) { _, newEnvironment in
+							Task { await switchBackend(to: newEnvironment) }
 						}
 						.accessibilityLabel(Text(L10n.Auth.Environment.title))
 					}
+					#endif
 				}
 				.padding(.horizontal, 32)
 				.padding(.bottom, 40)
@@ -134,4 +131,20 @@ struct SignInSheet: View {
 			}
 		}
 	}
+
+	#if DEBUG
+	/// Delegates to the one operation that moves both halves of the pair. The view never assigns
+	/// `BackendEnvironment.override` itself — it cannot, the setter is `private(set)` — because an
+	/// assignment would move the Worker while Clerk stayed on the other instance, which is exactly
+	/// the mismatched pair this ticket exists to make unrepresentable.
+	@MainActor
+	private func switchBackend(to newEnvironment: BackendEnvironment) async {
+		_ = await BackendEnvironment.switch(to: newEnvironment)
+		// Re-sync from the truth after EVERY switch, not only a refused one. Two taps in quick
+		// succession run two of these concurrently: the second is refused while the first is still
+		// awaiting Clerk, and only the first's completion knows the final environment. An
+		// on-failure-only resync would leave the picker showing the refused tap's value.
+		debugEnvironment = BackendEnvironment.current
+	}
+	#endif
 }

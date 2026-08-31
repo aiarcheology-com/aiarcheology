@@ -99,11 +99,11 @@ final class ConfigCatFeatureFlagProvider: FeatureFlagProviding {
 	/// same flags it will read once released; pointing it at Test would validate the
 	/// release candidate against config it never sees in production.
 	///
-	/// This is why it does *not* follow `ClerkAuthProvider.publishableKey`, which keys off
-	/// `isAppStoreDistribution` and so sends TestFlight to the dev instance. Dev auth and
-	/// sandbox purchases are imposed on TestFlight by the receipt; the flag environment is
-	/// a free choice, and we spend it on fidelity. Do not "align" these without reading
-	/// this comment.
+	/// `ClerkAuthProvider.publishableKey` now reaches the same conclusion by a different route:
+	/// it reads `BackendEnvironment`, fixed at build time from `AIA_BACKEND_ENVIRONMENT`, which
+	/// is `production` for every Release build including TestFlight (AIA-0791). It used to key
+	/// off `isAppStoreDistribution` and send TestFlight to the dev instance. The two settings are
+	/// still separate knobs — do not collapse them into one without reading this comment.
 	///
 	/// Consequence, which is the real cost: there is no tester-only flag. Flipping a flag
 	/// reaches TestFlight and live App Store users alike.

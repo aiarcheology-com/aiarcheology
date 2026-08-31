@@ -240,6 +240,18 @@ struct MLBrowser: App {
 		// it touches nothing this launch depends on.
 		Task.detached(priority: .utility) { SupportRequestView.purgeLegacyApplicationLogExports() }
 		LoggingPolicy.info("MLBrowser app launching", logger: .lifecycle)
+		// Answers "which Worker did this build talk to?" from a support log alone. Diagnosing
+		// AIA-0791 needed a decrypted log plus three source files to answer it.
+		LoggingPolicy.info(
+			"Backend environment: \(BackendEnvironment.current.rawValue)",
+			logger: .configuration
+		)
+		#if DEBUG
+		// A Debug build pointed at production can write real findings and delete a real account,
+		// so the warning is a window rather than a view modifier: it has to survive `.sheet` and
+		// `.fullScreenCover`, which is where every destructive action lives.
+		ProductionBannerWindow.install(usesMockAuth: DependencyContainer.shared.usesMockAuth)
+		#endif
 	}
 
 	/// The app behind the subscription gate (AIA-0536).

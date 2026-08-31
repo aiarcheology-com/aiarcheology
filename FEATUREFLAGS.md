@@ -118,10 +118,11 @@ configuration, not distribution channel: a TestFlight binary is promoted to the 
 unchanged, so it must read the flags it will read once released. Sending it to Test would
 validate the release candidate against config it never sees in production.
 
-This intentionally differs from `ClerkAuthProvider.publishableKey`, which keys off
-`isAppStoreDistribution` and so gives TestFlight the *dev* Clerk instance. Dev auth and
-sandbox purchases are imposed on TestFlight by the receipt; the flag environment is a free
-choice, spent here on fidelity.
+`ClerkAuthProvider.publishableKey` now reaches the same conclusion by a different route: it
+reads `BackendEnvironment`, fixed at build time from `AIA_BACKEND_ENVIRONMENT`, which is
+`production` for every Release build including TestFlight (AIA-0791). It used to key off
+`isAppStoreDistribution` and give TestFlight the *dev* Clerk instance. They remain two
+separate settings; sandbox purchases are still imposed on TestFlight by the receipt.
 
 > **There is no tester-only flag.** Flipping a flag reaches TestFlight testers and live App
 > Store users alike. To rehearse a flip, use a Debug build against the Test environment.

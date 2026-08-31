@@ -18,6 +18,7 @@
 # Usage:
 #   ./scripts/deliver.sh deliver  [--build-number N] [--dry-run] [--skip-validate] [--export-only]
 #                                 [--ref <tag|sha>] [--skip-tests] [--allow-dirty] [--online-preflight]
+#                                 [--execution-environment <development|production>] [--allow-staging-upload]
 #   ./scripts/deliver.sh validate [--build-number N] [--dry-run] [--ref <tag|sha>] [--skip-tests] [--allow-dirty]
 #   ./scripts/deliver.sh notes    --build-number N [--dry-run]
 #   ./scripts/deliver.sh check
@@ -33,6 +34,17 @@
 #   ASC_ISSUER_ID    Issuer ID (or an op:// reference).
 #   ASC_KEY_PATH     Path to the AuthKey_XXXX.p8 file,  OR
 #   ASC_KEY_OP_REF   A 1Password secret reference whose contents are the .p8 body.
+#
+# --execution-environment <env>
+#   The backend the build talks to: the Clerk instance and the findings Worker, as one pair
+#   (AIA-0791). `development` = staging Worker + pk_test_ Clerk; `production` = the real thing.
+#   Default: production — a TestFlight build is a release candidate, and the configuration it
+#   ships with is the one that has to be exercised before it ships. Xcode Cloud archives are
+#   always production and cannot be overridden; that is deliberate.
+# --allow-staging-upload
+#   Permit uploading a non-production build to TestFlight. Refused without it: a staging build is
+#   indistinguishable from a production one in the TestFlight UI, so a tester cannot tell why sync
+#   fails. Exporting one locally (--export-only) needs no such flag.
 #
 # --dry-run makes NO network call, NO 1Password read, and NO JWT: it prints the exact commands it
 # would run (auth redacted) and requires --build-number (App Store Connect is not queried offline).
@@ -74,6 +86,17 @@ VALIDATE_ONLY=0                                          # set by the `validate`
 SKIP_VALIDATE=0
 REF=""
 PREFLIGHT_WOULD_FAIL=0
+# The backend this build talks to: Clerk instance + findings Worker, as one pair (AIA-0791).
+# Production by default: a TestFlight build is a release candidate, and the configuration it ships
+# with is the one that has to be exercised before it ships.
+EXECUTION_ENVIRONMENT="production"
+ALLOW_STAGING_UPLOAD=0
+# Prepended to the tester notes of a non-production build. Defined once because two places must
+# agree on it: build_whatsnew_json, which prepends it, and the preflight length check, which has to
+# measure the payload that will actually be published rather than the file on disk.
+STAGING_NOTES_PREFIX="STAGING BACKEND — do not report sync or sign-in issues.
+
+"
 
 # Convenience: source ios/asc.env (op:// references for the ASC key) if present AND the caller has
 # provided NO ASC_* credential in the environment. Explicit env vars always win — sourcing is
@@ -494,7 +517,20 @@ preflight() {
         # rejected. Matching the publisher's measure is the point — a third measure is a third
         # answer.
         if [[ -f "$WHATSNEW_FILE" ]]; then
-            whatsnew_text="$(cat "$WHATSNEW_FILE")"
+            # Measure the payload as it will be PUBLISHED, not the file on disk. Two things happen
+            # to it in build_whatsnew_json before the cap is applied, and neither was accounted for
+            # here — so this check could both reject a file that fits and pass one that does not:
+            #
+            #   1. The first 'Build:' line is rewritten to the resolved build number. That line
+            #      carries the ticket list, so the file is routinely longer than what ships. A
+            #      deliberately wide placeholder keeps the estimate conservative: a real build
+            #      number is shorter, so a pass here is a pass there.
+            #   2. A non-production build gets the staging banner prepended (AIA-0791). Without
+            #      this, publishing would fail at the `notes` step — after the build was uploaded.
+            whatsnew_text="$(awk '!done && /^Build:/ { print "Build: 9999999999"; done=1; next } { print }' "$WHATSNEW_FILE")"
+            if [[ "$EXECUTION_ENVIRONMENT" != "production" ]]; then
+                whatsnew_text="${STAGING_NOTES_PREFIX}${whatsnew_text}"
+            fi
             if (( ${#whatsnew_text} > WHATSNEW_MAX )); then
                 preflight_fail "$(basename "$WHATSNEW_FILE") is ${#whatsnew_text} characters; App Store Connect caps whatsNew at ${WHATSNEW_MAX}. Prune the sections for builds that already shipped — the file is notes for THIS build, not a changelog."
             fi
@@ -625,7 +661,7 @@ cmd_deliver() {
     # xcodebuild/xcrun only run on the live path; a dry-run rehearsal must not require an Xcode install.
     [[ "$DRY_RUN" == 1 ]] || { discover_developer_dir; rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH" "$UPLOAD_PATH"; mkdir -p "$BUILD_DIR"; }
 
-    info "Archiving (${CONFIGURATION}, CURRENT_PROJECT_VERSION=${num})…"
+    info "Archiving (${CONFIGURATION}, ${EXECUTION_ENVIRONMENT} backend, CURRENT_PROJECT_VERSION=${num})…"
     run_step xcodebuild archive \
         -workspace "$WORKSPACE" \
         -scheme "$SCHEME" \
@@ -634,7 +670,24 @@ cmd_deliver() {
         -archivePath "$ARCHIVE_PATH" \
         -derivedDataPath "$DERIVED_DATA" \
         -allowProvisioningUpdates \
-        CURRENT_PROJECT_VERSION="$num"
+        CURRENT_PROJECT_VERSION="$num" \
+        AIA_BACKEND_ENVIRONMENT="$EXECUTION_ENVIRONMENT"
+
+    # The one thing that can silently no-op: a build setting that never reached the binary. Assert
+    # on the artifact, not the intention (AIA-0791). Deliberately OUTSIDE every --skip-validate /
+    # --export-only branch, so the plain upload path is covered too. The export product is an .ipa,
+    # so this reads the ARCHIVE.
+    if [[ "$DRY_RUN" == 1 ]]; then
+        info "Would verify BackendEnvironment=${EXECUTION_ENVIRONMENT} in the archive."
+    else
+        local app_plist built_env
+        app_plist="$(find "${ARCHIVE_PATH}/Products/Applications" -maxdepth 2 -name Info.plist 2>/dev/null | head -1)"
+        [[ -n "$app_plist" ]] || die "Could not find the archived app's Info.plist under ${ARCHIVE_PATH}."
+        built_env="$(plutil -extract BackendEnvironment raw -o - "$app_plist" 2>/dev/null || true)"
+        [[ "$built_env" == "$EXECUTION_ENVIRONMENT" ]] || \
+            die "Archive carries BackendEnvironment='${built_env}', expected '${EXECUTION_ENVIRONMENT}'."
+        info "Verified BackendEnvironment=${built_env} in the archive."
+    fi
 
     # Validate before uploading (default), like Xcode Organizer's Validate → Distribute. Needs a disk
     # IPA; --export-only / `validate` also need it. The upload path re-exports from the archive
@@ -706,8 +759,13 @@ cmd_deliver() {
     if [[ "$DRY_RUN" == 1 ]]; then
         info "Dry-run complete. No archive, export, validation, upload, or credential access occurred."
     else
+        info "  backend:      ${EXECUTION_ENVIRONMENT}"
         info "Upload submitted for build ${num}. After App Store Connect finishes processing, attach notes:"
-        log "    ./scripts/deliver.sh notes --build-number ${num}"
+        # Publishing notes is a SEPARATE invocation, which would default EXECUTION_ENVIRONMENT back
+        # to production and publish unmarked notes for a staging build. Carry the flag across.
+        local env_flag=""
+        [[ "$EXECUTION_ENVIRONMENT" == "production" ]] || env_flag=" --execution-environment ${EXECUTION_ENVIRONMENT}"
+        log "    ./scripts/deliver.sh notes --build-number ${num}${env_flag}"
     fi
 }
 
@@ -724,6 +782,11 @@ build_whatsnew_json() {
     local text
     text="$(awk -v n="$num" '!done && /^Build:/ { print "Build: " n; done=1; next } { print }' "$WHATSNEW_FILE")"
     [[ -n "${text//[[:space:]]/}" ]] || die "WhatToTest is empty."
+    # A staging build is indistinguishable from a production one in the TestFlight UI, so say so
+    # where the tester will read it — otherwise they report sign-in and sync as bugs (AIA-0791).
+    if [[ "$EXECUTION_ENVIRONMENT" != "production" ]]; then
+        text="${STAGING_NOTES_PREFIX}${text}"
+    fi
     # The file MUST carry a 'Build:' line so the real build number is stamped — never publish the
     # unresolved placeholder (e.g. 'Build: TBD') to testers.
     printf '%s\n' "$text" | grep -qxE "Build: ${num}" \
@@ -852,6 +915,14 @@ main() {
         case "$1" in
             --dry-run)          DRY_RUN=1; shift ;;
             --build-number)     [[ $# -ge 2 ]] || die "--build-number requires a value."; BUILD_NUMBER="$2"; shift 2 ;;
+            --execution-environment)
+                [[ $# -ge 2 ]] || die "--execution-environment requires a value."
+                case "$2" in
+                    development|production) EXECUTION_ENVIRONMENT="$2" ;;
+                    *) die "--execution-environment must be 'development' or 'production' (got '$2')." ;;
+                esac
+                shift 2 ;;
+            --allow-staging-upload) ALLOW_STAGING_UPLOAD=1; shift ;;
             --skip-tests)       SKIP_TESTS=1; shift ;;
             --skip-validate)    SKIP_VALIDATE=1; shift ;;
             --allow-dirty)      ALLOW_DIRTY=1; shift ;;
@@ -881,6 +952,14 @@ main() {
     # Dry-run cannot query App Store Connect, so the build number must be supplied up front.
     if [[ "$DRY_RUN" == 1 && "$SUBCOMMAND" != "selftest" && -z "$BUILD_NUMBER" ]]; then
         die "--dry-run requires --build-number (App Store Connect is not queried offline)."
+    fi
+    # A staging build on TestFlight is indistinguishable from a production one in the TestFlight
+    # UI, so a tester cannot tell why sync fails. Exporting one locally is fine; uploading is not
+    # (AIA-0791). Routed through preflight_fail rather than die so a --dry-run rehearsal reports
+    # "WOULD FAIL LIVE" instead of silently succeeding at something the live run refuses.
+    if [[ "$SUBCOMMAND" == "deliver" && "$EXPORT_ONLY" != 1 \
+          && "$EXECUTION_ENVIRONMENT" != "production" && "$ALLOW_STAGING_UPLOAD" != 1 ]]; then
+        preflight_fail "refusing to upload a '${EXECUTION_ENVIRONMENT}' build to TestFlight. Pass --allow-staging-upload if that is genuinely what you want."
     fi
 
     # Parent-owned temp dir (0700) for the .p8 + cached responses; removed by the EXIT trap.
