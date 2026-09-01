@@ -102,5 +102,32 @@
 			</dict>
 		</dict>
 	</array>
+	<!-- Single-window on purpose (AIA-0798).
+
+	     `UIApplicationSupportsMultipleScenes = true` is what puts File > New Window in the menu bar
+	     of the Mac (Designed for iPad) build, so this manifest turns it off.
+
+	     It has to live here, and generation has to stay off for it to survive. Xcode's
+	     INFOPLIST_KEY_UIApplicationSceneManifest_Generation SYNTHESISES this whole manifest with
+	     multiple scenes enabled and overwrites whatever this file declares — with it set to YES the
+	     key below was silently discarded and the built bundle shipped `true` while the source said
+	     `false`. It is therefore set to NO in both configurations, which makes this the only
+	     manifest and this file the authority. Turning generation back on re-breaks this, invisibly:
+	     the source keeps reading correctly and only the built Info.plist disagrees.
+
+	     SwiftUI's `.commands { CommandGroup(replacing: .newItem) { } }` does NOT remove it: that API
+	     is macOS-native and a Designed-for-iPad app never honours it. The menu comes from the scene
+	     system, so the scene manifest is where it has to be answered.
+
+	     Everything a second window would need is app-wide and singular here — AppState, the driver
+	     registry, the detection session and its snapshot timer, the findings store — so two windows
+	     are the same app twice, sharing one timer and one overlay. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict/>
+	</dict>
 </dict>
 </plist>
