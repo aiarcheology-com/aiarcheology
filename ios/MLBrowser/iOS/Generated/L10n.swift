@@ -703,8 +703,8 @@ internal enum L10n {
       internal enum Backup {
         /// Backing up…
         internal static let busy = L10n.tr("Localizable", "findings.sync.backup.busy", fallback: "Backing up…")
-        /// Back Up My Findings
-        internal static let button = L10n.tr("Localizable", "findings.sync.backup.button", fallback: "Back Up My Findings")
+        /// Back Up Everything on This Device
+        internal static let button = L10n.tr("Localizable", "findings.sync.backup.button", fallback: "Back Up Everything on This Device")
         /// Back Up
         internal static let confirm = L10n.tr("Localizable", "findings.sync.backup.confirm", fallback: "Back Up")
         /// Back-up didn’t finish. It will try again.

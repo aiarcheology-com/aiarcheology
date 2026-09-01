@@ -29022,103 +29022,103 @@
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "نسخ اكتشافاتي احتياطيًا"
+            "value" : "نسخ كل شيء على هذا الجهاز احتياطيًا"
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "আমার আবিষ্কারের ব্যাকআপ নিন"
+            "value" : "এই ডিভাইসের সবকিছুর ব্যাকআপ নিন"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Zálohovat mé nálezy"
+            "value" : "Zálohovat vše v tomto zařízení"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Meine Funde sichern"
+            "value" : "Alles auf diesem Gerät sichern"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Back Up My Findings"
+            "value" : "Back Up Everything on This Device"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Copiar mis hallazgos"
+            "value" : "Copiar todo lo de este dispositivo"
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "پشتیبان‌گیری از یافته‌های من"
+            "value" : "پشتیبان‌گیری از همه‌چیز در این دستگاه"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Sauvegarder mes trouvailles"
+            "value" : "Sauvegarder tout sur cet appareil"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "גבה את הממצאים שלי"
+            "value" : "גבה הכול במכשיר הזה"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "मेरी खोजों का बैकअप लें"
+            "value" : "इस डिवाइस की हर चीज़ का बैकअप लें"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Leleteim mentése"
+            "value" : "Minden mentése erről az eszközről"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Utwórz kopię moich znalezisk"
+            "value" : "Utwórz kopię wszystkiego na tym urządzeniu"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Сохранить мои находки"
+            "value" : "Сохранить всё с этого устройства"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Зберегти мої знахідки"
+            "value" : "Зберегти все з цього пристрою"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "备份我的发现"
+            "value" : "备份此设备上的所有内容"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "備份我的發現"
+            "value" : "備份此裝置上的所有內容"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "備份我嘅發現"
+            "value" : "備份此裝置上嘅所有嘢"
           }
         }
       }
