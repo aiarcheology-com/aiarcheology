@@ -100,7 +100,15 @@ broken feature.** That is the trade this file exists to catch.
 - [x] **Production verified with more than one account (#747). Done 2026-08-28.** Everything else
       above was proved against staging or with a single subject; this gate closed that gap by
       showing that two real accounts on production cannot see each other's findings.
-- [ ] **Manual acceptance on real devices (#732).** Build 1004 is on TestFlight for this.
+- [x] **Manual acceptance on real devices (#732). Done 2026-09-01.** Every box in that pass is
+      ticked, on real devices against production. Two findings were accepted rather than fixed and
+      are recorded on the issue, not here, because neither gates a release: the storage band reads
+      "97% full" while already refusing every upload, and an offline edit conflict resolves
+      last-write-wins with the losing edit disappearing silently.
+
+      One caveat worth carrying: **#816 changed this flow after the pass ran.** The purge → verify →
+      delete ordering is untouched, but a failed deletion now shows one of three stage-specific
+      messages that the pass never saw. What was accepted here is the behaviour, not that copy.
 
 ## 1.0.8
 
