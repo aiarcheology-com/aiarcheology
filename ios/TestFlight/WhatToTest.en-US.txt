@@ -1,4 +1,4 @@
-Build: AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735, AIA-0779, AIA-0782, AIA-0763, AIA-0765,
+Build: AIA-0816, AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735, AIA-0779, AIA-0782, AIA-0763, AIA-0765,
 AIA-0783, AIA-0785, AIA-0778, AIA-0791, AIA-0796
 
 Test Focus: detection boxes must sit on what they found, the two questions the app asks must never
@@ -53,3 +53,5 @@ share a screen, and your existing findings must survive the update.
 
 - Deleting your account offers your findings first: Delete Account must say they are NOT deleted
   with the account and offer "Export First…". With nothing saved, that choice must NOT appear.
+
+- NEW: IN AIRPLANE MODE, DELETE ACCOUNT MUST SAY YOUR ACCOUNT WAS NOT DELETED.

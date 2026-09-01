@@ -919,7 +919,7 @@ extension FindingsSyncCycleTests {
 		await sut.syncNow()?.value
 		XCTAssertFalse(sut.backupStates.isEmpty, "precondition: the rows have marks to lose")
 
-		try await sut.purgeCloudData()
+		try await sut.purgeCloudData(operation: "test")
 
 		XCTAssertTrue(
 			sut.backupStates.isEmpty,

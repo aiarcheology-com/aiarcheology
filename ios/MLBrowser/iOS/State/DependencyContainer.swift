@@ -471,7 +471,7 @@ class DependencyContainer {
 		// deletion. A build with no real account has no cloud data to erase, so there is nothing
 		// this skips.
 		if usesMockAuth == false {
-			account.authState.purgeCloudData = { [findingsSync] in try await findingsSync.purgeCloudData() }
+			account.authState.purgeCloudData = { [findingsSync] operation in try await findingsSync.purgeCloudData(operation: operation) }
 		}
 		// Signing in is its own trigger. It is none of the three the coordinator watches for, so
 		// without this the first thing a new user does -- sign in -- produces silence (AIA-727).

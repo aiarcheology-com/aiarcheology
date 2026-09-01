@@ -41,6 +41,31 @@ enum AuthValidationError: Error {
     case noValidSession
 }
 
+/// Which half of ``AuthState/deleteAccount()`` failed.
+///
+/// The two halves mean opposite things to the person who pressed the button, and the copy shown to
+/// them differs accordingly (AIA-0816). A single "it failed" cannot be phrased truthfully for both:
+/// after ``purge`` nothing has been erased anywhere, while after ``accountDeletion`` the cloud copy
+/// is already gone and only the account itself survives.
+enum AccountDeletionFailure: Error {
+    /// The cloud purge failed. Nothing was erased, and the account still exists -- the caller
+    /// deliberately does not delete it, because the session token is the only credential that can
+    /// reach the remaining data.
+    case purge(Error)
+    /// The purge succeeded and deleting the account itself did not. The account survives.
+    ///
+    /// `cloudDataErased` is false when there was nothing to erase -- a build with no sync wired --
+    /// so the copy shown never claims a back-up was removed when none was.
+    case accountDeletion(Error, cloudDataErased: Bool)
+
+    /// What actually threw, for a caller that wants to inspect or re-report it.
+    var underlying: Error {
+        switch self {
+        case let .purge(error), let .accountDeletion(error, _): error
+        }
+    }
+}
+
 /// Abstraction over the authentication backend so ``AuthState`` can be unit-tested
 /// and UI-tested without the real Clerk SDK or any network access.
 ///
@@ -396,14 +421,64 @@ final class AuthState: ObservableObject {
     /// that throws leaves the account intact so the user can try again, rather than leaving them
     /// deleted and their data behind.
     func deleteAccount() async throws {
-        try await purgeCloudData?()
-        try await provider.deleteAccount()
+        // Correlates the lines below with each other, with the Worker's request log, and with the
+        // Sentry event the failure path raises (AIA-0816). Deliberately not a UUID: `LogRedactor`
+        // strips anything UUID-shaped, and this value exists to survive into the redacted copy.
+        let operation = String(UUID().uuidString.prefix(8))
+        var cloudDataErased = false
+        // The account is named by ``FindingsSyncLedgerStore/fingerprint(of:)``, and only where it
+        // is actually known -- inside the purge. Writing the raw id here would achieve nothing: an
+        // `account id:` prefix is redacted at export as well as at the call site, so it would reach
+        // neither the support attachment nor us.
+        LoggingPolicy.info("Account deletion \(operation) requested", logger: .state)
+
+        // Sync is wired but nobody is signed in: the purge would erase nothing, and deleting the
+        // account anyway is the one outcome this ordering exists to prevent -- the session token is
+        // the only credential that can reach whatever is stored. Refuse instead (review of #818).
+        // `provider.accountIdentifier`, not the published one: this type's copy is filled in by
+        // `evaluateGate()` and is nil until a refresh has run, so guarding on it would refuse
+        // deletions for a signed-in user who simply had not been re-validated yet.
+        if purgeCloudData != nil, provider.accountIdentifier == nil {
+            LoggingPolicy.error(
+                "Account deletion \(operation) refused: no account is signed in, so the cloud copy "
+                    + "cannot be reached, let alone erased.",
+                logger: .state
+            )
+            throw AccountDeletionFailure.purge(AuthValidationError.noValidSession)
+        }
+
+        do {
+            // What the purge *reports*, never what it was asked to do: a wired purge still returns
+            // false when there was no account or no endpoint to erase from, and copy promising that
+            // a back-up was removed would be false there (review of #818).
+            cloudDataErased = try await purgeCloudData?(operation) ?? false
+        } catch {
+            LoggingPolicy.error(
+                "Account deletion \(operation) stopped: the cloud purge failed, so the account was "
+                    + "kept and nothing was erased. \(error.localizedDescription)",
+                logger: .state
+            )
+            throw AccountDeletionFailure.purge(error)
+        }
+
+        do {
+            try await provider.deleteAccount()
+        } catch {
+            LoggingPolicy.error(
+                "Account deletion \(operation) stopped: the cloud data was erased but the account "
+                    + "itself was not deleted. \(error.localizedDescription)",
+                logger: .state
+            )
+            throw AccountDeletionFailure.accountDeletion(error, cloudDataErased: cloudDataErased)
+        }
+
+        LoggingPolicy.info("Account deletion \(operation) completed: account deleted", logger: .state)
         setSignedOut()
     }
 
     /// Erases the signed-in account's cloud findings, or throws. Wired by `DependencyContainer`;
     /// `nil` in a build with no sync, where there is nothing stored to erase.
-    var purgeCloudData: (() async throws -> Void)?
+    var purgeCloudData: ((_ operation: String) async throws -> Bool)?
 
     /// The only way to reach `.signedOut`. Clears the identity *before* the gate so nothing can
     /// observe "signed out" while a stale account is still published. `signOut()` and

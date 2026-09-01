@@ -120,13 +120,21 @@ actor FindingsSyncLedgerStore {
         // found on disk rather than accounts it can name.
         let isFileKey = accountIdentifier.count == 16
             && accountIdentifier.allSatisfy { $0.isHexDigit && !$0.isUppercase }
-        if isFileKey {
-            self.accountKey = accountIdentifier
-        } else {
-            var hasher = SHA256()
-            hasher.update(data: Data(accountIdentifier.utf8))
-            self.accountKey = hasher.finalize().prefix(8).map { String(format: "%02x", $0) }.joined()
-        }
+        self.accountKey = isFileKey ? accountIdentifier : Self.fingerprint(of: accountIdentifier)
+    }
+
+    /// A stable, non-reversible name for an account: the first 8 bytes of SHA-256, in hex.
+    ///
+    /// This is the ledger's filename key, and since AIA-0816 it is also what the deletion log calls
+    /// the account. Both uses want the same property -- identifying a person's data without
+    /// spelling out who they are -- and support can recompute it from a Clerk id to match a log
+    /// against Clerk and D1. Written into logs **without** an `account id:` style prefix on
+    /// purpose: `LoggingPolicy` redacts any value that follows one, at export as well as at the
+    /// call site, so an id written that way never reaches the support attachment it exists for.
+    static func fingerprint(of accountIdentifier: String) -> String {
+        var hasher = SHA256()
+        hasher.update(data: Data(accountIdentifier.utf8))
+        return hasher.finalize().prefix(8).map { String(format: "%02x", $0) }.joined()
     }
 
     static var defaultDirectory: URL? {

@@ -109,6 +109,12 @@ internal enum L10n {
       internal enum Delete {
         /// Delete Account
         internal static let action = L10n.tr("Localizable", "auth.account.delete.action", fallback: "Delete Account")
+        /// Your cloud back-up was removed, but your account was not deleted. Please try again. The findings on this device are untouched.
+        internal static let failedDeletion = L10n.tr("Localizable", "auth.account.delete.failedDeletion", fallback: "Your cloud back-up was removed, but your account was not deleted. Please try again. The findings on this device are untouched.")
+        /// Your account was not deleted and nothing was removed. Please try again.
+        internal static let failedNothingErased = L10n.tr("Localizable", "auth.account.delete.failedNothingErased", fallback: "Your account was not deleted and nothing was removed. Please try again.")
+        /// Your account was not deleted, so you can try again. Some of your cloud back-up may already have been removed. The findings on this device are untouched.
+        internal static let failedPurge = L10n.tr("Localizable", "auth.account.delete.failedPurge", fallback: "Your account was not deleted, so you can try again. Some of your cloud back-up may already have been removed. The findings on this device are untouched.")
         /// The findings saved on this device are not deleted, and you can export them first.
         internal static let findingsNote = L10n.tr("Localizable", "auth.account.delete.findingsNote", fallback: "The findings saved on this device are not deleted, and you can export them first.")
         /// This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.

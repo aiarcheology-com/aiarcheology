@@ -1156,10 +1156,23 @@ final class FindingsSyncCoordinator: ObservableObject {
     ///
     /// Local findings are deliberately untouched. The cloud copy has just been erased, so they are
     /// the only copy left, and this ticket is about deleting an account -- not somebody's fieldwork.
-    func purgeCloudData() async throws {
-        guard let account = authProvider.accountIdentifier else { return }
+    /// - Parameter operation: the deletion's correlation id, minted by ``AuthState/deleteAccount()``.
+    ///   Every line below carries it so a support log, a Sentry event and the Worker's own request
+    ///   log can be lined up against each other afterwards (AIA-0816).
+    /// - Returns: whether cloud data was actually erased. False means there was nothing to erase
+    ///   -- no account signed in, or a build with no endpoint -- and the caller must not tell the
+    ///   user that a back-up was removed.
+    @discardableResult
+    func purgeCloudData(operation: String) async throws -> Bool {
+        // Both early returns are silent successes, and a deletion that made no network request at
+        // all is exactly the thing a reconciliation has to be able to explain.
+        guard let account = authProvider.accountIdentifier else {
+            LoggingPolicy.info("Account deletion \(operation): nobody is signed in; no cloud data to erase", logger: .networking)
+            return false
+        }
         guard let baseURL = FindingsCloudEndpoint.baseURL(for: BackendEnvironment.current) else {
-            return
+            LoggingPolicy.info("Account deletion \(operation): this build has no findings endpoint; no cloud data to erase", logger: .networking)
+            return false
         }
 
         // A cycle and a purge are the only two writers of this account's cloud data, and they have
@@ -1172,13 +1185,24 @@ final class FindingsSyncCoordinator: ObservableObject {
         await runningCycle?.value
         wantsAnotherCycle = false
 
+        // The fingerprint, not the id: it survives redaction (which runs at export too, so an
+        // `account id:` prefix would reach nobody), it is the same value that names this account's
+        // ledger on disk, and support can recompute it from a Clerk id to line this deletion up
+        // with Clerk and the Worker's D1 rows.
+        let fingerprint = FindingsSyncLedgerStore.fingerprint(of: account)
+        LoggingPolicy.info("Account deletion \(operation): purging cloud findings (account fingerprint \(fingerprint))", logger: .networking)
         let result = try await transport(for: baseURL, account: account).purgeAccountData()
         guard result.purged.complete else {
+            // The throw is reported by the caller, at `.error`, with the stage named. Logging it
+            // here as well would put the same failure in the trail twice.
             throw FindingsCloudError.unreachable("The cloud purge did not finish.")
         }
-        LoggingPolicy.info("Cloud findings purged: \(result.purged.objects) objects", logger: .networking)
+        LoggingPolicy.info("Account deletion \(operation): purged \(result.purged.objects) objects", logger: .networking)
 
         // The account's own sync bookkeeping goes with it. The findings do not.
+        // Logged as the action, not the outcome: `removeEverything()` swallows a failed file
+        // removal, so "cleared" would be a claim this code cannot make.
+        LoggingPolicy.info("Account deletion \(operation): discarding the local sync ledger", logger: .networking)
         await ledgerStore(for: account).removeEverything()
         usage = nil
         pendingUploadCount = 0
@@ -1195,6 +1219,7 @@ final class FindingsSyncCoordinator: ObservableObject {
         // The ledger this account's state was derived from is gone, so the next cycle -- whatever
         // account it runs as -- must rebuild rather than believe it has already seen this one.
         lastSyncedAccount = nil
+        return true
     }
 
     // MARK: - Local state

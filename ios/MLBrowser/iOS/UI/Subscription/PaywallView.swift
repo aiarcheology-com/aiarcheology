@@ -694,7 +694,24 @@ struct PaywallView: View {
 				Task {
 					do {
 						try await authState?.deleteAccount()
+					} catch let failure as AccountDeletionFailure {
+						// The stage decides the copy, because the two stages mean opposite things to
+						// the person reading it: after `.purge` nothing was erased anywhere, while
+						// after `.accountDeletion` the cloud copy is already gone and only the account
+						// survives (AIA-0816). `AuthState` has already reported the failure at
+						// `.error` with the stage named, so nothing is logged again here.
+						let message = switch failure {
+						case .purge: L10n.Auth.Account.Delete.failedPurge
+						case .accountDeletion(_, cloudDataErased: true): L10n.Auth.Account.Delete.failedDeletion
+						// Nothing was erased anywhere -- no sync in this build, or no endpoint -- so this
+						// says so outright rather than borrowing the purge copy, which only says a
+						// back-up *may* have gone (review of #818).
+						case .accountDeletion(_, cloudDataErased: false): L10n.Auth.Account.Delete.failedNothingErased
+						}
+						notice = .init(title: L10n.Alert.Error.title, message: message)
 					} catch {
+						// Unreachable while `deleteAccount()` wraps both stages, and kept so that a
+						// future throw added outside them still says something rather than nothing.
 						LoggingPolicy.error("Account deletion failed: \(error.localizedDescription)", logger: .state)
 						notice = .init(title: L10n.Alert.Error.title, message: L10n.Alert.Error.unexpected)
 					}

@@ -3153,6 +3153,330 @@
         }
       }
     },
+    "auth.account.delete.failedDeletion" : {
+      "comment" : "Shown when the cloud back-up was erased but deleting the account itself failed",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "حُذفت نسختك الاحتياطية السحابية، لكن لم يُحذف حسابك. يرجى المحاولة مرة أخرى. الاكتشافات على هذا الجهاز لم تتغير."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার ক্লাউড ব্যাকআপ মুছে ফেলা হয়েছে, কিন্তু আপনার অ্যাকাউন্ট মোছা হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন। এই ডিভাইসে থাকা সন্ধানগুলি অক্ষত রয়েছে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Záloha v cloudu byla odstraněna, ale váš účet nebyl smazán. Zkuste to prosím znovu. Nálezy v tomto zařízení zůstávají nedotčené."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ihre Cloud-Sicherung wurde entfernt, Ihr Konto jedoch nicht gelöscht. Bitte versuchen Sie es erneut. Die Funde auf diesem Gerät bleiben unberührt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your cloud back-up was removed, but your account was not deleted. Please try again. The findings on this device are untouched."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Se eliminó tu copia de seguridad en la nube, pero tu cuenta no se eliminó. Inténtalo de nuevo. Los hallazgos de este dispositivo no se han modificado."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "پشتیبان ابری شما حذف شد، اما حسابتان حذف نشد. لطفاً دوباره تلاش کنید. یافته‌های روی این دستگاه دست‌نخورده‌اند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Votre sauvegarde dans le cloud a été supprimée, mais votre compte ne l’a pas été. Veuillez réessayer. Les découvertes sur cet appareil sont intactes."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הגיבוי בענן נמחק, אבל החשבון שלך לא נמחק. אנא נסו שוב. הממצאים במכשיר הזה נותרו ללא שינוי."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपका क्लाउड बैकअप हटा दिया गया, लेकिन आपका खाता डिलीट नहीं हुआ। कृपया फिर से कोशिश करें। इस डिवाइस पर मौजूद खोजें अछूती हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A felhőmentést töröltük, de a fiókját nem. Kérjük, próbálja meg újra. Az ezen az eszközön lévő leletek érintetlenek maradnak."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Kopia zapasowa w chmurze została usunięta, ale Twoje konto nie zostało usunięte. Spróbuj ponownie. Znaleziska na tym urządzeniu pozostają nienaruszone."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Облачная резервная копия удалена, но учётная запись — нет. Пожалуйста, попробуйте ещё раз. Находки на этом устройстве остались нетронутыми."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Хмарну резервну копію видалено, але обліковий запис — ні. Будь ласка, спробуйте ще раз. Знахідки на цьому пристрої залишилися недоторканими."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的云备份已被删除，但账户未被删除。请再试一次。此设备上的发现记录未受影响。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的雲端備份已被刪除，但帳戶未被刪除。請再試一次。此裝置上的發現未受影響。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的雲端備份已被刪除，但帳戶未被刪除。請再試一次。此裝置上的發現記錄未受影響。"
+          }
+        }
+      }
+    },
+    "auth.account.delete.failedNothingErased" : {
+      "comment" : "Shown when account deletion failed with no cloud data to erase, so nothing was removed anywhere",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لم يُحذف حسابك ولم يُحذف أي شيء. يرجى المحاولة مرة أخرى."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার অ্যাকাউন্ট মোছা হয়নি এবং কিছুই সরানো হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Váš účet nebyl smazán a nic nebylo odstraněno. Zkuste to prosím znovu."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ihr Konto wurde nicht gelöscht, und es wurde nichts entfernt. Bitte versuchen Sie es erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your account was not deleted and nothing was removed. Please try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tu cuenta no se eliminó y no se eliminó nada. Inténtalo de nuevo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "حساب شما حذف نشد و چیزی هم حذف نشده است. لطفاً دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Votre compte n’a pas été supprimé et rien n’a été supprimé. Veuillez réessayer."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "החשבון שלך לא נמחק ודבר לא הוסר. אנא נסו שוב."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपका खाता डिलीट नहीं हुआ और कुछ भी नहीं हटाया गया। कृपया फिर से कोशिश करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A fiókját nem töröltük, és semmi sem törlődött. Kérjük, próbálja meg újra."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Twoje konto nie zostało usunięte i nic nie zostało usunięte. Spróbuj ponownie."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваша учётная запись не удалена, и ничего не было удалено. Пожалуйста, попробуйте ещё раз."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваш обліковий запис не видалено, і нічого не було видалено. Будь ласка, спробуйте ще раз."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的账户未被删除，也没有删除任何内容。请再试一次。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的帳戶未被刪除，也沒有刪除任何內容。請再試一次。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的帳戶未被刪除，亦沒有刪除任何內容。請再試一次。"
+          }
+        }
+      }
+    },
+    "auth.account.delete.failedPurge" : {
+      "comment" : "Shown when account deletion stopped at the cloud purge, so the account still exists",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لم يُحذف حسابك، لذا يمكنك المحاولة مرة أخرى. ربما حُذف جزء من نسختك الاحتياطية السحابية بالفعل. الاكتشافات على هذا الجهاز لم تتغير."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার অ্যাকাউন্ট মোছা হয়নি, তাই আপনি আবার চেষ্টা করতে পারেন। আপনার ক্লাউড ব্যাকআপের কিছু অংশ ইতিমধ্যেই মুছে ফেলা হয়ে থাকতে পারে। এই ডিভাইসে থাকা সন্ধানগুলি অক্ষত রয়েছে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Váš účet nebyl smazán, takže to můžete zkusit znovu. Část zálohy v cloudu už mohla být odstraněna. Nálezy v tomto zařízení zůstávají nedotčené."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ihr Konto wurde nicht gelöscht, Sie können es also erneut versuchen. Ein Teil Ihrer Cloud-Sicherung wurde möglicherweise bereits entfernt. Die Funde auf diesem Gerät bleiben unberührt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your account was not deleted, so you can try again. Some of your cloud back-up may already have been removed. The findings on this device are untouched."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tu cuenta no se eliminó, así que puedes intentarlo de nuevo. Puede que parte de tu copia de seguridad en la nube ya se haya eliminado. Los hallazgos de este dispositivo no se han modificado."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "حساب شما حذف نشد، پس می‌توانید دوباره تلاش کنید. ممکن است بخشی از پشتیبان ابری شما پیش‌تر حذف شده باشد. یافته‌های روی این دستگاه دست‌نخورده‌اند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Votre compte n’a pas été supprimé, vous pouvez donc réessayer. Une partie de votre sauvegarde dans le cloud a peut-être déjà été supprimée. Les découvertes sur cet appareil sont intactes."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "החשבון שלך לא נמחק, כך שאפשר לנסות שוב. ייתכן שחלק מהגיבוי בענן כבר נמחק. הממצאים במכשיר הזה נותרו ללא שינוי."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपका खाता डिलीट नहीं हुआ, इसलिए आप फिर से कोशिश कर सकते हैं। हो सकता है आपके क्लाउड बैकअप का कुछ हिस्सा पहले ही हटा दिया गया हो। इस डिवाइस पर मौजूद खोजें अछूती हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A fiókját nem töröltük, így újra próbálkozhat. A felhőmentés egy része már törlődhetett. Az ezen az eszközön lévő leletek érintetlenek maradnak."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Twoje konto nie zostało usunięte, więc możesz spróbować ponownie. Część kopii zapasowej w chmurze mogła już zostać usunięta. Znaleziska na tym urządzeniu pozostają nienaruszone."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваша учётная запись не удалена, поэтому попробуйте ещё раз. Часть облачной резервной копии, возможно, уже удалена. Находки на этом устройстве остались нетронутыми."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваш обліковий запис не видалено, тож можете спробувати ще раз. Частину хмарної резервної копії, можливо, вже видалено. Знахідки на цьому пристрої залишилися недоторканими."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的账户未被删除，可以再试一次。云备份中的部分内容可能已被删除。此设备上的发现记录未受影响。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的帳戶未被刪除，可以再試一次。雲端備份中的部分內容可能已被刪除。此裝置上的發現未受影響。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的帳戶未被刪除，可以再試一次。雲端備份中的部分內容可能已被刪除。此裝置上的發現記錄未受影響。"
+          }
+        }
+      }
+    },
     "auth.account.delete.findingsNote" : {
       "comment" : "Appended to auth.account.delete.messageBilling when this device still holds saved findings. A separate key on purpose: the billing warning it follows is translated into every shipping locale, and folding the two into one new string would have downgraded that warning to English everywhere.",
       "extractionState" : "manual",
