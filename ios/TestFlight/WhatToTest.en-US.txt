@@ -1,57 +1,11 @@
-Build: AIA-0816, AIA-0757, AIA-0761, AIA-0748, AIA-0758, AIA-0735, AIA-0779, AIA-0782, AIA-0763, AIA-0765,
-AIA-0783, AIA-0785, AIA-0778, AIA-0791, AIA-0796
+Build: AIA-0822
 
-Test Focus: detection boxes must sit on what they found, the two questions the app asks must never
-share a screen, and your existing findings must survive the update.
+Test Focus: detection must still start normally after the app recreates its local storage.
 
-- NEW: THE BOX MUST BE ON THE OBJECT. Turn on a detection model, set the shape to Rectangle and
-  turn labels on. Point it at a page with several objects. The blue box must sit ON the thing, not
-  below it — labels used to push it down the page, further the more classes were found. Compare a
-  page whose picture already has boxes drawn into it: ours should line up with those.
+- NEW: AFTER A LOCAL RESET, DETECTION WORKS ON THE FIRST TRY. If an update opens with an empty
+  model list, turn on either bundled demo model, load a page where it normally finds objects, and
+  start detection. Boxes must appear in that same session; closing and reopening the app must not
+  be required.
 
-- NEW: ONE LABEL, AND YOU CAN READ IT. Each box gets a single label, "class 0.42", above it — not
-  a row of six-letter fragments. It must be readable on a busy photo, on a SMALL box (it may stick
-  out past the box, that is intended), and at the very top of the page (it tucks inside instead of
-  going off-screen). Try Circle and Point too. Then change the annotation colour in the model's
-  settings, including a pale one like yellow: the text must stay readable on every colour.
-
-- NEW: THE NUMBER MUST VARY. Confidences used to all read 1.00. Now they should differ per box,
-  and if you raise Detection Confidence in the model's settings to 50%, every label you can see
-  must read 0.50 or higher. Findings saved before this build still show their old 100% — expected,
-  the real value was never stored.
-
-- NEW: ONE QUESTION AT A TIME. Both the telemetry question and the back-up question are now the
-  same style of card. To get both at once: save 2-3 findings signed out, then Settings > Restore
-  Defaults, then sign in. Telemetry must come FIRST, alone; the back-up question must appear only
-  after you answer it, and it must NOT be forgotten. Tap fast on "Not now" — the second tap must
-  NOT hit the back-up card's buttons underneath. Check both cards on iPad and with Larger Text
-  turned up: they should stay a centred card and never fill the whole window.
-
-- NEW: A FAILED CONVERSION MUST BE REPORTABLE. Import a model the converter cannot handle. The error
-  must offer "Report Failing Conversion", and the draft must name the model's own filename, not just
-  a phase (the log shows it too, under Model file). An error after a conversion SUCCEEDED must NOT
-  offer it. With no mail set up it must open the log, which still shares, not do nothing.
-
-- NEW: YOU WILL BE SIGNED OUT ONCE. This build uses the real account system, not the test one, so
-  sign in again. Findings you BACKED UP earlier do not carry over; the ones on your device are
-  untouched. Synchronize must then FINISH, on a Mac too, where it has never once worked.
-
-- NEW: ON A MAC, THE ACCOUNT SCREENS MUST OPEN. Settings > your account: open Delete Account, the
-  email and phone rows, Password, two-factor. Each must show its own screen — Delete Account did
-  nothing on a Mac last build. Cancel each; iPhone and iPad must still work.
-
-- YOUR EXISTING FINDINGS MUST ALL STILL BE THERE. Storage changed. Update from the build you were
-  running rather than deleting the app first — a fresh install cannot test this. Every finding
-  still listed, with its picture, title and box in the right place.
-
-- TWO DEVICES, ONE ACCOUNT. On A, open Findings and leave it open. On B, edit a finding's title.
-  On A, close Findings and reopen: B's change should be there without you pressing anything.
-
-- IF YOU HAVE EVER TAPPED "Keep on This Device": Synchronize must leave those findings local,
-  however many times you press it. Only "Back Up My Findings", inside the question-mark sheet,
-  still sends them.
-
-- Deleting your account offers your findings first: Delete Account must say they are NOT deleted
-  with the account and offer "Export First…". With nothing saved, that choice must NOT appear.
-
-- NEW: IN AIRPLANE MODE, DELETE ACCOUNT MUST SAY YOUR ACCOUNT WAS NOT DELETED.
+- Turning a model on and off repeatedly must keep detection responsive, with no duplicate boxes or
+  error message.

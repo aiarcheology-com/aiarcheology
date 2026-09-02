@@ -37,34 +37,7 @@ final class DeepState: ObservableObject {
 		self.dataController = dataController
 		self.assetStore = ModelAssetStore(dataController: dataController)
 		self.repository = ModelConfigurationRepository(dataController: dataController)
-		observeDeepConfigurationChanges()
-
-		let configurations = repository.selectAll()
-		do {
-			// Launch-time loads go through the SAME path as a live enable or type switch, rather
-			// than a second copy of it (AIA-0808).
-			//
-			// This used to be its own inline `Task` with weaker guards, and the gap was the whole
-			// bug: it never touched `driverLoadGenerations`, and after `await loadFile()` it
-			// re-checked only `current.enabled` — not the generation, not the model type — before
-			// registering with the `config.modelType` it had captured *before* the load. So a
-			// configuration change made while the launch load was still in flight did not supersede
-			// it. The user switches type, the live path loads and registers the new driver
-			// correctly, and then the launch load completes and registers the stale one on top,
-			// filed under the type it had at launch. The drawer card looks right and the runtime
-			// driver is not the one it names.
-			//
-			// `loadAndRegisterDriver` already has the guards this needed, all four of them, and has
-			// had them since AIA-0402. There was never a reason for two versions of this logic.
-			try configurations.forEach { config in
-				guard config.enabled == true else { return }
-				try loadAndRegisterDriver(entityId: config.entityId, expectedType: config.modelType)
-			}
-		} catch {
-			// Send it to the upper layers to show the error to the user
-			LoggingPolicy.error("Error initializing DeepState", error: error, logger: .state)
-			deepStateError = error
-		}
+		observeContainerReplacements()
 	}
 	
 	private func createDriver(from configuration: DeepConfiguration) throws -> (any DeepDriver)? {
@@ -151,10 +124,10 @@ final class DeepState: ObservableObject {
 					return
 				}
 				self.register(driver: driver, along: expectedType)
-				LoggingPolicy.info("Driver loaded and registered after configuration update", logger: .drivers)
+				LoggingPolicy.info("Driver loaded and registered", logger: .drivers)
 			} catch {
-				LoggingPolicy.error("Failed to load driver after configuration update", error: error, logger: .drivers)
-				DefaultCrashReporter.shared.recordError(error, context: ["operation": "updateDriver", "configId": entityId.uuidString])
+				LoggingPolicy.error("Failed to load driver", error: error, logger: .drivers)
+				DefaultCrashReporter.shared.recordError(error, context: ["operation": "loadDriver", "configId": entityId.uuidString])
 				self.deepStateError = error
 			}
 		}
@@ -227,10 +200,39 @@ final class DeepState: ObservableObject {
 		let computeUnitChanged: Bool
 	}
 
+	private var containerChanges: AnyCancellable?
 	private var deepConfigurationsChanges: AnyCancellable?
+
+#if DEBUG
+	/// Test-only completion marker for the reconciliation scheduled after a container binding.
+	///
+	/// It lets the replacement-context regression test distinguish the initial reconciliation from
+	/// a later change notification on the replacement context.
+	private(set) var reconciledContainerGenerationForTesting: Int?
+#endif
+
+	/// Observes the DataController-owned container lifecycle. The publisher immediately emits the
+	/// initial generation, so this both binds the first context and rebinds every replacement.
+	private func observeContainerReplacements() {
+		containerChanges = dataController.$containerGeneration
+			.sink { [weak self] generation in
+				// `containerGeneration` is @Published from a main-actor controller, so it emits
+				// on the main actor. Make that Combine boundary explicit without introducing an
+				// asynchronous hop between installing the new container and observing it.
+				MainActor.assumeIsolated {
+					self?.bindDeepConfigurationChanges(to: generation)
+				}
+			}
+	}
 	
-	private func observeDeepConfigurationChanges() {
-		deepConfigurationsChanges = NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange, object: context)
+	private func bindDeepConfigurationChanges(to generation: Int) {
+		deepConfigurationsChanges?.cancel()
+
+		// Capture the current context only for this subscription. A replacement emits a new
+		// generation immediately after installing its container, so the next call binds the new one.
+		let observedContext = context
+		LoggingPolicy.debug("Observing DeepConfiguration changes for Core Data container generation \(generation)", logger: .state)
+		deepConfigurationsChanges = NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange, object: observedContext)
 			.sink { [weak self] notification in
 				guard let self = self else { return }
 				
@@ -269,58 +271,53 @@ final class DeepState: ObservableObject {
 				}()
 				
 				// NOW cross the async boundary with extracted data
-				Task { @MainActor in
+				Task { @MainActor [weak self] in
+					guard let self, self.dataController.containerGeneration == generation else { return }
 					self.handleInsertedConfigurations(insertedConfigs)
 					await self.handleUpdatedConfigurations(updatedConfigs)
 					await self.handleDeletedConfigurations(deletedConfigs)
 				}
 			}
+
+		Task { @MainActor [weak self] in
+			guard let self else { return }
+			await self.reconcileEnabledConfigurations(afterStoreReadyFor: generation)
+		}
+	}
+
+	/// Loads every enabled configuration after the active store is ready. This closes both launch
+	/// and replacement timing gaps: inserts that arrive after the observer binds are handled by the
+	/// notification, while rows already present when it binds are reconciled here.
+	private func reconcileEnabledConfigurations(afterStoreReadyFor generation: Int) async {
+		await dataController.awaitStoreReady()
+		guard dataController.containerGeneration == generation else { return }
+
+		let configurations = repository.selectAll()
+		let enabledConfigurations = configurations.filter(\.enabled)
+		LoggingPolicy.debug(
+			"Reconciling \(enabledConfigurations.count) enabled DeepConfiguration drivers for Core Data container generation \(generation)",
+			logger: .state
+		)
+
+		for configuration in enabledConfigurations {
+			do {
+				// Launch-time, replacement, insert, and update loads all use the same guarded path.
+				try loadAndRegisterDriver(entityId: configuration.entityId, expectedType: configuration.modelType)
+			} catch {
+				LoggingPolicy.error("Error reconciling enabled DeepConfiguration", error: error, logger: .state)
+				deepStateError = error
+			}
+		}
+
+#if DEBUG
+		reconciledContainerGenerationForTesting = generation
+#endif
 	}
 	
 	private func handleInsertedConfigurations(_ inserted: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)]) {
-		for (_, entityId, enabled, modelType) in inserted {
+		for (_, entityId, enabled, modelType) in inserted where enabled {
 			do {
-				if enabled {
-					guard let config = selectConfiguration(entityId) else {
-						LoggingPolicy.error("Could not fetch inserted configuration \(entityId.uuidString)", logger: .drivers)
-						continue
-					}
-					
-					guard let driver = try createDriver(from: config) else {
-						LoggingPolicy.error("Driver initialization failed after configuration insert for config \(entityId.uuidString)", logger: .drivers)
-						continue
-					}
-					
-					let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
-						return $0.id == entityId
-					}
-					
-					if isDriverForThisConfigurationLoaded {
-						LoggingPolicy.warning("Attempting to insert configuration with UUID that already exists: \(entityId.uuidString)", logger: .drivers)
-					}
-					
-					Task {
-						do {
-							try await driver.loadFile()
-							await MainActor.run {
-								// The configuration may have been deleted (e.g. reset) or
-								// disabled while the model was loading.
-								guard let current = selectConfiguration(entityId), current.enabled else {
-									Task { await driver.unload() }
-									return
-								}
-								register(driver: driver, along: modelType)
-								LoggingPolicy.info("Driver loaded and registered after configuration insert", logger: .drivers)
-							}
-						} catch {
-							await MainActor.run {
-								LoggingPolicy.error("Failed to load driver after configuration insert", error: error, logger: .drivers)
-								DefaultCrashReporter.shared.recordError(error, context: ["operation": "insertDriver", "configId": entityId.uuidString])
-								deepStateError = error
-							}
-						}
-					}
-				}
+				try loadAndRegisterDriver(entityId: entityId, expectedType: modelType)
 			} catch {
 				LoggingPolicy.error("Error handling configuration insert", error: error, logger: .state)
 				deepStateError = error

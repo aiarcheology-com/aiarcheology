@@ -50,6 +50,13 @@ final class DataController: ObservableObject {
 
 	private(set) var container: NSPersistentContainer
 
+	/// Increments after a fresh container replaces the active one.
+	///
+	/// A managed-object context belongs to its container and cannot survive this replacement. State
+	/// that observes a context can use this generation to cancel its old subscription and bind to the
+	/// current context instead of silently waiting on the discarded one.
+	@Published private(set) var containerGeneration = 0
+
 	/// Indicates whether the persistent store has been successfully loaded
 	@Published private(set) var isStoreLoaded = false
 
@@ -110,6 +117,23 @@ final class DataController: ObservableObject {
 	/// what strands anything holding the old `viewContext`. Reproducing it is the only way to test
 	/// that a collaborator reads the live context rather than one it captured at launch.
 	func replaceContainerForTesting() async {
+		let replacement = await makeReplacementContainerForTesting()
+		installReplacementContainer(replacement)
+		container.viewContext.automaticallyMergesChangesFromParent = true
+	}
+
+	/// Replaces the container after seeding its already-loaded viewContext. This lets a test prove
+	/// that a collaborator reconciles rows present before it observes the replacement context.
+	func replaceContainerForTesting(
+		seeding replacementContext: @MainActor (NSManagedObjectContext) throws -> Void
+	) async throws {
+		let replacement = await makeReplacementContainerForTesting()
+		try replacementContext(replacement.viewContext)
+		installReplacementContainer(replacement)
+		container.viewContext.automaticallyMergesChangesFromParent = true
+	}
+
+	private func makeReplacementContainerForTesting() async -> NSPersistentContainer {
 		let replacement = NSPersistentContainer(
 			name: DataController.containerName,
 			managedObjectModel: Self.sharedModel
@@ -120,8 +144,7 @@ final class DataController: ObservableObject {
 		await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
 			replacement.loadPersistentStores { _, _ in continuation.resume() }
 		}
-		container = replacement
-		container.viewContext.automaticallyMergesChangesFromParent = true
+		return replacement
 	}
 #endif
 
@@ -281,10 +304,11 @@ final class DataController: ObservableObject {
 				guard let self = self else { return }
 
 				// Create a fresh container to avoid contaminated coordinator state
-				self.container = NSPersistentContainer(
+				let replacement = NSPersistentContainer(
 					name: DataController.containerName,
 					managedObjectModel: Self.sharedModel
 				)
+				self.installReplacementContainer(replacement)
 
 				// Reapply the same configuration. Under UI tests, pin the dedicated UI-test store
 				// again so the retry never falls back to the default (production) store location —
@@ -306,6 +330,14 @@ final class DataController: ObservableObject {
 			didRetryAfterStoreDestruction = false
 			LoggingPolicy.criticalFailure("Cannot recover from Core Data migration failure: \(error.localizedDescription)")
 		}
+	}
+
+	/// Installs a fresh container and then signals that every context captured from the prior
+	/// container is stale. Incrementing after assignment is deliberate: `@Published` emits from
+	/// `willSet`, so observers must see the new container when they receive the generation change.
+	private func installReplacementContainer(_ replacement: NSPersistentContainer) {
+		container = replacement
+		containerGeneration &+= 1
 	}
 
 	/// Sets up automatic merging of changes from background contexts to viewContext

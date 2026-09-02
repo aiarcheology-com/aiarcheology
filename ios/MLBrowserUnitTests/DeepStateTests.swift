@@ -122,6 +122,59 @@ final class DeepStateTests: XCTestCase {
                       "A classifier driver must be registered after the type change")
     }
 
+    func testDriverRegistrationAfterContainerReplacement_UsesReplacementContext() async throws {
+        guard Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") != nil else {
+            throw XCTSkip("Demo model not available in test bundle")
+        }
+
+        let configurationID = UUID()
+        try await dataController.replaceContainerForTesting { context in
+            let config = DeepConfiguration.create(in: context)
+            config.entityId = configurationID
+            config.demo = true
+            config.file_ = URL(string: "AIArcheology.mlmodelc")
+            config.modelType = .detector
+            config.enabled = false
+            try DeepConfiguration.save(in: context)
+        }
+
+        // The disabled row must be observed and reconciled before enabling it. This excludes the
+        // reconciliation path as an explanation for the eventual driver: only a notification from
+        // the replacement context can register the driver after this point.
+        try await pollUntil {
+            self.deepState.reconciledContainerGenerationForTesting == self.dataController.containerGeneration
+        }
+
+        deepState.updateConfiguration(configurationID) { configuration in
+            configuration.enabled = true
+        }
+
+        try await pollUntil { self.deepState.drivers.detectors.contains { $0.id == configurationID } }
+        XCTAssertTrue(deepState.drivers.detectors.contains { $0.id == configurationID })
+    }
+
+    func testDriverRegistrationAfterContainerReplacement_ReconcilesExistingEnabledConfiguration() async throws {
+        guard Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") != nil else {
+            throw XCTSkip("Demo model not available in test bundle")
+        }
+
+        let configurationID = UUID()
+        try await dataController.replaceContainerForTesting { context in
+            let config = DeepConfiguration.create(in: context)
+            config.entityId = configurationID
+            config.demo = true
+            config.file_ = URL(string: "AIArcheology.mlmodelc")
+            config.modelType = .detector
+            config.enabled = true
+            try DeepConfiguration.save(in: context)
+        }
+
+        // The enabled row was saved before `DeepState` could bind the new context, so a Core Data
+        // change notification cannot load it. The ready-store reconciliation must do that work.
+        try await pollUntil { self.deepState.drivers.detectors.contains { $0.id == configurationID } }
+        XCTAssertEqual(deepState.drivers.detectors.filter { $0.id == configurationID }.count, 1)
+    }
+
     func testDriverReloadsWhenComputeUnitChanges() async throws {
         guard Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") != nil else {
             throw XCTSkip("Demo model not available in test bundle")
