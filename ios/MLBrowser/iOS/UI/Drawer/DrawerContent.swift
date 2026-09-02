@@ -180,7 +180,11 @@ struct DrawerContent: View {
                 // from Settings reads it at the moment Subscribe is tapped, and unlike the end date
                 // above this number moves — the window can run out while the sheet is open.
                 freeAccessDaysRemaining: { appState.freeAccess.windowDaysRemaining },
-                startAtManageAccount: presentation.startsAtManageAccount
+                startAtManageAccount: presentation.startsAtManageAccount,
+                // The DEBUG-only reset row (AIA-0826). `nil` in Release, where the row does not
+                // exist to call it — the closure is the only thing that would carry the reset into
+                // a shipping binary, and it is not built there.
+                debugResetFreeAccess: Self.debugResetFreeAccess(appState)
             )
                 .environmentObject(settings)
                 .environmentObject(chromeState)
@@ -203,6 +207,19 @@ struct DrawerContent: View {
         }
     }
     
+    /// The Settings → Debug free-access reset, or `nil` in a shipping build (AIA-0826).
+    ///
+    /// A single `#if DEBUG` here rather than one around the argument it feeds: the conditional
+    /// belongs where the decision is — whether this build has a reset at all — and keeping it out
+    /// of the initializer call leaves that call the same shape in both configurations.
+    private static func debugResetFreeAccess(_ appState: AppState) -> (() throws -> Void)? {
+        #if DEBUG
+        return { try appState.freeAccess.resetAnchorForDebugging() }
+        #else
+        return nil
+        #endif
+    }
+
     /// After the import sheet finishes dismissing, open the newly imported model's settings so the
     /// user confirms its type. Presenting the settings sheet here (not while the import sheet is
     /// still up) avoids the "present while dismissing" no-op (AIA-0402).

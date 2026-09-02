@@ -16,6 +16,7 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 		var record: FreeAccessWindow.Record?
 		var readError: Error?
 		var writeError: Error?
+		var deleteError: Error?
 
 		init(record: FreeAccessWindow.Record? = nil) {
 			self.record = record
@@ -32,6 +33,7 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 		}
 
 		func deleteRecord() throws {
+			if let deleteError { throw deleteError }
 			record = nil
 		}
 	}
@@ -476,5 +478,67 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 		// The injectable name is what keeps a test run from poisoning the shared simulator.
 		let other = KeychainFreeAccessAnchorService(serviceName: "\(storeName).other")
 		XCTAssertNil(try other.loadRecord())
+	}
+
+	// MARK: - Debug reset
+
+	/// The reset's whole point: a **spent** anchor becomes grantable again (AIA-0826).
+	///
+	/// The window is deliberately run past its expiry first, and that is not decoration. A record
+	/// cleared on the same instant it was granted is still *active*, so a mutant that refused to
+	/// clear expired anchors — the only ones anybody resets in practice — would pass a test written
+	/// that way while contradicting its own name.
+	///
+	/// The replacement window is then actually granted, rather than stopping at `canGrant`: the row
+	/// promises a first install, and an empty pair of stores that still refused to grant would
+	/// satisfy every assertion short of this one.
+	func testClearAnchorForDebugging_clearsBothStoresAndPermitsAFreshGrant() throws {
+		let grantDate = try date(2026, 3, 2)
+		let granting = try makeService(now: grantDate)
+		var window = granting.reconciledWindow()
+		try grantOrFail(granting, &window)
+		XCTAssertNotNil(try storedFastRecord())
+		XCTAssertNotNil(try XCTUnwrap(keychain).loadRecord())
+
+		// Past the standard 14 days, so what the reset clears is a window that has actually run out.
+		let service = try makeService(now: day(20, after: grantDate))
+		XCTAssertEqual(service.phase(of: service.reconciledWindow()), .expired, "arrange did not spend the window")
+
+		try service.clearAnchorForDebugging()
+
+		XCTAssertNil(try storedFastRecord(), "the fast mirror survived the reset")
+		XCTAssertNil(try XCTUnwrap(keychain).loadRecord(), "the durable record survived the reset")
+		var replacement = service.reconciledWindow()
+		XCTAssertTrue(replacement.canGrant, "a cleared anchor must grant again")
+		try grantOrFail(service, &replacement)
+		XCTAssertEqual(service.phase(of: replacement), .active(remaining: 14))
+	}
+
+	/// A failed keychain delete must leave the install exactly as it was, not half reset.
+	///
+	/// The durable copy is deleted first for this reason: clearing the mirror first and then
+	/// failing would produce the one state nothing can recover from on its own — no fast record, a
+	/// surviving durable one — where reconciliation settles on the spent anchor and `canGrant` is
+	/// false, so neither the old window nor a new one is available.
+	///
+	/// Spent rather than active here too, and for the same reason as the test above: the anchor a
+	/// failed reset strands is the one somebody was trying to be rid of.
+	func testClearAnchorForDebugging_whenTheDurableDeleteFails_throwsAndKeepsBothStores() throws {
+		let grantDate = try date(2026, 3, 2)
+		let durableStore = StubDurableStore()
+		let granting = try makeService(durableStore: durableStore, now: grantDate)
+		var window = granting.reconciledWindow()
+		try grantOrFail(granting, &window)
+
+		let service = try makeService(durableStore: durableStore, now: day(20, after: grantDate))
+		XCTAssertEqual(service.phase(of: service.reconciledWindow()), .expired, "arrange did not spend the window")
+		let fastRecordBefore = try storedFastRecord()
+		durableStore.deleteError = FreeAccessAnchorError.keychain(errSecIO)
+
+		XCTAssertThrowsError(try service.clearAnchorForDebugging())
+
+		XCTAssertEqual(try storedFastRecord(), fastRecordBefore, "the mirror was cleared anyway")
+		XCTAssertNotNil(durableStore.record)
+		XCTAssertFalse(service.reconciledWindow().canGrant, "a failed reset must not hand out a window")
 	}
 }

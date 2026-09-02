@@ -46,6 +46,13 @@ struct SettingsForm: View {
 	/// still have days the gate has already stopped honouring.
 	let freeAccessDaysRemaining: () -> Int?
 
+	/// Clears both halves of the free-access anchor, for the DEBUG-only reset row (AIA-0826).
+	///
+	/// A closure rather than the state object, for the reason its two neighbours above are values:
+	/// Settings needs one action, not a window it might start reading. Optional and defaulted so a
+	/// preview — and a Release build, which has no row to call it from — passes nothing.
+	let debugResetFreeAccess: (() throws -> Void)?
+
 	@Environment(\.dismiss) private var dismiss
 	@Environment(DrawerManager.self) private var drawer
 	@Environment(TourState.self) private var tour
@@ -87,13 +94,15 @@ struct SettingsForm: View {
 		findingsSync: FindingsSyncCoordinator,
 		freeAccessEndsOn: Date? = nil,
 		freeAccessDaysRemaining: @escaping () -> Int?,
-		startAtManageAccount: Bool = false
+		startAtManageAccount: Bool = false,
+		debugResetFreeAccess: (() throws -> Void)? = nil
 	) {
 		self.findingRepository = findingRepository
 		self._authState = ObservedObject(wrappedValue: authState)
 		self._findingsSync = ObservedObject(wrappedValue: findingsSync)
 		self.freeAccessEndsOn = freeAccessEndsOn
 		self.freeAccessDaysRemaining = freeAccessDaysRemaining
+		self.debugResetFreeAccess = debugResetFreeAccess
 		var path = NavigationPath()
 		if startAtManageAccount { path.append(AccountRoute.profile) }
 		self._accountPath = State(initialValue: path)
@@ -804,9 +813,96 @@ struct SettingsForm: View {
 				NavigationLink(destination: SentryStatsView()) {
 					Text(L10n.Settings.Sentry.title)
 				}
+				#if DEBUG
+				resetFreeAccessRow
+				#endif
 			}
 		}
 	}
+
+	#if DEBUG
+	/// Clears the free-access anchor so the next launch is a first install (AIA-0826).
+	///
+	/// `#if DEBUG` **on top of** the section's own gate, which is not redundant: that gate is
+	/// `isAppStoreDistribution.not`, which is true under TestFlight. A reset row in a tester's
+	/// hands is an unlimited free-window farm — exactly what the durable anchor exists to prevent
+	/// (#557) — so the guarantee has to be that the code is not in the binary at all.
+	///
+	/// `verbatim:` because this never ships and must never be translated: a developer tool, in the
+	/// vocabulary of the code it resets. It is also the only way to keep it out of the string
+	/// catalog, which `SWIFT_EMIT_LOC_STRINGS` would otherwise extract a literal into.
+	@ViewBuilder
+	private var resetFreeAccessRow: some View {
+		if let debugResetFreeAccess {
+			Button(role: .destructive) {
+				alertItem = AlertItem(
+					title: Text(verbatim: "Reset free access?"),
+					message: Text(verbatim: """
+						Clears the free-access anchor from this app's UserDefaults and from the \
+						keychain, where deleting the app does not reach. The next launch then \
+						reconciles as a first install.
+
+						It grants a new 14-day window and shows the day-0 Welcome only if nothing \
+						else refuses: an entitlement you already hold, payments off, or the \
+						free-access flag off.
+						"""),
+					primaryButton: .destructive(Text(verbatim: "Reset")) {
+						performDebugFreeAccessReset(debugResetFreeAccess)
+					},
+					secondaryButton: .cancel()
+				)
+			} label: {
+				Text(verbatim: "Reset free access")
+			}
+		}
+	}
+
+	/// Runs the reset and reports what actually happened.
+	///
+	/// The success alert asks for a relaunch rather than claiming the app is now in a first-run
+	/// state, because it is not: `FreeAccessState.availability` settled at launch and deliberately
+	/// never settles twice, so the gate above this sheet is still holding the answer the old anchor
+	/// produced. The stores are what changed, and they are read on the next launch.
+	private func performDebugFreeAccessReset(_ reset: () throws -> Void) {
+		do {
+			try reset()
+			alertItem = AlertItem(
+				title: Text(verbatim: "Free access reset"),
+				message: Text(verbatim: """
+					Both stores are empty, and nothing in this session will write them back. \
+					The access decision made at launch stands until you quit and relaunch.
+					"""),
+				dismissButton: .default(Text(L10n.Common.ok))
+			)
+		} catch {
+			// Named rather than swallowed: a keychain delete that failed left the anchor in place,
+			// and the durable copy is deleted first precisely so this leaves both stores untouched.
+			alertItem = AlertItem(
+				title: Text(L10n.Alert.Error.title),
+				message: Text(verbatim: "Nothing was reset: \(Self.debugResetFailureReason(error))."),
+				dismissButton: .default(Text(L10n.Common.ok))
+			)
+		}
+	}
+
+	/// Why a reset failed, in terms the person reading it can act on.
+	///
+	/// Not `localizedDescription`: `FreeAccessAnchorError` is a plain `Error`, so that property
+	/// synthesises "The operation couldn't be completed. (… error 0.)" — which names neither the
+	/// failure nor the one number that identifies it. The `OSStatus` is the whole diagnosis here;
+	/// `-34018` (`errSecMissingEntitlement`) in particular says the build cannot reach the keychain
+	/// at all, which is a signing problem and not a reset that merely went wrong.
+	private static func debugResetFailureReason(_ error: Error) -> String {
+		switch error {
+		case FreeAccessAnchorError.keychain(let status):
+			return "keychain error \(status)"
+		case FreeAccessAnchorError.malformedRecord:
+			return "the stored anchor could not be decoded"
+		default:
+			return String(describing: error)
+		}
+	}
+	#endif
 
 	// MARK: - Helpers
 

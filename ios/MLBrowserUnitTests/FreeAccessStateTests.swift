@@ -752,4 +752,42 @@ final class FreeAccessStateTests: XCTestCase {
 		XCTAssertEqual(state.windowDaysRemaining, 4, "The floor, not the rolled-back clock, decides.")
 		XCTAssertNotEqual(state.windowDaysRemaining, 13, "13 is what an unclamped count from `now` would say.")
 	}
+
+	// MARK: - Debug reset (AIA-0826)
+
+	/// A reset must survive the rest of its own session, not just the moment it runs.
+	///
+	/// Clearing the two stores is the easy half. The in-memory `window` still holds the record that
+	/// was just deleted, and `reevaluate()` — which runs on every foreground and from the expiry
+	/// wake-up — advances the monotonic floor through `observe(_:)`, which persists to *both*
+	/// stores. Without the freeze this test would find the anchor restored: the user taps Reset,
+	/// switches away from the app and back, and relaunches into the window they thought they had
+	/// just deleted, with nothing anywhere saying why.
+	///
+	/// The foreground notification is posted rather than `reevaluate()` called directly, because
+	/// the subscription is the path that actually bit — a test calling the method would still pass
+	/// against a fix that only guarded the direct call.
+	@MainActor
+	func testResetAnchorForDebugging_whenTheAppForegroundsBeforeRelaunch_doesNotWriteTheAnchorBack() throws {
+		let grantDate = try date(2026, 3, 2)
+		let clock = TestClock(grantDate)
+		let durableStore = StubDurableStore()
+		let state = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+		XCTAssertNotNil(durableStore.record, "arrange did not grant a window")
+
+		try state.resetAnchorForDebugging()
+		XCTAssertNil(durableStore.record)
+		XCTAssertNil(try XCTUnwrap(defaults).data(forKey: FreeAccessAnchorService.defaultsKey))
+
+		// Time moves, which is what makes the floor worth persisting, and the app comes forward.
+		clock.now = try day(3, after: grantDate)
+		notificationCenter.post(name: foregroundNotification, object: nil)
+
+		XCTAssertNil(durableStore.record, "the foreground wrote the cleared anchor back to the Keychain")
+		XCTAssertNil(
+			try XCTUnwrap(defaults).data(forKey: FreeAccessAnchorService.defaultsKey),
+			"the foreground wrote the cleared anchor back to UserDefaults"
+		)
+	}
 }

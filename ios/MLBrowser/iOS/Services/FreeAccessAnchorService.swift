@@ -353,4 +353,34 @@ final class FreeAccessAnchorService {
 		guard let data = try? JSONEncoder().encode(record) else { return }
 		defaults.set(data, forKey: Self.defaultsKey)
 	}
+
+	// MARK: - Debug reset
+
+	#if DEBUG
+	/// Clears both halves of the anchor, so the next launch reconciles as a genuine first install
+	/// (AIA-0826).
+	///
+	/// The only way to reach the durable record from outside a test: it lives in the
+	/// data-protection keychain, which survives app deletion by design (#557) and which no macOS
+	/// command-line tool can reach — `security` sees only the file-based login keychain. Deleting
+	/// the app container therefore resets nothing, because reconciliation settles on the surviving
+	/// durable copy and `canGrant` is false for an anchor that is present.
+	///
+	/// **Both stores, or neither.** The fast mirror alone would win reconciliation on the next
+	/// launch — the earliest anchor wins, and it would be the only candidate — so clearing just the
+	/// keychain reads as a reset and changes nothing the user can see.
+	///
+	/// **Durable first, deliberately.** It is the half that can fail, and it is the half that
+	/// outlives everything else; throwing before the mirror is touched leaves both stores exactly
+	/// as they were, rather than in the half-cleared state that looks like a fresh install to a
+	/// reader and refuses to grant a window.
+	///
+	/// `#if DEBUG` for the reason `EphemeralFreeAccessAnchorStore` is: this is the whole anti-farm
+	/// mechanic with its lock off, and keeping the code out of shipping binaries is what guarantees
+	/// no build can be talked into calling it.
+	func clearAnchorForDebugging() throws {
+		try durableStore.deleteRecord()
+		defaults.removeObject(forKey: Self.defaultsKey)
+	}
+	#endif
 }
