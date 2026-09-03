@@ -48,6 +48,8 @@ enum MapCoordinateReferenceSystem {
 		31287: "MGI Austria Lambert",
 		28992: "Amersfoort RD",
 		2154: "RGF93 Lambert-93",
+		// Poland's national grid, on every ArcGIS 3.x geoportal there (AIA-0828).
+		2180: "PUWG 1992",
 		3067: "ETRS89 TM35FIN",
 		3006: "SWEREF99 TM"
 	]

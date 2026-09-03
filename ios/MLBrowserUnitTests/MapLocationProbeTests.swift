@@ -177,6 +177,31 @@ final class MapLocationProbeTests: XCTestCase {
 		XCTAssertTrue(refreshed.contains("zvd=dmr5g"), "the app's other parameters must survive")
 	}
 
+	// MARK: - ArcGIS 3.x, through the Dojo loader (AIA-0828)
+
+	/// The family no other hook could see. Reported from mapy.geoportal.gov.pl: a page URL and no
+	/// coordinate, on a portal that plainly knows where it is looking.
+	///
+	/// The fixture reproduces what makes it unreachable rather than what makes it ArcGIS — the class
+	/// arriving after the namespace, and construction through a reference captured from the loader
+	/// rather than through `window.esri.Map`. Swap the prototype hook for a constructor trap and this
+	/// fails, which is the point.
+	func testArcGIS3x_ConstructedThroughTheLoader_IsStillFound() async throws {
+		try await load("map_arcgis_3x_amd")
+		let result = await probe()
+		XCTAssertNil(result.reading, "a PUWG 1992 map yields no degrees, and none must be invented")
+		XCTAssertEqual(result.nativeWkid, 2180)
+	}
+
+	/// The largest rendered map wins, as everywhere else. The inset in the fixture is 300km away, so
+	/// picking it would be unmistakable rather than a rounding difference.
+	func testArcGIS3x_ReadsTheMainMapAndNotTheOverviewInset() async throws {
+		try await load("map_arcgis_3x_amd")
+		let location = MapLocationResolver.resolve(url: URL(string: "https://example.org/imap/"), probe: await probe())
+
+		XCTAssertEqual(location.gpsPrefill, "PUWG 1992 (EPSG:2180): 516779.5, 460000")
+	}
+
 	// MARK: - The bundled majority
 
 	/// Most Leaflet and OpenLayers sites in the target catalogue are framework bundles with no

@@ -322,6 +322,71 @@ enum MapProbeScript {
 	    watchNamespace(d, 'Deck', function () { traceConstructor(d, 'Deck', 'deckgl'); });
 	  });
 
+	  // --- ArcGIS JS API 3.x ---------------------------------------------------------------------
+	  //
+	  // The one library family no other hook here can see, and a large one: national and regional
+	  // geoportals across Europe and a great many county viewers still run 3.x.
+	  //
+	  // Why the ordinary trap cannot work. A 3.x app loads through the Dojo AMD loader —
+	  // `require(['esri/map'], function (Map) { new Map(...) })` — and in 3.x the module value **is**
+	  // `window.esri.Map`, the same function object. So replacing the global reference intercepts
+	  // nothing: the app is already holding the constructor we would be swapping out. (That is what
+	  // the module-loader trap used to catch, and it was removed for breaking real pages.)
+	  //
+	  // Nothing is reachable afterwards either. Measured on mapy.geoportal.gov.pl: `dijit.registry`
+	  // empty, no DOM back-reference, nothing on `window` — so the duck scan has nothing to find.
+	  //
+	  // What does work is the class's own PROTOTYPE. Wrapping a few methods every live map calls
+	  // gives us `this` at call time, which is the instance. No reference is replaced and no accessor
+	  // is installed — the two things that broke pages before. Measured on the same page: two maps
+	  // captured (the 1280x900 main map and a 200x160 overview inset, so largest-area still decides),
+	  // and zero page errors.
+	  function hookArcGIS3(esri) {
+	    try {
+	      var ctor = esri && esri.Map;
+	      if (typeof ctor !== 'function' || !ctor.prototype) { return false; }
+	      if (ctor.prototype.__aiaHooked) { return true; }
+	      // `on` is how a 3.x app subscribes to its own map and runs on every one of them; the other
+	      // four are the ordinary ways a view is moved. Between them, a map that is alive on screen
+	      // has called at least one.
+	      var names = ['centerAt', 'setExtent', 'centerAndZoom', 'resize', 'on'];
+	      var wrapped = 0;
+	      for (var i = 0; i < names.length; i++) {
+	        wrapped += (function (name) {
+	          try {
+	            var original = ctor.prototype[name];
+	            if (typeof original !== 'function') { return 0; }
+	            ctor.prototype[name] = function () {
+	              try { record('arcgis', this); } catch (e) {}
+	              return original.apply(this, arguments);
+	            };
+	            return 1;
+	          } catch (e) {}
+	          return 0;
+	        }(names[i]));
+	      }
+	      // Claimed hooked only if something was actually wrapped. A class present but not yet
+	      // populated — or a different `esri.Map` altogether — would otherwise be marked done and
+	      // never revisited, leaving every 3.x map on the page undiscovered (raised in review).
+	      if (wrapped === 0) { return false; }
+	      try {
+	        Object.defineProperty(ctor.prototype, '__aiaHooked', { value: true, enumerable: false });
+	      } catch (e) {}
+	      return true;
+	    } catch (e) {}
+	    return false;
+	  }
+
+	  whenGlobal('esri', function (esri) {
+	    // `window.esri` is created by the API bootstrap; `esri.Map` arrives later, when the AMD
+	    // loader resolves `esri/map`. Measured at ~1.5s after navigation on a real portal, which is
+	    // exactly the gap `watchNamespace` exists for.
+	    if (hookArcGIS3(esri)) { note('arcgis'); return; }
+	    watchNamespace(esri, 'Map', function () {
+	      if (hookArcGIS3(esri)) { note('arcgis'); }
+	    });
+	  });
+
 	  // --- Cesium --------------------------------------------------------------------------------
 	  whenGlobal('Cesium', function (C) {
 	    note('cesium');
