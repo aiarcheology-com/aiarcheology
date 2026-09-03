@@ -16,6 +16,7 @@ final class MockCrashReportingService: CrashReportingService, @unchecked Sendabl
 	private(set) var startCalled = false
 	private(set) var breadcrumbs: [(message: String, level: BreadcrumbLevel, category: String)] = []
 	private(set) var capturedErrors: [(message: String, error: Error?)] = []
+	private(set) var capturedContexts: [[String: String]] = []
 	private(set) var capturedFaults: [String] = []
 	private(set) var customValues: [String: String] = [:]
 	
@@ -29,6 +30,14 @@ final class MockCrashReportingService: CrashReportingService, @unchecked Sendabl
 	
 	func captureError(message: String, error: Error?) {
 		capturedErrors.append((message, error))
+	}
+
+	/// Recorded separately so a test can tell a capture WITH context from one without — the default
+	/// protocol implementation forwards to the two-argument call, and a mock that folded them
+	/// together could not notice that the context had been dropped on the way.
+	func captureError(message: String, error: Error?, context: [String: String]) {
+		capturedErrors.append((message, error))
+		capturedContexts.append(context)
 	}
 	
 	func captureFault(message: String) {

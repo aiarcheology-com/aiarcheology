@@ -247,7 +247,18 @@ struct WebScreenView: View {
 						// (AIA-0296) — genuine load failures still log at .error below.
 						LoggingPolicy.debug("WebView loading cancelled: \(error.localizedDescription)", logger: .ui)
 					case .error:
-						LoggingPolicy.error("WebView loading error: \(error.localizedDescription)", logger: .ui)
+						// The URL out of the ERROR, not out of the address bar. `displayedURL` is
+						// mutable and deliberately keeps the previous page until a commit, so a failed
+						// search reported the site the user was on before it — and a superseded
+						// navigation failing late reported the newer one (raised in review). WebKit
+						// names the failing URL in the error itself; nothing else is attributable, so
+						// when it is absent no address is sent at all.
+						let page = (error as NSError).userInfo[NSURLErrorFailingURLErrorKey] as? URL
+						LoggingPolicy.error(
+							"WebView loading error [site: \(page?.host ?? "unknown")]: \(error.localizedDescription)",
+							page: page,
+							logger: .ui
+						)
 					}
                 }
             }, interactionStateChanged: { state in

@@ -47,6 +47,10 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		// AIA-0817: every frame announces itself here, which is the only way to obtain a
 		// `WKFrameInfo` for a child frame — WebKit has no API to enumerate them.
 		contentController.add(context.coordinator, name: "aiaMapFrame")
+		// AIA-0827: how many errors the page's own scripts threw. Registered separately from the map
+		// registry because it must keep working when the map parser is switched off — that switch
+		// exists for bisecting a broken page, which is precisely when this count is worth having.
+		contentController.add(context.coordinator, name: "aiaPageDiagnostics")
 
 		let config = WKWebViewConfiguration()
 		config.userContentController = contentController
@@ -142,8 +146,51 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			)
 		}
 
+		// AIA-0827: counts the page's own script errors. Deliberately OUTSIDE the map-parser switch
+		// above — the switch is what a tester flips to find out whether our injection broke a page,
+		// and a diagnostic that disappears in exactly that experiment is worth nothing.
+		contentController.addUserScript(
+			WKUserScript(
+				source: Self.pageDiagnosticsScript,
+				injectionTime: .atDocumentStart,
+				forMainFrameOnly: false
+			)
+		)
+
 		return contentController
 	}
+
+	/// Counts the page's own uncaught errors and reports the running total.
+	///
+	/// Reported at two fixed moments rather than per error: a page in a failure loop can throw
+	/// hundreds, and one message per error would make the diagnostic its own performance problem.
+	/// Two seconds catches the scripts that fail during startup — the case that leaves a blank page —
+	/// and eight catches what fails while the app is wiring itself up afterwards.
+	///
+	/// Nothing but a number crosses the bridge. `event.message` routinely contains a URL, a selector
+	/// or a fragment of the page's own source, and this runs on every page the user visits.
+	///
+	/// Wrapped whole in `try`: a diagnostic that can break a page is worse than no diagnostic
+	/// (AIA-0827, and the lesson of the accessor-based registry before it).
+	private static let pageDiagnosticsScript = """
+	(function () {
+	  try {
+	    var count = 0;
+	    function report() {
+	      try {
+	        if (count > 0 && window.webkit && window.webkit.messageHandlers
+	            && window.webkit.messageHandlers.aiaPageDiagnostics) {
+	          window.webkit.messageHandlers.aiaPageDiagnostics.postMessage(count);
+	        }
+	      } catch (e) {}
+	    }
+	    window.addEventListener('error', function () { count = count + 1; }, true);
+	    window.addEventListener('unhandledrejection', function () { count = count + 1; }, true);
+	    setTimeout(report, 2000);
+	    setTimeout(report, 8000);
+	  } catch (e) {}
+	}());
+	"""
 
 	private func makeWebView(config: WKWebViewConfiguration, context: Context) -> WKWebView {
 		let webView = WKWebView(frame: .point, configuration: config)
@@ -268,6 +315,18 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		/// the state object is owned by AppState.
 		weak var browserState: BrowserState?
 		private var isScrolling = false
+		/// When the navigation now in flight started, so each stage can say how long it took to
+		/// reach. Keyed by nothing: `WKNavigation` is not reliably the same object across callbacks
+		/// for every load, and one timestamp answers the question this exists for — "how long until
+		/// something happened" — without pretending to track concurrent loads that a single web view
+		/// does not have (AIA-0827).
+		private var navigationStartedAt: Date?
+		/// The highest error count any single frame has reported for the current load.
+		///
+		/// Not a page total. Each frame reports its OWN running count, twice, so summing the messages
+		/// would count the same frame's errors again on its second report. The largest frame is the
+		/// honest summary available from these messages, and it is what the log line says.
+		private var worstFramePageErrors = 0
 
         init(_ parent: MLWebView) {
             self.parent = parent
@@ -280,6 +339,22 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			// BEFORE the interaction guard below, which returns for any other message name.
 			if message.name == "aiaMapFrame" {
 				browserState?.mapFrames.record(message.frameInfo)
+				return
+			}
+			// How many errors the page threw, as a COUNT and never a message: an error string can
+			// carry a URL or page content, and this runs on every page the user visits (AIA-0827).
+			if message.name == "aiaPageDiagnostics" {
+				guard let errors = (message.body as? NSNumber)?.intValue, errors > worstFramePageErrors else { return }
+				worstFramePageErrors = errors
+				// The WORST single frame, not a page total: each frame reports its own running count,
+				// so adding them would double-count every repeat report from the same frame, and
+				// keeping the maximum and calling it a total was simply wrong (raised in review).
+				// "Errors" includes failed resource loads, because the listener is capturing — which
+				// is wanted here, since a shell whose scripts 404 is exactly the blank-page case.
+				LoggingPolicy.debug(
+					"A frame reported \(errors) script or resource error(s) this load",
+					logger: .ui
+				)
 				return
 			}
 			guard message.name == "interactionHandler",
@@ -363,6 +438,146 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			parent.interactionStateChanged?(state)
 		}
 
+		// MARK: - Load diagnostics (AIA-0827)
+
+		/// Milliseconds since the current navigation began, or `-1` when none was observed.
+		private func elapsedMilliseconds() -> Int {
+			guard let navigationStartedAt else { return -1 }
+			return Int(Date().timeIntervalSince(navigationStartedAt) * 1000)
+		}
+
+		/// Counts what the finished document actually **rendered**, and says so when the answer is
+		/// nothing.
+		///
+		/// The gap this fills: a load that *succeeds* and renders a blank page logs nothing at all, so
+		/// "did it even load" could only be answered by guessing or by bisecting. Three separate map
+		/// sites were reported blank during AIA-0817 testing and each cost an investigation to
+		/// attribute — one of them to a stale cache, which no amount of reading the app could have
+		/// revealed.
+		///
+		/// ## Rendered, not merely present
+		/// Counting elements that *exist* gets this wrong in both directions, and both were found in
+		/// review. A failed application shell routinely contains a hidden canvas, an icon sprite or a
+		/// tracking pixel, so existence says "not blank" about a blank page; and a page that draws in
+		/// an `<iframe>` or a `<video>` counts as blank when it is fine. So the check asks for a
+		/// non-zero bounding box, over the six element kinds that can actually show something.
+		///
+		/// ## A refusal is not an absence
+		/// A selector the page refuses to answer comes back as `-1`. Treating that as zero would
+		/// report a page as blank on the strength of a measurement that never happened, and every
+		/// such false positive becomes a Sentry issue. A refusal anywhere abandons the verdict.
+		///
+		/// ## Twice, not once
+		/// `didFinish` is not the moment a single-page application has rendered — it is the moment its
+		/// document finished loading, often before its first paint. Reporting on the first look would
+		/// name every SPA. The verdict is only taken when a second look, a couple of seconds later,
+		/// still finds nothing.
+		private func reportRenderedContent(of webView: WKWebView) {
+			// The host goes in the MESSAGE, so events group per site rather than fragmenting into one
+			// issue per view; the whole address goes in the crash-service context, so a failure can be
+			// reproduced by opening it.
+			let page = webView.url
+			let site = page?.host ?? "unknown"
+			measureRenderedContent(of: webView) { first in
+				guard let first else { return }
+				guard first.drewNothing else {
+					LoggingPolicy.debug("Page finished with content — \(first.counts)", logger: .ui)
+					return
+				}
+				// Nothing yet. That is the ordinary state of a single-page application at `didFinish`,
+				// so it is a reason to look again rather than a verdict.
+				LoggingPolicy.debug("Page finished with nothing drawn yet — \(first.counts)", logger: .ui)
+				// Weakly held: a second look is a diagnostic, and a diagnostic must not be the reason a
+				// coordinator or its web view outlives the screen that owned them.
+				DispatchQueue.main.asyncAfter(deadline: .now() + Self.blankPageConfirmationDelay) { [weak self, weak webView] in
+					guard let self, let webView else { return }
+					// A page that navigated away in the meantime is a different document, and its
+					// emptiness is not this one's.
+					guard webView.url == page else { return }
+					self.measureRenderedContent(of: webView) { second in
+						guard let second, second.drewNothing else {
+							LoggingPolicy.debug(
+								"Page drew after the first look — \(second?.counts ?? "no measurement")",
+								logger: .ui
+							)
+							return
+						}
+						// `.error`, not `.warning`, and the difference is entirely where it lands: a
+						// warning is a breadcrumb, visible only if a crash follows, and no crash
+						// accompanies this. An error is a Sentry issue that can be looked up.
+						//
+						// The COUNTS are logged separately rather than carried in the message. Sentry
+						// deduplicates on a signature built from the message, so varying numbers would
+						// make every reload its own event; a message that varies only by site gives one
+						// issue per broken site, which is the question being asked.
+						LoggingPolicy.debug("Still nothing drawn — \(second.counts)", logger: .ui)
+						LoggingPolicy.error("Web page rendered nothing [site: \(site)]", page: page, logger: .ui)
+					}
+				}
+			}
+		}
+
+		/// How long to wait before believing an empty page.
+		///
+		/// Two seconds is the shortest interval that covered the application shells measured during
+		/// AIA-0817 — ArcGIS templates are still wiring themselves up well after `didFinish`. It is a
+		/// timer on a page that has already finished loading, so nothing is waiting on it.
+		private static let blankPageConfirmationDelay: TimeInterval = 2
+
+		/// One measurement of what is on screen. `nil` when the page could not be measured at all.
+		private func measureRenderedContent(
+			of webView: WKWebView,
+			then handle: @escaping @MainActor (RenderedContentSummary?) -> Void
+		) {
+			// Bounded on purpose. `querySelectorAll` over six kinds is cheap; measuring every match is
+			// not, on a page with thousands of images, and this runs on every load. The first forty
+			// answer the question — a page with forty rendered elements is not blank.
+			let script = """
+			(function () {
+			  try {
+			    var visible = 0, refused = false, examined = 0;
+			    var kinds = ['canvas', 'svg', 'img', 'video', 'iframe', 'object'];
+			    for (var k = 0; k < kinds.length; k++) {
+			      var nodes;
+			      try { nodes = document.querySelectorAll(kinds[k]); } catch (e) { refused = true; continue; }
+			      for (var i = 0; i < nodes.length && examined < 40; i++) {
+			        examined = examined + 1;
+			        try {
+			          var box = nodes[i].getBoundingClientRect();
+			          if (box.width > 0 && box.height > 0) { visible = visible + 1; }
+			        } catch (e) { refused = true; }
+			      }
+			    }
+			    // `innerText` is the expensive part: it can force layout and materialise the page's
+			    // rendered text, and this runs on every load. It is only asked for when the answer is
+			    // still in doubt — anything already visible settles the question without it.
+			    var text = -1;
+			    if (visible === 0) {
+			      try {
+			        text = (document.body && document.body.innerText) ? document.body.innerText.trim().length : 0;
+			      } catch (e) { refused = true; }
+			    }
+			    return [visible, text, refused ? 1 : 0, examined];
+			  } catch (e) {
+			    return [-1, -1, 1, 0];
+			  }
+			}())
+			"""
+			webView.evaluateJavaScript(script) { value, error in
+				if let error {
+					// Not a warning: a document that refuses evaluation (a PDF, a plugin document, a
+					// frame torn down between finishing and being asked) is ordinary.
+					LoggingPolicy.debug(
+						"Rendered-content check did not run: \(error.localizedDescription)",
+						logger: .ui
+					)
+					handle(nil)
+					return
+				}
+				handle(RenderedContentSummary(value))
+			}
+		}
+
 		// MARK: - WKNavigationDelegate
 
 		// AIA-0509: navigation identity for failure publication. Recorded for EVERY navigation,
@@ -377,12 +592,18 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			if isScrolling {
 				LoggingPolicy.debug("Navigation cleared active web content interaction", logger: .ui)
 			}
+			// The clock for the stage lines below. A blank page is indistinguishable from a slow one
+			// in a log that records neither (AIA-0827).
+			navigationStartedAt = Date()
+			worstFramePageErrors = 0
+			LoggingPolicy.debug("Navigation stage: provisional load started", logger: .ui)
 			setScrolling(false)
 			browserState?.navigationStarted(navigation, from: webView)
 		}
 
         // swiftlint:disable:next implicitly_unwrapped_optional
         public func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+			LoggingPolicy.debug("Navigation stage: document committed after \(elapsedMilliseconds())ms", logger: .ui)
             parent.loadStatusChanged?(true, nil)
 			browserState?.navigationSettled(navigation, error: nil)
 			browserState?.navigationCommitted(navigation, from: webView)
@@ -390,7 +611,9 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 
         // swiftlint:disable:next implicitly_unwrapped_optional
         public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+			LoggingPolicy.debug("Navigation stage: load finished after \(elapsedMilliseconds())ms", logger: .ui)
 			parent.loadStatusChanged?(false, nil)
+			reportRenderedContent(of: webView)
 
 			guard let url = webView.url, let domain = url.host else {
 				return
@@ -510,5 +733,70 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 
 	public static func == (lhs: Self, rhs: Self) -> Bool {
 		lhs.request == rhs.request
+	}
+}
+
+/// What a finished document actually **rendered**, as measured in the page and carried back as
+/// numbers.
+///
+/// A type rather than a tuple inside a closure so the verdict — "this page rendered nothing" — is a
+/// decision a test can put both ways. The bug this exists for was reported three times during
+/// AIA-0817 testing and never once appeared in a log; a rule living inside a completion handler
+/// would be just as unexaminable.
+struct RenderedContentSummary: Equatable {
+	/// Elements with a non-zero bounding box, across the six kinds that can show something.
+	let visible: Int
+	/// Trimmed length of the body's rendered text, or `-1` if it could not be read.
+	let text: Int
+	/// Whether any measurement was refused. A page can refuse a selector, and a refusal is not an
+	/// absence.
+	let refused: Bool
+	/// How many elements were examined before the cap.
+	let examined: Int
+
+	/// Parses the array the page returns, refusing anything else.
+	///
+	/// The page is untrusted: a document that returns a string, a short array, or floats is not a
+	/// measurement, and reporting a blank page because the answer was malformed would be a false
+	/// alarm on exactly the pages that are already unusual.
+	init?(_ value: Any?) {
+		guard let numbers = value as? [Any], numbers.count == 4 else { return nil }
+		// Whole numbers only. `intValue` alone truncates — 0.5 became 0, so a fractional answer read
+		// as an empty page — and the comment above claimed floats were refused while the code
+		// accepted them (raised in review). These are counts; a count is an integer.
+		let counts = numbers.compactMap { candidate -> Int? in
+			guard let number = candidate as? NSNumber else { return nil }
+			let whole = number.intValue
+			guard Double(whole) == number.doubleValue else { return nil }
+			return whole
+		}
+		guard counts.count == 4 else { return nil }
+		visible = counts[0]
+		text = counts[1]
+		refused = counts[2] != 0
+		examined = counts[3]
+	}
+
+	/// Nothing a person could see.
+	///
+	/// Three ways this is deliberately conservative, each from a defect found in review:
+	///
+	/// - **A refusal abandons the verdict.** A selector the page would not answer is not evidence of
+	///   emptiness, and every false positive here becomes a Sentry issue.
+	/// - **Rendered, not present.** `visible` counts only elements with a non-zero box, because a
+	///   failed application shell routinely holds a hidden canvas, an icon sprite or a tracking
+	///   pixel — existence would call a blank page full.
+	/// - **Six kinds, not four.** `iframe`, `video` and `object` draw as surely as a canvas does, and
+	///   a page that renders inside one of them is not blank.
+	///
+	/// Container `<div>`s are counted by neither: a shell renders its containers before its scripts
+	/// run, so a page that failed to start still has plenty of them. That was the exact shape of the
+	/// pages this was written for.
+	var drewNothing: Bool {
+		refused == false && visible == 0 && text == 0
+	}
+
+	var counts: String {
+		"visible=\(visible) text=\(text) refused=\(refused) examined=\(examined)"
 	}
 }

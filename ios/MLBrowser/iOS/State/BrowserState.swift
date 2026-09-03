@@ -581,7 +581,15 @@ final class BrowserState: ObservableObject {
 	/// nothing ever recovers (AIA-0509).
 	func webContentProcessDidTerminate(from webView: WKWebView? = nil) {
 		guard isCurrent(webView) else { return }
-		LoggingPolicy.error("WebView content process terminated; attempting recovery", logger: .ui)
+		// Named, because this is the one failure that is almost always the page's fault — a renderer
+		// killed by what it was rendering. The host groups the issue; the address reproduces it.
+		let page = webView?.url ?? committedURL
+		let site = page?.host ?? "unknown"
+		LoggingPolicy.error(
+			"WebView content process terminated; attempting recovery [site: \(site)]",
+			page: page,
+			logger: .ui
+		)
 		webViewInvalidated()
 		attemptRecovery(now: Date())
 	}

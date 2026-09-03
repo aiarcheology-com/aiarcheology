@@ -346,9 +346,21 @@ enum LoggingPolicy {
     /// - Network errors
     ///
     /// Remote: Captured event (QUOTA - use sparingly)
+    /// - Parameter page: the web page this failure is about, reported to the crash service as
+    ///   structured context rather than as message text.
+    ///
+    ///   Message text is redacted at three points on the way out and every one of them is right —
+    ///   messages are hand-written all over the app and an address can end up in one by accident.
+    ///   This parameter is the deliberate exception: a caller states that this URL is the subject of
+    ///   the report, and it travels intact so a failure can be reproduced by opening it.
+    ///
+    ///   Credentials are stripped regardless of that intent. `https://user:pass@host/` in a report
+    ///   is a leaked password, which is a different thing from an address, and no debugging need
+    ///   justifies it.
     static func error(
         _ message: String,
         error: Error? = nil,
+        page: URL? = nil,
         logger: Logger = .app,
         category: String = "app.log",
         file: String = #file,
@@ -381,7 +393,61 @@ enum LoggingPolicy {
         // 2. Remote capture (QUOTA - counts toward event limit)
         // Also add as breadcrumb for context in future events
         Observability.recordBreadcrumb(localMessage, level: .error, category: category)
-        Observability.captureError(prefixedMessage, error: error)
+        Observability.captureError(prefixedMessage, error: error, context: pageContext(page))
+    }
+
+    /// The page a failure is about, as crash-service context.
+    ///
+    /// Two entries with different jobs: `page_host` is short and low-cardinality, so it can be an
+    /// indexed tag that filters the issue stream; `page_url` is the whole address, for reproducing
+    /// the failure by opening it.
+    ///
+    /// **Only `http` and `https`.** A `data:` URL *is* the document — sending one would ship the
+    /// page's entire contents — and a `file:` URL is a path on the device. Neither is a site anyone
+    /// can open, so neither is worth the risk (raised in review).
+    static func pageContext(_ page: URL?) -> [String: String] {
+        guard let page else { return [:] }
+        var context: [String: String] = [:]
+        if let host = page.host { context["page_host"] = host }
+
+        let scheme = page.scheme?.lowercased()
+        guard scheme == "http" || scheme == "https" else { return context }
+        // Fails CLOSED: no address rather than an address we could not prove is clean.
+        if let safe = withoutCredentials(page) { context["page_url"] = safe.absoluteString }
+        return context
+    }
+
+    /// The same URL with any `user:password@` removed, or `nil` if that cannot be guaranteed.
+    ///
+    /// Kept out of the caller's hands on purpose: every site that reports a page would otherwise
+    /// have to remember, and the one that forgot would be the one that mattered.
+    ///
+    /// Three things this gets right that the first version did not, all found in review:
+    ///
+    /// - **Resolved against its base first.** A relative URL sees no credentials in its own
+    ///   components while `absoluteString` later includes its base's — so the check was made against
+    ///   a different string from the one that would travel.
+    /// - **Percent-encoded credentials count.** `https://%FF:%FE@host/` leaves `user` and `password`
+    ///   nil, because they cannot be decoded, while the encoded forms are present and would have
+    ///   been sent verbatim.
+    /// - **A failure returns nil.** `components.url ?? url` handed back the original — the one thing
+    ///   a sanitiser must never do.
+    private static func withoutCredentials(_ url: URL) -> URL? {
+        let absolute = url.absoluteURL
+        guard var components = URLComponents(url: absolute, resolvingAgainstBaseURL: true) else {
+            return nil
+        }
+        let carriesCredentials = components.user != nil
+            || components.password != nil
+            || components.percentEncodedUser != nil
+            || components.percentEncodedPassword != nil
+        guard carriesCredentials else { return absolute }
+
+        components.percentEncodedUser = nil
+        components.percentEncodedPassword = nil
+        components.user = nil
+        components.password = nil
+        return components.url
     }
     
     /// Use `.fault` for:
