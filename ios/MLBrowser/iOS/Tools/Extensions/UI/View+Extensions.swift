@@ -153,7 +153,13 @@ enum SheetRoom {
 	}
 
 	/// Keeps fitted presentation scoped to iPad, rather than treating every non-phone idiom as iPad.
-	static func isGenerous(for idiom: UIUserInterfaceIdiom) -> Bool {
+	///
+	/// `nonisolated` because it is a pure predicate over its argument: it reads no state, touches no
+	/// `UIDevice`, and only the property above needs the main actor. Inheriting the enum's isolation
+	/// made a fact about an enum case callable only from the main actor, which is a constraint the
+	/// function does not earn — and it obliged every caller, tests included, to be main-actor for no
+	/// reason (raised in review).
+	nonisolated static func isGenerous(for idiom: UIUserInterfaceIdiom) -> Bool {
 		idiom == .pad
 	}
 }
