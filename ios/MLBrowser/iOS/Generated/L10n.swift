@@ -580,6 +580,8 @@ internal enum L10n {
       internal static let addressPreview = L10n.tr("Localizable", "finding.share.addressPreview", fallback: "This link carries at most:")
       /// Dark
       internal static let dark = L10n.tr("Localizable", "finding.share.dark", fallback: "Dark")
+      /// Enlarge the card
+      internal static let enlarge = L10n.tr("Localizable", "finding.share.enlarge", fallback: "Enlarge the card")
       /// Share the full web address
       internal static let fullAddress = L10n.tr("Localizable", "finding.share.fullAddress", fallback: "Share the full web address")
       /// Map sites keep the view you are looking at inside the web address. Sharing it in full is what lets someone open that same view; turned off, only the site itself is shared.

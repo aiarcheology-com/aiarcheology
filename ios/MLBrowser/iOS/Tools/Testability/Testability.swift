@@ -256,6 +256,10 @@ extension TestabilityIdentification {
 		case findingDetailShare
 		case findingShareConfirm
 		case findingShareCancel
+		// Finding Share Composer — closes the enlarged card from its Done button
+		case findingShareInspectDone
+		// Finding Share Composer — opens the card at reading size from the preview's enlarge button
+		case findingShareEnlarge
 		/// Copies the exact address the link will carry. Present only while an address travels, so its
 		/// absence asserts that nothing is being disclosed rather than that copying merely failed.
 		case findingShareCopyAddress

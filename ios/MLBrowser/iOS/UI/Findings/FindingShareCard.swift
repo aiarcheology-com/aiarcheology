@@ -360,19 +360,7 @@ struct FindingShareCard: View {
 				.lineLimit(Self.noteLineLimit(for: orientation))
 			}
 			if let gps = subject.gps {
-				// Two lines, and shrink before truncating.
-				//
-				// A recorded coordinate can carry its coordinate system — `S-JTSK (EPSG:5514):
-				// -819500, -1032881` — and at one line the tail is what gets cut, which eats the
-				// NUMBERS and leaves the label. That is the least useful half: the reader learns
-				// what kind of coordinate it is and not where. Wrapping keeps the digits, and the
-				// scale factor keeps a long label on the card before wrapping is needed at all.
-				Label(gps, systemImage: "location")
-					.font(.caption)
-					.foregroundStyle(.secondary)
-					.lineLimit(2)
-					.minimumScaleFactor(0.75)
-					.fixedSize(horizontal: false, vertical: true)
+				FindingShareCoordinateRow(gps: gps)
 			}
 
 			if let host = subject.host {
@@ -414,9 +402,6 @@ struct FindingShareComposer: View {
 	@Environment(\.dismiss) private var dismiss
 	@Environment(\.displayScale) private var displayScale
 	@Environment(\.colorScheme) private var systemColorScheme
-	/// Distinguishes a sheet that fills the screen (iPhone) from one the system gives a fixed size
-	/// (iPad, and Mac via Designed for iPad). Only the second kind can be — or needs to be — grown.
-	@Environment(\.horizontalSizeClass) private var sizeClass
 
 	/// Observed directly rather than reached through `AppState`: a nested `ObservableObject` does not
 	/// republish through its parent, so a dashboard flip would leave this sheet stale (AIA-0350).
@@ -457,6 +442,19 @@ struct FindingShareComposer: View {
 	/// no control, because it implies a location exists.
 	@State private var includesLocation = true
 
+	/// Whether the card is open on its own, at reading size.
+	///
+	/// The preview is a whole card scaled into a slot a few hundred points tall, so its metadata is
+	/// drawn at a fraction of the size it will be posted at — a projected coordinate is legible on
+	/// the exported image and not in the preview. The preview's enlarge button opens the same card
+	/// in a sheet, where only the sheet limits it.
+	@State private var isInspectingCard = false
+
+	/// A phone held sideways has a sheet only a few hundred points tall, and the composer's controls
+	/// — a slider, two pickers, three toggles with footnotes and the address box — are taller than
+	/// that on their own.
+	@Environment(\.verticalSizeClass) private var verticalSizeClass
+
 	/// The rendered address + QR, built once per presentation. Held in state rather than computed in
 	/// `body` because the preview re-renders on every frame of a pinch or a drag, and generating a QR
 	/// is a Core Image round trip.
@@ -474,7 +472,20 @@ struct FindingShareComposer: View {
 		NavigationStack {
 			VStack(spacing: 20) {
 				preview
-				controls
+					// A floor, and deliberately NOT a layout priority. Both children here are flexible,
+					// so an equal-priority stack splits the space between them and this floor then
+					// claims the difference — the card takes the floor and the controls scroll in what
+					// is left. Raising the priority instead gave the card *everything*: the
+					// `ScrollView` below has a minimum height of zero, so a higher-priority sibling is
+					// offered the whole slot and the controls vanish (raised in review).
+					//
+					// A floor is needed on a PHONE for the opposite reason. Held sideways the sheet is
+					// a few hundred points tall, the controls are taller than that on their own, and
+					// the preview was squeezed to nothing — the card disappeared entirely and only
+					// portrait showed it (reported from a build). It is smaller there because the room
+					// is smaller: enough to see the card, with the rest scrolling.
+					.frame(minHeight: previewFloor)
+				controlsArea
 			}
 			.padding()
 			.frame(maxHeight: .infinity, alignment: .top)
@@ -496,7 +507,8 @@ struct FindingShareComposer: View {
 			}
 			.activityShareSheet($sharePayload)
 		}
-		.composerSheetSize(regular: sizeClass == .regular)
+		.roomySheet()
+		.sheet(isPresented: $isInspectingCard) { cardInspector }
 		.onAppear {
 			// Default to the system appearance the first time only.
 			if didSeedTheme.not {
@@ -526,6 +538,70 @@ struct FindingShareComposer: View {
 				? FindingShareQRCode.cardLink(for: publishedSubject, pageDetail: pageDetail)
 				: nil
 		}
+	}
+
+	/// Opens the card at reading size.
+	///
+	/// The preview scales a whole card into a slot a few hundred points tall, so its metadata is
+	/// drawn at a fraction of the size it will be posted at — a projected coordinate is legible on
+	/// the exported image and not here. This is how it is read before posting.
+	private var enlargeButton: some View {
+		Button { isInspectingCard = true } label: {
+			Image(systemName: "arrow.up.left.and.arrow.down.right")
+				.font(.system(size: 17, weight: .semibold))
+				.foregroundStyle(.primary)
+				.frame(width: 44, height: 44)
+				.background(.thinMaterial, in: Circle())
+				.overlay(Circle().strokeBorder(.quaternary))
+		}
+		.buttonStyle(.plain)
+		.accessibilityLabel(L10n.Finding.Share.enlarge)
+		.testability(Testability.Button.findingShareEnlarge)
+	}
+
+	/// The card on its own, as large as the sheet allows.
+	///
+	/// Deliberately the same card view and the same subject the composer would export — not a
+	/// rendering of it, and not a second layout that could drift from what is actually posted. The
+	/// framing is fixed at the composer's current zoom and pan, so what is inspected is the artifact
+	/// as it stands rather than a differently-framed copy of it.
+	///
+	/// Sized with `roomySheet` like its parent, so on iPad and Mac it opens at the same dimensions as
+	/// the composer that raised it instead of dropping back to the system's form sheet.
+	private var cardInspector: some View {
+		NavigationStack {
+			GeometryReader { geometry in
+				// Fits BOTH dimensions, like the preview: a landscape card constrained on width alone
+				// would stand taller than the sheet.
+				let fitScale = min(
+					geometry.size.width / orientation.size.width,
+					geometry.size.height / orientation.size.height
+				)
+				FindingShareCard(
+					subject: publishedSubject,
+					orientation: orientation,
+					zoom: clampZoom(imageZoom),
+					offset: clampedOffset(imageOffset, zoom: clampZoom(imageZoom)),
+					link: cardLink
+				)
+					.environment(\.colorScheme, theme)
+					.clipShape(RoundedRectangle(cornerRadius: 16))
+					.overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.quaternary))
+					.scaleEffect(fitScale)
+					.frame(width: geometry.size.width, height: geometry.size.height)
+			}
+			.padding()
+			.navigationTitle(L10n.Finding.Share.title)
+			.navigationBarTitleDisplayMode(.inline)
+			.toolbar {
+				ToolbarItem(placement: .navigationBarTrailing) {
+					Button(L10n.Common.done) { isInspectingCard = false }
+						.tint(.blue)
+						.testability(Testability.Button.findingShareInspectDone)
+				}
+			}
+		}
+		.roomySheet()
 	}
 
 	/// The address control, and the address itself.
@@ -725,7 +801,36 @@ struct FindingShareComposer: View {
 					imageZoom = 1
 					imageOffset = .zero
 				}
+				// Outside the card, in the preview's own top-leading corner.
+				//
+				// It began inside the card's metadata block, mirroring the QR badge, and that was the
+				// mistake: the card is drawn through `scaleEffect`, so everything on it — including a
+				// 44pt button — comes out at the preview's fit scale, which is about a third on iPad.
+				// The result was a target a few points across (reported from a build). Out here it is
+				// a sibling of the scaled card rather than part of it, so it is exactly the size it
+				// says it is, at every card size and both orientations.
+				.overlay(alignment: .topLeading) { enlargeButton }
 		}
+	}
+
+	/// How much height the card preview claims before the controls get any.
+	///
+	/// Three cases, because the space differs by an order of magnitude: a sheet the system sizes for
+	/// us (iPad, Mac), a phone in portrait, and a phone on its side — where the whole sheet is
+	/// shorter than the controls alone.
+	private var previewFloor: CGFloat {
+		if SheetRoom.isGenerous { return 400 }
+		return verticalSizeClass == .compact ? 150 : 220
+	}
+
+	/// The controls, which scroll so that the preview's floor is always honoured.
+	///
+	/// Scrolling everywhere, not only where the sheet is roomy. The first version left the phone
+	/// alone on the grounds that it had no room to redistribute — but that is exactly the case that
+	/// broke: in landscape the controls are taller than the sheet, so without somewhere to scroll
+	/// they took the preview's space and the card vanished.
+	private var controlsArea: some View {
+		ScrollView { controls }
 	}
 
 	private var controls: some View {
@@ -847,34 +952,6 @@ struct FindingShareComposer: View {
 	}
 }
 
-private extension View {
-
-	/// Grows the share composer's sheet by 30% where the system, not the screen, decides its size.
-	///
-	/// On iPhone a `.sheet` already fills the display and there is nothing to grow. On iPad and on
-	/// Mac (Designed for iPad) it gets a form-sheet default of about 540×620pt, and the composer puts
-	/// a card preview, a zoom slider, two pickers and up to three toggles inside that — the preview
-	/// ends up scaled small enough that the card's own text cannot be read before sending it
-	/// (reported from a build). 702×806 is the same shape, a third larger in each dimension.
-	///
-	/// `presentationSizing(.fitted)` is what makes the frame count: without it the sheet keeps the
-	/// system size and the content is merely squeezed inside it. It is iOS 18, and the app deploys to
-	/// 17.6, so the frame is applied either way and older systems simply keep the old sheet.
-	@ViewBuilder
-	func composerSheetSize(regular: Bool) -> some View {
-		if regular {
-			if #available(iOS 18.0, *) {
-				frame(minWidth: 702, minHeight: 806)
-					.presentationSizing(.fitted)
-			} else {
-				frame(minWidth: 702, minHeight: 806)
-			}
-		} else {
-			self
-		}
-	}
-}
-
 extension Bundle {
 	/// The app's display name (`PRODUCT_NAME` → `CFBundleDisplayName`/`CFBundleName`),
 	/// so the brand is sourced from one place and follows any rename.
@@ -895,5 +972,42 @@ extension Bundle {
 			let lastIcon = files.last
 		else { return nil }
 		return UIImage(named: lastIcon)
+	}
+}
+
+/// The coordinate on the share card.
+///
+/// A view of its own for one reason: it is the row with a rule — **if a coordinate is on the card
+/// it is on the card whole** — and a rule that lives inline in a `VStack` can only be tested by a
+/// copy of itself, which passes whatever the card actually does.
+///
+/// **No line cap at all.** A recorded coordinate can carry its coordinate system and a projected
+/// pair runs long: `Web Mercator (EPSG:3857): 1134425.9924799, 6045439.9357442` is 57 characters,
+/// against a text column only about 170pt wide in the worst case — the landscape metadata block
+/// less its padding, the spacing, and the widest QR badge the card can draw. Two lines with a scale
+/// factor was the previous rule and it still cut that string (reported from a build), because a cap
+/// is a guess about a length nobody controls. What truncation removes is the DIGITS, leaving a
+/// reader who knows what kind of coordinate it is and not where.
+///
+/// `fixedSize` vertically is what makes it binding: it makes this row inflexible, so the stack must
+/// grant the height the text needs and takes it from the note above, the only flexible row here and
+/// the one that can afford it.
+struct FindingShareCoordinateRow: View {
+	let gps: String
+
+	/// The narrowest the card's text column can ever be, and therefore the width any claim about
+	/// this row has to be tested at: the landscape metadata block, less 16pt of padding on each
+	/// side, the 12pt gap before the badge, and the widest badge the card can draw.
+	static let narrowestTextColumn: CGFloat = {
+		let block = ShareCardOrientation.landscape.size.width
+			- ShareCardOrientation.landscape.imageSlotSize.width
+		return block - 32 - 12 - FindingShareLinkBadge.maximumWidth
+	}()
+
+	var body: some View {
+		Label(gps, systemImage: "location")
+			.font(.caption)
+			.foregroundStyle(.secondary)
+			.fixedSize(horizontal: false, vertical: true)
 	}
 }

@@ -399,6 +399,9 @@ struct WebScreenView: View {
                 defaultAuthor: appState.authState.accountDisplayName,
                 onSaved: { didSaveFinding = true }
             )
+            // The form-sheet default left the cropped preview as a strip, with the address wrapping
+            // to three lines above it (reported from a build on iPad).
+            .roomySheet()
         }
         .sheet(isPresented: $showSignInOffer) {
             SignInSheet(authState: appState.authState)

@@ -1,54 +1,15 @@
-Build: AIA-0817
+Build: Findings sheets
 
-Test Focus: a finding saved on a map site must record WHERE it was — the exact page address, and a
-coordinate when the map will tell us one. Both fields are yours to edit, and yours to withhold when
-you share.
+Test Focus: Findings sheets should have room to show their content on iPad and on a Mac running the
+iPad app, without sacrificing controls in a compact window.
 
-- NEW: THE PAGE ADDRESS IS A FIELD YOU CAN EDIT. Save a finding anywhere; the Page row is no longer
-  grey text. Select, copy, correct or paste a URL. Do the same on a saved finding, leave the screen
-  and come back: your change must have stuck. Before this build a wrong address was permanent.
+- On an iPad or Mac, save a finding and open the findings list. The sheets should be comfortably
+  larger than the old form sheet, while Cancel, Save, and navigation controls remain visible in
+  Split View or a smaller window.
 
-- NEW: GPS FILLS ITSELF IN ON MAP SITES. Open a map site that shows coordinates in its address bar —
-  freemap.sk, caltopo.com, en.mapy.cz, zbgis.skgeodesy.sk all do. Pan and zoom to somewhere
-  recognisable, then save a finding. The GPS field should already contain something like
-  "url: 47.941230, 18.709545" or "leaflet: 47.94123, 18.709545". Check the numbers against what the
-  map is showing: they must match the place you are looking at, not somewhere else.
+- Share a finding with a long coordinate. The card preview must remain visible, and the controls
+  below it must scroll rather than truncating their explanatory text. Rotate an iPhone to landscape
+  and confirm the preview still remains visible.
 
-- NEW: THE PREFIX TELLS YOU WHERE THE NUMBER CAME FROM. "leaflet:", "openlayers:", "arcgis:" and
-  "maplibre:" mean the map itself was asked. "url:" means it was read from the address. "map:" means
-  a map we could not name. Whatever it says, you can edit or clear it — and it must NOT come back or
-  change on its own while the save sheet is open. Both fields sit right under the title, Page then
-  GPS, each with its own copy button.
-
-- NEW: YOU CAN SHARE A FINDING WITHOUT SAYING WHERE IT IS. Share a finding that has a coordinate:
-  the composer now offers "Share where this finding is". Turn it off and the coordinate must vanish
-  from the card AND from the link — open the shared link and check there is no map pin. Turn it on
-  and both come back. On a finding with no coordinate the switch must not appear at all.
-
-- NEW: MAPS THAT HIDE THEIR ADDRESS SHOULD STILL GIVE A POSITION. Try ags.cuzk.gov.cz/av/ — its
-  address never changes as you pan, which is the case this build is for. Save a finding: ideally GPS
-  holds an "arcgis:" value; if empty, that is a known limit, but Page must still hold the address.
-
-- WORTH BREAKING: pan a map, then IMMEDIATELY save a finding. The recorded address must be where you
-  ended up, not where you started. Also type a new address in the bar and, while it is still
-  loading, tap a detection on the page still showing — the finding must record the page you could
-  SEE, not the one being loaded. Tap twice in quick succession while the app is working out the
-  location: exactly one save sheet must appear.
-
-- WORTH BREAKING: put nonsense in the Page field ("not a url") and save. The finding must still
-  save, keeping the address it had. Clear the field completely and save: that must be respected —
-  the finding then has no page. Neither must ever lose the finding or its picture.
-
-- REGRESSION: save findings on ordinary, non-map pages too — a news article, a photo. GPS must stay
-  EMPTY there; an invented coordinate is far worse than none. (A page that publishes its own
-  location tag, as some venue and event pages do, may legitimately fill it in — not a bug.)
-  Share a finding with a long note in BOTH layouts: landscape must show far more of it than before
-  and must not cut the coordinate, the site or the date off the bottom. Check a long coordinate is
-  not truncated. Export findings to CSV and confirm the gps column reads sensibly.
-
-- REGRESSION (AIA-0822): after a local reset, detection must work on the first try. If the app opens
-  with an empty model list, turn on a bundled demo model and start detection. Boxes must appear in
-  that same session, with no restart and no duplicate boxes.
-
-- KNOWN: some map sites will give only the address and no coordinate. That is expected for now.
-  Google Maps and a few heavily-bundled sites are known gaps.
+- Tap the expand button at the preview's upper-left. The full card should open at reading size;
+  check the coordinate is complete, then tap Done to return to the composer.

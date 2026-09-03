@@ -155,6 +155,10 @@ struct DrawerContent: View {
             // Same reason again (AIA-740): the back-up button raises its own `SignInSheet`, which
             // branches on this to decide whether to build Clerk's `AuthView` at all.
             .environment(\.usesRealAuth, usesRealAuth)
+            // Sized once for the list AND the detail it pushes: both live in the same
+            // `NavigationStack`, and the detail is the one that needs the room — a page address, a
+            // coordinate, a snapshot and four fields.
+            .roomySheet()
         }
         .sheet(isPresented: $showSignIn) {
             SignInSheet(authState: authState)

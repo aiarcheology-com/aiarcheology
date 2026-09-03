@@ -434,6 +434,60 @@ final class FindingShareCardLayoutTests: XCTestCase {
 		return ink
 	}
 
+	// MARK: - The coordinate is never cut
+
+	/// **If a coordinate is on the card it is on the card whole.**
+	///
+	/// Measured against the SHIPPED row rather than a copy of it, which is why the row is its own
+	/// view: re-adding any line cap makes the shipped row shorter than the text needs, and this
+	/// fails. The previous rule — two lines with a 0.75 scale factor — passed the older ink-row test
+	/// while still cutting a real coordinate on a real card, because more ink is not the same claim
+	/// as nothing missing.
+	@MainActor
+	func test_aProjectedCoordinateIsNeverTruncated() throws {
+		// Reported from a build, verbatim: 57 characters against a column about 170pt wide.
+		let gps = "Web Mercator (EPSG:3857): 1134425.9924799, 6045439.9357442"
+		let width = FindingShareCoordinateRow.narrowestTextColumn
+
+		let shipped = UIHostingController(rootView: FindingShareCoordinateRow(gps: gps))
+			.sizeThatFits(in: CGSize(width: width, height: .greatestFiniteMagnitude))
+		let uncut = UIHostingController(
+			rootView: Label(gps, systemImage: "location")
+				.font(.caption)
+				.lineLimit(nil)
+				.fixedSize(horizontal: false, vertical: true)
+		).sizeThatFits(in: CGSize(width: width, height: .greatestFiniteMagnitude))
+
+		XCTAssertEqual(
+			shipped.height, uncut.height, accuracy: 0.5,
+			"the row is \(shipped.height)pt where the text needs \(uncut.height)pt — it is being cut"
+		)
+	}
+
+	/// The measurement above is only meaningful if this string genuinely overflows the cap it broke.
+	/// Without this, a column wide enough to fit it in two lines would make that test pass for the
+	/// wrong reason.
+	@MainActor
+	func test_theReportedCoordinateNeedsMoreThanTwoLines() throws {
+		let gps = "Web Mercator (EPSG:3857): 1134425.9924799, 6045439.9357442"
+		let width = FindingShareCoordinateRow.narrowestTextColumn
+
+		let full = UIHostingController(rootView: FindingShareCoordinateRow(gps: gps))
+			.sizeThatFits(in: CGSize(width: width, height: .greatestFiniteMagnitude)).height
+		let capped = UIHostingController(
+			rootView: Label(gps, systemImage: "location")
+				.font(.caption)
+				.lineLimit(2)
+				.minimumScaleFactor(0.75)
+				.fixedSize(horizontal: false, vertical: true)
+		).sizeThatFits(in: CGSize(width: width, height: .greatestFiniteMagnitude)).height
+
+		XCTAssertGreaterThan(
+			full, capped,
+			"this coordinate fits in two lines at \(width)pt, so it is the wrong witness for the defect"
+		)
+	}
+
 	// MARK: - The badge's own floor
 
 	/// When the compact link will not fit there is no code, and this caption is the only thing on the
