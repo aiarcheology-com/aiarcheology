@@ -1,0 +1,41 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Hostile page</title>
+<link rel="canonical" href="https://example.org/hostile/canonical">
+<style>html,body,#map{margin:0;height:320px;width:480px}</style>
+<div id="map" class="leaflet-container"></div>
+<script>
+  // Everything the probe must survive: a poisoned registry, throwing getters, out-of-range
+  // numbers, and a huge string. Failing closed here is the only acceptable outcome -- a wrong
+  // coordinate saved silently is worse than no coordinate at all. And failing closed is not the
+  // same as failing blind: the canonical link above must still come back off this very page.
+  window.trapMap = {
+    getCenter: function () { return { lat: 999, lng: 12345 }; },
+    getZoom: function () { throw new Error('boom'); },
+    getContainer: function () { throw new Error('boom'); }
+  };
+
+  // The registry BINDING is non-writable and non-configurable, so the obvious attack -- replacing
+  // window.__aiaMapRegistry with a throwing getter -- is refused by the engine and the page's own
+  // catch swallows it, leaving the fixture doing nothing at all (raised in review). What a page
+  // CAN reach is the object behind that binding: its members are ordinary properties.
+  try {
+    // Forge an instance, so the probe is made to ask a hostile object where it is.
+    window.__aiaMapRegistry.instances.push({ kind: 'leaflet', instance: window.trapMap });
+    // And poison a member the probe reads afterwards.
+    Object.defineProperty(window.__aiaMapRegistry, 'libraries', {
+      get: function () { throw new Error('nope'); }, configurable: true
+    });
+  } catch (e) {
+    // Reaching here means the registry became unreachable in a way this fixture no longer
+    // reproduces. Say so loudly rather than passing as a page that was never hostile.
+    window.__hostileSetupFailed = String(e);
+  }
+
+  Object.defineProperty(window, 'explodingMap', {
+    enumerable: true,
+    get: function () { throw new Error('boom'); }
+  });
+  window.__filler = new Array(200000).join('x');
+  window.__harnessReady = true;
+</script>

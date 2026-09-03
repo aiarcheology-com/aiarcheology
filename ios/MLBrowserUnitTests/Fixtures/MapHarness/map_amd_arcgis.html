@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ArcGIS view on a global</title>
+<style>html,body,#view{margin:0;height:320px;width:480px}</style>
+<div id="view"></div>
+<script>
+  // How a real ArcGIS app is actually reached, verified on tiris.maps.arcgis.com: the app keeps its
+  // view on a global (`window._viewerMap` there), and the duck-typed scan finds it. An earlier
+  // fixture instead relied on tracing modules through a wrapped `require`, which was removed --
+  // replacing a page's module loader risked breaking the app, and it was the mechanism for no real
+  // page we tested.
+  (function () {
+    window.__view = {
+      container: document.getElementById('view'),
+      ready: true,
+      zoom: 13,
+      spatialReference: { wkid: 4326 },
+      when: function () { return Promise.resolve(this); },
+      center: { latitude: 50.0755381, longitude: 14.4378005,
+                x: 14.4378005, y: 50.0755381, spatialReference: { wkid: 4326 } }
+    };
+    window.__harnessReady = true;
+  }());
+</script>

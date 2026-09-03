@@ -16,9 +16,43 @@ struct FindingCapture: Identifiable {
 	let observation: DetectedObject
 	let params: DeepDriverParams?
 	let frame: AppliedDetectionFrame
-	let pageURL: URL?
+	/// Everything resolved about the page at the moment of capture: its URL, and a coordinate when
+	/// the live map or the URL could supply one (AIA-0817).
+	let location: MapPageLocation
+
+	/// Derived, never stored alongside ``location``. Two fields holding "the page" could disagree,
+	/// and the repository would silently persist whichever one it happened to read.
+	var pageURL: URL? { location.sourceURL }
 
 	var id: UUID { observation.uuid }
+
+	init(
+		observation: DetectedObject,
+		params: DeepDriverParams?,
+		frame: AppliedDetectionFrame,
+		location: MapPageLocation
+	) {
+		self.observation = observation
+		self.params = params
+		self.frame = frame
+		self.location = location
+	}
+
+	/// For callers that have only a URL and no resolved location — tests, and any capture path
+	/// where the resolver was not run.
+	init(
+		observation: DetectedObject,
+		params: DeepDriverParams?,
+		frame: AppliedDetectionFrame,
+		pageURL: URL?
+	) {
+		self.init(
+			observation: observation,
+			params: params,
+			frame: frame,
+			location: MapPageLocation(sourceURL: pageURL)
+		)
+	}
 
 	/// The displayed detection whose box contains the tap — the smallest one wins
 	/// when boxes nest, and every box counts as at least 44pt so small detections
@@ -253,6 +287,9 @@ struct SaveFindingSheet: View {
 	/// cleared the name — restoring it would put a credit back that they just removed.
 	@State private var didPrefill = false
 	@State private var gps = ""
+	/// The page URL, editable since AIA-0817 so a user can correct or paste one the app could not
+	/// resolve. Seeded once from the capture, on the same latch as `author`.
+	@State private var page = ""
 	@State private var suggestions: [String] = []
 	@State private var saveFailed = false
 	/// Preview-only: lets the user dim or hide the highlight rectangle to see
@@ -274,16 +311,45 @@ struct SaveFindingSheet: View {
 					TextField(L10n.Finding.titlePlaceholder, text: $title)
 						.testability(Testability.TextField.saveFindingTitle)
 				}
+				// Directly under the title, and above the image: where the finding *is* matters more
+				// than how it was framed, and on a map site these two are the answer. Page first —
+				// it identifies what was being looked at — then the coordinate, which is the part
+				// that still works when a site can only give a generic landing URL, because it can
+				// be pasted into that site's own search. Both carry a visible copy button rather
+				// than only a long-press menu; the whole point of recording them is to paste them
+				// somewhere else.
+				Section(L10n.Finding.page) {
+					HStack(alignment: .firstTextBaseline, spacing: 8) {
+						// Editable, not static text: the app cannot resolve a usable URL for every
+						// map site, and this is where a user corrects or pastes one.
+						TextField(L10n.Finding.page, text: $page, axis: .vertical)
+							.font(.caption)
+							.lineLimit(1...3)
+							.keyboardType(.URL)
+							.textInputAutocapitalization(.never)
+							.autocorrectionDisabled()
+							.testability(Testability.TextField.saveFindingPage)
+						copyButton(page, identifier: Testability.Button.saveFindingCopyPage)
+					}
+				}
+				Section(L10n.Finding.gps) {
+					HStack(alignment: .firstTextBaseline, spacing: 8) {
+						// The ordinary keyboard, not `.numbersAndPunctuation`. Since AIA-0817 the
+						// prefilled value carries its provenance in letters — `leaflet: 47.9, 18.7`,
+						// `S-JTSK (EPSG:5514): …` — and a numeric keyboard cannot type a single
+						// character of that, so correcting or retyping one was impossible (raised in
+						// review). The field is free text by design; its keyboard has to be too.
+						TextField(L10n.Finding.gpsPlaceholder, text: $gps)
+							.testability(Testability.TextField.saveFindingGps)
+						copyButton(gps, identifier: Testability.Button.saveFindingCopyGps)
+					}
+				}
 				Section {
 					preview
 					opacitySlider
 					zoomSlider
 				}
-				Section(L10n.Finding.page) {
-					Text(capture.pageURL?.absoluteString ?? "")
-						.font(.caption)
-						.foregroundStyle(.secondary)
-				}
+
 				Section(L10n.Finding.label) {
 					TextField(L10n.Finding.labelPlaceholder, text: $label)
 						.testability(Testability.TextField.saveFindingLabel)
@@ -300,11 +366,7 @@ struct SaveFindingSheet: View {
 					TextField(L10n.Finding.authorPlaceholder, text: $author)
 						.testability(Testability.TextField.saveFindingAuthor)
 				}
-				Section(L10n.Finding.gps) {
-					TextField(L10n.Finding.gpsPlaceholder, text: $gps)
-						.keyboardType(.numbersAndPunctuation)
-						.testability(Testability.TextField.saveFindingGps)
-				}
+
 			}
 			.navigationTitle(L10n.Finding.Save.title)
 			.navigationBarTitleDisplayMode(.inline)
@@ -353,6 +415,14 @@ struct SaveFindingSheet: View {
 				didPrefill = true
 				if let defaultAuthor, defaultAuthor.isEmpty.not, author.isEmpty {
 					author = defaultAuthor
+				}
+				// AIA-0817. Seeded once, for the same reason the author is: `onAppear` fires again
+				// on re-appearance, and an empty field by then means the user cleared it
+				// deliberately. Never refreshed while the sheet is open — the value would move
+				// under the user as the page kept panning behind it.
+				page = capture.pageURL?.absoluteString ?? ""
+				if let prefill = capture.location.gpsPrefill, gps.isEmpty {
+					gps = prefill
 				}
 			}
 		}
@@ -432,6 +502,29 @@ struct SaveFindingSheet: View {
 		return result
 	}
 
+	/// A visible copy button, matching the one on the model download screen.
+	///
+	/// Deliberately not only a long-press menu: these two fields exist to be pasted somewhere else,
+	/// and an affordance nobody discovers is the same as no affordance. Disabled while empty rather
+	/// than hidden, so the row does not change shape as a value arrives.
+	private func copyButton(_ value: String, identifier: Testability.Button) -> some View {
+		Button {
+			// Plain text ONLY, not `UIPasteboard.string`.
+			//
+			// A stored coordinate begins `arcgis: `, `leaflet: ` … which UIKit reads as a URL
+			// scheme: setting `.string` also publishes a URL flavour, and a receiving app that
+			// prefers it pastes `arcgis:%2040.92…` with the spaces percent-encoded. Declaring a
+			// single plain-text representation leaves nothing else for anyone to choose.
+			UIPasteboard.general.setValue(value, forPasteboardType: "public.utf8-plain-text")
+		} label: {
+			Image(systemName: "doc.on.doc")
+		}
+		.accessibilityLabel(L10n.Common.copy)
+		.buttonStyle(.borderless)
+		.disabled(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+		.testability(identifier)
+	}
+
 	// MARK: - Save
 
 	/// Bake the editor's crop, then hand the finding to the repository — the whole persist
@@ -443,7 +536,10 @@ struct SaveFindingSheet: View {
 				capture: capture,
 				image: imageToStore,
 				box: boxToStore,
-				metadata: FindingMetadata(title: title, label: label, note: note, author: author, gps: gps)
+				metadata: FindingMetadata(
+					title: title, label: label, note: note, author: author, gps: gps,
+					page: FindingPageURL.resolve(edited: page, captured: capture.pageURL)
+				)
 			)
 			// Onboarding tour (AIA-0333): the finding is saved → advance the in-sheet save step
 			// before dismissing, so the dismiss isn't mistaken for a cancel.

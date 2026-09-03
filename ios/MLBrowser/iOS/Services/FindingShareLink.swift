@@ -923,12 +923,15 @@ enum FindingShareLink {
 enum CoordinateText {
 
 	/// Accepts `48.8, 19.53`, `48.8 19.53`, `48.8N, 19.53E`, `N48.8 E19.53` and the degree-suffixed
-	/// forms of each. Anything else yields `nil`.
+	/// forms of each, optionally behind one of this app's own provenance tags (`leaflet: 48.8,
+	/// 19.53`). Anything else yields `nil`.
 	static func parse(_ raw: String) -> FindingShareLink.Coordinate? {
-		let normalized = raw
-			.replacingOccurrences(of: "°", with: " ")
-			.replacingOccurrences(of: ";", with: ",")
-			.trimmingCharacters(in: .whitespacesAndNewlines)
+		let normalized = Self.strippingStorageTag(
+			raw
+				.replacingOccurrences(of: "°", with: " ")
+				.replacingOccurrences(of: ";", with: ",")
+				.trimmingCharacters(in: .whitespacesAndNewlines)
+		)
 		guard normalized.isEmpty.not else { return nil }
 
 		let tokens = normalized
@@ -941,6 +944,27 @@ enum CoordinateText {
 		else { return nil }
 
 		return FindingShareLink.Coordinate(latitude: first, longitude: second)
+	}
+
+	/// Removes a single leading `tag:` when the tag is one this app writes (AIA-0817).
+	///
+	/// Since AIA-0817 a captured coordinate is stored with its provenance — `leaflet: 48.8, 19.53`
+	/// — so that a reader can tell a live-map reading from one guessed out of a URL. Without this,
+	/// every auto-filled finding would silently lose its share-link map pin, because `parse`
+	/// requires exactly two tokens.
+	///
+	/// Restricted to ``MapLocationSource/storageTags`` rather than "any leading lowercase word" on
+	/// purpose: a user typing `note: 48.8, 19.53` into the free-text field means it as prose, and
+	/// turning that into a pin would be inventing a location they never confirmed. Unknown tags
+	/// fall through unchanged and are then rejected by the two-token rule, as before.
+	private static func strippingStorageTag(_ value: String) -> String {
+		guard let colon = value.firstIndex(of: ":") else { return value }
+		let tag = value[value.startIndex..<colon]
+		guard tag.isEmpty.not,
+		      tag.allSatisfy({ $0.isLetter || $0.isNumber }),
+		      MapLocationSource.storageTags.contains(tag.lowercased())
+		else { return value }
+		return String(value[value.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
 	}
 
 	/// Reads one signed magnitude, with an optional hemisphere letter on either side.

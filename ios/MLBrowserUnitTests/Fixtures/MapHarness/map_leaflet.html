@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Leaflet harness</title>
+<style>html,body,#map{margin:0;height:320px;width:480px}</style>
+<div id="map"></div>
+<script src="leaflet-1.9.4.js"></script>
+<script>
+  // Constructed through the `L.map(...)` factory on purpose: that is how nearly every real site
+  // creates a map, and it is the case a naive wrapper of `L.Map` would miss entirely.
+  var map = L.map('map', { center: [47.941230, 18.709545], zoom: 15, attributionControl: false });
+  window.__harnessReady = true;
+</script>

@@ -1,0 +1,56 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ArcGIS, national grid, no projection module</title>
+<style>
+  html,body{margin:0}
+  arcgis-map{display:block;height:320px;width:480px}
+  /* Rendered, and LARGER than the usable map. The never-ready component is the one the real page
+     reaches first, and leaving it unsized left that ordering to depend on how zero-area candidates
+     happen to sort — the fixture would still have burned the budget, but not for a reason it
+     stated (raised in review). Largest-first is the probe's own rule, so this states it. */
+  arcgis-scene{display:block;height:340px;width:500px}
+</style>
+<arcgis-scene id="scene"></arcgis-scene>
+<arcgis-map id="map"></arcgis-map>
+<script>
+  // ags.cuzk.cz exactly as measured: an <arcgis-map> whose view becomes ready a moment after the
+  // document does, a centre and extent on a national grid, and NO reachable projection module --
+  // `$arcgis` exists but exposes only `views`, and there is no AMD loader.
+  //
+  // The failure this reproduces: the projection attempt runs to its timeout, the script's deadline
+  // is spent, and everything after it is skipped -- including reading the viewport, which is free
+  // and was sitting there the whole time. A finding then records no coordinate AND an unrefreshed
+  // URL, which is what a user sees as "it always gives me the same place".
+  (function () {
+    var element = document.getElementById('map');
+    var view = {
+      ready: false, zoom: -1, center: undefined, extent: undefined, container: element,
+      when: function () {
+        return new Promise(function (resolve) {
+          var t = setInterval(function () { if (view.ready) { clearInterval(t); resolve(view); } }, 40);
+        });
+      }
+    };
+    element.view = view;
+    setTimeout(function () {
+      view.ready = true;
+      view.zoom = 8;
+      view.center = { latitude: null, longitude: null, x: -828738.04, y: -1031271.56,
+                      spatialReference: { wkid: 102067, latestWkid: 5514 } };
+      view.extent = { xmin: -832098.46, ymin: -1032881.76, xmax: -825377.61, ymax: -1029661.35,
+                      spatialReference: { wkid: 102067 } };
+    }, 350);
+    // The real page carries a SECOND component that never becomes ready, and it is queried first.
+    // It burns the full readiness wait and then a projection timeout before the usable map is even
+    // reached -- which is what exhausts the script's budget. A fixture with one fast component
+    // cannot reproduce that, and a mutation test proved it could not: the pre-fix code passed.
+    var scene = document.getElementById('scene');
+    scene.view = {
+      ready: false, zoom: -1, center: undefined, extent: undefined, container: scene,
+      when: function () { return new Promise(function () {}); }   // never resolves
+    };
+
+    window.$arcgis = { views: [] };   // present, but with no import -- as measured
+    window.__harnessReady = true;
+  }());
+</script>

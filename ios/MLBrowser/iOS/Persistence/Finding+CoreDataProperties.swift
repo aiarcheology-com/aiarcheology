@@ -59,7 +59,12 @@ extension Finding {
     /// Confidence of `detectionClass` (the primary label's confidence, 0...1).
     @NSManaged public var detectionConfidence: Double
     @NSManaged public var entityId: UUID
-    /// Manually entered GPS coordinates (free text in v1).
+    /// GPS coordinates as free text.
+    ///
+    /// Hand-typed until AIA-0817, and still freely editable — but no longer only hand-typed: a
+    /// capture on a map page prefills it with a provenance-tagged value such as
+    /// `leaflet: 47.94123, 18.709545`. Free text remains the storage because the tag has to travel
+    /// with the number; a bare pair would not say whether a map or a URL supplied it.
     @NSManaged public var gps_: String?
     @NSManaged public var label_: String?
     @NSManaged public var lifeCycleString: String

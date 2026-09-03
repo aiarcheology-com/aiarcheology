@@ -91,6 +91,35 @@ enum AppEnvironment {
         return env["UI_TESTING"] == nil
     }
 
+    /// True when the map-location parser must not run at all (AIA-0817).
+    ///
+    /// A kill switch for bisecting: the parser injects a script into every page at document start,
+    /// so when a site misbehaves the first question is whether we caused it. Turning this on removes
+    /// the injection AND the probe, leaving the app exactly as it was before the feature — which
+    /// answers that question in one relaunch instead of a rebuild from another branch.
+    ///
+    /// Set it as a launch argument or a launch environment variable in the scheme:
+    ///
+    ///     DISABLE_URL_LOCATION_PARSER
+    ///
+    /// The misspelling `DISABlE_URL_LOCATION_PARSER` is accepted too. It is the spelling the switch
+    /// was first requested with, and a diagnostic aid that silently does nothing because of a typo
+    /// is worse than useless when you are already hunting a bug.
+    static var isMapLocationParserDisabled: Bool {
+        let names = ["DISABLE_URL_LOCATION_PARSER", "DISABlE_URL_LOCATION_PARSER"]
+        let process = ProcessInfo.processInfo
+        // Accepted as a bare launch argument, or as an environment variable with any truthy value,
+        // because both are one checkbox away in the scheme editor and it is not worth remembering
+        // which one this particular switch wanted.
+        if names.contains(where: { process.arguments.contains($0) }) { return true }
+        return names.contains { name in
+            guard let value = process.environment[name] else { return false }
+            // Case-folded: a switch that ignores `TRUE` because of its capitals is exactly the kind
+            // of quiet no-op that wastes an afternoon when you are already hunting a bug.
+            return ["1", "true", "yes", "y", ""].contains(value.lowercased())
+        }
+    }
+
     // MARK: - Runtime detection (distribution)
 
     enum DistributionChannel: Equatable {

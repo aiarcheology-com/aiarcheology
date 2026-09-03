@@ -126,6 +126,35 @@ struct FindingShareSubject: Identifiable {
 		self.date = date
 		self.page = page
 	}
+
+	/// The same subject with its coordinate withheld.
+	///
+	/// One function, because the coordinate leaves the app by two routes — printed on the card and
+	/// carried inside the share link — and a sender who turns the location off means both. Gating
+	/// the card's row alone would produce a picture with no coordinate on it and a link that still
+	/// names the spot, which is worse than not offering the choice.
+	///
+	/// The page address is deliberately untouched: a geoportal URL can itself carry a viewport, and
+	/// that trade-off already has its own control (``FindingShareComposer/sharesFullAddress``),
+	/// which prints the exact address before anything is sent.
+	func withholdingLocation() -> FindingShareSubject {
+		FindingShareSubject(
+			id: id,
+			image: image,
+			normalizedBox: normalizedBox,
+			captureNormalizedBox: captureNormalizedBox,
+			title: title,
+			label: label,
+			note: note,
+			author: author,
+			gps: nil,
+			detectionClass: detectionClass,
+			confidence: confidence,
+			host: host,
+			date: date,
+			page: page
+		)
+	}
 }
 
 /// The composed, shareable card. Themed via the ambient color scheme (set
@@ -259,6 +288,30 @@ struct FindingShareCard: View {
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 	}
 
+	/// How many lines of the note the block can actually show.
+	///
+	/// Reported from a build: on the landscape card the note truncated after **two** lines with the
+	/// lower half of the metadata block empty. The two orientations have wildly different room, and
+	/// these are the numbers that say so.
+	///
+	/// Measured against a finding carrying every other row — title, detection chip, byline, label,
+	/// coordinate, host, date, plus seven 8pt gaps, about 200pt of content:
+	///
+	/// - **Landscape** has a 334×399 block, roughly 367pt of usable height, so about 165pt is free:
+	///   ten caption lines with a margin for a title or a coordinate that wraps.
+	/// - **Portrait** has a 480×252 block, roughly 220pt usable, so only about 20–36pt is free. Its
+	///   previous cap of four lines *overflowed* that, and what a `VStack` drops when it overflows is
+	///   the end — the coordinate, the host and the date, the rows the note is least entitled to take.
+	///   `test_aLongNoteDoesNotCrowdOutTheCoordinate` is that measurement and it failed at four.
+	///
+	/// A layout-driven version was tried first — no cap at all, the note absorbing whatever slack the
+	/// other rows left. It measured *worse*: `VStack` offered the flexible child a single line, so the
+	/// note came out shorter than the constant it replaced. The card is a fixed size and its rows are
+	/// known, so a measured constant is the honest mechanism.
+	static func noteLineLimit(for orientation: ShareCardOrientation) -> Int {
+		orientation == .landscape ? 10 : 2
+	}
+
 	private var metadataRows: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			Text(subject.title)
@@ -304,13 +357,22 @@ struct FindingShareCard: View {
 				}
 				.font(.caption)
 				.foregroundStyle(.secondary)
-				.lineLimit(orientation == .landscape ? 2 : 4)
+				.lineLimit(Self.noteLineLimit(for: orientation))
 			}
 			if let gps = subject.gps {
+				// Two lines, and shrink before truncating.
+				//
+				// A recorded coordinate can carry its coordinate system — `S-JTSK (EPSG:5514):
+				// -819500, -1032881` — and at one line the tail is what gets cut, which eats the
+				// NUMBERS and leaves the label. That is the least useful half: the reader learns
+				// what kind of coordinate it is and not where. Wrapping keeps the digits, and the
+				// scale factor keeps a long label on the card before wrapping is needed at all.
 				Label(gps, systemImage: "location")
 					.font(.caption)
 					.foregroundStyle(.secondary)
-					.lineLimit(1)
+					.lineLimit(2)
+					.minimumScaleFactor(0.75)
+					.fixedSize(horizontal: false, vertical: true)
 			}
 
 			if let host = subject.host {
@@ -352,6 +414,9 @@ struct FindingShareComposer: View {
 	@Environment(\.dismiss) private var dismiss
 	@Environment(\.displayScale) private var displayScale
 	@Environment(\.colorScheme) private var systemColorScheme
+	/// Distinguishes a sheet that fills the screen (iPhone) from one the system gives a fixed size
+	/// (iPad, and Mac via Designed for iPad). Only the second kind can be — or needs to be — grown.
+	@Environment(\.horizontalSizeClass) private var sizeClass
 
 	/// Observed directly rather than reached through `AppState`: a nested `ObservableObject` does not
 	/// republish through its parent, so a dashboard flip would leave this sheet stale (AIA-0350).
@@ -380,6 +445,17 @@ struct FindingShareComposer: View {
 	/// address is printed below the toggle before anything is posted, which is the mechanism the
 	/// acceptance criteria name (AIA-0657).
 	@State private var sharesFullAddress = true
+
+	/// Whether the recorded coordinate travels with the share.
+	///
+	/// **Default on**, matching what the card has always printed: a finding that recorded where it
+	/// is says so, and a sender who does not want that says so once, per share. Not persisted, for
+	/// the same reason `includesLink` is not — a remembered "off" is indistinguishable from the
+	/// coordinate never having been recorded, and the sender would have no way to tell which.
+	///
+	/// Only ever shown when there is a coordinate to withhold; a control over nothing is worse than
+	/// no control, because it implies a location exists.
+	@State private var includesLocation = true
 
 	/// The rendered address + QR, built once per presentation. Held in state rather than computed in
 	/// `body` because the preview re-renders on every frame of a pinch or a drag, and generating a QR
@@ -420,6 +496,7 @@ struct FindingShareComposer: View {
 			}
 			.activityShareSheet($sharePayload)
 		}
+		.composerSheetSize(regular: sizeClass == .regular)
 		.onAppear {
 			// Default to the system appearance the first time only.
 			if didSeedTheme.not {
@@ -437,8 +514,17 @@ struct FindingShareComposer: View {
 		// sender would watch the privacy control appear to work and post a card whose QR still carried
 		// the query. Rebuilding costs one round trip per deliberate tap, not one per frame.
 		// `initial: true` covers the ordinary case of the flag already being on when the sheet opens.
-		.onChange(of: LinkArtKey(isEnabled: isLinkEnabled, sharesFullAddress: sharesFullAddress), initial: true) { _, key in
-			linkArt = key.isEnabled ? FindingShareQRCode.cardLink(for: subject, pageDetail: key.detail) : nil
+		.onChange(
+			of: LinkArtKey(
+				isEnabled: isLinkEnabled,
+				sharesFullAddress: sharesFullAddress,
+				includesLocation: includesLocation
+			),
+			initial: true
+		) { _, _ in
+			linkArt = isLinkEnabled
+				? FindingShareQRCode.cardLink(for: publishedSubject, pageDetail: pageDetail)
+				: nil
 		}
 	}
 
@@ -532,6 +618,11 @@ struct FindingShareComposer: View {
 	private struct LinkArtKey: Equatable {
 		let isEnabled: Bool
 		let sharesFullAddress: Bool
+		/// Part of the key because the code encodes the payload, and the payload carries the
+		/// coordinate: without this the location toggle would clear the card's row while the printed
+		/// QR went on encoding the coordinate — the same stale-artifact defect the address toggle
+		/// already had, rebuilt one field over.
+		let includesLocation: Bool
 
 		var detail: FindingShareLink.PageDetail { sharesFullAddress ? .full : .siteOnly }
 	}
@@ -559,6 +650,15 @@ struct FindingShareComposer: View {
 			pageDetail: pageDetail
 		) else { return nil }
 		return FindingShareLink.payload(from: url)?.page
+	}
+
+	/// What this composer actually publishes, as opposed to what it was handed.
+	///
+	/// Every consumer of the subject downstream of the toggle reads *this* — the preview, the
+	/// rendered card, the printed QR and the share items — so the coordinate cannot survive in one
+	/// artifact after being withheld from another.
+	private var publishedSubject: FindingShareSubject {
+		includesLocation ? subject : subject.withholdingLocation()
 	}
 
 	/// The live flag. Everything this feature adds — the toggle, the card art and the shared link —
@@ -589,7 +689,7 @@ struct FindingShareComposer: View {
 				zoom: liveZoom
 			)
 			FindingShareCard(
-				subject: subject,
+				subject: publishedSubject,
 				orientation: orientation,
 				zoom: liveZoom,
 				offset: liveOffset,
@@ -651,6 +751,20 @@ struct FindingShareComposer: View {
 			.pickerStyle(.segmented)
 			.testability(Testability.Picker.findingShareLayout)
 
+			// Offered only when there is something to withhold. On a finding with no coordinate the
+			// control would be a switch over nothing — and worse than useless, since its presence
+			// would suggest a location was recorded.
+			if subject.gps != nil {
+				VStack(alignment: .leading, spacing: 6) {
+					Toggle(L10n.Finding.Share.includeLocation, isOn: $includesLocation)
+						.testability(Testability.Toggle.findingShareIncludeLocation)
+					Text(L10n.Finding.Share.includeLocationFootnote)
+						.font(.footnote)
+						.foregroundStyle(.secondary)
+						.frame(maxWidth: .infinity, alignment: .leading)
+				}
+			}
+
 			// Labelled by its consequence, not its mechanism: nothing on screen tells the user what
 			// "include a link" would change, and the trade-off it makes is invisible until the system
 			// sheet is already up and Save Image is missing from it. Hidden entirely when the feature
@@ -699,7 +813,7 @@ struct FindingShareComposer: View {
 
 	private func share() {
 		let card = FindingShareCard(
-			subject: subject,
+			subject: publishedSubject,
 			orientation: orientation,
 			zoom: clampZoom(imageZoom),
 			offset: clampedOffset(imageOffset, zoom: clampZoom(imageZoom)),
@@ -723,12 +837,40 @@ struct FindingShareComposer: View {
 			sharePayload = ActivitySharePayload(
 				items: FindingShareActivity.items(
 					image: image,
-					subject: subject,
+					subject: publishedSubject,
 					isLinkEnabled: isLinkEnabled,
 					includesLink: includesLink,
 					pageDetail: pageDetail
 				)
 			)
+		}
+	}
+}
+
+private extension View {
+
+	/// Grows the share composer's sheet by 30% where the system, not the screen, decides its size.
+	///
+	/// On iPhone a `.sheet` already fills the display and there is nothing to grow. On iPad and on
+	/// Mac (Designed for iPad) it gets a form-sheet default of about 540×620pt, and the composer puts
+	/// a card preview, a zoom slider, two pickers and up to three toggles inside that — the preview
+	/// ends up scaled small enough that the card's own text cannot be read before sending it
+	/// (reported from a build). 702×806 is the same shape, a third larger in each dimension.
+	///
+	/// `presentationSizing(.fitted)` is what makes the frame count: without it the sheet keeps the
+	/// system size and the content is merely squeezed inside it. It is iOS 18, and the app deploys to
+	/// 17.6, so the frame is applied either way and older systems simply keep the old sheet.
+	@ViewBuilder
+	func composerSheetSize(regular: Bool) -> some View {
+		if regular {
+			if #available(iOS 18.0, *) {
+				frame(minWidth: 702, minHeight: 806)
+					.presentationSizing(.fitted)
+			} else {
+				frame(minWidth: 702, minHeight: 806)
+			}
+		} else {
+			self
 		}
 	}
 }

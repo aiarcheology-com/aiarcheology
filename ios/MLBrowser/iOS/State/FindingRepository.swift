@@ -22,6 +22,15 @@ struct FindingMetadata {
 	/// call site passed. Requiring it at each site is what makes the capture editor's value arrive.
 	let author: String
 	let gps: String
+	/// The page to store, already resolved from the editor's text and the captured URL by
+	/// ``FindingPageURL`` (AIA-0817).
+	///
+	/// Declared WITHOUT a default for the same reason `author` is — though not the reason first
+	/// written here: a default does not remove the parameter from the synthesized memberwise
+	/// initializer, it makes it optional to pass (raised in review). That is the actual hazard. A
+	/// call site that forgot the page would still compile, and record no page while appearing to
+	/// carry one. With no default, forgetting it is a compile error.
+	let page: URL?
 }
 
 /// The Core Data + screenshot-store repository for `Finding` rows.
@@ -110,7 +119,9 @@ final class FindingRepository {
 		let finding = Finding.create(in: context)
 		finding.entityId = entityId
 		finding.creationDate_ = .now
-		finding.page = capture.pageURL
+		// The editor's value, not the capture's: the field is editable precisely so a user can fix
+		// a URL the app resolved wrongly, and reading the capture here would discard that.
+		finding.page = metadata.page
 		finding.screenshotFilename = filename
 		finding.title = metadata.title.trimmingCharacters(in: .whitespacesAndNewlines)
 		finding.label_ = Self.normalized(metadata.label)

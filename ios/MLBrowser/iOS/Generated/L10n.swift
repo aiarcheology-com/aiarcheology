@@ -588,6 +588,10 @@ internal enum L10n {
       internal static let includeLink = L10n.tr("Localizable", "finding.share.includeLink", fallback: "Let people open this finding in the app")
       /// Adds a tappable link beside the picture, so people can open this finding in the app. While it's on, iOS hides Save Image and any app that only accepts pictures from the share sheet. Turn it off to share just the picture.
       internal static let includeLinkFootnote = L10n.tr("Localizable", "finding.share.includeLinkFootnote", fallback: "Adds a tappable link beside the picture, so people can open this finding in the app. While it's on, iOS hides Save Image and any app that only accepts pictures from the share sheet. Turn it off to share just the picture.")
+      /// Share where this finding is
+      internal static let includeLocation = L10n.tr("Localizable", "finding.share.includeLocation", fallback: "Share where this finding is")
+      /// Prints the recorded coordinate on the card and carries it in the link. Turn it off to share the picture without saying where the finding is.
+      internal static let includeLocationFootnote = L10n.tr("Localizable", "finding.share.includeLocationFootnote", fallback: "Prints the recorded coordinate on the card and carries it in the link. Turn it off to share the picture without saying where the finding is.")
       /// Landscape
       internal static let landscape = L10n.tr("Localizable", "finding.share.landscape", fallback: "Landscape")
       /// Layout

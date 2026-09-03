@@ -42,9 +42,14 @@ enum SharedFindingPresentation: Equatable {
 /// The blocks the unverified card renders, in order.
 ///
 /// This is the layout's **single source of truth**, not a description of it: the body iterates this
-/// array. The point is the absent cases. `Finding.gps_` is free-typed text that nothing in this app
-/// auto-populates, so most findings carry no coordinate at all and the no-map layout is the primary
-/// one — and "no coordinate" must mean *no block*, not an empty map frame or a reserved gap.
+/// array. The point is the absent cases. `Finding.gps_` is free text, prefilled since AIA-0817 from
+/// whichever witness the resolver could reach — a live map, a viewport in the URL, a coordinate the
+/// page displays, or its metadata — and left empty when none could, which is the common case on an
+/// ordinary page. So "no coordinate" must mean *no block*, not an empty map frame or a reserved gap.
+///
+/// A prefilled value is also not necessarily a latitude and longitude: a map on a national grid is
+/// recorded in its own system, and `CoordinateText.parse` returning nil for that is what keeps the
+/// map block off a card whose coordinate it cannot place.
 enum SharedFindingSection: Hashable {
 	case provenance
 	case title
@@ -575,8 +580,8 @@ struct SharedFindingUnverifiedView: View {
 	///
 	/// This is the block that makes a link *locate* rather than merely describe, for the case a
 	/// coordinate never covers: a detection on an ordinary page, where the page plus the place on it
-	/// is the whole answer. `Finding.gps_` is hand-typed and usually empty, so this is the common
-	/// case and the map block is the exception.
+	/// is the whole answer. `Finding.gps_` is empty whenever the page was not a map the resolver
+	/// could read (AIA-0817), so this stays the common case and the map block the exception.
 	///
 	/// **No imagery is involved and none could be.** Page snapshots never leave the device (AGENTS
 	/// §10), so the recipient gets a diagram of a page rather than the page: position and area are

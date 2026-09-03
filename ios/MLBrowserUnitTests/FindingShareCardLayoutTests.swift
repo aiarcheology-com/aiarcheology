@@ -19,6 +19,26 @@ final class FindingShareCardLayoutTests: XCTestCase {
 
 	/// A subject with a controllable number of metadata rows. Two and seven are the bounds the
 	/// ticket names.
+	/// The same subject twice, differing ONLY in how long its coordinate is.
+	///
+	/// Comparing subjects with different row counts would measure the extra rows rather than the
+	/// wrapping, which is exactly what the first version of this test did.
+	private func makeCoordinateSubject(gps: String) -> FindingShareSubject {
+		FindingShareSubject(
+			id: UUID(),
+			title: "dsds",
+			label: nil,
+			note: nil,
+			author: nil,
+			gps: gps,
+			detectionClass: "f7",
+			confidence: 0.46,
+			host: "ags.cuzk.cz",
+			date: Date(timeIntervalSince1970: 1_780_000_000),
+			page: URL(string: "https://ags.cuzk.cz/av/")
+		)
+	}
+
 	private func makeSubject(rows: Int, host: String = "geoportal.example.cz") -> FindingShareSubject {
 		FindingShareSubject(
 			id: UUID(),
@@ -57,9 +77,10 @@ final class FindingShareCardLayoutTests: XCTestCase {
 		_ subject: FindingShareSubject,
 		_ orientation: ShareCardOrientation,
 		_ scheme: ColorScheme,
-		layoutDirection: LayoutDirection = .leftToRight
+		layoutDirection: LayoutDirection = .leftToRight,
+		badge: Bool = true
 	) throws -> (image: UIImage, scale: CGFloat) {
-		let card = FindingShareCard(subject: subject, orientation: orientation, link: makeLink())
+		let card = FindingShareCard(subject: subject, orientation: orientation, link: badge ? makeLink() : nil)
 			.environment(\.colorScheme, scheme)
 			.environment(\.layoutDirection, layoutDirection)
 		let renderer = ImageRenderer(content: card)
@@ -212,6 +233,163 @@ final class FindingShareCardLayoutTests: XCTestCase {
 	/// could not fail whatever the layout did. This one renders six rows and seven and counts the ink
 	/// in the metadata block: if the last row is clipped off the bottom, or squeezed out by the badge
 	/// beside it, the seven-row card has no more marks on it than the six-row one.
+	/// A projected coordinate must not lose its NUMBERS to truncation.
+	///
+	/// Reported from a shared card: `S-JTSK (EPSG:5514): -8195…` — the label survived and the digits
+	/// did not, which tells a reader what kind of coordinate it is and not where it is. The two
+	/// subjects here are identical apart from the coordinate's length, so a taller render can only
+	/// mean the row wrapped rather than being cut.
+	func test_aProjectedCoordinateKeepsItsDigitsInBothOrientations() throws {
+		for orientation in ShareCardOrientation.allCases {
+			let (long, scale) = try render(
+				makeCoordinateSubject(gps: "S-JTSK (EPSG:5514): -819500.4472281, -1032881.7596427"),
+				orientation, .dark
+			)
+			let (short, _) = try render(makeCoordinateSubject(gps: "48.8, 19.53"), orientation, .dark)
+			let longRows = try inkRows(in: long, scale: scale)
+			let shortRows = try inkRows(in: short, scale: scale)
+			XCTAssertGreaterThan(
+				longRows, shortRows,
+				"\(orientation): a coordinate carrying its CRS drew no extra line — it is being truncated"
+			)
+		}
+	}
+
+	// MARK: - The note
+
+	/// The same subject at every row the card can draw, differing only in the note.
+	private func makeNoteSubject(note: String) -> FindingShareSubject {
+		FindingShareSubject(
+			id: UUID(),
+			title: "Overgrown rampart on the north ridge",
+			label: "rampart",
+			note: note,
+			author: "V. Slavík",
+			gps: "48.80000, 19.53000",
+			detectionClass: "earthwork",
+			confidence: 0.82,
+			host: "geoportal.example.cz",
+			date: Date(timeIntervalSince1970: 1_780_000_000),
+			page: URL(string: "https://geoportal.example.cz/geoprohlizec/")
+		)
+	}
+
+	/// A long note must use the room the landscape block actually has.
+	///
+	/// Reported from a build: the note truncated after two lines with the lower half of the metadata
+	/// block empty. Asserted in **ink rows**, because the card is a fixed size — its overall extent
+	/// says nothing — and asserted only in landscape, which is the orientation with slack: the
+	/// portrait block is nearly full at four lines already, so the same measurement there would be
+	/// pinning the absence of a defect rather than its fix.
+	func test_aLongNoteUsesTheLandscapeBlocksSpareLines() throws {
+		let (long, scale) = try render(makeNoteSubject(note: Self.longNote), .landscape, .light, badge: false)
+		let (short, _) = try render(makeNoteSubject(note: "Follows the contour."), .landscape, .light, badge: false)
+
+		let extra = try inkRowsInMetadata(in: long, scale: scale, .landscape)
+			- inkRowsInMetadata(in: short, scale: scale, .landscape)
+		// A caption line box is ~14pt, but only its *inked* rows are counted — measured at ~18 pixel
+		// rows per line at scale 2, the rest being leading. Nine extra lines therefore measure ~166;
+		// the two-line cap this replaces could add at most one, about 18. Six lines' worth is the
+		// threshold: far beyond the old behaviour, comfortably inside the new.
+		XCTAssertGreaterThan(
+			extra, 6 * 18,
+			"a long note added only \(extra) pixel rows — it is still being truncated with the block half empty"
+		)
+	}
+
+	/// The rows *below* the note must survive a note long enough to fill the block.
+	///
+	/// The mirror of the test above: room for the note is worth nothing if it is taken from the
+	/// coordinate, the host and the date underneath it.
+	func test_aLongNoteDoesNotCrowdOutTheCoordinate() throws {
+		for orientation in ShareCardOrientation.allCases {
+			let subject = makeNoteSubject(note: Self.longNote)
+			let (present, scale) = try render(subject, orientation, .light, badge: false)
+			let (absent, _) = try render(subject.withholdingLocation(), orientation, .light, badge: false)
+			XCTAssertGreaterThan(
+				try inkRowsInMetadata(in: present, scale: scale, orientation),
+				try inkRowsInMetadata(in: absent, scale: scale, orientation),
+				"\(orientation): the coordinate row drew nothing beside a long note — it was crowded out"
+			)
+		}
+	}
+
+	/// Pixel rows carrying ink **inside the metadata block**, whichever side of the card it is on.
+	///
+	/// Not `inkRows`, which samples the right-hand half of the image. That is the metadata block in
+	/// landscape and only *part* of it in portrait, where the block is full-width — and a caption row
+	/// like `48.80000, 19.53000` is about 100pt wide, so it never reaches the sampled half and
+	/// counted as nothing. The first version of the crowding test measured 172 rows with and without
+	/// the coordinate for exactly that reason: the instrument could not see the row it was about.
+	private func inkRowsInMetadata(
+		in image: UIImage,
+		scale: CGFloat,
+		_ orientation: ShareCardOrientation
+	) throws -> Int {
+		let cgImage = try XCTUnwrap(image.cgImage)
+		let width = cgImage.width, height = cgImage.height
+		var pixels = [UInt8](repeating: 0, count: width * height * 4)
+		let context = try XCTUnwrap(CGContext(
+			data: &pixels, width: width, height: height, bitsPerComponent: 8,
+			bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+			bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+		))
+		context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+		let originX = orientation == .portrait ? 0 : Int(orientation.imageSlotSize.width * scale)
+		let originY = orientation == .portrait ? Int(orientation.imageSlotSize.height * scale) : 0
+		var rows = 0
+		for y in originY..<height {
+			for x in originX..<width {
+				let i = (y * width + x) * 4
+				if pixels[i] < 200 || pixels[i + 1] < 200 || pixels[i + 2] < 200 { rows += 1; break }
+			}
+		}
+		return rows
+	}
+
+	/// Long enough to exhaust any line cap either orientation could reasonably have.
+	private static let longNote = String(
+		repeating: "Follows the contour for roughly two hundred metres before it turns. ",
+		count: 8
+	)
+
+	/// How many pixel rows carry ink in the metadata column.
+	///
+	/// The card is a fixed size, so its overall drawn extent does not change when a row wraps — the
+	/// first version of this test measured that and learned nothing. An extra line of text does add
+	/// ink rows, so those are counted, and only in the right-hand column where the metadata sits so
+	/// the snapshot image cannot dominate the measurement.
+	private func inkRows(in image: UIImage, scale: CGFloat) throws -> Int {
+		let cgImage = try XCTUnwrap(image.cgImage)
+		let width = cgImage.width, height = cgImage.height
+		var pixels = [UInt8](repeating: 0, count: width * height * 4)
+		let context = try XCTUnwrap(CGContext(
+			data: &pixels, width: width, height: height, bitsPerComponent: 8,
+			bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+			bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+		))
+		context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+		// Sample the background from a corner of the metadata side.
+		let sampleIndex = (8 * width + (width - 8)) * 4
+		let background = (pixels[sampleIndex], pixels[sampleIndex + 1], pixels[sampleIndex + 2])
+		let columnStart = width / 2
+		var rows = 0
+		for y in 0..<height {
+			for x in columnStart..<width {
+				let i = (y * width + x) * 4
+				if abs(Int(pixels[i]) - Int(background.0)) > 40
+					|| abs(Int(pixels[i + 1]) - Int(background.1)) > 40
+					|| abs(Int(pixels[i + 2]) - Int(background.2)) > 40 {
+					rows += 1
+					break
+				}
+			}
+		}
+		return rows
+	}
+
 	func test_theSeventhRowIsActuallyDrawn() throws {
 		for orientation in ShareCardOrientation.allCases {
 			let six = try inkInMetadata(of: makeSubject(rows: 6), orientation)

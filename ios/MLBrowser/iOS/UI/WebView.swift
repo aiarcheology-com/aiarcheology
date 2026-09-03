@@ -42,9 +42,25 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
     }
 
     public func makeUIView(context: Context) -> WKWebView {
-		// Configure user content controller for JavaScript message handling
-		let contentController = WKUserContentController()
+		let contentController = Self.makeUserContentController()
 		contentController.add(context.coordinator, name: "interactionHandler")
+		// AIA-0817: every frame announces itself here, which is the only way to obtain a
+		// `WKFrameInfo` for a child frame — WebKit has no API to enumerate them.
+		contentController.add(context.coordinator, name: "aiaMapFrame")
+
+		let config = WKWebViewConfiguration()
+		config.userContentController = contentController
+
+		return makeWebView(config: config, context: context)
+	}
+
+	/// Every user script the app injects, in one place.
+	///
+	/// Split out of `makeUIView` so a test can assert against the scripts the app *actually ships*
+	/// rather than a configuration the test built for itself. AIA-0817 shipped inert precisely
+	/// because its registry was installed only by its own tests, which could never notice.
+	static func makeUserContentController() -> WKUserContentController {
+		let contentController = WKUserContentController()
 
 		// Inject JavaScript to detect touch/pointer events
 		let touchDetectionScript = WKUserScript(
@@ -104,9 +120,32 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		)
 		contentController.addUserScript(touchDetectionScript)
 
-		let config = WKWebViewConfiguration()
-		config.userContentController = contentController
+		// AIA-0817: records map instances as their libraries construct them, so a finding saved on
+		// a map page can ask the live map where it is looking.
+		//
+		// Must be `.atDocumentStart`: it has to be watching for `L`, `ol` and the rest before the
+		// page's own scripts assign them, and at `.atDocumentEnd` every one of those assignments has
+		// already happened. (It watches by polling — an earlier version installed accessor
+		// properties on `window` and broke bundled applications outright.)
+		//
+		// Injected into every frame, because portals and documentation shells routinely put the map
+		// in an iframe. Each frame announces itself through the `aiaMapFrame` handler below, which
+		// is the only way to obtain a `WKFrameInfo` — WebKit cannot enumerate frames — and the probe
+		// then asks those frames as well as the main one.
+		if AppEnvironment.isMapLocationParserDisabled.not {
+			contentController.addUserScript(
+				WKUserScript(
+					source: MapProbeScript.registry,
+					injectionTime: .atDocumentStart,
+					forMainFrameOnly: false
+				)
+			)
+		}
 
+		return contentController
+	}
+
+	private func makeWebView(config: WKWebViewConfiguration, context: Context) -> WKWebView {
 		let webView = WKWebView(frame: .point, configuration: config)
 		webView.scrollView.bounces = false
 		// Let the page fill the web view's frame edge-to-edge instead of insetting its
@@ -237,6 +276,12 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		// MARK: - WKScriptMessageHandler
 
 		public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+			// AIA-0817: every frame announces itself so an iframed map can be probed. This must come
+			// BEFORE the interaction guard below, which returns for any other message name.
+			if message.name == "aiaMapFrame" {
+				browserState?.mapFrames.record(message.frameInfo)
+				return
+			}
 			guard message.name == "interactionHandler",
 				  let body = message.body as? String else { return }
 

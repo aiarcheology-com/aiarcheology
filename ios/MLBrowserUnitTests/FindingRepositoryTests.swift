@@ -43,6 +43,24 @@ final class FindingRepositoryTests: XCTestCase {
 		}
 	}
 
+	/// AIA-0817: every other call site passes `page: nil`, so without this nothing would notice if
+	/// `save` went back to reading the capture's URL and ignoring the editor's value.
+	func testSave_StoresTheMetadataPage_NotTheCapturesOwnURL() throws {
+		let edited = URL(string: "https://www.freemap.sk/#map=15/47.941230/18.709545")!
+		let finding = try sut.save(
+			capture: makeCapture(box: CGRect(x: 0.1, y: 0.1, width: 0.2, height: 0.2)),
+			image: makeImage(),
+			box: CGRect(x: 0.1, y: 0.1, width: 0.2, height: 0.2),
+			metadata: FindingMetadata(
+				title: "Edited page", label: "", note: "", author: "", gps: "", page: edited
+			)
+		)
+		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
+		// The capture carries a DIFFERENT URL, so this fails if `save` reads the capture again.
+		XCTAssertEqual(finding.page, edited)
+		XCTAssertNotEqual(finding.page?.host, "zbgis.skgeodesy.sk")
+	}
+
 	private func makeCapture(box: CGRect) -> FindingCapture {
 		FindingCapture(
 			observation: DetectedObject(uuid: UUID(), labels: [], confidence: 0.9, boundingBox: box, regionIndex: 0),
@@ -58,7 +76,7 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: "Test finding", label: " site ", note: "", author: "", gps: "")
+			metadata: FindingMetadata(title: "Test finding", label: " site ", note: "", author: "", gps: "", page: nil)
 		)
 		// The PNG is written to the real Documents dir even under an in-memory store — clean it up.
 		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
@@ -84,7 +102,7 @@ final class FindingRepositoryTests: XCTestCase {
 				capture: makeCapture(box: box),
 				image: makeImage(),
 				box: box,
-				metadata: FindingMetadata(title: "   ", label: "", note: "", author: "", gps: "")
+				metadata: FindingMetadata(title: "   ", label: "", note: "", author: "", gps: "", page: nil)
 			)
 		)
 		XCTAssertEqual(Finding.count(in: moc, predicate: nil), 0, "no row survives a failed save")
@@ -107,7 +125,7 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: visionBox),
 			image: makeImage(),
 			box: remappedBox,
-			metadata: FindingMetadata(title: "Cropped edge finding", label: "", note: "", author: "", gps: "")
+			metadata: FindingMetadata(title: "Cropped edge finding", label: "", note: "", author: "", gps: "", page: nil)
 		)
 		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
 
@@ -128,7 +146,7 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: "Signed finding", label: "", note: "", author: "Jane Archeologist", gps: "")
+			metadata: FindingMetadata(title: "Signed finding", label: "", note: "", author: "Jane Archeologist", gps: "", page: nil)
 		)
 		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
 
@@ -143,7 +161,7 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: "Unsigned finding", label: "", note: "", author: "   \n ", gps: "")
+			metadata: FindingMetadata(title: "Unsigned finding", label: "", note: "", author: "   \n ", gps: "", page: nil)
 		)
 		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
 
@@ -164,13 +182,13 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: "First finding", label: "", note: "", author: "Jane Archeologist", gps: "")
+			metadata: FindingMetadata(title: "First finding", label: "", note: "", author: "Jane Archeologist", gps: "", page: nil)
 		)
 		let second = try sut.save(
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: "Second finding", label: "", note: "", author: "Karol Nálezca", gps: "")
+			metadata: FindingMetadata(title: "Second finding", label: "", note: "", author: "Karol Nálezca", gps: "", page: nil)
 		)
 		defer {
 			FindingScreenshotStore.delete(filename: first.screenshotFilename)
@@ -200,13 +218,13 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: "Credited finding", label: "", note: "", author: "Jane Archeologist", gps: "")
+			metadata: FindingMetadata(title: "Credited finding", label: "", note: "", author: "Jane Archeologist", gps: "", page: nil)
 		)
 		let anonymous = try sut.save(
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: "Anonymous finding", label: "", note: "", author: " ", gps: "")
+			metadata: FindingMetadata(title: "Anonymous finding", label: "", note: "", author: " ", gps: "", page: nil)
 		)
 		defer {
 			FindingScreenshotStore.delete(filename: credited.screenshotFilename)
@@ -235,7 +253,7 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: captureBox),
 			image: makeImage(),
 			box: cropBox,
-			metadata: FindingMetadata(title: "Cropped finding", label: "", note: "", author: "", gps: "")
+			metadata: FindingMetadata(title: "Cropped finding", label: "", note: "", author: "", gps: "", page: nil)
 		)
 		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
 
@@ -271,7 +289,7 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: captureBox),
 			image: makeImage(),
 			box: CGRect(x: 0.6, y: 0.5, width: 0.25, height: 0.4),
-			metadata: FindingMetadata(title: "Recorded", label: "", note: "", author: "", gps: "")
+			metadata: FindingMetadata(title: "Recorded", label: "", note: "", author: "", gps: "", page: nil)
 		)
 		defer { FindingScreenshotStore.delete(filename: recorded.screenshotFilename) }
 		// A row that predates the attribute, spelled the way migration leaves one.
@@ -304,13 +322,13 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: "Credited finding", label: "", note: "", author: "Jane Archeologist", gps: "")
+			metadata: FindingMetadata(title: "Credited finding", label: "", note: "", author: "Jane Archeologist", gps: "", page: nil)
 		)
 		let anonymous = try sut.save(
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: "Anonymous finding", label: "", note: "", author: "", gps: "")
+			metadata: FindingMetadata(title: "Anonymous finding", label: "", note: "", author: "", gps: "", page: nil)
 		)
 		defer {
 			FindingScreenshotStore.delete(filename: credited.screenshotFilename)
@@ -334,7 +352,7 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: "Before", label: "", note: "", author: "", gps: "")
+			metadata: FindingMetadata(title: "Before", label: "", note: "", author: "", gps: "", page: nil)
 		)
 		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
 
@@ -371,7 +389,7 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: captureBox),
 			image: makeImage(),
 			box: CGRect(x: 0.6, y: 0.5, width: 0.25, height: 0.4),
-			metadata: FindingMetadata(title: "Local", label: "", note: "", author: "", gps: "")
+			metadata: FindingMetadata(title: "Local", label: "", note: "", author: "", gps: "", page: nil)
 		)
 		let id = finding.entityId
 		defer { FindingScreenshotStore.delete(filename: Finding.screenshotFilename(for: id)) }

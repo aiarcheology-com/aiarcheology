@@ -320,6 +320,46 @@ final class FindingShareEmissionTests: XCTestCase {
 		XCTAssertEqual(subject.linkPayload(pageDetail: .full).page?.absoluteString, raw)
 	}
 
+	// MARK: - Withholding the location
+
+	/// Turning the location off must take the coordinate out of the **link**, not only off the card.
+	///
+	/// The card is the visible artifact and the obvious one to gate; the link is the one that would
+	/// have kept working. A recipient opening a link whose card printed no coordinate would still be
+	/// shown the map pin, which is the exact opposite of what the sender asked for.
+	func test_withholdingLocation_takesTheCoordinateOutOfTheLink() {
+		let subject = makeSubject(gps: "leaflet: 48.8, 19.53")
+
+		XCTAssertNotNil(subject.linkPayload().coordinate, "precondition: this subject has a coordinate")
+		XCTAssertNil(
+			subject.withholdingLocation().linkPayload().coordinate,
+			"the coordinate survived in the link after the sender withheld the location"
+		)
+	}
+
+	/// Everything that is not the location must be untouched — a withheld coordinate is not a
+	/// redacted finding.
+	func test_withholdingLocation_changesNothingElse() throws {
+		let date = try makeDate(year: 2026, month: 3, day: 4)
+		let subject = makeSubject(
+			normalizedBox: CGRect(x: 0.1, y: 0.2, width: 0.3, height: 0.4),
+			captureNormalizedBox: CGRect(x: 0.5, y: 0.1, width: 0.2, height: 0.2),
+			date: date
+		)
+		let withheld = subject.withholdingLocation()
+
+		XCTAssertEqual(withheld.id, subject.id)
+		XCTAssertEqual(withheld.title, subject.title)
+		XCTAssertEqual(withheld.author, subject.author)
+		XCTAssertEqual(withheld.detectionClass, subject.detectionClass)
+		XCTAssertEqual(withheld.confidence, subject.confidence)
+		XCTAssertEqual(withheld.date, subject.date)
+		XCTAssertEqual(withheld.page, subject.page)
+		XCTAssertEqual(withheld.normalizedBox, subject.normalizedBox)
+		XCTAssertEqual(withheld.captureNormalizedBox, subject.captureNormalizedBox)
+		XCTAssertNil(withheld.gps)
+	}
+
 	/// The share sheet is where the sender's choice actually leaves the app, so the passthrough is
 	/// asserted on the emitted item rather than on the payload it was built from.
 	func test_items_carryTheAddressDetailTheSenderChose() throws {

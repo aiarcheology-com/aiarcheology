@@ -94,7 +94,12 @@ extension Finding: CoreDataManagableWithState {
 
     /// Pure validation: avoid main-actor-only APIs here. Findings are always captured
     /// on a remote page, so unlike WebHistoryEntry no file scheme is allowed.
-    private static func isValidPageURL(_ url: URL) -> Bool {
+    ///
+    /// Internal rather than private since AIA-0817: `FindingPageURL` applies the same rule *before*
+    /// a URL reaches the entity, so an unstorable one becomes "no page" instead of a validation
+    /// failure that deletes the finding. Two copies of this rule could drift apart, and the
+    /// consequence of drifting would be lost findings.
+    static func isValidPageURL(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased() else { return false }
         switch scheme {
         case "http", "https":

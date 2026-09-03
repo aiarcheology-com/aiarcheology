@@ -126,6 +126,8 @@ struct WebScreenView: View {
 	@State private var runningDetectorIDs: Set<UUID> = []
 	/// The tapped detection being saved; non-nil presents the save sheet.
 	@State private var findingCapture: FindingCapture?
+	/// Guards the asynchronous window between a pick and the sheet appearing (AIA-0817).
+	@State private var isResolvingCapture = false
 	/// Freezes DetectableView's displayed frame while the save sheet is up.
 	@State private var isCapturingFinding: Bool = false
 	/// Pick mode (Find/Store button): the next tap on the content marks the
@@ -563,16 +565,43 @@ struct WebScreenView: View {
 		// image its boxes came from, so the pair is coherent by construction.
 		if let frame = appliedFrame,
 		   let hit = FindingCapture.detection(at: location, in: size, results: frame.results) {
-			present(FindingCapture(
-				observation: hit.observation,
-				params: hit.params,
-				frame: frame,
-				pageURL: appState.browserState.displayedURL
-			))
+			presentResolvingLocation(observation: hit.observation, params: hit.params, frame: frame)
 			return
 		}
 
 		manualPick(at: location, in: size)
+	}
+
+	/// Resolves the page's URL and, where a map will say, its coordinate — then presents the sheet
+	/// (AIA-0817).
+	///
+	/// Asking the live map is asynchronous, so this is where a capture waits. The pick overlay stays
+	/// up until `present`, which is the same guarantee the fresh-snapshot path already relies on:
+	/// the page cannot be scrolled out from under a capture that is still being assembled.
+	private func presentResolvingLocation(
+		observation: DetectedObject,
+		params: DeepDriverParams?,
+		frame: AppliedDetectionFrame
+	) {
+		// Resolving is asynchronous and the pick overlay stays up throughout, so without this a
+		// second tap during the wait would start a second capture and present the sheet twice.
+		guard isResolvingCapture.not else { return }
+		isResolvingCapture = true
+		Task { @MainActor in
+			defer { isResolvingCapture = false }
+			let resolved = await appState.browserState.resolveCaptureLocation()
+			// The screen can be unmounted mid-resolve — a mode switch, or the user simply leaving —
+			// and `onDisappear` cancels the pick. Without this the sheet would arrive afterwards, on
+			// a screen the user had already walked away from (raised in review). `present` clears
+			// the flag itself, so this reads it while it still means "the pick is live".
+			guard findPickActive else { return }
+			present(FindingCapture(
+				observation: observation,
+				params: params,
+				frame: frame,
+				location: resolved
+			))
+		}
 	}
 
 	/// No detection under the tap: a synthetic observation around the point (no
@@ -587,16 +616,21 @@ struct WebScreenView: View {
 			regionIndex: 0
 		)
 		if let frame = appliedFrame {
-			present(FindingCapture(
-				observation: observation,
-				params: nil,
-				frame: frame,
-				pageURL: appState.browserState.displayedURL
-			))
+			presentResolvingLocation(observation: observation, params: nil, frame: frame)
 			return
 		}
+		// The same busy guard the frozen-frame path uses. This branch waits twice — for the resolver
+		// and then for a snapshot — with the overlay still up, so without it a second tap started a
+		// second capture and the later sheet overwrote the first (raised in review).
+		guard isResolvingCapture.not else { return }
+		isResolvingCapture = true
 		Task { @MainActor in
+			defer { isResolvingCapture = false }
 			LoggingPolicy.info("Manual finding pick: taking web snapshot", logger: .ui)
+			// Resolved BEFORE the snapshot await: the page can navigate while a snapshot is being
+			// taken, and the finding must record the page these pixels came from rather than
+			// whatever the web view moved on to.
+			let resolved = await appState.browserState.resolveCaptureLocation()
 			guard let image = await appState.webViewRenderer.snapshot() else {
 				// WebSnapshotRenderer records the concrete WebKit error when one is
 				// available. Cancelling here is the expected fallback for a frame that
@@ -606,11 +640,13 @@ struct WebScreenView: View {
 				cancelFindPick()
 				return
 			}
+			// See `presentResolvingLocation`: the screen may be gone by now.
+			guard findPickActive else { return }
 			present(FindingCapture(
 				observation: observation,
 				params: nil,
 				frame: AppliedDetectionFrame(image: image, results: []),
-				pageURL: appState.browserState.displayedURL
+				location: resolved
 			))
 		}
 	}

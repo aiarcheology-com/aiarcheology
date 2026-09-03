@@ -145,7 +145,7 @@ final class FindingsSyncCycleTests: XCTestCase {
 			capture: capture,
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: title, label: "", note: "", author: "", gps: "")
+			metadata: FindingMetadata(title: title, label: "", note: "", author: "", gps: "", page: nil)
 		)
 	}
 

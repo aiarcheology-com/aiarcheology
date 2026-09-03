@@ -27,15 +27,18 @@ extension FindingShareSubject {
 			title: title,
 			detectionClass: detectionClass,
 			confidencePercent: Self.percent(confidence),
-			// `gps` is a plain `TextField` that nothing in this app validates or auto-populates, so a
-			// value that will not parse is the **common** case rather than the exceptional one. It
-			// means the link carries no coordinate and the recipient sees no map block at all, which
-			// is what `SharedFindingSection.layout(for:)` is built around.
+			// `gps` is a freely editable `TextField`, so a value that will not parse stays a common
+			// case: the link then carries no coordinate and the recipient sees no map block at all,
+			// which is what `SharedFindingSection.layout(for:)` is built around.
+			//
+			// Since AIA-0817 a capture on a map page can prefill it, so parseable values are no
+			// longer rare. `CoordinateText.parse` strips this app's own provenance tag, which is why
+			// a prefilled `leaflet: 47.94123, 18.709545` still yields a map block.
 			coordinate: gps.flatMap(CoordinateText.parse),
 			// Where on the captured view the detection sat. For a detection on an ordinary page — a
 			// cat, a car, anything the model finds on a page that is not a map — this is the
-			// locator, in a way a coordinate never is: `gps_` is hand-typed and usually empty, while
-			// every finding has a box.
+			// locator, in a way a coordinate never is: `gps_` is empty whenever the page was not a
+			// map the resolver could read, while every finding has a box.
 			//
 			// **`captureNormalizedBox`, never `normalizedBox`** (AIA-0761). The two are the same
 			// rectangle only until the save sheet bakes a crop in; after that `normalizedBox` is

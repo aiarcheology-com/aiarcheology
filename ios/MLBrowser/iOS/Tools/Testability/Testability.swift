@@ -230,6 +230,8 @@ extension TestabilityIdentification {
 		case drawerFindings
 		// Save Finding
 		case saveFindingSave
+		case saveFindingCopyPage
+		case saveFindingCopyGps
 		case saveFindingCancel
 		case saveFindingSuggestion
 		case findPickCancel
@@ -239,6 +241,8 @@ extension TestabilityIdentification {
 		case findingsItem
 		case findingsFilterLabel
 		case findingsDeleteEntry
+		case findingDetailCopyPage
+		case findingDetailCopyGps
 		case findingsOpenPage
 		case findingsExport
 		case findingsSortOrder
@@ -310,6 +314,8 @@ extension TestabilityIdentification {
 		case findingShareIncludeLink
 		// Finding Share Composer — carry the page's whole address, or only its site (AIA-0657)
 		case findingShareFullAddress
+		// Finding Share Composer — print the recorded coordinate, or withhold it (AIA-0817)
+		case findingShareIncludeLocation
 		// Side Menu Cell
 		case sideMenuCellEnabled
 	}
@@ -430,12 +436,14 @@ extension TestabilityIdentification {
 		case saveFindingNote
 		case saveFindingAuthor
 		case saveFindingGps
+		case saveFindingPage
 		// Finding Detail
 		case findingDetailTitle
 		case findingDetailLabel
 		case findingDetailNote
 		case findingDetailAuthor
 		case findingDetailGps
+		case findingDetailPage
 	}
 	
 	enum Stepper: String, TestabilityIdentification {

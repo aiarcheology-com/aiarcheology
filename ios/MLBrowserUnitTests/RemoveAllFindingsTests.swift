@@ -71,7 +71,7 @@ final class RemoveAllFindingsTests: XCTestCase {
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: title, label: "site", note: "", author: "", gps: "")
+			metadata: FindingMetadata(title: title, label: "site", note: "", author: "", gps: "", page: nil)
 		)
 		return try XCTUnwrap(finding.screenshotFilename, "a saved finding has a screenshot filename")
 	}

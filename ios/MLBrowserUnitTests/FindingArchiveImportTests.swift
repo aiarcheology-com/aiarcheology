@@ -90,7 +90,7 @@ final class FindingArchiveImportTests: XCTestCase {
 			capture: capture,
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: title, label: "", note: note, author: "", gps: "")
+			metadata: FindingMetadata(title: title, label: "", note: note, author: "", gps: "", page: nil)
 		)
 	}
 

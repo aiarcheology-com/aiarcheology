@@ -402,6 +402,24 @@
 		F123020452F330E251BF7ACD /* DetectionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712469EC93143F6B26F643B4 /* DetectionCoordinator.swift */; };
 		F35245B164FCF75B65DC9CAC /* AuthStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D13058A1B4013C29CD5016E /* AuthStateTests.swift */; };
 		F91C3A2C067C269EC3C81972 /* SnapshotRenderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 885E22610F638752785ADEBB /* SnapshotRenderingTests.swift */; };
+		A1A0817000000000000007D0 /* MapLocationTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003E8 /* MapLocationTypes.swift */; };
+		A1A0817000000000000007D1 /* MapLocationTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003E9 /* MapLocationTypesTests.swift */; };
+		A1A0817000000000000007D2 /* MapURLLocationInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003EA /* MapURLLocationInference.swift */; };
+		A1A0817000000000000007D3 /* MapURLLocationInferenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003EB /* MapURLLocationInferenceTests.swift */; };
+		A1A0817000000000000007D4 /* MapProbeScript.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003EC /* MapProbeScript.swift */; };
+		A1A0817000000000000007D5 /* MapLocationProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003ED /* MapLocationProbe.swift */; };
+		A1A0817000000000000007D6 /* MapLocationProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003EE /* MapLocationProbeTests.swift */; };
+		A1A08170000000000000F002 /* MapHarness in Resources */ = {isa = PBXBuildFile; fileRef = A1A08170000000000000F001 /* MapHarness */; };
+		A1A0817000000000000007D7 /* MapLocationResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003EF /* MapLocationResolver.swift */; };
+		A1A0817000000000000007D8 /* MapLocationResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F0 /* MapLocationResolverTests.swift */; };
+		A1A0817000000000000007D9 /* BrowserStateCaptureURLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F1 /* BrowserStateCaptureURLTests.swift */; };
+		A1A0817000000000000007DA /* FindingPageURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F2 /* FindingPageURL.swift */; };
+		A1A0817000000000000007DB /* FindingPageURLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F3 /* FindingPageURLTests.swift */; };
+		A1A0817000000000000007DC /* MapLocationLiveSiteHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F4 /* MapLocationLiveSiteHarness.swift */; };
+		A1A0817000000000000007DD /* MapProbeInstallationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F5 /* MapProbeInstallationTests.swift */; };
+		A1A0817000000000000007DE /* MapURLViewportRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F6 /* MapURLViewportRefresh.swift */; };
+		A1A0817000000000000007DF /* MapCoordinateReferenceSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F7 /* MapCoordinateReferenceSystem.swift */; };
+		A1A0817000000000000007E0 /* MapFrameRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F8 /* MapFrameRegistry.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -815,6 +833,24 @@
 		F8CF376D75E083E37CB74C79 /* AppAccountToken.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppAccountToken.swift; sourceTree = "<group>"; };
 		FE763C674E423AFA68061960 /* ClerkAuthProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClerkAuthProvider.swift; sourceTree = "<group>"; };
 		FF6D3BFE7B1E5AFBA467ADF7 /* ModelTypeBackfillerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModelTypeBackfillerTests.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003E8 /* MapLocationTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationTypes.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003E9 /* MapLocationTypesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationTypesTests.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003EA /* MapURLLocationInference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapURLLocationInference.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003EB /* MapURLLocationInferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapURLLocationInferenceTests.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003EC /* MapProbeScript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapProbeScript.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003ED /* MapLocationProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationProbe.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003EE /* MapLocationProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationProbeTests.swift; sourceTree = "<group>"; };
+		A1A08170000000000000F001 /* MapHarness */ = {isa = PBXFileReference; lastKnownFileType = folder; path = MapHarness; sourceTree = "<group>"; };
+		A1A0817000000000000003EF /* MapLocationResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationResolver.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003F0 /* MapLocationResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationResolverTests.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003F1 /* BrowserStateCaptureURLTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserStateCaptureURLTests.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003F2 /* FindingPageURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingPageURL.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003F3 /* FindingPageURLTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingPageURLTests.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003F4 /* MapLocationLiveSiteHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationLiveSiteHarness.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003F5 /* MapProbeInstallationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapProbeInstallationTests.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003F6 /* MapURLViewportRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapURLViewportRefresh.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003F7 /* MapCoordinateReferenceSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapCoordinateReferenceSystem.swift; sourceTree = "<group>"; };
+		A1A0817000000000000003F8 /* MapFrameRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapFrameRegistry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -1034,6 +1070,7 @@
 		8A61C5122AB9A85900BF72BE /* State */ = {
 			isa = PBXGroup;
 			children = (
+				A1A0817000000000000003F2 /* FindingPageURL.swift */,
 				AC055600000000000000A001 /* FreeAccessWindow.swift */,
 				AC055600000000000000A005 /* FreeAccessState.swift */,
 				ABAA0650000000000000A003 /* SharedFindingState.swift */,
@@ -1283,6 +1320,14 @@
 		8AE0BC192A97B0B40086DDF9 /* MLBrowserUnitTests */ = {
 			isa = PBXGroup;
 			children = (
+				A1A0817000000000000003F5 /* MapProbeInstallationTests.swift */,
+				A1A0817000000000000003F4 /* MapLocationLiveSiteHarness.swift */,
+				A1A0817000000000000003F3 /* FindingPageURLTests.swift */,
+				A1A0817000000000000003F1 /* BrowserStateCaptureURLTests.swift */,
+				A1A0817000000000000003F0 /* MapLocationResolverTests.swift */,
+				A1A0817000000000000003EE /* MapLocationProbeTests.swift */,
+				A1A0817000000000000003EB /* MapURLLocationInferenceTests.swift */,
+				A1A0817000000000000003E9 /* MapLocationTypesTests.swift */,
 				AC055600000000000000A004 /* FreeAccessAnchorServiceTests.swift */,
 				AC055600000000000000A003 /* FreeAccessWindowTests.swift */,
 				AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */,
@@ -1545,6 +1590,7 @@
 		94E018910000000000000007 /* Fixtures */ = {
 			isa = PBXGroup;
 			children = (
+				A1A08170000000000000F001 /* MapHarness */,
 				94E018910000000000000003 /* terrain_iphone.png */,
 				94E018910000000000000005 /* terrain_ipad.png */,
 				D68006800000000000000005 /* VisionScaleFitProbe.mlmodel */,
@@ -1574,6 +1620,7 @@
 		A1B2C3D42F0104A300000001 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				A1A0817000000000001BC948 /* MapLocation */,
 				AC055600000000000000A002 /* FreeAccessAnchorService.swift */,
 				ABAA0115000000000000A008 /* MessageReplyPatchBuilder.swift */,
 				ABAA0115000000000000A014 /* MessageNotificationPlanner.swift */,
@@ -1664,6 +1711,21 @@
 				D6E1AE2D3040DF07006FA5FE /* MLBrowser_0.0.1_0.0.2.xcmappingmodel */,
 			);
 			path = "0.0.1-0.0.2";
+			sourceTree = "<group>";
+		};
+		A1A0817000000000001BC948 /* MapLocation */ = {
+			isa = PBXGroup;
+			children = (
+				A1A0817000000000000003F8 /* MapFrameRegistry.swift */,
+				A1A0817000000000000003F7 /* MapCoordinateReferenceSystem.swift */,
+				A1A0817000000000000003F6 /* MapURLViewportRefresh.swift */,
+				A1A0817000000000000003EF /* MapLocationResolver.swift */,
+				A1A0817000000000000003ED /* MapLocationProbe.swift */,
+				A1A0817000000000000003EC /* MapProbeScript.swift */,
+				A1A0817000000000000003EA /* MapURLLocationInference.swift */,
+				A1A0817000000000000003E8 /* MapLocationTypes.swift */,
+			);
+			path = MapLocation;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1844,6 +1906,7 @@
 		8AE0BC142A97B0B40086DDF9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
+				A1A08170000000000000F002 /* MapHarness in Resources */,
 				94E018910000000000000004 /* terrain_iphone.png in Resources */,
 				94E018910000000000000006 /* terrain_ipad.png in Resources */,
 			);
@@ -2007,6 +2070,15 @@
 		8AE0BBFC2A97B0B30086DDF9 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
+				A1A0817000000000000007E0 /* MapFrameRegistry.swift in Sources */,
+				A1A0817000000000000007DF /* MapCoordinateReferenceSystem.swift in Sources */,
+				A1A0817000000000000007DE /* MapURLViewportRefresh.swift in Sources */,
+				A1A0817000000000000007DA /* FindingPageURL.swift in Sources */,
+				A1A0817000000000000007D7 /* MapLocationResolver.swift in Sources */,
+				A1A0817000000000000007D5 /* MapLocationProbe.swift in Sources */,
+				A1A0817000000000000007D4 /* MapProbeScript.swift in Sources */,
+				A1A0817000000000000007D2 /* MapURLLocationInference.swift in Sources */,
+				A1A0817000000000000007D0 /* MapLocationTypes.swift in Sources */,
 				AC055600000000000000B002 /* FreeAccessAnchorService.swift in Sources */,
 				AC055600000000000000B001 /* FreeAccessWindow.swift in Sources */,
 				AC055600000000000000B005 /* FreeAccessState.swift in Sources */,
@@ -2245,6 +2317,14 @@
 		8AE0BC122A97B0B40086DDF9 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
+				A1A0817000000000000007DD /* MapProbeInstallationTests.swift in Sources */,
+				A1A0817000000000000007DC /* MapLocationLiveSiteHarness.swift in Sources */,
+				A1A0817000000000000007DB /* FindingPageURLTests.swift in Sources */,
+				A1A0817000000000000007D9 /* BrowserStateCaptureURLTests.swift in Sources */,
+				A1A0817000000000000007D8 /* MapLocationResolverTests.swift in Sources */,
+				A1A0817000000000000007D6 /* MapLocationProbeTests.swift in Sources */,
+				A1A0817000000000000007D3 /* MapURLLocationInferenceTests.swift in Sources */,
+				A1A0817000000000000007D1 /* MapLocationTypesTests.swift in Sources */,
 				AC055600000000000000B004 /* FreeAccessAnchorServiceTests.swift in Sources */,
 				AC055600000000000000B003 /* FreeAccessWindowTests.swift in Sources */,
 				AC055600000000000000B007 /* SubscriptionGateDisplayTests.swift in Sources */,

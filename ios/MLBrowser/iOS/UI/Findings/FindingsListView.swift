@@ -1066,6 +1066,9 @@ private struct FindingDetailView: View {
 	/// credit on findings captured by, or already shared with, someone else.
 	@State private var author = ""
 	@State private var gps = ""
+	/// The page URL, editable since AIA-0817. Before that a URL the app resolved wrongly was
+	/// permanent once saved, and a finding captured with no page had nowhere to gain one.
+	@State private var page = ""
 	@State private var saveFailed = false
 
 	@State private var shareSubject: FindingShareSubject?
@@ -1081,13 +1084,16 @@ private struct FindingDetailView: View {
 			// name belongs above the picture in both places — reading one form and editing the other
 			// should not mean hunting for the same field in a different position.
 			titleSection
+			// Where the finding IS comes before how it looked: on a map site the page and the
+			// coordinate answer the question the finding was made to answer, and they were
+			// previously below the image and three text fields.
+			pageSection
+			gpsSection
 			snapshotSection
 			labelSection
 			noteSection
 			authorSection
-			gpsSection
 			detectionSection
-			pageSection
 		}
 		.navigationTitle(finding.displayTitle)
 		.navigationBarTitleDisplayMode(.inline)
@@ -1161,10 +1167,35 @@ private struct FindingDetailView: View {
 
 	private var gpsSection: some View {
 		Section(L10n.Finding.gps) {
-			TextField(L10n.Finding.gpsPlaceholder, text: $gps)
-				.keyboardType(.numbersAndPunctuation)
-				.testability(Testability.TextField.findingDetailGps)
+			HStack(alignment: .firstTextBaseline, spacing: 8) {
+				// The ordinary keyboard, for the reason the save sheet's copy of this field carries:
+				// the value can hold letters — `leaflet: 47.9, 18.7`, `S-JTSK (EPSG:5514): …` — and a
+				// numeric keyboard cannot type one of them. Fixed in the save sheet first and missed
+				// here, which is exactly the kind of half-fix a second reviewer catches.
+				TextField(L10n.Finding.gpsPlaceholder, text: $gps)
+					.testability(Testability.TextField.findingDetailGps)
+				copyButton(gps, identifier: Testability.Button.findingDetailCopyGps)
+			}
 		}
+	}
+
+	/// A visible copy button, matching the save sheet and the model download screen.
+	private func copyButton(_ value: String, identifier: Testability.Button) -> some View {
+		Button {
+			// Plain text ONLY, not `UIPasteboard.string`.
+			//
+			// A stored coordinate begins `arcgis: `, `leaflet: ` … which UIKit reads as a URL
+			// scheme: setting `.string` also publishes a URL flavour, and a receiving app that
+			// prefers it pastes `arcgis:%2040.92…` with the spaces percent-encoded. Declaring a
+			// single plain-text representation leaves nothing else for anyone to choose.
+			UIPasteboard.general.setValue(value, forPasteboardType: "public.utf8-plain-text")
+		} label: {
+			Image(systemName: "doc.on.doc")
+		}
+		.accessibilityLabel(L10n.Common.copy)
+		.buttonStyle(.borderless)
+		.disabled(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+		.testability(identifier)
 	}
 
 	@ViewBuilder
@@ -1181,20 +1212,26 @@ private struct FindingDetailView: View {
 
 	@ViewBuilder
 	private var pageSection: some View {
-		if let page = finding.page {
-			Section(L10n.Finding.page) {
-				Text(page.absoluteString)
+		// Always shown, unlike before AIA-0817: the section used to vanish when `page` was nil,
+		// which is exactly the finding that most needs somewhere to put a URL.
+		Section(L10n.Finding.page) {
+			// `L10n.Finding.page` doubles as the prompt, so the control carries an accessibility
+			// label without adding a string to all 17 locales.
+			HStack(alignment: .firstTextBaseline, spacing: 8) {
+				TextField(L10n.Finding.page, text: $page, axis: .vertical)
 					.font(.caption)
-					.foregroundStyle(.secondary)
-					.contextMenu {
-						Button {
-							UIPasteboard.general.string = page.absoluteString
-						} label: {
-							Label(L10n.Common.copy, systemImage: "doc.on.doc")
-						}
-					}
+					.lineLimit(1...3)
+					.keyboardType(.URL)
+					.textInputAutocapitalization(.never)
+					.autocorrectionDisabled()
+					.testability(Testability.TextField.findingDetailPage)
+				copyButton(page, identifier: Testability.Button.findingDetailCopyPage)
+			}
+			// Offered only for a URL that can actually be opened, so the button never appears
+			// against text the user is midway through typing.
+			if let openable = resolvedPage {
 				Button {
-					onOpenPage(page)
+					onOpenPage(openable)
 				} label: {
 					Label(L10n.Findings.openPage, systemImage: "safari")
 				}
@@ -1253,6 +1290,15 @@ private struct FindingDetailView: View {
 			|| normalized(note) != finding.note_
 			|| normalized(author) != finding.author
 			|| normalized(gps) != finding.gps_
+			|| resolvedPage != finding.page
+	}
+
+	/// What saving would store for the page, given what is currently typed.
+	///
+	/// Shared by ``hasChanges`` and ``saveEdits`` deliberately: if the two applied different rules,
+	/// an unusable edit could enable Save and then quietly store nothing.
+	private var resolvedPage: URL? {
+		FindingPageURL.resolve(edited: page, captured: finding.page)
 	}
 
 	private var trimmedTitle: String {
@@ -1265,6 +1311,7 @@ private struct FindingDetailView: View {
 		note = finding.note_ ?? ""
 		author = finding.author ?? ""
 		gps = finding.gps_ ?? ""
+		page = finding.page?.absoluteString ?? ""
 	}
 
 	private func saveEdits() {
@@ -1273,6 +1320,7 @@ private struct FindingDetailView: View {
 		finding.note_ = normalized(note)
 		finding.author = normalized(author)
 		finding.gps_ = normalized(gps)
+		finding.page = resolvedPage
 		do {
 			try findingRepository.commitEdits()
 		} catch {
