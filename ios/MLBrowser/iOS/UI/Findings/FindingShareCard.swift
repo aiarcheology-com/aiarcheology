@@ -88,7 +88,20 @@ struct FindingShareSubject: Identifiable {
 		detectionClass = finding.detectionClass
 		confidence = finding.detectionConfidence
 		host = finding.page?.host
-		date = finding.creationDate_
+		// A received finding whose link carried no date has `creationDate_` standing in as the
+		// receipt instant, because the attribute is required and the list sorts on it. That is a
+		// local bookkeeping value, NOT a capture date, and re-sharing it would tell a third party
+		// the finding was made on the day this device happened to receive it (AIA-0835).
+		//
+		// Compared with a one-second tolerance, not for equality. `saveReceived` assigns both from
+		// one value, but a replace-import rewrites `creationDate_` from the wire -- whole seconds,
+		// via ISO8601DateFormatter -- while leaving `receivedAt` at its original fractional value,
+		// so exact equality would quietly stop matching and the receipt instant would travel as a
+		// capture date again. A real capture date landing within a second of the receipt instant is
+		// the only false positive, and it costs a dropped day rather than a fabricated one.
+		let standsInForAbsence = finding.source == .received
+			&& finding.receivedAt.map { abs(finding.creationDate_?.timeIntervalSince($0) ?? .infinity) < 1 } == true
+		date = standsInForAbsence ? nil : finding.creationDate_
 		page = finding.page
 	}
 

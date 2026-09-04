@@ -273,6 +273,7 @@ extension TestabilityIdentification {
 		/// Shown instead of the unverified card when the id in the link matches a finding this device
 		/// already stores — it opens the findings inventory rather than the link's copy of the work.
 		case sharedFindingOpenOwn
+		case sharedFindingDone
 		/// Loads the map for the link's coordinate. Its presence is the assertion that no map was
 		/// mounted on arrival — tiles are only fetched for a sender-chosen point once tapped.
 		case sharedFindingShowMap
@@ -325,6 +326,8 @@ extension TestabilityIdentification {
 	}
 	
 	enum Picker: String, TestabilityIdentification {
+		// Findings
+		case findingsTab
 		// Settings
 		case settingsFrequency
 		// Model Catalog

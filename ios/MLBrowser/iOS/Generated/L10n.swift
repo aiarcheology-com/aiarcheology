@@ -565,6 +565,14 @@ internal enum L10n {
       /// Tap the place to store
       internal static let hint = L10n.tr("Localizable", "finding.pick.hint", fallback: "Tap the place to store")
     }
+    internal enum Received {
+      /// No photo travelled with this link — the outline shows where the detection sat.
+      internal static let noImage = L10n.tr("Localizable", "finding.received.noImage", fallback: "No photo travelled with this link — the outline shows where the detection sat.")
+      /// Received
+      internal static let on = L10n.tr("Localizable", "finding.received.on", fallback: "Received")
+      /// Sent to you by someone else. Shown as they wrote it.
+      internal static let provenance = L10n.tr("Localizable", "finding.received.provenance", fallback: "Sent to you by someone else. Shown as they wrote it.")
+    }
     internal enum Save {
       /// Save
       internal static let action = L10n.tr("Localizable", "finding.save.action", fallback: "Save")
@@ -610,6 +618,8 @@ internal enum L10n {
     internal enum Shared {
       /// Open the Original Page
       internal static let openPage = L10n.tr("Localizable", "finding.shared.openPage", fallback: "Open the Original Page")
+      /// This finding could not be saved on your device.
+      internal static let saveFailed = L10n.tr("Localizable", "finding.shared.saveFailed", fallback: "This finding could not be saved on your device.")
       /// Show on Map
       internal static let showOnMap = L10n.tr("Localizable", "finding.shared.showOnMap", fallback: "Show on Map")
       /// Shared Finding
@@ -778,6 +788,14 @@ internal enum L10n {
           internal static let title = L10n.tr("Localizable", "findings.sync.synchronize.help.title", fallback: "About Synchronize")
         }
       }
+    }
+    internal enum Tab {
+      /// Findings source
+      internal static let accessibility = L10n.tr("Localizable", "findings.tab.accessibility", fallback: "Findings source")
+      /// My
+      internal static let mine = L10n.tr("Localizable", "findings.tab.mine", fallback: "My")
+      /// Received
+      internal static let received = L10n.tr("Localizable", "findings.tab.received", fallback: "Received")
     }
   }
   internal enum History {

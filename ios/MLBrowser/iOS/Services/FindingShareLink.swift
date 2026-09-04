@@ -80,9 +80,15 @@ enum FindingShareLink {
 	/// factor, so the real margin is `floor(264 / 79) = 3`px per module — identical to the 250/64pt
 	/// pairing it replaces (`floor(192 / 63) = 3`), which is why the budget could grow at all.
 	///
+	/// **AIA-0836 tried to raise this to 620 and could not.** The budget is bounded by
+	/// ``FindingShareQRCode/maximumPointSize``, and the card cannot afford a wider badge — see the
+	/// measurement recorded there. What that ticket did deliver is the id's *cost*: base64url takes
+	/// `i=<value>&` from 39 characters to 25, and taking `i` off the shed ladder means the saving is
+	/// spent on keeping it rather than on carrying one more optional field.
+	///
 	/// The superseded comment claimed 250 characters "lands near version 10 (57 modules)". It does
 	/// not: v10 holds 213 bytes at EC-M, so 250 needed v11 (61 modules). Recorded because the same
-	/// arithmetic is what justifies the new number.
+	/// arithmetic is what justifies the current number.
 	static let maximumCompactLength = 400
 
 	/// The longest URL the parser will look at, and a *defensive* limit rather than a contract one.
@@ -94,7 +100,7 @@ enum FindingShareLink {
 	static let maximumAcceptedLength = 2048
 
 	/// The most key/value pairs the parser will consider. A URL inside ``maximumAcceptedLength`` can
-	/// still hold hundreds of two-character pairs; the contract defines nine.
+	/// still hold hundreds of two-character pairs; the contract defines eleven.
 	static let maximumAcceptedFields = 32
 
 	private enum Key {
@@ -104,6 +110,7 @@ enum FindingShareLink {
 		static let detectionClass = "c"
 		static let confidence = "p"
 		static let coordinate = "g"
+		static let locationText = "l"
 		static let box = "b"
 		static let page = "u"
 		static let author = "a"
@@ -117,6 +124,10 @@ enum FindingShareLink {
 		static let compactTitle = 40
 		static let detectionClass = 60
 		static let author = 60
+		/// The location as written. Generous enough for a projected-CRS reading with its system name
+		/// -- `S-JTSK (EPSG:5514): -830000.1968993, -1027969.1358175` is 53 characters -- and capped
+		/// because it is free text a stranger can set and this app renders.
+		static let locationText = 80
 		/// The reduced page form — scheme, host and path only.
 		static let page = 400
 		/// The full form, which carries the query and fragment a map viewer keeps its view in.
@@ -254,6 +265,20 @@ enum FindingShareLink {
 		/// model produces, so the link never carries more precision than it renders.
 		let confidencePercent: Int?
 		let coordinate: Coordinate?
+		/// The location **exactly as the finding stores it**, whatever notation that is (AIA-0836).
+		///
+		/// ``coordinate`` is the same place parsed into degrees, and it is `nil` for most of the
+		/// notations a real capture produces: `gps_` is a free text field, and since AIA-0817 a map
+		/// page can prefill it in whatever coordinate system that page reports. A Czech geoportal
+		/// yields `S-JTSK (EPSG:5514): -830000.19, -1027969.13` — projected metres, four tokens, no
+		/// degrees anywhere — so the structured field was empty and the recipient was shown no
+		/// location at all for a finding whose sender could see one perfectly well.
+		///
+		/// So the text travels beside the degrees rather than instead of them. ``coordinate`` still
+		/// drives the map pin and the landing page, and is still `nil` when the notation cannot be
+		/// read as degrees; this is what the recipient *displays*, and it says what the sender's own
+		/// card said.
+		let locationText: String?
 		/// Where on the page the detection sat. For a detection on an ordinary page this is the
 		/// locator — the page plus where on it — in a way a coordinate never is, since `Finding.gps_`
 		/// is hand-typed and usually empty.
@@ -271,6 +296,7 @@ enum FindingShareLink {
 			detectionClass: String? = nil,
 			confidencePercent: Int? = nil,
 			coordinate: Coordinate? = nil,
+			locationText: String? = nil,
 			box: Box? = nil,
 			page: URL? = nil,
 			author: String? = nil,
@@ -281,6 +307,7 @@ enum FindingShareLink {
 			self.detectionClass = detectionClass
 			self.confidencePercent = confidencePercent
 			self.coordinate = coordinate
+			self.locationText = locationText
 			self.box = box
 			self.page = page
 			self.author = author
@@ -337,13 +364,29 @@ enum FindingShareLink {
 
 	/// One pass of the drop ladder at a fixed page detail. `nil` means "not at this detail".
 	private static func fitted(_ payload: Payload, variant: Variant, pageDetail: PageDetail) -> URL? {
-		// Least important first. `g` leads because a hand-typed coordinate is the field a finding is
-		// least likely to have at all; `i` trails because it is mechanism rather than content — its
-		// only job is recognising a link to a finding the recipient already owns. The product owner
-		// ranked the rest: title, address and author are the must-haves, so `a` is the last piece of
-		// *content* to go and `t` and `u` never go (AIA-0657).
+		// Least important first. `g` leads because since AIA-0836 it is the cheaper loss *in the app*:
+		// it is the degrees, and `l` beside it carries the same place as the sender wrote it, so
+		// shedding `g` costs the map pin while the recipient still reads the location.
+		//
+		// It is **not** free for the second reader. The landing page parses `g` and knows nothing of
+		// `l`, so a shed `g` leaves the web card with no location at all — accepted deliberately: the
+		// app is where a finding is opened, and the page exists for someone who does not have it yet.
+		// Teaching the page to read `l` is the fix if that ever stops being the right trade. `l` sits near the end for the mirror
+		// of that reason — once the degrees are gone it is the only location left, and a finding on a
+		// map page is largely *about* where it is. It outranks the date, the class, the confidence
+		// and the box; only the author still outranks it. The product owner ranked the rest: title,
+		// address and author are the must-haves, so `a` is the last piece of *content* to go and `t`
+		// and `u` never go (AIA-0657).
+		//
+		// `i` is **not** on this list, and it used to be — last, on the reasoning that it was
+		// mechanism rather than content, "its only job is recognising a link to a finding the recipient
+		// already owns". AIA-0835 retired that reason: a received link is now stored, so the id is
+		// the row's identity and shedding it costs a duplicate row on every re-scan rather than a
+		// slightly worse card. base64url (§8.1) makes it cheap — 25 characters including `i=&` — and
+		// taking it off the ladder makes it guaranteed; `author`, `box` and `coordinate` ranked below
+		// it and absorb the pressure it no longer relieves (AIA-0836).
 		let droppable: [String] = [
-			Key.coordinate, Key.date, Key.detectionClass, Key.confidence, Key.box, Key.author, Key.id
+			Key.coordinate, Key.date, Key.detectionClass, Key.confidence, Key.box, Key.locationText, Key.author
 		]
 		var dropped: Set<String> = []
 
@@ -383,7 +426,7 @@ enum FindingShareLink {
 			pairs.append((key, value))
 		}
 
-		add(Key.id, payload.id?.uuidString)
+		add(Key.id, payload.id.map(encodedID))
 		add(Key.title, sanitizedText(titleOverride ?? payload.title, limit: variant.titleLimit))
 		add(Key.detectionClass, sanitizedText(payload.detectionClass, limit: Limit.detectionClass))
 		// Range-checked on the way out as well as the way in. `Payload` is a plain struct that
@@ -392,6 +435,7 @@ enum FindingShareLink {
 		// page's query string escape; closed the same way, at the boundary rather than by convention.
 		add(Key.confidence, payload.confidencePercent.flatMap { (0...100).contains($0) ? String($0) : nil })
 		add(Key.coordinate, payload.coordinate.map(formatted))
+		add(Key.locationText, sanitizedLocation(payload.locationText))
 		add(Key.box, payload.box.flatMap(formattedBox))
 		// Reduced again on the way out, even though `FindingShareSubject.linkPayload` already reduced
 		// it. Not redundant: `Payload` is a plain struct that validates nothing, so "the page is
@@ -521,11 +565,12 @@ enum FindingShareLink {
 		guard let title = sanitizedText(fields[Key.title], limit: Limit.title) else { return nil }
 
 		return Payload(
-			id: fields[Key.id].flatMap(UUID.init(uuidString:)),
+			id: fields[Key.id].flatMap(decodedID),
 			title: title,
 			detectionClass: sanitizedText(fields[Key.detectionClass], limit: Limit.detectionClass),
 			confidencePercent: fields[Key.confidence].flatMap(parseConfidence),
 			coordinate: fields[Key.coordinate].flatMap(parseWireCoordinate),
+			locationText: sanitizedLocation(fields[Key.locationText]),
 			box: fields[Key.box].flatMap(parseBox),
 			page: fields[Key.page].flatMap(acceptedPage),
 			author: sanitizedText(fields[Key.author], limit: Limit.author),
@@ -588,6 +633,55 @@ enum FindingShareLink {
 		value.addingPercentEncoding(withAllowedCharacters: valueAllowed) ?? ""
 	}
 
+	/// The id on the wire: a UUID's 16 raw bytes as unpadded base64url, 22 characters (AIA-0836).
+	///
+	/// `uuidString` costs 36, so `i=<value>&` costs 39 of the compact variant's budget against 25
+	/// here — 14 characters saved on every link that carries an id. That matters only because
+	/// AIA-0835 made the id load-bearing: it is the received row's identity, so the budget it costs
+	/// is what decides whether a printed card produces a duplicate row when it is scanned twice.
+	///
+	/// The base64url alphabet is entirely URL-unreserved, so ``percentEncoded(_:)`` leaves all 22
+	/// characters alone and the saving survives encoding rather than being inflated back away.
+	///
+	/// `uuid_t` is a tuple of 16 `UInt8`, so this is a byte copy in both directions with no byte
+	/// order to get wrong — the bytes come back in the order they went out on any architecture.
+	private static func encodedID(_ id: UUID) -> String {
+		withUnsafeBytes(of: id.uuid) { Data($0) }
+			.base64EncodedString()
+			.replacingOccurrences(of: "+", with: "-")
+			.replacingOccurrences(of: "/", with: "_")
+			.replacingOccurrences(of: "=", with: "")
+	}
+
+	/// Reads ``encodedID(_:)``, falling back to the 36-character `uuidString` form.
+	///
+	/// The fallback is not legacy support for the field — `FindingShareLink.swift` is absent from tag
+	/// 1.0.7 and was added afterwards by `c94278bb`, so no shipped client ever emitted the long form
+	/// and no `v=` bump is owed. It is there for the links already sitting in internal TestFlight
+	/// builds and in test fixtures, which would otherwise silently lose their id and import as
+	/// duplicates — the precise failure this ticket exists to remove.
+	///
+	/// Length is checked before decoding rather than after: `Data(base64Encoded:)` accepts a
+	/// shorter string and yields fewer than 16 bytes, and a truncated id that parsed would be a
+	/// *different* finding rather than a rejected link.
+	private static func decodedID(_ raw: String) -> UUID? {
+		guard raw.count == 22 else { return UUID(uuidString: raw) }
+		let base64 = raw
+			.replacingOccurrences(of: "-", with: "+")
+			.replacingOccurrences(of: "_", with: "/")
+			.appending("==")
+		guard let data = Data(base64Encoded: base64), data.count == 16 else { return UUID(uuidString: raw) }
+		let id = UUID(uuid: data.withUnsafeBytes { $0.loadUnaligned(as: uuid_t.self) })
+		// One id, one wire form. 16 bytes is 128 bits and 22 base64 characters carry 132, so the last
+		// character has 4 bits Foundation simply ignores: `…AAAAA`, `…AAAAB` and `…AAAAP` all decode
+		// to the same UUID. That is harmless on its own — no alias decodes to a *different* id, so no
+		// alias can produce a second row — but the id's whole job here is to be a finding's identity,
+		// and an identity with sixteen spellings is one a future dedupe could compare as text and get
+		// wrong. Re-encoding costs nothing and makes the round trip exact in both directions.
+		guard encodedID(id) == raw else { return nil }
+		return id
+	}
+
 	/// Trims, strips characters that have no business in a label, and caps the length.
 	///
 	/// Control characters and the Unicode bidirectional overrides are removed rather than escaped:
@@ -605,6 +699,26 @@ enum FindingShareLink {
 			.trimmingCharacters(in: .whitespacesAndNewlines)
 		guard cleaned.isEmpty.not else { return nil }
 		return cleaned.count <= limit ? cleaned : String(cleaned.prefix(limit))
+	}
+
+	/// The location as written, or `nil` — **never a shortened version of it** (AIA-0836).
+	///
+	/// Every other text field degrades by truncation, and for a title or an author's name a clipped
+	/// value is still recognisably the thing it names. A coordinate does not degrade that way: what
+	/// `prefix(_:)` removes is the trailing *digits*, so
+	/// `Web Mercator (EPSG:3857): 1134425.9924799, 6045439.9357442 near the old mill` arrives as
+	/// `…6045439.93574` — which still parses, still looks like a location, and is somewhere else.
+	/// A missing location is a gap the recipient can see; a shortened one is a lie they cannot.
+	///
+	/// So an over-long value is dropped, and `g` — the degrees, when they parsed — carries the place
+	/// on its own. `FindingShareCard` records the same hazard for the row it prints.
+	/// `.max` is load-bearing: ``sanitizedText(_:limit:)`` truncates to the limit it is *given*, so
+	/// asking it for `Limit.locationText` and then checking the length is a test that can never fail
+	/// — the value has already been shortened by the time it is measured. Cleaning happens without a
+	/// cap so the length below is the length the sender actually wrote.
+	private static func sanitizedLocation(_ raw: String?) -> String? {
+		guard let cleaned = sanitizedText(raw, limit: .max) else { return nil }
+		return cleaned.count <= Limit.locationText ? cleaned : nil
 	}
 
 	/// LRE, RLE, PDF, LRO, RLO, LRI, RLI, FSI, PDI — the overrides that let text render in an order
@@ -951,7 +1065,8 @@ enum CoordinateText {
 	/// Since AIA-0817 a captured coordinate is stored with its provenance — `leaflet: 48.8, 19.53`
 	/// — so that a reader can tell a live-map reading from one guessed out of a URL. Without this,
 	/// every auto-filled finding would silently lose its share-link map pin, because `parse`
-	/// requires exactly two tokens.
+	/// requires exactly two tokens. Since AIA-0836 what a nil parse costs is the **pin**, not the
+	/// location: the text travels in its own field and the recipient's card still shows it.
 	///
 	/// Restricted to ``MapLocationSource/storageTags`` rather than "any leading lowercase word" on
 	/// purpose: a user typing `note: 48.8, 19.53` into the free-text field means it as prose, and

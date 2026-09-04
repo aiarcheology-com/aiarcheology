@@ -958,6 +958,27 @@ final class FindingMigrationTests: XCTestCase {
             }
         }
 
+        // AIA-0835: a finding that predates provenance is the user's own work, and must land in the
+        // My tab rather than among findings a stranger sent. The mapping deliberately gives
+        // `source_` no value expression, so the column arrives nil — and `Finding.source` reads nil
+        // as `.local`.
+        //
+        // Asserted on the RAW attribute rather than through `Finding.source`: these rows are plain
+        // `NSManagedObject`s, and reading the typed accessor here would test the accessor's default
+        // instead of what migration actually wrote. A mapping that populated `source_` with anything
+        // would pass a `source == .local` check via the accessor's fallback while having silently
+        // written a value.
+        for row in migrated {
+            XCTAssertNil(
+                row.value(forKey: "source_"),
+                "migration must leave source_ unset; nil is what makes a legacy finding read as .local"
+            )
+            XCTAssertNil(
+                row.value(forKey: "receivedAt"),
+                "a finding captured on this device was never received from a link"
+            )
+        }
+
         // AIA-713: what migration does to the new modifiedAt column was OBSERVED here rather than
         // assumed — the first guess (that Core Data instantiates destination rows as the real
         // `Finding` subclass, so `willSave()` stamps them) is WRONG, and this assertion is what

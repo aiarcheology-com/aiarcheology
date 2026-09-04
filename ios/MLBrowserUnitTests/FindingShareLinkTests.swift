@@ -19,6 +19,7 @@ final class FindingShareLinkTests: XCTestCase {
 		detectionClass: String? = "stone_wall",
 		confidencePercent: Int? = 87,
 		coordinate: FindingShareLink.Coordinate? = FindingShareLink.Coordinate(latitude: 48.8, longitude: 19.53),
+		locationText: String? = nil,
 		box: FindingShareLink.Box? = nil,
 		page: URL? = URL(string: "https://example.org/ruins"),
 		author: String? = "V. Slavík",
@@ -30,6 +31,7 @@ final class FindingShareLinkTests: XCTestCase {
 			detectionClass: detectionClass,
 			confidencePercent: confidencePercent,
 			coordinate: coordinate,
+			locationText: locationText,
 			box: box,
 			page: page,
 			author: author,
@@ -791,6 +793,216 @@ final class FindingShareLinkTests: XCTestCase {
 		let page = try XCTUnwrap(FindingShareLink.payload(from: url)?.page)
 
 		XCTAssertEqual(page.host, "portal.example.org")
+		XCTAssertLessThanOrEqual(url.absoluteString.count, FindingShareLink.maximumCompactLength)
+	}
+
+	// MARK: - The location travels as written (AIA-0836)
+
+	/// The reported bug: a finding whose location is in a projected coordinate system arrived with no
+	/// location at all.
+	///
+	/// `ags.cuzk.cz` prefills S-JTSK — projected metres, a system name, a parenthesised EPSG code and
+	/// a colon that is not a storage tag. `CoordinateText.parse` reads degrees and nothing else, so
+	/// `coordinate` is legitimately nil here and cannot be anything else: -830000 is not a latitude.
+	/// The text is what has to survive.
+	func test_aProjectedCoordinateSystemTravelsAsWrittenEvenThoughItIsNotDegrees() throws {
+		let written = "S-JTSK (EPSG:5514): -830000.1968993, -1027969.1358175"
+		let payload = makePayload(coordinate: nil, locationText: written)
+		let parsed = try roundTrip(payload)
+
+		XCTAssertEqual(parsed.locationText, written, "the recipient must see what the sender's card showed")
+		XCTAssertNil(parsed.coordinate, "projected metres are not degrees and must not be read as a pin")
+	}
+
+	/// Degrees and text travel together: the pin still works, and the recipient still sees the
+	/// sender's own notation rather than a reformatting of it.
+	func test_aReadableCoordinateKeepsBothItsPinAndItsWording() throws {
+		let payload = makePayload(
+			coordinate: FindingShareLink.Coordinate(latitude: 47.94123, longitude: 18.709545),
+			locationText: "leaflet: 47.94123, 18.709545"
+		)
+		let parsed = try roundTrip(payload)
+
+		XCTAssertEqual(parsed.coordinate?.latitude ?? 0, 47.94123, accuracy: 0.00001)
+		XCTAssertEqual(parsed.locationText, "leaflet: 47.94123, 18.709545")
+	}
+
+	/// Under pressure the location outlives the date, the class, the confidence and the box.
+	///
+	/// It ranked second on the shed ladder when first written — dropped before all four — which for a
+	/// finding on a map page discards the thing the finding is largely about. A long page URL is
+	/// exactly the case that applies the pressure, and exactly the case where the location came from
+	/// the map in the first place.
+	func test_theLocationTextOutlivesTheOtherOptionalFields() throws {
+		let payload = makePayload(
+			coordinate: nil,
+			locationText: "S-JTSK (EPSG:5514): -831425.5856845, -1028149.4515314",
+			box: try makeBox(),
+			page: URL(string: "https://ags.cuzk.cz/av/" + String(repeating: "p", count: 190))
+		)
+		let url = try XCTUnwrap(FindingShareLink.url(for: payload, variant: .compact, pageDetail: .full))
+		let parsed = try XCTUnwrap(FindingShareLink.payload(from: url))
+
+		XCTAssertNotNil(parsed.locationText, "the location went before the fields it outranks")
+		XCTAssertNil(parsed.date)
+		XCTAssertNil(parsed.detectionClass)
+		XCTAssertLessThanOrEqual(url.absoluteString.count, FindingShareLink.maximumCompactLength)
+	}
+
+	/// An over-long location is **dropped, not shortened** — the one field where truncation lies.
+	///
+	/// Every other text field degrades acceptably: a clipped title is still recognisably that title.
+	/// What `prefix(_:)` removes from a coordinate is the trailing digits, so a shortened value still
+	/// parses, still looks like a location, and is somewhere else entirely. A gap the recipient can
+	/// see beats a plausible wrong answer they cannot.
+	func test_anOverLongLocationIsDroppedRatherThanShortenedIntoADifferentPlace() throws {
+		let tooLong = "Web Mercator (EPSG:3857): 1134425.9924799, 6045439.9357442 near the old mill by the ford"
+		XCTAssertGreaterThan(tooLong.count, 80, "fixture must exceed the cap to test anything")
+
+		let parsed = try roundTrip(makePayload(coordinate: nil, locationText: tooLong))
+
+		XCTAssertNil(parsed.locationText, "a shortened coordinate is a different coordinate")
+	}
+
+	/// …and when the degrees did parse, dropping the over-long text leaves them carrying the place,
+	/// so the recipient gets the real location rather than nothing.
+	func test_whenTheTextIsTooLongTheDegreesStillCarryThePlace() throws {
+		let payload = makePayload(
+			coordinate: FindingShareLink.Coordinate(latitude: 48.8, longitude: 19.53),
+			locationText: String(repeating: "x", count: 200)
+		)
+		let parsed = try roundTrip(payload)
+
+		XCTAssertNil(parsed.locationText)
+		XCTAssertEqual(parsed.coordinate?.latitude ?? 0, 48.8, accuracy: 0.00001)
+	}
+
+	/// The text is a stranger's free text that this app renders, so it is capped and cleaned like
+	/// every other rendered field rather than trusted for being "just a coordinate".
+	func test_aHostileLocationTextIsStripped() throws {
+		// Inside the cap, so this exercises the cleaning rather than the refusal above: a bidi
+		// override renders as nothing while reordering everything after it, which is how a location
+		// can be made to display digits in an order it does not hold.
+		let payload = makePayload(locationText: "48.8, 19.53\u{202E}\u{0000}")
+		let parsed = try roundTrip(payload)
+		let text = try XCTUnwrap(parsed.locationText)
+
+		XCTAssertEqual(text, "48.8, 19.53")
+		XCTAssertFalse(text.unicodeScalars.contains { $0.value == 0x202E })
+	}
+
+	// MARK: - The id survives every link (AIA-0836)
+
+	/// Every UUID costs 22 characters on the wire and comes back the same UUID.
+	///
+	/// Random rather than fixed input, and asserted over many: the codec is a byte copy, so the way
+	/// it breaks is a byte order or a padding rule that happens to be an identity for the one UUID a
+	/// fixture pins. `+` and `/` in particular only appear for some byte patterns, and they are the
+	/// two characters base64url has to rewrite.
+	func test_everyIdRoundTripsThroughTwentyTwoCharacters() throws {
+		for _ in 0..<500 {
+			let id = UUID()
+			let url = try XCTUnwrap(FindingShareLink.url(for: makePayload(id: id), variant: .full, pageDetail: .full))
+			let field = try XCTUnwrap(
+				url.absoluteString
+					.split(separator: "#").last?
+					.split(separator: "&")
+					.first(where: { $0.hasPrefix("i=") })
+					.map { String($0.dropFirst(2)) }
+			)
+
+			XCTAssertEqual(field.count, 22, "\(id) did not encode to 22 characters")
+			// Unreserved throughout, so percent-encoding cannot inflate the saving back away.
+			XCTAssertNil(field.rangeOfCharacter(from: CharacterSet(charactersIn: "+/=").union(.whitespaces)))
+			XCTAssertEqual(FindingShareLink.payload(from: url)?.id, id)
+		}
+	}
+
+	/// The 36-character form still parses, so links already sitting in internal TestFlight builds
+	/// keep their id rather than importing as duplicates.
+	func test_aLinkCarryingTheOldUUIDStringStillParses() throws {
+		let id = try XCTUnwrap(UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301"))
+		let url = try XCTUnwrap(URL(string: "https://\(FindingShareLink.webHost)\(FindingShareLink.path)#v=1&i=\(id.uuidString)&t=Roman%20wall"))
+
+		XCTAssertEqual(FindingShareLink.payload(from: url)?.id, id)
+	}
+
+	/// An id has exactly one wire form: the aliases base64 would otherwise accept are refused.
+	///
+	/// 16 bytes is 128 bits and 22 base64 characters carry 132, so the final character has 4 bits
+	/// Foundation ignores — `…A`, `…B` and `…P` in that position all decode to the same UUID. None of
+	/// them decodes to a *different* id, so this is not a duplicate-row bug today; it is pinned
+	/// because the id is a finding's identity here, and an identity with sixteen spellings is one a
+	/// later dedupe could compare as text and get wrong.
+	func test_anIdHasExactlyOneWireForm() throws {
+		let id = try XCTUnwrap(UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301"))
+		let canonical = try XCTUnwrap(
+			FindingShareLink.url(for: makePayload(id: id), variant: .full, pageDetail: .full)
+				.map(\.absoluteString)?
+				.split(separator: "#").last?
+				.split(separator: "&")
+				.first(where: { $0.hasPrefix("i=") })
+				.map { String($0.dropFirst(2)) }
+		)
+		XCTAssertEqual(FindingShareLink.payload(from: try link(id: canonical))?.id, id, "the canonical form must parse")
+
+		// The aliases are *derived*, not guessed. The 22nd character carries 6 bits of which only the
+		// top 2 belong to the UUID, so its aliases are the sixteen characters sharing those two bits
+		// — one aligned block of the alphabet. Picking letters by eye gives neighbours that decode to
+		// a genuinely different id, which would assert the opposite of what this test claims.
+		let alphabet = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+		let last = try XCTUnwrap(canonical.last)
+		let index = try XCTUnwrap(alphabet.firstIndex(of: last))
+		let aliases = alphabet.indices
+			.filter { $0 >> 4 == index >> 4 && $0 != index }
+			.map { String(canonical.dropLast()) + String(alphabet[$0]) }
+		XCTAssertEqual(aliases.count, 15, "each id should have exactly fifteen alternative spellings")
+
+		for alias in aliases {
+			XCTAssertNil(
+				FindingShareLink.payload(from: try link(id: alias))?.id,
+				"\(alias) is a second spelling of \(canonical) and must not parse"
+			)
+		}
+	}
+
+	/// A link carrying `id` in the `i=` field and nothing else optional.
+	private func link(id: String) throws -> URL {
+		try XCTUnwrap(URL(string: "https://\(FindingShareLink.webHost)\(FindingShareLink.path)#v=1&i=\(id)&t=Roman%20wall"))
+	}
+
+	/// A truncated base64url id is refused rather than accepted as a *different* finding.
+	///
+	/// `Data(base64Encoded:)` will happily decode a shorter string into fewer than 16 bytes, so
+	/// without the length check this would import under an id nobody minted.
+	func test_aTruncatedIdIsRefusedRatherThanSilentlyDifferent() throws {
+		let url = try XCTUnwrap(URL(string: "https://\(FindingShareLink.webHost)\(FindingShareLink.path)#v=1&i=AbCdEfGhIjKl&t=Roman%20wall"))
+
+		XCTAssertNil(FindingShareLink.payload(from: url)?.id)
+		// And the rest of the link still reads — a bad id is not a bad link.
+		XCTAssertEqual(FindingShareLink.payload(from: url)?.title, "Roman wall")
+	}
+
+	/// The guarantee this ticket exists for: the densest link the compact variant can produce still
+	/// carries `i=`.
+	///
+	/// Before AIA-0836 the id was last on the shed ladder, so exactly this input — a long page URL
+	/// with every optional field present — is what dropped it, and a printed card scanned twice
+	/// produced two rows.
+	func test_theCompactLinkKeepsItsIdUnderMaximumPressure() throws {
+		let id = UUID()
+		let payload = makePayload(
+			id: id,
+			title: String(repeating: "Long finding title ", count: 6),
+			detectionClass: "stone_wall_with_a_very_long_class_name",
+			coordinate: FindingShareLink.Coordinate(latitude: 48.123456, longitude: 19.987654),
+			box: FindingShareLink.Box(x: 0.123456, y: 0.234567, width: 0.345678, height: 0.456789),
+			page: URL(string: "https://portal.example.org/" + String(repeating: "segment/", count: 40) + "?q=" + String(repeating: "x", count: 120)),
+			author: "A. Rather Long Author Name"
+		)
+		let url = try XCTUnwrap(FindingShareLink.url(for: payload, variant: .compact, pageDetail: .full))
+
+		XCTAssertEqual(FindingShareLink.payload(from: url)?.id, id, "the id was shed under pressure")
 		XCTAssertLessThanOrEqual(url.absoluteString.count, FindingShareLink.maximumCompactLength)
 	}
 }

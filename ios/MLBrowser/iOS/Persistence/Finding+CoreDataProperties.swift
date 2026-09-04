@@ -84,11 +84,28 @@ extension Finding {
     /// screenshot is referenced by `screenshotFilename` because container paths
     /// are not stable across restore).
     @NSManaged public var page: URL?
+    /// When THIS device took delivery of a finding that arrived by share link (AIA-0835). Nil for
+    /// every locally captured finding, which is what makes it the honest answer to "when did I
+    /// receive this" — a question `creationDate_` cannot answer, because for a received finding that
+    /// carries the *sender's* capture day, at day precision, in UTC.
+    ///
+    /// Unrelated to `CloudFindingRow.receivedAt`, which is the **server's** receipt time in epoch
+    /// milliseconds for sync bookkeeping. Same word, different subject; neither is derivable from
+    /// the other.
+    @NSManaged public var receivedAt: Date?
     /// Filename under Documents/Findings — "<entityId>" plus a supported image extension
     /// (`.jpg` for anything written since AIA-713, `.png` for rows saved by 1.0.7 and earlier,
     /// which are never rewritten). The full path is resolved against the current Documents
     /// directory at read time. Validated by `Finding.isCanonicalScreenshotFilename`.
     @NSManaged public var screenshotFilename: String?
+    /// Raw storage for ``Finding/source`` (AIA-0835). **Read it through that accessor, never
+    /// directly** — it is the one place that decides what nil and an unrecognised value mean, and
+    /// the two readings are deliberately different (nil is local, unknown is received).
+    ///
+    /// Optional rather than non-optional-with-a-default so that "never recorded" stays
+    /// distinguishable from "recorded as local", uniformly across a migrated row, an archive
+    /// written before the attribute existed, and a row synced from a peer that does not know it.
+    @NSManaged public var source_: String?
     /// The finding's required, user-facing name shown in the inventory list. Stored
     /// non-optional (empty-string default at the Core Data level); a `ready` finding
     /// is validated to be non-empty. Distinct from `label_`, which stays an optional

@@ -50,6 +50,10 @@ struct FindingsListView: View {
 	/// nil = no filter (all findings, including unlabeled ones).
 	@State private var filterLabel: String?
 
+	/// Which tab is on screen (AIA-0835). Deliberately NOT persisted, matching `sortOrder` above:
+	/// the sheet always opens on the user's own findings.
+	@State private var tab: FindingSource = .local
+
 	// MARK: Ordering (AIA-0748)
 
 	/// Order and direction are held as two pieces of state, not one six-case enum: they are
@@ -113,6 +117,7 @@ struct FindingsListView: View {
 		return NavigationStack {
 			VStack(spacing: 0) {
 				syncStatus
+				tabPicker
 				if distinctLabels.isEmpty.not {
 					filterChips
 				}
@@ -145,6 +150,9 @@ struct FindingsListView: View {
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
 				ToolbarItemGroup(placement: .navigationBarLeading) {
+					// Gated on what the user can SEE. Export writes the whole store, but offering it
+					// on an empty Received tab -- and having it silently write the other tab's rows
+					// -- is a worse surprise than a control that greys out with the list it sits above.
 					dataMenu(isExportDisabled: items.isEmpty)
 					sortMenu
 				}
@@ -164,6 +172,11 @@ struct FindingsListView: View {
 				)
 			}
 		}
+		.onChange(of: tab) { _, _ in dropFilterIfUnavailable() }
+		// Keyed on the labels themselves, not on `findings.count`: a sync or an edit can remove the
+		// last row carrying the active label without changing how many rows there are, which would
+		// leave a selected chip over an unexplained empty list.
+		.onChange(of: distinctLabels) { _, _ in dropFilterIfUnavailable() }
 		.onAppear {
 			// Self-heal write-time leftovers (image written, entity insert failed) and
 			// failed file deletes. Runs on the viewContext/MainActor; the save sheet
@@ -377,7 +390,7 @@ struct FindingsListView: View {
 	private func exportFindings() {
 		// Re-derived here, at tap time, rather than captured from the body pass -- see
 		// `exportButton(isDisabled:)`. One sort on a user action costs nothing.
-		let snapshots = Self.ordered(filteredFindings, by: sortOrder, reversed: isReversed)
+		let snapshots = Self.ordered(exportableFindings, by: sortOrder, reversed: isReversed)
 			.map(FindingSnapshot.init)
 		isExporting = true
 		Task {
@@ -400,14 +413,71 @@ struct FindingsListView: View {
 
 	// MARK: - Filtering
 
+	/// The label chips for the tab on screen.
+	///
+	/// Derived from the rows already fetched, NOT from `Finding.distinctLabels(in:)` (AIA-0835).
+	/// That helper is a separate store-wide fetch which honours neither the lifecycle predicate nor
+	/// the tab, so on Received it would offer chips for labels only the user's own findings carry —
+	/// and selecting one would empty the list under a chip that cannot explain itself.
+	///
+	/// Case-insensitive with first-seen casing winning, matching the list filter below, so
+	/// "Fortification" and "fortification" stay one chip.
 	private var distinctLabels: [String] {
-		Finding.distinctLabels(in: moc)
+		var seen: [String: String] = [:]
+		for finding in findingsInTab {
+			guard let label = finding.label_?.trimmingCharacters(in: .whitespacesAndNewlines),
+			      label.isEmpty.not
+			else { continue }
+			seen[label.lowercased()] = seen[label.lowercased()] ?? label
+		}
+		return seen.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+	}
+
+	/// Every ready finding belonging to the selected tab, before the label filter.
+	private var findingsInTab: [Finding] {
+		findings.filter { $0.source == tab }
 	}
 
 	private var filteredFindings: [Finding] {
-		guard let filterLabel else { return Array(findings) }
+		guard let filterLabel else { return findingsInTab }
 		// Case-insensitive, matching the chips' identity (distinctLabels).
+		return findingsInTab.filter { $0.label_?.caseInsensitiveCompare(filterLabel) == .orderedSame }
+	}
+
+	/// What "Export" writes: the label filter applies, the **tab** deliberately does not.
+	///
+	/// Exporting the selected label is established behaviour and stays. Letting the tab scope it
+	/// would silently drop every received finding from a backup taken while My was on screen, with
+	/// nothing on screen saying so — a backup that quietly omits half the store is worse than one
+	/// that ignores a filter.
+	private var exportableFindings: [Finding] {
+		guard let filterLabel else { return Array(findings) }
 		return findings.filter { $0.label_?.caseInsensitiveCompare(filterLabel) == .orderedSame }
+	}
+
+	/// Drops a filter the new tab cannot satisfy.
+	///
+	/// Run on a tab switch AND whenever the fetched rows change: a sync or a delete can remove the
+	/// last row carrying the active label while the user stays put, which would strand them on an
+	/// empty list under a selected chip.
+	private func dropFilterIfUnavailable() {
+		guard let filterLabel else { return }
+		if distinctLabels.contains(where: { $0.caseInsensitiveCompare(filterLabel) == .orderedSame }).not {
+			self.filterLabel = nil
+		}
+	}
+
+	/// The tab picker. `FindingSource` is the model of this distinction already — a parallel
+	/// `enum Tab` would be a second name for one thing.
+	private var tabPicker: some View {
+		Picker(L10n.Findings.Tab.accessibility, selection: $tab) {
+			Text(L10n.Findings.Tab.mine).tag(FindingSource.local)
+			Text(L10n.Findings.Tab.received).tag(FindingSource.received)
+		}
+		.pickerStyle(.segmented)
+		.padding(.horizontal)
+		.padding(.top, 8)
+		.testability(Testability.Picker.findingsTab)
 	}
 
 	private var filterChips: some View {
@@ -559,7 +629,12 @@ struct FindingsListView: View {
 							.foregroundStyle(.secondary)
 					}
 					if let date = finding.creationDate_ {
-						Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
+						// A received finding's date is the sender's DAY, stored as UTC midnight, so
+						// rendering it locally with a time shows the previous day west of UTC and an
+						// invented "02:00" east of it. Day only, in UTC, for those (AIA-0835).
+						Text(date, format: finding.source == .received
+							? Date.FormatStyle(date: .abbreviated, time: .omitted, timeZone: .gmt)
+							: Date.FormatStyle(date: .abbreviated, time: .shortened))
 							.font(.caption)
 							.foregroundStyle(.secondary)
 					}
@@ -1042,440 +1117,6 @@ extension FindingsListView {
 	}
 }
 
-// MARK: - Detail
-
-/// One stored finding: the full snapshot with the detection highlighted live
-/// (drawn from the stored bounding box — never baked into the image), the
-/// editable text fields, and the way back to the captured page. Edits are
-/// committed by the explicit Save button — never implicitly on navigation.
-private struct FindingDetailView: View {
-	@Environment(\.managedObjectContext) private var moc
-	/// Held only to hand on to the share composer's own sheet, which needs it live (AIA-0650).
-	@EnvironmentObject private var featureFlags: FeatureFlagsState
-	@ObservedObject var finding: Finding
-	/// Edits commit through the repository rather than straight to the context, so sync hears about
-	/// them the moment they land instead of on the next unrelated trigger (AIA-737).
-	let findingRepository: FindingRepository
-	let onOpenPage: (URL) -> Void
-
-	@State private var title = ""
-	@State private var label = ""
-	@State private var note = ""
-	/// The finder's credit (AIA-0651). Seeded from the stored value only — never from the signed-in
-	/// account: prefill is a capture-time convenience, and re-applying it here would rewrite the
-	/// credit on findings captured by, or already shared with, someone else.
-	@State private var author = ""
-	@State private var gps = ""
-	/// The page URL, editable since AIA-0817. Before that a URL the app resolved wrongly was
-	/// permanent once saved, and a finding captured with no page had nowhere to gain one.
-	@State private var page = ""
-	@State private var saveFailed = false
-
-	@State private var shareSubject: FindingShareSubject?
-
-	/// Inspect-only view state for the stored snapshot — never persisted (the
-	/// stored image/box are fixed; the save sheet owns crop editing).
-	@State private var highlightOpacity: Double = 1
-	@State private var snapshotZoom: CGFloat = 1
-
-	var body: some View {
-		List {
-			// Title first, matching the save sheet (AIA-0757 E2). It is the finding's name, and the
-			// name belongs above the picture in both places — reading one form and editing the other
-			// should not mean hunting for the same field in a different position.
-			titleSection
-			// Where the finding IS comes before how it looked: on a map site the page and the
-			// coordinate answer the question the finding was made to answer, and they were
-			// previously below the image and three text fields.
-			pageSection
-			gpsSection
-			snapshotSection
-			labelSection
-			noteSection
-			authorSection
-			detectionSection
-		}
-		.navigationTitle(finding.displayTitle)
-		.navigationBarTitleDisplayMode(.inline)
-		.toolbar { toolbarContent }
-		.alert(L10n.Finding.Save.error, isPresented: $saveFailed) {
-			Button(L10n.Common.ok, role: .cancel) {}
-		}
-		.sheet(item: $shareSubject) { subject in
-			FindingShareComposer(subject: subject)
-				// Environment objects do not reliably cross a `.sheet` boundary on Mac (Designed for
-				// iPad) — re-inject, per AGENTS.md §3.
-				.environmentObject(featureFlags)
-		}
-		.onAppear(perform: seedFields)
-	}
-
-	@ViewBuilder
-	private var snapshotSection: some View {
-		Section {
-			if let image = FindingScreenshotStore.load(filename: finding.screenshotFilename) {
-				InspectableHighlightedSnapshot(
-					image: image,
-					normalizedBox: finding.normalizedBox,
-					color: .red,
-					zoom: $snapshotZoom,
-					highlightOpacity: $highlightOpacity
-				)
-				// Definite height: the cover layout uses a GeometryReader, which
-				// collapses to nothing under a maxHeight cap inside a List row.
-				.frame(height: 420)
-				opacitySlider
-				zoomSlider
-			} else {
-				Image(systemName: "photo")
-					.font(.largeTitle)
-					.foregroundStyle(.secondary)
-					.frame(maxWidth: .infinity)
-					.padding(.vertical, 32)
-			}
-		}
-	}
-
-	private var titleSection: some View {
-		Section(L10n.Finding.title) {
-			TextField(L10n.Finding.titlePlaceholder, text: $title)
-				.testability(Testability.TextField.findingDetailTitle)
-		}
-	}
-
-	private var labelSection: some View {
-		Section(L10n.Finding.label) {
-			TextField(L10n.Finding.labelPlaceholder, text: $label)
-				.testability(Testability.TextField.findingDetailLabel)
-		}
-	}
-
-	private var noteSection: some View {
-		Section(L10n.Finding.note) {
-			TextField(L10n.Finding.notePlaceholder, text: $note, axis: .vertical)
-				.lineLimit(3...6)
-				.testability(Testability.TextField.findingDetailNote)
-		}
-	}
-
-	private var authorSection: some View {
-		Section(L10n.Finding.author) {
-			TextField(L10n.Finding.authorPlaceholder, text: $author)
-				.testability(Testability.TextField.findingDetailAuthor)
-		}
-	}
-
-	private var gpsSection: some View {
-		Section(L10n.Finding.gps) {
-			HStack(alignment: .firstTextBaseline, spacing: 8) {
-				// The ordinary keyboard, for the reason the save sheet's copy of this field carries:
-				// the value can hold letters — `leaflet: 47.9, 18.7`, `S-JTSK (EPSG:5514): …` — and a
-				// numeric keyboard cannot type one of them. Fixed in the save sheet first and missed
-				// here, which is exactly the kind of half-fix a second reviewer catches.
-				TextField(L10n.Finding.gpsPlaceholder, text: $gps)
-					.testability(Testability.TextField.findingDetailGps)
-				copyButton(gps, identifier: Testability.Button.findingDetailCopyGps)
-			}
-		}
-	}
-
-	/// A visible copy button, matching the save sheet and the model download screen.
-	private func copyButton(_ value: String, identifier: Testability.Button) -> some View {
-		Button {
-			// Plain text ONLY, not `UIPasteboard.string`.
-			//
-			// A stored coordinate begins `arcgis: `, `leaflet: ` … which UIKit reads as a URL
-			// scheme: setting `.string` also publishes a URL flavour, and a receiving app that
-			// prefers it pastes `arcgis:%2040.92…` with the spaces percent-encoded. Declaring a
-			// single plain-text representation leaves nothing else for anyone to choose.
-			UIPasteboard.general.setValue(value, forPasteboardType: "public.utf8-plain-text")
-		} label: {
-			Image(systemName: "doc.on.doc")
-		}
-		.accessibilityLabel(L10n.Common.copy)
-		.buttonStyle(.borderless)
-		.disabled(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-		.testability(identifier)
-	}
-
-	@ViewBuilder
-	private var detectionSection: some View {
-		if let detectionClass = finding.detectionClass {
-			Section(L10n.Finding.detection) {
-				// verbatim: class names are model vocabulary, not localizable —
-				// and plain interpolation gets auto-extracted into the catalog.
-				Text(verbatim: "\(detectionClass) (\(Int(finding.detectionConfidence * 100))%)")
-					.foregroundStyle(.secondary)
-			}
-		}
-	}
-
-	@ViewBuilder
-	private var pageSection: some View {
-		// Always shown, unlike before AIA-0817: the section used to vanish when `page` was nil,
-		// which is exactly the finding that most needs somewhere to put a URL.
-		Section(L10n.Finding.page) {
-			// `L10n.Finding.page` doubles as the prompt, so the control carries an accessibility
-			// label without adding a string to all 17 locales.
-			HStack(alignment: .firstTextBaseline, spacing: 8) {
-				TextField(L10n.Finding.page, text: $page, axis: .vertical)
-					.font(.caption)
-					.lineLimit(1...3)
-					.keyboardType(.URL)
-					.textInputAutocapitalization(.never)
-					.autocorrectionDisabled()
-					.testability(Testability.TextField.findingDetailPage)
-				copyButton(page, identifier: Testability.Button.findingDetailCopyPage)
-			}
-			// Offered only for a URL that can actually be opened, so the button never appears
-			// against text the user is midway through typing.
-			if let openable = resolvedPage {
-				Button {
-					onOpenPage(openable)
-				} label: {
-					Label(L10n.Findings.openPage, systemImage: "safari")
-				}
-				.testability(Testability.Button.findingsOpenPage)
-			}
-		}
-	}
-
-	@ToolbarContentBuilder
-	private var toolbarContent: some ToolbarContent {
-		ToolbarItemGroup(placement: .navigationBarTrailing) {
-			Button(action: shareFinding) {
-				Label(L10n.Common.share, systemImage: "square.and.arrow.up")
-			}
-			.tint(.blue)
-			.testability(Testability.Button.findingDetailShare)
-			Button(action: saveEdits) {
-				Text(L10n.Finding.Save.action)
-					.bold()
-			}
-			.disabled(hasChanges.not || trimmedTitle.isEmpty)
-			.tint(.green)
-			.testability(Testability.Button.findingDetailSave)
-		}
-	}
-
-	private func shareFinding() {
-		shareSubject = FindingShareSubject(finding)
-	}
-
-	private var opacitySlider: some View {
-		HStack(spacing: 12) {
-			Image(systemName: "square.dashed")
-				.foregroundStyle(.secondary)
-			Slider(value: $highlightOpacity, in: 0...1)
-				.testability(Testability.Slider.findingDetailHighlightOpacity)
-		}
-		.accessibilityLabel(L10n.Finding.highlightOpacity)
-	}
-
-	private var zoomSlider: some View {
-		HStack(spacing: 12) {
-			Image(systemName: "plus.magnifyingglass")
-				.foregroundStyle(.secondary)
-			Slider(value: $snapshotZoom, in: InspectableHighlightedSnapshot.zoomRange)
-				.testability(Testability.Slider.findingDetailZoom)
-		}
-		.accessibilityLabel(L10n.Finding.zoom)
-	}
-
-	// MARK: - Editing
-
-	private var hasChanges: Bool {
-		trimmedTitle != finding.title
-			|| normalized(label) != finding.label_
-			|| normalized(note) != finding.note_
-			|| normalized(author) != finding.author
-			|| normalized(gps) != finding.gps_
-			|| resolvedPage != finding.page
-	}
-
-	/// What saving would store for the page, given what is currently typed.
-	///
-	/// Shared by ``hasChanges`` and ``saveEdits`` deliberately: if the two applied different rules,
-	/// an unusable edit could enable Save and then quietly store nothing.
-	private var resolvedPage: URL? {
-		FindingPageURL.resolve(edited: page, captured: finding.page)
-	}
-
-	private var trimmedTitle: String {
-		title.trimmingCharacters(in: .whitespacesAndNewlines)
-	}
-
-	private func seedFields() {
-		title = finding.title
-		label = finding.label_ ?? ""
-		note = finding.note_ ?? ""
-		author = finding.author ?? ""
-		gps = finding.gps_ ?? ""
-		page = finding.page?.absoluteString ?? ""
-	}
-
-	private func saveEdits() {
-		finding.title = trimmedTitle
-		finding.label_ = normalized(label)
-		finding.note_ = normalized(note)
-		finding.author = normalized(author)
-		finding.gps_ = normalized(gps)
-		finding.page = resolvedPage
-		do {
-			try findingRepository.commitEdits()
-		} catch {
-			LoggingPolicy.error("Failed to save finding edits", error: error, logger: .storage)
-			// Reload from the store so the fields reflect the persisted state
-			// instead of silently diverging from it (ConfigurationRow precedent).
-			moc.refresh(finding, mergeChanges: false)
-			seedFields()
-			saveFailed = true
-		}
-	}
-
-	private func normalized(_ text: String) -> String? {
-		let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-		return trimmed.isEmpty ? nil : trimmed
-	}
-}
-
-// MARK: - Inspectable snapshot
-
-/// Read-only zoom/pan inspector for a stored snapshot, with an adjustable
-/// highlight opacity. Nothing here is persisted — the stored image and box are
-/// fixed (the save sheet's `CropAdjustableSnapshot` owns crop editing; this
-/// shares the same pan/zoom math but publishes no crop).
-private struct InspectableHighlightedSnapshot: View {
-	let image: UIImage
-	let normalizedBox: CGRect
-	let color: Color
-	@Binding var zoom: CGFloat
-	@Binding var highlightOpacity: Double
-
-	@State private var offset: CGSize = .zero
-	@GestureState private var pinchFactor: CGFloat = 1
-	@GestureState private var dragDelta: CGSize = .zero
-
-	static let zoomRange: ClosedRange<CGFloat> = 1...8
-
-	var body: some View {
-		GeometryReader { geometry in
-			content(fitted: geometry.size)
-		}
-		.frame(maxWidth: .infinity)
-	}
-
-	@ViewBuilder
-	private func content(fitted: CGSize) -> some View {
-		let scale = clampZoom(zoom * pinchFactor)
-		// Aspect-fill: the image covers the whole container (no letterbox); overflow
-		// is clipped. Zoom/pan then operate on the covered image.
-		let cover = fitted.coverSize(for: image.size)
-		let shownOffset = clampOffset(
-			CGSize(width: offset.width + dragDelta.width, height: offset.height + dragDelta.height),
-			scale: scale,
-			cover: cover,
-			fitted: fitted
-		)
-		let base = ZStack {
-			Image(uiImage: image)
-				.resizable()
-				.frame(width: cover.width, height: cover.height)
-			highlight(in: cover, scale: scale)
-		}
-		.frame(width: cover.width, height: cover.height)
-		.scaleEffect(scale)
-		.offset(shownOffset)
-		.frame(width: fitted.width, height: fitted.height)
-		.clipped()
-		.contentShape(Rectangle())
-		.gesture(pinch(cover: cover, fitted: fitted))
-		.onTapGesture(count: 2) {
-			zoom = 1
-			offset = .zero
-		}
-
-		// Pan only once zoomed in — at scale 1 a drag would just steal scrolling.
-		if zoom > 1.001 {
-			base.highPriorityGesture(drag(cover: cover, fitted: fitted))
-		} else {
-			base
-		}
-	}
-
-	private func highlight(in cover: CGSize, scale: CGFloat) -> some View {
-		let rect = normalizedBox.visionRect(in: cover)
-		return Rectangle()
-			.stroke(color.opacity(highlightOpacity), lineWidth: 2 / scale)
-			.frame(width: rect.width, height: rect.height)
-			.position(x: rect.midX, y: rect.midY)
-	}
-
-	private func pinch(cover: CGSize, fitted: CGSize) -> some Gesture {
-		MagnificationGesture()
-			.updating($pinchFactor) { value, state, _ in state = value }
-			.onEnded { value in
-				zoom = clampZoom(zoom * value)
-				offset = clampOffset(offset, scale: zoom, cover: cover, fitted: fitted)
-			}
-	}
-
-	private func drag(cover: CGSize, fitted: CGSize) -> some Gesture {
-		DragGesture()
-			.updating($dragDelta) { value, state, _ in state = value.translation }
-			.onEnded { value in
-				offset = clampOffset(
-					CGSize(width: offset.width + value.translation.width, height: offset.height + value.translation.height),
-					scale: zoom,
-					cover: cover,
-					fitted: fitted
-				)
-			}
-	}
-
-	private func clampZoom(_ value: CGFloat) -> CGFloat {
-		min(max(Self.zoomRange.lowerBound, value), Self.zoomRange.upperBound)
-	}
-
-	/// Keeps the scaled, covered image from revealing an edge inside the viewport.
-	private func clampOffset(_ value: CGSize, scale: CGFloat, cover: CGSize, fitted: CGSize) -> CGSize {
-		let maxX = max(0, (cover.width * scale - fitted.width) / 2)
-		let maxY = max(0, (cover.height * scale - fitted.height) / 2)
-		return CGSize(
-			width: min(max(-maxX, value.width), maxX),
-			height: min(max(-maxY, value.height), maxY)
-		)
-	}
-}
-
-// MARK: - Mac-only context menu
-
-private extension View {
-	/// Attaches a context menu only when running on a Mac. Right-click is the Mac idiom, and it is
-	/// the only pointer-reachable route to actions a mouse cannot swipe to. On touch the menu is
-	/// suppressed — the row's swipe actions serve instead.
-	@ViewBuilder
-	func macContextMenu<MenuItems: View>(@ViewBuilder _ menuItems: () -> MenuItems) -> some View {
-		if ProcessInfo.processInfo.isiOSAppOnMac || ProcessInfo.processInfo.isMacCatalystApp {
-			contextMenu(menuItems: menuItems)
-		} else {
-			self
-		}
-	}
-}
-
-// MARK: - Cover sizing
-
-extension CGSize {
-	/// The size the given image must be scaled to so it fully COVERS `self`
-	/// (aspect-fill) — the larger dimension overflows and is clipped by the caller.
-	func coverSize(for imageSize: CGSize) -> CGSize {
-		guard imageSize.width > 0, imageSize.height > 0 else { return self }
-		let scale = max(width / imageSize.width, height / imageSize.height)
-		return CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
-	}
-}
-
 // MARK: - Crop helpers
 
 extension Finding {
@@ -1520,5 +1161,21 @@ extension Finding {
 		let pixelRect = normalizedBox.visionRect(in: bounds.size).integral.intersection(bounds)
 		guard pixelRect.width > 0, pixelRect.height > 0, let crop = cgImage.cropping(to: pixelRect) else { return nil }
 		return UIImage(cgImage: crop)
+	}
+}
+
+// MARK: - Mac-only context menu
+
+private extension View {
+	/// Attaches a context menu only when running on a Mac. Right-click is the Mac idiom, and it is
+	/// the only pointer-reachable route to actions a mouse cannot swipe to. On touch the menu is
+	/// suppressed — the row's swipe actions serve instead.
+	@ViewBuilder
+	func macContextMenu<MenuItems: View>(@ViewBuilder _ menuItems: () -> MenuItems) -> some View {
+		if ProcessInfo.processInfo.isiOSAppOnMac || ProcessInfo.processInfo.isMacCatalystApp {
+			contextMenu(menuItems: menuItems)
+		} else {
+			self
+		}
 	}
 }

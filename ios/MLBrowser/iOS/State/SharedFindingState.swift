@@ -51,6 +51,24 @@ final class SharedFindingState: ObservableObject {
 	/// What is waiting to be shown, or `nil` when there is nothing pending.
 	@Published private(set) var pending: Pending?
 
+	/// The stored finding the pending link resolved to — either one this device already had, or the
+	/// row the import just wrote. Nil until that is settled (AIA-0835).
+	@Published private(set) var storedId: UUID?
+
+	/// Set when the import threw. The card still renders and still has its way out; this is what
+	/// stops a failure looking like a success.
+	@Published private(set) var importFailed = false
+
+	/// The payload the import has already run for.
+	///
+	/// This is the idempotency key, and it lives HERE rather than in the view because the view's
+	/// `@State` dies with the overlay: a backgrounded app, a size-class change or a second
+	/// `onAppear` would otherwise import the same link again. For a link carrying an id that would
+	/// be harmless -- ``FindingRepository/saveReceived(_:)`` returns the existing row -- but an
+	/// id-less link mints a fresh UUID each time, so without this a re-appear would silently
+	/// duplicate it.
+	private var importedPayload: FindingShareLink.Payload?
+
 	/// Offers `url` to the shared-link route.
 	///
 	/// Returns whether it was ours. A scene-level `.onOpenURL` sees **every** URL the app is
@@ -72,13 +90,57 @@ final class SharedFindingState: ObservableObject {
 		// Newest wins. Two links in quick succession is a user tapping again, not a queue to work
 		// through, and showing the older one would be showing the one they changed their mind about.
 		if let payload = FindingShareLink.payload(from: url) {
+			// The SAME link again is not a new link. Resetting here would drop `storedId` while
+			// `pending` stays equal -- so `onChange` never fires, the re-store is refused as a
+			// duplicate, and the editor vanishes with nothing able to bring it back.
+			if pending == .finding(payload) {
+				LoggingPolicy.debug("Shared finding: the same link again; keeping what is on screen", logger: .state)
+				return true
+			}
+			// Newest wins, so the previous link's resolution must not survive into this one.
+			storedId = nil
+			importFailed = false
+			importedPayload = nil
 			pending = .finding(payload)
 			LoggingPolicy.info("Shared finding: buffered a link for presentation", logger: .state)
 		} else {
+			// Reset here too. Clearing only on the readable branch meant an unreadable link kept the
+			// PREVIOUS link's stored row, and the host prefers a stored finding over the error — so
+			// tapping a truncated link reopened the last finding instead of saying it was unreadable.
+			storedId = nil
+			importFailed = false
+			importedPayload = nil
 			pending = .unreadable
 			LoggingPolicy.warning("Shared finding: link matched but its payload could not be read", logger: .state)
 		}
 		return true
+	}
+
+	/// Stores the pending link's finding, at most once per link.
+	///
+	/// Called by the presenting host rather than from ``handle(_:)``, and that separation is
+	/// load-bearing: a URL can arrive before the store is open — `AppState` is only ready after
+	/// `awaitStoreReady()` — so buffering and writing must not happen at the same moment. The host
+	/// is gated on `isReady`, so by the time this runs there is a store to write to.
+	///
+	/// A finding the device already has is never rewritten: the lookup inside `saveReceived` returns
+	/// it untouched, which is what keeps the sender's copy authoritative.
+	func storePendingFinding(using repository: FindingRepository) {
+		guard case .finding(let payload) = pending else { return }
+		guard importedPayload != payload else { return }
+		do {
+			storedId = try repository.saveReceived(payload).entityId
+			importFailed = false
+			// Recorded only on SUCCESS. Marking the attempt up front would suppress every retry of a
+			// link that failed to store, leaving the user on a card that silently saved nothing.
+			importedPayload = payload
+		} catch {
+			// Deliberately not logged with the payload: application-log entries become Sentry
+			// breadcrumbs and on-disk support-log lines (AIA-0602), and a link carries a title, an
+			// author's name and coordinates.
+			LoggingPolicy.error("Shared finding: could not store the received finding", error: error, logger: .state)
+			importFailed = true
+		}
 	}
 
 	/// Clears the pending finding. Called only when the user dismisses it — never on a failed or
@@ -86,6 +148,9 @@ final class SharedFindingState: ObservableObject {
 	func dismiss() {
 		guard pending != nil else { return }
 		pending = nil
+		storedId = nil
+		importFailed = false
+		importedPayload = nil
 		LoggingPolicy.debug("Shared finding: dismissed by the user", logger: .state)
 	}
 }

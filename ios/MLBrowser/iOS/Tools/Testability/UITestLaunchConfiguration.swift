@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 12
+	static let currentVersion = 14
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -108,6 +108,22 @@ struct UITestLaunchConfiguration: Codable {
 	/// `FreeAccessAnchorService.reconciledWindow()` folds an absent durable record into it and
 	/// repairs the mirror on the way past.
 	var freeAccessAnchorAgeDays: Int?
+
+	/// A shared-finding link to deliver at launch, as if `onOpenURL` had handed it over (AIA-0835).
+	///
+	/// The deeplink is the whole feature and a UI test cannot otherwise reach it: there is no way to
+	/// hand the app a URL from XCUITest without driving Safari, which is slow and flaky. Applied
+	/// only under `isRunningUITests`, like everything else in this type.
+	var sharedLinkURL: String?
+
+	/// How many times ``sharedLinkURL`` is delivered on this launch. `nil` means once (AIA-0836).
+	///
+	/// Exists because the duplicate-import guarantee cannot be tested across two launches: every
+	/// UI-test launch is a fresh install — `Settings.init()` wipes the ephemeral suite and
+	/// `DataController` destroys the UI-test store — so relaunching with the same link stores it into
+	/// an empty database and proves nothing. Delivering twice inside one session is also the honest
+	/// shape of the real case: a user re-scanning a printed card while the app is open.
+	var sharedLinkDeliveries: Int?
 
 	/// Decoded from the launch environment, or `nil` if absent. Traps on malformed input
 	/// or version mismatch — a UI test must never proceed on a misread configuration.

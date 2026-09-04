@@ -15,6 +15,44 @@ final class FindingShareEmissionTests: XCTestCase {
 
 	// MARK: - Helpers
 
+	/// A compact link that lands **exactly** on ``FindingShareLink/maximumCompactLength``.
+	///
+	/// Searched rather than tuned (AIA-0836). The page filler used to be a constant chosen against a
+	/// 400-character cap; when the cap moved to 620 the fixture quietly fell short of it and the test
+	/// it anchors — "a link at the documented cap still decodes" — began proving nothing about the
+	/// cap. Each added filler character costs the emitted link exactly one character, so a linear
+	/// walk finds the length that lands on it, whatever the cap becomes next.
+	private func linkExactlyAtTheCompactCap(id: UUID, title: String) throws -> URL {
+		for filler in 1...FindingShareLink.maximumCompactLength {
+			let subject = makeSubject(
+				id: id,
+				title: title,
+				author: String(repeating: "A", count: 60),
+				gps: "48.8, 19.53",
+				detectionClass: String(repeating: "c", count: 60),
+				confidence: 1,
+				date: try makeDate(year: 2026, month: 8, day: 17),
+				page: URL(string: "https://example.org/" + String(repeating: "p", count: filler))
+			)
+			guard let url = FindingShareLink.url(for: subject.linkPayload(), variant: .compact) else { continue }
+			if url.absoluteString.count == FindingShareLink.maximumCompactLength { return url }
+		}
+		// A thrown error, never `XCTSkip`: a skip would report this as "not run" on the day the search
+		// stops landing on the cap, which is exactly the day somebody needs to be told.
+		throw FixtureFailure.noLinkAtTheCap(FindingShareLink.maximumCompactLength)
+	}
+
+	private enum FixtureFailure: Error, CustomStringConvertible {
+		case noLinkAtTheCap(Int)
+
+		var description: String {
+			switch self {
+			case let .noLinkAtTheCap(cap):
+				return "no page filler produced a link exactly at the \(cap)-character cap"
+			}
+		}
+	}
+
 	private func makeSubject(
 		id: UUID = UUID(),
 		normalizedBox: CGRect = .zero,
@@ -107,19 +145,10 @@ final class FindingShareEmissionTests: XCTestCase {
 	func test_qrCode_atTheCompactCap_decodesBackToTheSameFinding() throws {
 		let id = try XCTUnwrap(UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301"))
 		let title = String(repeating: "W", count: 40)
-		let subject = makeSubject(
-			id: id,
-			title: title,
-			author: String(repeating: "A", count: 60),
-			gps: "48.8, 19.53",
-			detectionClass: String(repeating: "c", count: 60),
-			confidence: 1,
-			date: try makeDate(year: 2026, month: 8, day: 17),
-			// Carried now, and long enough to stand in for a real geoportal address.
-			page: URL(string: "https://example.org/" + String(repeating: "p", count: 95))
-		)
-
-		let compact = try XCTUnwrap(FindingShareLink.url(for: subject.linkPayload(), variant: .compact))
+		// Every optional field present and a page long enough to stand in for a real geoportal
+		// address, sized so the emitted link lands exactly on the cap — see
+		// `linkExactlyAtTheCompactCap`, which searches for that length rather than hardcoding it.
+		let compact = try linkExactlyAtTheCompactCap(id: id, title: title)
 		XCTAssertEqual(
 			compact.absoluteString.count,
 			FindingShareLink.maximumCompactLength,

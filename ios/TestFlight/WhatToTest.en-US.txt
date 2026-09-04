@@ -1,15 +1,42 @@
-Build: Findings sheets
+Build: Findings you were sent
 
-Test Focus: Findings sheets should have room to show their content on iPad and on a Mac running the
-iPad app, without sacrificing controls in a compact window.
+Test Focus: A finding someone shares with you is now kept. The findings list has two tabs — My and
+Received — and a finding that arrived from a link is read-only, so it stays exactly as its sender
+wrote it.
 
-- On an iPad or Mac, save a finding and open the findings list. The sheets should be comfortably
-  larger than the old form sheet, while Cancel, Save, and navigation controls remain visible in
-  Split View or a smaller window.
+- Ask someone to share a finding with you, or share one from a second device. Tap the link. The
+  finding opens, and it is saved without you being asked. Tap Done, open the findings list, and
+  switch to Received: it is there. Switch to My: it must NOT be there.
 
-- Share a finding with a long coordinate. The card preview must remain visible, and the controls
-  below it must scroll rather than truncating their explanatory text. Rotate an iPhone to landscape
-  and confirm the preview still remains visible.
+- Tap the same link a second time. You should still have exactly one copy of that finding, not two.
 
-- Tap the expand button at the preview's upper-left. The full card should open at reading size;
-  check the coordinate is complete, then tap Done to return to the composer.
+- Tap a link while the app is completely closed (swipe it away from the app switcher first). The
+  finding must still appear — this used to be swallowed silently.
+
+- Open a received finding from the Received tab. Its title, note, author, coordinate and page
+  cannot be edited and there is no Save button, but Share still works. Where a photo would be, you
+  see an outline showing where the detection sat — a link carries no picture, so that is expected
+  for now.
+
+- Check the date on a received finding. It should be the day the sender captured it, with no time
+  of day, and it should not shift by a day. Share that finding onward and confirm the date it
+  carries matches what you were shown.
+
+- On an iPhone in landscape, tap a link. The Done button must be reachable — the card must not be
+  cut off at the top.
+
+- Your own findings are unaffected: capture one, confirm it appears under My, and that you can
+  still edit and save it.
+
+- THE ONE-COPY RULE, THE HARD WAY. The test above uses a short link; this one uses the worst case.
+  Capture a finding on a page with a very long web address (a map portal with a lot of parameters
+  is ideal), give it a long title and an author, and share it as an IMAGE — the card with the QR
+  code on it. Scan that code with a second device, then scan it AGAIN. You must end up with one
+  copy in Received, not two. Before this build a long address could push the finding's identity off
+  the code, and every scan of the same printed card made another copy.
+
+- Scan the same card from further away and at an angle, and in poor light. It must still scan — the
+  code was NOT made denser to fit more in.
+
+- A link you were sent by an earlier TestFlight build must still open and still be recognised as
+  the same finding, not arrive as a new copy.

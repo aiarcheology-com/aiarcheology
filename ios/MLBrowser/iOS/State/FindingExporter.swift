@@ -50,6 +50,14 @@ struct FindingSnapshot: Sendable, Equatable {
 	/// The image on disk at capture time, or nil when the file is already missing.
 	/// Copy time tolerates a disappearance too — this is only the best guess.
 	let screenshotSourceURL: URL?
+	/// `Finding.source_` verbatim — the RAW column, not `Finding.source` (AIA-0835).
+	///
+	/// Carrying the raw value is what keeps "never recorded" distinguishable from "recorded as
+	/// local" across the wire. Reading the typed accessor here would collapse both to `"local"`,
+	/// and a reader would then have no way to tell an old archive from a deliberate claim.
+	let source: String?
+	/// When the exporting device took delivery of a received finding; nil for the user's own work.
+	let receivedAt: Date?
 
 	init(
 		id: UUID,
@@ -67,7 +75,9 @@ struct FindingSnapshot: Sendable, Equatable {
 		modifiedAt: Date? = nil,
 		modelId: UUID? = nil,
 		lifeCycle: String = CoreDataManageableState.ready.rawValue,
-		screenshotSourceURL: URL? = nil
+		screenshotSourceURL: URL? = nil,
+		source: String? = nil,
+		receivedAt: Date? = nil
 	) {
 		self.id = id
 		self.title = title
@@ -85,6 +95,8 @@ struct FindingSnapshot: Sendable, Equatable {
 		self.modelId = modelId
 		self.lifeCycle = lifeCycle
 		self.screenshotSourceURL = screenshotSourceURL
+		self.source = source
+		self.receivedAt = receivedAt
 	}
 
 	/// Reads the managed object's attributes. Must be called on the context's
@@ -100,7 +112,7 @@ struct FindingSnapshot: Sendable, Equatable {
 			id: id, title: title, label: label, note: note, author: author, gps: gps, page: page,
 			detectionClass: detectionClass, confidence: confidence, date: date, box: box,
 			captureBox: captureBox, modifiedAt: modifiedAt, modelId: modelId, lifeCycle: lifeCycle,
-			screenshotSourceURL: screenshotSourceURL
+			screenshotSourceURL: screenshotSourceURL, source: source, receivedAt: receivedAt
 		)
 	}
 
@@ -125,6 +137,8 @@ struct FindingSnapshot: Sendable, Equatable {
 		modifiedAt = finding.modifiedAt
 		modelId = finding.modelId
 		lifeCycle = finding.lifeCycleString
+		source = finding.source_
+		receivedAt = finding.receivedAt
 		if
 			let filename = finding.screenshotFilename,
 			let url = FindingScreenshotStore.url(forFilename: filename),
@@ -217,10 +231,12 @@ enum FindingExporter {
 		let modelId: String?
 		let lifeCycle: String
 		let screenshot: String?
+		let source: String?
+		let receivedAt: String?
 
 		enum CodingKeys: String, CodingKey {
 			case id, title, label, note, author, gps, page, detectionClass, confidence, date, box
-			case captureBox, modifiedAt, modelId, lifeCycle, screenshot
+			case captureBox, modifiedAt, modelId, lifeCycle, screenshot, source, receivedAt
 		}
 
 		// Explicit `encode` (not the synthesized `encodeIfPresent`) so nil fields
@@ -243,6 +259,8 @@ enum FindingExporter {
 			try container.encode(modelId, forKey: .modelId)
 			try container.encode(lifeCycle, forKey: .lifeCycle)
 			try container.encode(screenshot, forKey: .screenshot)
+			try container.encode(source, forKey: .source)
+			try container.encode(receivedAt, forKey: .receivedAt)
 		}
 	}
 
@@ -280,7 +298,9 @@ enum FindingExporter {
 				modifiedAt: snapshot.modifiedAt.map(preciseFormatter.string(from:)),
 				modelId: snapshot.modelId?.uuidString,
 				lifeCycle: snapshot.lifeCycle,
-				screenshot: relativeImagePath(for: snapshot, copiedImageNames: copiedImageNames)
+				screenshot: relativeImagePath(for: snapshot, copiedImageNames: copiedImageNames),
+				source: snapshot.source,
+				receivedAt: snapshot.receivedAt.map(formatter.string(from:))
 			)
 		}
 		let encoder = JSONEncoder()

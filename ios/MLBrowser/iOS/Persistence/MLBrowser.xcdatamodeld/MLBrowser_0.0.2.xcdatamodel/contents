@@ -57,7 +57,9 @@
         <attribute name="modifiedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="note_" optional="YES" attributeType="String"/>
         <attribute name="page" optional="YES" attributeType="URI"/>
+        <attribute name="receivedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="screenshotFilename" optional="YES" attributeType="String"/>
+        <attribute name="source_" optional="YES" attributeType="String"/>
         <attribute name="title" attributeType="String" defaultValueString=""/>
     </entity>
     <entity name="WebHistoryEntry" representedClassName="WebHistoryEntry" syncable="YES">

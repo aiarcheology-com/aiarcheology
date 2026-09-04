@@ -7,6 +7,8 @@
 //  assert against a *render* rather than against the view tree.
 //
 
+import CoreImage
+import CoreImage.CIFilterBuiltins
 import SwiftUI
 import UIKit
 import XCTest
@@ -527,7 +529,11 @@ final class FindingShareCardLayoutTests: XCTestCase {
 	/// by construction and then asserted it was positive — true even if every module were drawn one
 	/// pixel wide, the single failure this budget exists to prevent.
 	func test_fittedPointSizeKeepsItsPixelsPerModuleUpToTheCeiling() {
-		// 79 modules is the 400-character worst case: 77 plus the generator's quiet zone.
+		// 79 modules is the 400-character worst case: 77 plus the generator's quiet zone. The stride
+		// stops there rather than at the ceiling's own capacity because beyond the budget the clamp
+		// *does* bite: 91 modules would want 114pt, get 110, and fall to 3.62px per module. That is
+		// not a bug in `fittedPointSize` — it is the reason `maximumCompactLength` has to be measured
+		// against the ceiling, which `test_aLinkAtTheBudgetIsNotClampedByTheCeiling` pins (AIA-0836).
 		for modules in stride(from: 21.0, through: 79.0, by: 2.0) {
 			let points = FindingShareQRCode.fittedPointSize(moduleCount: modules)
 			let pixelsPerModule = (points * FindingShareQRCode.renderScale) / modules
@@ -546,5 +552,44 @@ final class FindingShareCardLayoutTests: XCTestCase {
 		XCTAssertEqual(atFloor, FindingShareQRCode.minimumPointSize, "a small symbol should sit on the floor")
 		XCTAssertGreaterThan(dense, FindingShareQRCode.minimumPointSize)
 		XCTAssertLessThanOrEqual(dense, FindingShareQRCode.maximumPointSize)
+	}
+
+	/// The pairing AIA-0836 measured: a link at ``FindingShareLink/maximumCompactLength`` produces a
+	/// symbol the ceiling does **not** have to clamp.
+	///
+	/// This is the test that stops a future budget rise from silently making printed cards
+	/// unscannable. `fittedPointSize` clamps to the ceiling rather than reporting that it could not
+	/// honour the floor, so raising `maximumCompactLength` without raising `maximumPointSize` costs
+	/// nothing visible — the code still renders, at 3.7px per module instead of 3.75, and only a
+	/// photographed card fails.
+	///
+	/// The symbol is generated here rather than derived from arithmetic, with the same generator and
+	/// the same `"M"` correction level the badge uses: version-to-capacity is a property of the
+	/// generator, which is exactly why the budget had to be measured rather than predicted. Strict
+	/// inequality is the assertion that matters — equality with the ceiling is indistinguishable
+	/// from having been clamped by it.
+	func test_aLinkAtTheBudgetIsNotClampedByTheCeiling() throws {
+		// Built to the cap rather than at a hardcoded filler length: the previous shape of this
+		// fixture was arithmetic against a constant, which is precisely what stops being true the
+		// next time the cap moves.
+		let prefix = "https://\(FindingShareLink.webHost)\(FindingShareLink.path)#v=1&t=Rampart&u="
+		let url = try XCTUnwrap(
+			URL(string: prefix + String(repeating: "x", count: FindingShareLink.maximumCompactLength - prefix.count))
+		)
+		XCTAssertEqual(url.absoluteString.count, FindingShareLink.maximumCompactLength, "fixture drifted off the budget")
+
+		let filter = CIFilter.qrCodeGenerator()
+		filter.message = Data(url.absoluteString.utf8)
+		filter.correctionLevel = "M"
+		let modules = try XCTUnwrap(filter.outputImage?.extent.width)
+
+		let points = FindingShareQRCode.fittedPointSize(moduleCount: modules)
+		let pixelsPerModule = (points * FindingShareQRCode.renderScale) / modules
+
+		XCTAssertLessThan(
+			points, FindingShareQRCode.maximumPointSize,
+			"a \(modules)-module symbol wants \(points)pt — the budget has outgrown the ceiling"
+		)
+		XCTAssertGreaterThanOrEqual(pixelsPerModule, FindingShareQRCode.minimumPixelsPerModule)
 	}
 }

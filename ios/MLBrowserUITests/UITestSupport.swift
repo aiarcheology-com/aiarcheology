@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 12
+	var version = 14
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -48,6 +48,13 @@ struct LaunchConfig: Encodable {
 	/// i.e. a genuine first install. Every UI-test launch wipes its own storage, so this is the
 	/// only way to reach the expired wall.
 	var freeAccessAnchorAgeDays: Int?
+	/// A shared-finding link delivered at launch, as if tapped (AIA-0835).
+	var sharedLinkURL: String?
+
+	/// How many times ``sharedLinkURL`` is delivered on this launch; `nil` means once (AIA-0836).
+	/// Two deliveries in one session is the only way to exercise duplicate import, because every
+	/// launch starts from an empty store.
+	var sharedLinkDeliveries: Int?
 }
 
 // MARK: - Accessibility identifiers
@@ -94,6 +101,11 @@ enum AID {
 	static let drawerFindings = "_AIA:Button.DrawerFindings"
 
 	// Findings toolbar (AIA-0748)
+	static let findingsTab = "_AIA:Picker.FindingsTab"
+	static let sharedFindingDone = "_AIA:Button.SharedFindingDone"
+	static let findingDetailSave = "_AIA:Button.FindingDetailSave"
+	static let findingDetailShare = "_AIA:Button.FindingDetailShare"
+	static let findingDetailTitle = "_AIA:TextField.FindingDetailTitle"
 	static let findingsDataMenu = "_AIA:Button.FindingsDataMenu"
 	static let findingsExport = "_AIA:Button.FindingsExport"
 	static let findingsImport = "_AIA:Button.FindingsImport"

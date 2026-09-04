@@ -37,10 +37,23 @@ enum FindingShareQRCode {
 	/// The **ceiling** on the code's edge, in points, for a payload at ``FindingShareLink/maximumCompactLength``.
 	///
 	/// Scannability is decided by pixels per module, so carrying more characters means more modules,
-	/// which means each gets thinner unless the code gets physically bigger. At EC-M a 400-character
-	/// payload is a version-15 symbol — 77 modules, 79 with the generator's quiet zone — and at 3×
-	/// that needs 99pt to hold ``minimumPixelsPerModule``. 110 leaves a little headroom above the
-	/// densest symbol the contract can produce.
+	/// which means each gets thinner unless the code gets physically bigger. The ceiling — not the
+	/// floor — is therefore what caps the payload: raising it to `N` points admits `N × renderScale
+	/// / minimumPixelsPerModule` modules, which is `N × 0.8`.
+	///
+	/// At EC-M a 400-character payload is a version-15 symbol — 77 modules, 79 with the generator's
+	/// quiet zone — and at 3× that needs 99pt to hold ``minimumPixelsPerModule``. 110 leaves a little
+	/// headroom above the densest symbol the contract can produce.
+	///
+	/// **AIA-0836 tried to raise this and measurement refused.** §8.3 of that plan proposed spending
+	/// card width on link budget — a wider code admits more modules, which admits a longer
+	/// ``FindingShareLink/maximumCompactLength``. Both 130pt and 120pt fail
+	/// `FindingShareCardLayoutTests.test_theSeventhRowIsActuallyDrawn`, in both orientations: the
+	/// badge reserves its width from the metadata block, and at either size a seventh metadata row
+	/// adds no visible ink — it is crowded out. The plan's premise was that the card had room; it
+	/// does not, and the guard rail it set ("confirm the new ceiling against the widest metadata,
+	/// not a typical card") is what caught it. Raising this needs the card's proportions to change
+	/// first, which is a product decision and not a constant.
 	static let maximumPointSize: CGFloat = 110
 
 	/// The floor: 1.25× the fixed size the card carried before AIA-0657.

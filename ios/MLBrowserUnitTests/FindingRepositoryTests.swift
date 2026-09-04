@@ -433,7 +433,11 @@ final class FindingRepositoryTests: XCTestCase {
 					modifiedAt: nil,
 					modelId: nil,
 					lifeCycle: CoreDataManageableState.ready.rawValue,
-					screenshotExtension: nil
+					screenshotExtension: nil,
+					// Not stated, which is what an archive written before provenance existed looks
+					// like. `apply` must leave whatever the local row already has (AIA-0835).
+					source: nil,
+					receivedAt: nil
 				)
 			],
 			images: [:]

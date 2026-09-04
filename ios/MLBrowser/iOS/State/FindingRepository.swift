@@ -85,6 +85,15 @@ final class FindingRepository {
 		dataController.container.viewContext
 	}
 
+	/// Discards a finding's uncommitted edits by reloading it from the store.
+	///
+	/// Lives here rather than in the editor because reaching the context is this type's job: a View
+	/// holding `@Environment(\.managedObjectContext)` to call one method is the Core-Data-in-a-View
+	/// coupling `ArchitectureTests.testViewTypesAvoidCoreDataImports_Aspirational` ratchets down.
+	func discardEdits(to finding: Finding) {
+		context.refresh(finding, mergeChanges: false)
+	}
+
 	/// Commits edits the caller has already made to a stored finding.
 	///
 	/// The caller owns the field mapping -- an edit screen knows which fields it exposes and this
@@ -167,6 +176,158 @@ final class FindingRepository {
 		didCreateFinding?(entityId)
 		didChangeFindings?()
 		return finding
+	}
+
+	// MARK: - Shared-link import (AIA-0835)
+
+	/// Stores a finding that arrived by share link.
+	///
+	/// Returns the **existing** row when the link's id is already ours, writing nothing: that is what
+	/// stops a sender who opens their own link from getting a second copy, and it is why the id is a
+	/// signature rather than a local identifier.
+	///
+	/// ## No image is written, and none is missing
+	/// A link carries no picture, so the row gets the canonical screenshot name with **no file behind
+	/// it** — the same already-supported state an archive import produces for a row whose image the
+	/// sender did not include (see `apply(_:to:screenshotFilename:)`). Validation checks the filename
+	/// string, never the filesystem, and every consumer already draws a placeholder. A real image is
+	/// a later ticket's backend work.
+	@discardableResult
+	func saveReceived(_ payload: FindingShareLink.Payload) throws -> Finding {
+		if let id = payload.id, let existing = Finding.select(id, in: context) {
+			LoggingPolicy.info("Shared finding: already stored; not importing again", logger: .storage)
+			return existing
+		}
+
+		// A link with no `i=` still deserves to be kept -- refusing would lose a real finding -- so it
+		// gets a fresh identity. Two opens of the same id-less link therefore make two rows; that is
+		// the accepted cost of not dropping one.
+		//
+		// Re-importing a link the user previously deleted **does** bring the finding back, on this
+		// device and in the cloud, and that is the general conflict rule rather than a hole in it:
+		// the new row carries a fresh `modifiedAt`, which outranks the older tombstone exactly as a
+		// newer local edit does (`FindingsSyncCoordinator.swift:991-997`). It resurrects only because
+		// somebody opened that link again, which is as clear a statement of intent as the delete was.
+		//
+		// It is the rare case, since AIA-0836: `Key.id` is no longer on `FindingShareLink`'s shed
+		// ladder, so no link this app emits can arrive without one however long its page URL is. A
+		// missing `i=` now means a hand-edited link or one built by something else -- the defensive
+		// branch rather than the routine path a printed card walks into, which is what it was while
+		// the id was still droppable.
+		let entityId = payload.id ?? UUID()
+		let receivedAt = Date()
+
+		let finding = Finding.create(in: context)
+		finding.entityId = entityId
+		finding.source = .received
+		finding.receivedAt = receivedAt
+		// The sender's capture day, resolved in UTC -- never the recipient's calendar. The wire day is
+		// UTC on both sides, so local midnight would re-emit as the previous day for every user east
+		// of UTC, walking the date backwards one step per forward.
+		finding.creationDate_ = Self.utcStartOfDay(payload.date) ?? receivedAt
+		finding.title = payload.title.trimmingCharacters(in: .whitespacesAndNewlines)
+		finding.author = payload.author.flatMap(Self.normalized)
+		finding.page = payload.page
+		finding.detectionClass = payload.detectionClass.flatMap(Self.normalized)
+		// Range-checked here as well as in the parser: `Payload` is a plain struct that validates
+		// nothing, so a directly-constructed one could carry 101 -- which `throwIfInvalid` rejects,
+		// costing the whole finding.
+		finding.detectionConfidence = payload.confidencePercent
+			.map { Double(min(max($0, 0), 100)) / 100 }
+			?? 0
+		// The sender's own text wins over the reformatted degrees, so the recipient's card says what
+		// the sender's card said -- including the coordinate systems `Coordinate` cannot represent,
+		// which is every projected one a map page might report (AIA-0836). The formatted fallback is
+		// for links emitted before the text field existed.
+		// `Self.normalized` for the reason `author` above uses it: `Payload` validates nothing, so a
+		// directly-constructed one can carry `""` and an empty string is not a location.
+		//
+		// The text is stored exactly as the sender wrote it, including a `leaflet:`-style provenance
+		// tag if they had one. That tag describes how *their* device obtained the value, not how this
+		// one did, and it is kept anyway: the whole point is that the recipient's card reads as the
+		// sender's did. Nothing branches on the tag — `CoordinateText.strippingStorageTag` only
+		// ignores it when parsing — so it costs nothing beyond being read literally.
+		finding.gps_ = payload.locationText.flatMap(Self.normalized)
+			?? payload.coordinate.map { String(format: "%.5f, %.5f", $0.latitude, $0.longitude) }
+		// The recipient does not have the sender's model, and claiming one they cannot resolve would
+		// make the finding look reproducible here when it is not.
+		finding.modelId = nil
+		finding.screenshotFilename = Finding.screenshotFilename(for: entityId)
+
+		let stored = payload.box.map(Self.visionRect(fromWire:))
+		// Absent means the sender stated no capture-space box, which is the documented zero-rect
+		// "not recorded" value -- never the unit rect, which would claim a whole-page detection.
+		let captureBox = stored ?? .zero
+		finding.captureBoxX = captureBox.minX
+		finding.captureBoxY = captureBox.minY
+		finding.captureBoxWidth = captureBox.width
+		finding.captureBoxHeight = captureBox.height
+		// `boxX…` has no absence signal and validation demands a unit rect, so a link with no box
+		// gets the whole frame. Readers must gate "was a box sent?" on the zero `captureBox` above.
+		let drawn = stored ?? CGRect(x: 0, y: 0, width: 1, height: 1)
+		finding.boxX = drawn.minX
+		finding.boxY = drawn.minY
+		finding.boxWidth = drawn.width
+		finding.boxHeight = drawn.height
+
+		finding.transition(to: .draft)
+		do {
+			try finding.throwIfInvalid()
+			finding.transition(to: .ready)
+			try Finding.save(in: context)
+		} catch {
+			let validationKeys = finding.validationReport().issues?.map(\.key).joined(separator: ", ") ?? "none"
+			Finding.delete(finding, in: context)
+			LoggingPolicy.error(
+				"Failed to store a received finding (validation keys: \(validationKeys))",
+				error: error,
+				logger: .storage
+			)
+			throw error
+		}
+
+		// Both hooks, exactly as a locally captured finding fires them. `didCreateFinding` is what
+		// puts the row in this account's owned set; without it sync treats it as unclaimed and raises
+		// the back-up consent prompt -- a modal the user would get for tapping a link.
+		//
+		// Reviewed and kept deliberately (AIA-0835): the owned set decides what this account backs
+		// up, and a received finding IS the user's to keep -- theirs to open, to forward and to
+		// delete. Backing it up costs them nothing and losing it on a device change would. The name
+		// reads as a claim of authorship, but authorship is `Finding.author`, which stays the
+		// sender's and is what the share card prints. Not firing it was the alternative, and it would
+		// quietly leave exactly the findings a user was given out of the backup they believe covers
+		// everything.
+		didCreateFinding?(entityId)
+		didChangeFindings?()
+		LoggingPolicy.info("Shared finding: stored a received finding", logger: .storage)
+		return finding
+	}
+
+	/// Converts a wire box to the Vision rect the stored attributes use.
+	///
+	/// `FindingShareLink.Box` is **top-left** origin by deliberate choice (the landing page is a
+	/// second reader and every web coordinate system points that way); `Finding.boxX…` and
+	/// `captureBox…` are **bottom-left** Vision rects. `FindingShareEmission` converts on the way out
+	/// with `y: 1 - captureNormalizedBox.maxY`; this is that inverse, at the one boundary where a link
+	/// becomes a row. Assigning the wire value directly would mirror the box vertically -- and mirror
+	/// it again on every forward.
+	private static func visionRect(fromWire box: FindingShareLink.Box) -> CGRect {
+		CGRect(x: box.x, y: 1 - box.y - box.height, width: box.width, height: box.height)
+	}
+
+	/// The start of a link's day-precision date in **UTC**, or nil when the link did not carry a
+	/// complete one.
+	///
+	/// All three fields are required rather than letting `Calendar` fill in what a partial
+	/// `DateComponents` omits -- a link carrying only a year would otherwise resolve to 1 January,
+	/// a date nobody sent.
+	private static func utcStartOfDay(_ components: DateComponents?) -> Date? {
+		guard let components, let year = components.year, let month = components.month,
+		      let day = components.day
+		else { return nil }
+		var calendar = Calendar(identifier: .gregorian)
+		calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? calendar.timeZone
+		return calendar.date(from: DateComponents(year: year, month: month, day: day))
 	}
 
 	// MARK: - Archive import (AIA-713)
@@ -408,6 +569,17 @@ final class FindingRepository {
 		}
 		finding.screenshotFilename = screenshotFilename
 
+		// Nil means the archive did not STATE a provenance, not that the finding is local, so the
+		// existing value stands -- the same rule `captureBox` uses just above, and for a sharper
+		// reason (AIA-0835).
+		//
+		// Cloud sync replace-imports automatically (`duplicates: .replace`). Assigning nil here
+		// would let one peer that does not know the field relabel every received finding as the
+		// user's own work, on every device -- turning content a stranger sent into something
+		// presented as theirs and editable. That is a provenance failure, not a cosmetic one.
+		if let source = row.source { finding.source_ = source }
+		if let receivedAt = row.receivedAt { finding.receivedAt = receivedAt }
+
 		// The archived timestamp is authoritative: stamping "now" would make a restored copy win
 		// last-write-wins against a newer edit elsewhere. v0 archives carry none, so fall back the
 		// way the attribute documents.
@@ -544,16 +716,31 @@ final class FindingRepository {
 		Finding.count(in: context, predicate: nil) > 0
 	}
 
-	/// The title this device already stores for `entityId`, or `nil` when it stores no such finding.
+	/// What this device already stores for `entityId`, or `nil` when it stores no such finding.
 	///
-	/// **Read-only, and the only reason a shared link touches Core Data at all (AIA-0650).** A link
-	/// whose id matches a local row is the recipient's *own* finding — most often the sender opening
-	/// their own link — and showing them a stranger's-eye, "unverified" card of their own work would
-	/// be nonsense. The title is read back from the store rather than taken from the link so the one
-	/// piece of text that screen renders is the verified local copy, not the attacker-controllable
-	/// one in the URL fragment. Nothing here writes: a shared link never creates a `Finding`.
-	func storedFindingTitle(_ entityId: UUID) -> String? {
-		Finding.select(entityId, in: context)?.displayTitle
+	/// The title is read back from the **store** rather than taken from the link, so the one piece
+	/// of text the shared-finding screen renders from a match is the verified local copy and not the
+	/// attacker-controllable one in the URL fragment (AIA-0650).
+	///
+	/// ## Why the source travels with it
+	/// A matching id used to mean exactly one thing — "this is the recipient's own work, most often
+	/// the sender opening their own link" — so a title was the whole answer. Since AIA-0835 a link
+	/// also *creates* a row, so a match now means either the user's own finding **or** one they were
+	/// sent earlier. Answering with the title alone would make the screen greet a stranger's finding
+	/// with "this is yours" on the second open.
+	///
+	/// This is a read. The write lives in ``saveReceived(_:)``; the older claim that "a shared link
+	/// never creates a `Finding`" stopped being true in AIA-0835 and is deliberately not repeated
+	/// here.
+	func storedFinding(_ entityId: UUID) -> StoredFindingSummary? {
+		guard let finding = Finding.select(entityId, in: context) else { return nil }
+		return StoredFindingSummary(title: finding.displayTitle, source: finding.source)
+	}
+
+	/// The verified facts about a stored finding that a shared link is allowed to render.
+	struct StoredFindingSummary: Equatable {
+		let title: String
+		let source: FindingSource
 	}
 
 	/// Trim, then treat an all-whitespace field as absent (nil) — matches the former view helper.

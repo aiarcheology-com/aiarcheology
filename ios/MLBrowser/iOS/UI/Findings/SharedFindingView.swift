@@ -21,19 +21,35 @@ enum SharedFindingPresentation: Equatable {
 	/// Content that arrived in a URL from someone else. Everything rendered is attacker-controllable
 	/// and the screen must say so.
 	case unverified
-	/// The id in the link matches a finding this device already stores. `localTitle` comes from the
-	/// **store**, never the link, so the one piece of text that branch renders is verified.
+	/// The id in the link matches a finding this device already stores **and captured**.
+	/// `localTitle` comes from the **store**, never the link, so the one piece of text that branch
+	/// renders is verified.
 	case owned(localTitle: String)
+	/// The id matches a finding this device stores because it was *received* from a link before —
+	/// typically the same link opened twice. Verified like ``owned``, but it is not the user's work
+	/// and must never be presented as such.
+	case alreadyReceived(localTitle: String)
 
 	/// - Parameters:
 	///   - payloadId: the id carried by the link, absent when the sender's app dropped it to fit.
-	///   - storedTitle: the local lookup — `nil` when this device has no such finding.
+	///   - stored: the local lookup — `nil` when this device has no such finding.
 	///
-	/// A link with no id can never resolve to ``owned``: an absent id is not evidence of anything,
-	/// and guessing by title would let a stranger claim the recipient's own work by copying its name.
-	static func resolve(payloadId: UUID?, storedTitle: (UUID) -> String?) -> Self {
-		guard let payloadId, let title = storedTitle(payloadId) else { return .unverified }
-		return .owned(localTitle: title)
+	/// A link with no id can never resolve to a stored case: an absent id is not evidence of
+	/// anything, and guessing by title would let a stranger claim the recipient's own work by
+	/// copying its name.
+	///
+	/// **The source is what separates the two stored cases, and it has to.** Since AIA-0835 a link
+	/// stores what it carries, so on every open after the first the id *does* match — and answering
+	/// `.owned` there would tell the user a stranger's finding is their own.
+	static func resolve(
+		payloadId: UUID?,
+		stored: (UUID) -> FindingRepository.StoredFindingSummary?
+	) -> Self {
+		guard let payloadId, let summary = stored(payloadId) else { return .unverified }
+		switch summary.source {
+		case .local: return .owned(localTitle: summary.title)
+		case .received: return .alreadyReceived(localTitle: summary.title)
+		}
 	}
 }
 
@@ -45,11 +61,14 @@ enum SharedFindingPresentation: Equatable {
 /// array. The point is the absent cases. `Finding.gps_` is free text, prefilled since AIA-0817 from
 /// whichever witness the resolver could reach — a live map, a viewport in the URL, a coordinate the
 /// page displays, or its metadata — and left empty when none could, which is the common case on an
-/// ordinary page. So "no coordinate" must mean *no block*, not an empty map frame or a reserved gap.
+/// ordinary page. So "no location" must mean *no block*, not an empty map frame or a reserved gap —
+/// "no coordinate" was the rule until AIA-0836, and it is now the rule for the map alone.
 ///
 /// A prefilled value is also not necessarily a latitude and longitude: a map on a national grid is
-/// recorded in its own system, and `CoordinateText.parse` returning nil for that is what keeps the
-/// map block off a card whose coordinate it cannot place.
+/// recorded in its own system, and `CoordinateText.parse` returns nil for that. Since AIA-0836 that
+/// keeps the **map** off a card whose coordinate cannot be placed — not the block. The location
+/// still shows, in the sender's own notation, because "we could not plot it" and "there is nowhere"
+/// are different answers and only one of them was ever true here.
 enum SharedFindingSection: Hashable {
 	case provenance
 	case title
@@ -59,7 +78,11 @@ enum SharedFindingSection: Hashable {
 	case date
 	case page
 	case box
-	case map
+	/// The location the finding records, in whatever notation it was written. Named for the block
+	/// rather than for the map inside it: since AIA-0836 the map is the optional part — degrees can
+	/// be plotted, a national grid reading cannot, and both are still a location worth showing. It
+	/// was `case map`, which is what sent a reader looking for a location section and finding none.
+	case location
 
 	static func layout(for payload: FindingShareLink.Payload) -> [SharedFindingSection] {
 		// Provenance leads, unconditionally. It is the only claim on this screen that is true
@@ -77,7 +100,11 @@ enum SharedFindingSection: Hashable {
 		// Directly after the page, because it qualifies it: the page plus where on it is the whole
 		// locator for a detection that is not on a map (AIA-0657).
 		if payload.box != nil { sections.append(.box) }
-		if payload.coordinate != nil { sections.append(.map) }
+		// Either form of location earns the block: the degrees when they parsed, and otherwise the
+		// text the sender's own card showed. Gating on `coordinate` alone is what dropped the whole
+		// section for a finding recorded on a national grid — the sender saw a location, the
+		// recipient saw nothing at all (AIA-0836).
+		if locationText(for: payload) != nil { sections.append(.location) }
 		return sections
 	}
 
@@ -119,6 +146,22 @@ enum SharedFindingSection: Hashable {
 	static func coordinateText(_ coordinate: FindingShareLink.Coordinate) -> String {
 		String(format: "%.5f, %.5f", coordinate.latitude, coordinate.longitude)
 	}
+
+	/// What the location row says, or `nil` when the link carried no location in either form.
+	///
+	/// The sender's own wording wins over the formatted degrees, so the recipient's card reads the
+	/// same as the card it came from — including every coordinate system `Coordinate` cannot hold.
+	/// Shared by ``layout(for:)`` and the row that renders it, so the two cannot disagree about
+	/// whether the block exists — the same rule ``detectionText(for:)`` follows, and for the same
+	/// reason (AIA-0836).
+	static func locationText(for payload: FindingShareLink.Payload) -> String? {
+		// Blank is absent. `payload(from:)` already nils an empty field, but `Payload` validates
+		// nothing and a directly-built one (a preview, a test) would otherwise reserve a row with
+		// nothing in it — the empty gap this layout exists to avoid.
+		let written = payload.locationText?.trimmingCharacters(in: .whitespacesAndNewlines)
+		if let written, written.isEmpty.not { return written }
+		return payload.coordinate.map(coordinateText)
+	}
 }
 
 // MARK: - Presentation
@@ -140,7 +183,13 @@ extension View {
 /// redraw a body that only observed the parent. Observing it here is what makes the presentation
 /// reactive at all — the same reason `AnalyticsChoiceGate` is its own observed view.
 private struct SharedFindingHost: ViewModifier {
-	let appState: AppState
+	/// Observed, not merely held. The overlay below is gated on `appState.isReady`, and a plain
+	/// reference meant a flip of that flag invalidated nothing here: a link buffered BEFORE the
+	/// store opened rendered once, empty, and never again -- the doc comment on `isReady` below
+	/// promised the link "appears when the app is up", and it silently did not. Warm-app links hid
+	/// this because `isReady` was already true when `pending` changed; a cold-launch deeplink was
+	/// swallowed. Surfaced by AIA-0835's UI tests, which deliver the link at launch.
+	@ObservedObject private var appState: AppState
 	@ObservedObject private var state: SharedFindingState
 
 	init(appState: AppState) {
@@ -161,6 +210,13 @@ private struct SharedFindingHost: ViewModifier {
 					// rather than tidy. Same reason `.screenshotReportOffer` above takes its
 					// dependencies as arguments.
 					.environmentObject(appState)
+					// `FindingDetailView` is presented in here now, and it declares
+					// `@EnvironmentObject featureFlags` -- a MISSING one is a crash, not a blank
+					// view. The scene root injects these on `ContentView`, and this overlay is its
+					// sibling, so they do not arrive on their own. Same trap the comment above
+					// records for `AppState`; Share in the editor was a guaranteed fatal error.
+					.environmentObject(appState.featureFlags)
+					.environment(\.managedObjectContext, appState.dataController.container.viewContext)
 					.transition(.opacity)
 			}
 		}
@@ -236,6 +292,30 @@ struct SharedFindingView: View {
 		// scroll view below caps the height, so a two-row finding is a small card rather than a
 		// full-bleed page with its content stranded in the corner — which is exactly what a
 		// `maxHeight: .infinity` here would reproduce, only now with a tint behind it.
+		// Grouped so the lifecycle modifiers below attach to the whole branch rather than to one
+		// arm of the `if`.
+		Group {
+		// A stored finding gets the real editor in its own navigation context. It cannot go inside
+		// the measured `ScrollView` below: `FindingDetailView` is a `List` whose actions live in a
+		// navigation bar, so nesting it would mean a scroll view inside a scroll view and nowhere
+		// for Done to sit (AIA-0835).
+		if let finding = storedFinding {
+			NavigationStack {
+				FindingDetailView(
+					finding: finding,
+					findingRepository: appState.findingRepository,
+					onOpenPage: openPage
+				)
+				.toolbar {
+					ToolbarItem(placement: .navigationBarTrailing) {
+						Button(L10n.Common.done) { dismiss() }
+							.bold()
+							.testability(Testability.Button.sharedFindingDone)
+					}
+				}
+			}
+			.frame(maxHeight: 560)
+		} else {
 		VStack(spacing: 0) {
 			// The header — and with it the way out — is rendered unconditionally, *outside* the
 			// `presentation` check. A state in which this card is on screen without a Done button is
@@ -244,6 +324,16 @@ struct SharedFindingView: View {
 			// on a blank screen" is an acceptance criterion rather than a nicety.
 			header
 			Divider()
+			// A failed automatic save must be visible. The card still renders and Done still works --
+			// this is the line that stops "we saved nothing" looking exactly like success.
+			if appState.sharedFinding.importFailed {
+				Label(L10n.Finding.Shared.saveFailed, systemImage: "exclamationmark.triangle")
+					.font(.footnote)
+					.foregroundStyle(.orange)
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.padding(.horizontal, 20)
+					.padding(.vertical, 8)
+			}
 			ScrollView {
 				bodyContent
 					.background(
@@ -260,14 +350,35 @@ struct SharedFindingView: View {
 			.frame(height: min(contentHeight, 560))
 			.onPreferenceChange(SharedFindingContentHeight.self) { contentHeight = $0 }
 		}
-		.onAppear { resolve() }
+		}
+		}
+		.onAppear { resolveAndStore() }
 
 		// A second link can replace the first while this screen is up (`SharedFindingState` keeps
 		// the newest), and the new one may belong to the recipient when the old one did not.
-		.onChange(of: pending) { _, _ in resolve() }
+		.onChange(of: pending) { _, _ in resolveAndStore() }
+	}
+
+	/// Works out which screen this link deserves, and stores it when it deserves the editor.
+	///
+	/// Order matters. The ownership lookup runs FIRST: a link matching a finding the user captured
+	/// themselves is their own work and must not be re-imported or shown as somebody's gift. Only a
+	/// link that is not already a local finding is stored — and `saveReceived` is itself idempotent
+	/// for an id it already holds, so a link received twice returns the same row rather than a
+	/// second copy.
+	private func resolveAndStore() {
+		resolve()
+		if case .owned = presentation { return }
+		appState.sharedFinding.storePendingFinding(using: appState.findingRepository)
 	}
 
 	@State private var contentHeight: CGFloat = 0
+
+	/// The stored finding this link resolved to, if the store has settled on one.
+	private var storedFinding: Finding? {
+		guard let id = appState.sharedFinding.storedId else { return nil }
+		return Finding.select(id, in: appState.dataController.container.viewContext)
+	}
 
 	/// The card's scrolling content, extracted so its height can be measured.
 	@ViewBuilder
@@ -290,6 +401,12 @@ struct SharedFindingView: View {
 							.id(payload)
 					case .owned(let localTitle):
 						SharedFindingOwnedView(localTitle: localTitle, onOpenFindings: openOwnFinding)
+					case .alreadyReceived:
+						// Unreachable in practice: a received row sets `storedId`, and the editor
+						// branch above wins before this switch runs. The CASE still earns its place --
+						// it is what stops `resolveAndStore` treating a stranger's finding as the
+						// user's own and skipping the import -- but it needs no screen of its own.
+						EmptyView()
 					case nil:
 						// One runloop at most, until `onAppear` resolves ownership.
 						ProgressView()
@@ -305,8 +422,10 @@ struct SharedFindingView: View {
 	/// ## Leading and blue, because that is what this app does
 	/// `SaveFindingSheet`, the findings detail screen and the share composer all place the dismissive
 	/// action **leading in blue** and the committing action **trailing in green, bold**. This card has
-	/// no committing action yet — a shared link deliberately writes nothing — so the trailing side is
-	/// empty and the dismiss button sits where every other sheet in the app puts cancel.
+	/// no committing action, and since AIA-0835 that is no longer because the link writes nothing —
+	/// it writes on arrival, without being asked. There is simply nothing left for the user to
+	/// commit, so the trailing side is empty and the dismiss button sits where every other sheet in
+	/// the app puts cancel.
 	///
 	/// The title is centred by a `ZStack` rather than by an `HStack` with spacers, so it stays
 	/// centred on the *card* regardless of how wide the button beside it is in the current language.
@@ -340,7 +459,7 @@ struct SharedFindingView: View {
 			return
 		}
 		presentation = .resolve(payloadId: payload.id) { entityId in
-			appState.findingRepository.storedFindingTitle(entityId)
+			appState.findingRepository.storedFinding(entityId)
 		}
 	}
 
@@ -410,7 +529,7 @@ struct SharedFindingUnverifiedView: View {
 	let onOpenPage: (URL) -> Void
 
 	/// Whether the recipient has asked for the map. Starts false so opening a link fetches no tiles
-	/// for a sender-chosen coordinate — see ``mapBlock``.
+	/// for a sender-chosen coordinate — see ``locationBlock``.
 	@State private var isMapShown = false
 
 	/// Deliberately **not** a `ScrollView`. Since AIA-0657 this is presented inside the card's own
@@ -467,8 +586,8 @@ struct SharedFindingUnverifiedView: View {
 			pageBlock
 		case .box:
 			boxBlock
-		case .map:
-			mapBlock
+		case .location:
+			locationBlock
 		}
 	}
 
@@ -605,8 +724,13 @@ struct SharedFindingUnverifiedView: View {
 		}
 	}
 
-	/// Rendered only when the link actually carried a coordinate — the exception, not the rule: the
-	/// finding's GPS field is free text nothing auto-populates, so most links have none. When there
+	/// Rendered whenever the link carried a location in either form — the degrees, or the sender's own
+	/// wording when they could not be parsed (AIA-0836). The **map** inside still needs degrees, so a
+	/// national-grid reading renders as words alone rather than as a pin somewhere nobody sent.
+	///
+	/// This used to say "only when the link actually carried a coordinate… the finding's GPS field is
+	/// free text nothing auto-populates, so most links have none". Both halves stopped being true:
+	/// AIA-0817 prefills the field from a map page, and the text alone now renders the block. When there
 	/// is none this block is absent from ``SharedFindingSection/layout(for:)`` entirely, leaving no
 	/// empty frame and no gap where a map would have been.
 	/// The coordinate, always as text; the map itself only once the recipient asks for it.
@@ -620,11 +744,14 @@ struct SharedFindingUnverifiedView: View {
 	///
 	/// The text is the part the acceptance criteria actually need on arrival; the map is one tap away.
 	@ViewBuilder
-	private var mapBlock: some View {
-		if let coordinate = payload.coordinate {
+	private var locationBlock: some View {
+		if let text = SharedFindingSection.locationText(for: payload) {
 			VStack(alignment: .leading, spacing: 10) {
-				detail(L10n.Finding.gps, value: SharedFindingSection.coordinateText(coordinate), systemImage: "location")
-				if isMapShown {
+				detail(L10n.Finding.gps, value: text, systemImage: "location")
+				// The map needs degrees; the text does not. A location on a national grid therefore
+				// renders as its own words with no map beneath, rather than as nothing at all — and
+				// never as a map placed at coordinates nobody sent (AIA-0836).
+				if let coordinate = payload.coordinate, isMapShown {
 					let center = CLLocationCoordinate2D(
 						latitude: coordinate.latitude,
 						longitude: coordinate.longitude

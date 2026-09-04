@@ -355,6 +355,23 @@ struct MLBrowser: App {
 			// Deliberately NOT gated on `isFindingShareLinkEnabled`: that flag governs whether this
 			// app *emits* links. Links already shared are out in the world regardless, and turning
 			// emission off must not break them for the strangers who tap them.
+			.task {
+				// A UI test cannot hand the app a URL without driving Safari, so a configured link is
+				// delivered here instead — the same entry point `onOpenURL` uses, so the test
+				// exercises the real buffering and import rather than a parallel path. Gated on
+				// `isRunningUITests`; `UITestLaunchConfiguration` is dead code in shipping builds.
+				guard AppEnvironment.isRunningUITests,
+				      let config = UITestLaunchConfiguration.fromEnvironment,
+				      let raw = config.sharedLinkURL,
+				      let url = URL(string: raw)
+				else { return }
+				// Delivered more than once when the test asks, so the duplicate-import guarantee can
+				// be exercised at all — two launches cannot do it, because each one starts from an
+				// empty store (AIA-0836).
+				for _ in 0..<max(1, config.sharedLinkDeliveries ?? 1) {
+					appState.sharedFinding.handle(url)
+				}
+			}
 			.onOpenURL { url in
 				LoggingPolicy.debug("Shared finding: URL delivered via onOpenURL", logger: .state)
 				appState.sharedFinding.handle(url)

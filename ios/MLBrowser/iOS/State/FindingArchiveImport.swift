@@ -61,6 +61,14 @@ struct ImportedFindingRow: Equatable {
 	let lifeCycle: String?
 	/// The image's extension, taken from the validated `screenshot` path. Nil when the row has none.
 	let screenshotExtension: String?
+	/// Provenance as the archive stated it, or nil when it did not (AIA-0835).
+	///
+	/// Nil means **not stated**, never "local" — the caller keeps whatever the local row already
+	/// has. An archive written before provenance existed, or by a client that does not know the
+	/// field, must not be able to relabel a received finding as the user's own work.
+	let source: String?
+	/// When the exporting device took delivery. Nil means not stated, same rule as `source`.
+	let receivedAt: Date?
 }
 
 extension ImportedFindingRow {
@@ -74,7 +82,8 @@ extension ImportedFindingRow {
 			id: id, title: title, label: label, note: note, author: author, gps: gps, page: page,
 			detectionClass: detectionClass, confidence: confidence, creationDate: creationDate,
 			box: box, captureBox: captureBox, modifiedAt: modifiedAt, modelId: modelId,
-			lifeCycle: lifeCycle, screenshotExtension: screenshotExtension
+			lifeCycle: lifeCycle, screenshotExtension: screenshotExtension, source: source,
+			receivedAt: receivedAt
 		)
 	}
 }
@@ -257,6 +266,8 @@ enum FindingArchiveImport {
 		let modelId: String?
 		let lifeCycle: String?
 		let screenshot: String?
+		let source: String?
+		let receivedAt: String?
 	}
 
 	private static func validated(_ raw: RawRow) throws -> ImportedFindingRow {
@@ -297,7 +308,9 @@ enum FindingArchiveImport {
 			modifiedAt: raw.modifiedAt.flatMap(parseDate),
 			modelId: raw.modelId.flatMap(UUID.init(uuidString:)),
 			lifeCycle: raw.lifeCycle,
-			screenshotExtension: screenshotExtension
+			screenshotExtension: screenshotExtension,
+			source: raw.source,
+			receivedAt: raw.receivedAt.flatMap(parseDate)
 		)
 	}
 

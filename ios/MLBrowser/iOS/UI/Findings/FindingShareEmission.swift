@@ -28,13 +28,20 @@ extension FindingShareSubject {
 			detectionClass: detectionClass,
 			confidencePercent: Self.percent(confidence),
 			// `gps` is a freely editable `TextField`, so a value that will not parse stays a common
-			// case: the link then carries no coordinate and the recipient sees no map block at all,
-			// which is what `SharedFindingSection.layout(for:)` is built around.
+			// case: the link then carries no coordinate and the recipient sees no *map*. Since
+			// AIA-0836 they do still see the location, because `locationText` below carries the words
+			// — `SharedFindingSection.layout(for:)` keys the block on either form.
 			//
 			// Since AIA-0817 a capture on a map page can prefill it, so parseable values are no
 			// longer rare. `CoordinateText.parse` strips this app's own provenance tag, which is why
 			// a prefilled `leaflet: 47.94123, 18.709545` still yields a map block.
 			coordinate: gps.flatMap(CoordinateText.parse),
+			// The same field, unparsed. `CoordinateText.parse` reads degrees and nothing else, so it
+			// returns nil for most notations a map page actually prefills -- a Czech geoportal gives
+			// `S-JTSK (EPSG:5514): -830000.19, -1027969.13`, which is projected metres. The sender saw
+			// a location on their card and the recipient saw none. Both travel now: the degrees when
+			// they exist, for the pin, and always the text, for the words (AIA-0836).
+			locationText: gps,
 			// Where on the captured view the detection sat. For a detection on an ordinary page — a
 			// cat, a car, anything the model finds on a page that is not a map — this is the
 			// locator, in a way a coordinate never is: `gps_` is empty whenever the page was not a
