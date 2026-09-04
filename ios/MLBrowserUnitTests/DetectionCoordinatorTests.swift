@@ -53,8 +53,26 @@ final class DetectionCoordinatorTests: XCTestCase {
 		return coordinator
 	}
 
-	private func cannedResult() -> DetectionResult {
-		(observations: [], params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
+	/// A result carrying one **visible** observation.
+	///
+	/// It held `observations: []` until AIA-0840, which did not matter while the apply guard read
+	/// `results.isEmpty`. It matters now: the guard asks whether an overlay is on screen, and the
+	/// overlay is `DetectionPresentation.filteredResults`, which drops a group with no observations
+	/// entirely. A zero-observation fixture therefore modelled a frame that displays *nothing* while
+	/// every test using it meant "there are boxes here to protect".
+	private func cannedResult(confidence: Float = 0.9) -> DetectionResult {
+		(observations: [detectedObject(confidence: confidence)],
+		 params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
+	}
+
+	private func detectedObject(confidence: Float) -> DetectedObject {
+		DetectedObject(
+			uuid: UUID(),
+			labels: [DetectedObject.Label(identifier: "artifact", confidence: confidence)],
+			confidence: confidence,
+			boundingBox: CGRect(x: 0.1, y: 0.1, width: 0.2, height: 0.2),
+			regionIndex: 0
+		)
 	}
 
 	/// Yield the main actor until the in-flight pass has reached the detect suspension point (the
@@ -286,6 +304,53 @@ final class DetectionCoordinatorTests: XCTestCase {
 		XCTAssertEqual(coordinator.appliedFrame?.results.count, 1, "the empty pass wiped the overlay")
 		XCTAssertTrue(coordinator.appliedFrame?.image === firstSnapshot, "the displayed frame was replaced")
 		XCTAssertEqual(frameChanges.count, 1, "a no-answer pass must not reach the mirror at all")
+	}
+
+	/// The third arm: with no boxes displayed there is no overlay to protect, so the frame applies —
+	/// and keeps applying (AIA-0840).
+	///
+	/// This is the classify-only setup, and the bundled FastViT demo is exactly one.
+	/// `DeepDrivers.detect` loops the *detectors*; a classifier runs on its own parallel branch and
+	/// answers no detect pass, so such a session reports "no detector" and "no results" on every pass,
+	/// forever. Without this arm the guard refused every one of them and no frame was ever applied,
+	/// measured as `applied=false` after 90 seconds and ten delivered snapshots — which cost the
+	/// finding-pick flow the frozen snapshot it hit-tests.
+	///
+	/// **Two snapshots, and the second is the point.** Keying this on "no frame displayed" instead of
+	/// "no results displayed" also turns the first assertion green, and is wrong: the empty frame it
+	/// installs makes every later pass fail the same test, so the image freezes on snapshot one and a
+	/// pick after navigating saves a stale page. Only the second half catches that.
+	func testEmptyResultsWithNoDetector_KeepApplyingWhileNothingIsDisplayed() async {
+		let coordinator = makeCoordinator()
+		detectorsRegistered = false
+		XCTAssertNil(coordinator.appliedFrame, "arrange: nothing is displayed yet")
+
+		let first = UIImage()
+		coordinator.ingest(snapshot: first)
+		await awaitDetectSuspended()
+		resumeDetect(with: [])
+		// `settle(until:)`, never `settleForDiscard()`: this waits for something to HAPPEN, and the
+		// discard helper cannot tell "ran and applied" from "has not run yet" — its own documentation
+		// says its failure mode is a false pass.
+		await settle(until: { coordinator.appliedFrame != nil }, "the classify-only pass applied no frame")
+
+		XCTAssertTrue(coordinator.appliedFrame?.image === first, "the classify-only pass applied no frame")
+		XCTAssertEqual(coordinator.appliedFrame?.results.count, 0, "a classifier has no boxes to show")
+
+		let second = UIImage()
+		coordinator.ingest(snapshot: second)
+		await awaitDetectSuspended()
+		resumeDetect(with: [])
+		await settle(
+			until: { coordinator.appliedFrame?.image === second },
+			"the image froze on the first snapshot — a pick after navigating would save a stale page"
+		)
+
+		XCTAssertTrue(
+			coordinator.appliedFrame?.image === second,
+			"the image froze on the first snapshot — a pick after navigating would save a stale page"
+		)
+		XCTAssertEqual(frameChanges.count, 2, "the screen's mirror must see both")
 	}
 
 	/// The other half, and the reason this is a guard rather than a blanket "ignore empty results":

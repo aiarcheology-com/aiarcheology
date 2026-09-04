@@ -169,7 +169,35 @@ final class DetectionCoordinator: ObservableObject {
 					// and the displayed frame is left alone until a real one arrives. A pass that DID
 					// have a detector and returned nothing still clears, because that is a genuine
 					// answer.
-					guard startedWithDetectors || observations.isEmpty == false else { return }
+					// ...and an overlay is *results*, not an image (AIA-0840).
+					//
+					// What the guard above protects is the boxes on screen, so it has work to do only
+					// while some are displayed. A pass carrying none cannot wipe an overlay that is
+					// already empty, and refusing it anyway is what broke a classify-only setup — the
+					// bundled FastViT demo is exactly one. `DeepDrivers.detect` loops the *detectors*;
+					// a classifier runs on its own parallel branch and answers no detect pass, so such
+					// a session reports no detector and no results on every pass, forever. No frame was
+					// ever applied, and the finding-pick flow lost the frozen snapshot it hit-tests.
+					//
+					// Keyed on the displayed results rather than on `appliedFrame == nil`, which was
+					// the first attempt and was one-shot: the empty frame it installed made every
+					// later pass fail the same test again, so the image froze on the first snapshot
+					// and a pick after navigating would have saved that stale page. Keyed on the
+					// results, a classify-only session keeps refreshing its image pass after pass.
+					//
+					// Deliberately NOT written as "a classificator counts as a detector" either.
+					// During a model swap a mixed setup has no detectors for the ~2s the package
+					// takes while its classificator stays registered, and counting it would make the
+					// empty pass authoritative and wipe the boxes — the AIA-0808 regression itself.
+					// Filtered, not raw: the overlay draws `DetectionPresentation.filteredResults`, so a
+					// frame whose detections all sit below their model's confidence threshold shows no
+					// boxes at all. Counting those as "displayed" would protect an overlay nobody can
+					// see and freeze the image behind it, which is the same defect as keying on the
+					// frame's mere existence.
+					let displayed = DetectionPresentation.filteredResults(self.appliedFrame?.results ?? [])
+					let displaysResults = displayed.isEmpty == false
+					guard startedWithDetectors || observations.isEmpty == false || displaysResults == false
+					else { return }
 					// Image and results are applied as ONE value: the cached snapshot is always the exact
 					// frame the displayed boxes came from.
 					self.setApplied(AppliedDetectionFrame(image: image, results: observations), passID: passID)
