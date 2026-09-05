@@ -27,3 +27,13 @@ itself back ON; it now switches OFF and stays off until you turn it on yourself.
 
 - Deleting while signed out. Sign out, delete a finding that was backed up, then sign back in and
   let the app sync. The deleted finding must NOT come back.
+
+- Killing the app mid-import. Start importing a large archive and force-quit the app while the
+  Data button is a spinner. Reopen, import again and let it finish. This build no longer leaves the
+  interrupted attempt's copy of the archive behind — there is nothing you can see for this, but if
+  you have a way to check the app's storage in Settings, it should not have grown by the size of
+  the archive per kill.
+
+- Two count lines under the sync status now read correctly in every language for 1, 2–4 and 5+
+  findings — e.g. "1 konnte nicht gesichert werden" versus "3 konnten…" in German. Worth a glance
+  if your device is set to German, French, Czech, Polish, Russian or Ukrainian.

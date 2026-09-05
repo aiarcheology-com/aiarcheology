@@ -317,8 +317,12 @@ struct FindingsListView: View {
 		await Task.detached(priority: .utility) {
 			FindingArchiveImport.purgeStagedImportsFromEarlierRuns()
 		}.value
-		let staged = FileManager.default.temporaryDirectory
-			.appendingPathComponent("findings-import-\(UUID().uuidString).zip")
+		// Under the staging root, in a directory named by this process, so that the copy is covered
+		// by the same earlier-run purge as the images: the `defer` below never runs if the app is
+		// killed mid-import, and a 300 MB zip at the top of tmp was outliving everything else
+		// (AIA-0755 follow-up).
+		let stagedDirectory = FindingArchiveImport.transientDirectory(under: FindingArchiveImport.stagingRootDirectory)
+		let staged = stagedDirectory.appendingPathComponent("archive.zip")
 		do {
 			// Copying a multi-hundred-megabyte archive is real IO and does not belong on the main
 			// thread. The security scope is opened and closed around the copy inside the same
@@ -326,17 +330,19 @@ struct FindingsListView: View {
 			try await Task.detached(priority: .userInitiated) {
 				let scoped = url.startAccessingSecurityScopedResource()
 				defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+				try FileManager.default.createDirectory(at: stagedDirectory, withIntermediateDirectories: true)
 				try FileManager.default.copyItem(at: url, to: staged)
 			}.value
 		} catch {
 			LoggingPolicy.error("Could not stage the picked findings archive", error: error, logger: .storage)
+			try? FileManager.default.removeItem(at: stagedDirectory)
 			isImporting = false
 			importFailed = true
 			return
 		}
 
 		importTask = Task {
-			defer { try? FileManager.default.removeItem(at: staged) }
+			defer { try? FileManager.default.removeItem(at: stagedDirectory) }
 			do {
 				// Unzip, JSON parsing and image inspection all run off the MainActor: this view's
 				// context is the viewContext, and a 200-finding archive would otherwise block it.
