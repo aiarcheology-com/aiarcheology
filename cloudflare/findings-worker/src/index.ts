@@ -284,11 +284,12 @@ export default {
     try {
       if (event.cron === PURGE_CRON) {
         const result = await sweepIncompleteFences(env);
-        if (result.incomplete === 0) return;
+        if (result.pending === 0) return;
         console.log(
           JSON.stringify({
-            sweep: result.purged === true ? 'purged' : 'incomplete',
-            remaining: result.incomplete,
+            sweep: result.remaining === 0 ? 'purged' : 'incomplete',
+            remaining: result.remaining,
+            completed: result.completed,
             durationMs: Date.now() - started,
           }),
         );

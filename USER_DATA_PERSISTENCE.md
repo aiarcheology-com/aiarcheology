@@ -286,9 +286,17 @@ dashboard, or support acting on a request. A verified event it does not handle i
 rather than refused, because a non-2xx makes svix retry indefinitely and can get the endpoint
 disabled, silently removing the backstop.
 
-Known limits, recorded rather than implied: after the Clerk user is gone, svix's finite retry
-schedule is the only thing that retries a failing purge; D1 Time Travel retains purged rows for
-about 30 days; and the fence row keeps a Clerk user id after erasure.
+A purge that did not finish is not forgotten. Whether it finished is recorded on the fence row
+itself (`user_state.purged`, AIA-0842), set pending before anything is touched and done only after
+a listing has shown the account's storage empty; the daily sweep works through pending purges in
+bounded, least-recently-attempted-first batches, with no credential and no webhook. That covers an
+account too large for one call, a purge that died at any point, and the fences that predate the
+record, which the migration re-opens so each is confirmed once.
+
+Known limits, recorded rather than implied: D1 Time Travel retains purged rows for about 30 days;
+the fence row keeps a Clerk user id, and now the time of the last purge attempt, after erasure; and
+an upload admitted before the fence whose own clean-up dies mid-way can leave one object behind a
+confirmed purge, since nothing enumerates storage by prefix outside a purge.
 
 ## 10. What is deliberately not built
 

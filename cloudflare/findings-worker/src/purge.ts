@@ -9,12 +9,23 @@ import type { Env } from './env';
 const MAXIMUM_BATCHES = 15;
 const OBJECTS_PER_BATCH = 500;
 
+/// The most subrequests one purge can spend: the opening stamp, a list and a delete per batch, the
+/// confirming list, and the completing D1 batch. The sweep budgets against this before it starts
+/// an account, so it never begins a purge it cannot finish.
+export const PURGE_WORST_CASE_SUBREQUESTS = 1 + 2 * MAXIMUM_BATCHES + 1 + 1;
+
 export interface PurgeResult {
   /// Whether everything this account had is gone. `false` means call again -- it does NOT mean
   /// the account may be deleted at Clerk, because the credential that reaches this data would go
   /// with it.
   complete: boolean;
   objects: number;
+}
+
+/// `PurgeResult` plus what the purge cost. Internal to the sweep's budgeting; the routes return
+/// the public shape and never expose the counter.
+export interface MeteredPurgeResult extends PurgeResult {
+  subrequests: number;
 }
 
 /// The prefix a user's objects live under.
@@ -31,37 +42,80 @@ function prefixFor(userId: string): string {
 /// nothing to delete and answers `complete` again. That matters more than it sounds: `user.delete()`
 /// fires Clerk's `user.deleted` webhook, so an in-app deletion normally runs this twice at once.
 ///
-/// It re-lists after deleting the D1 rows rather than trusting the loop, because an upload whose
-/// reservation predates the fence can still land after the last listing -- which is the whole
-/// reason the webhook backstop exists.
+/// A purge that could not finish throws, deliberately retryable and deliberately NOT complete. The
+/// caller must not delete the Clerk user while anything is left: that would destroy the only
+/// credential able to name this data. Whether or not anyone retries, the account stays pending in
+/// `user_state` and the daily sweep finishes it (AIA-0842).
 export async function purgeAccount(env: Env, userId: string): Promise<PurgeResult> {
+  const { complete, objects } = await purgeAccountMetered(env, userId, Date.now());
+  if (!complete) {
+    throw new ApiError('internal', 'The purge did not finish; call again.', {
+      purged: { objects },
+      complete: false,
+    });
+  }
+  return { complete, objects };
+}
+
+/// The purge itself, reporting its cost instead of throwing on incomplete.
+///
+/// **The progress record lives on the fence row, not in the rows being erased.** The first
+/// statement sets the fence, marks the purge pending and stamps the attempt; the completing batch
+/// is the ONLY thing that marks it done, and it runs only after a listing has shown the prefix
+/// empty. Every crash point in between leaves `purged = 0`, which is exactly what the sweep
+/// selects -- so unfinished work cannot disappear from recovery, whatever the D1 rows say.
+///
+/// The index goes AFTER the confirming listing, in the same batch as the completion mark. Deleting
+/// the rows first released the account's quota before its storage was confirmed gone, so an
+/// incomplete purge left real bytes in R2 that no longer counted toward the account-wide ceiling.
+/// Now the per-user counter is dropped, the global total recomputed from the rows that remain, and
+/// the purge marked complete in one transaction -- so the retry the webhook race makes routine
+/// cannot double-decrement, and quota and storage are released together. An upload whose
+/// reservation predates the fence can still land after the listing in either order; that is what
+/// `refuseIfAccountVanished` in index.ts is for.
+///
+/// Completion is conditional on this attempt's own ID. Two attempts overlap routinely (app and
+/// webhook), and their millisecond timestamps can coincide; if a later one re-stamped the row and
+/// then died, this one's completion must not paper over it. The mark no-ops, the row stays pending,
+/// and the sweep re-confirms at the cost of an empty purge.
+export async function purgeAccountMetered(
+  env: Env,
+  userId: string,
+  attemptedAt: number,
+): Promise<MeteredPurgeResult> {
+  let subrequests = 0;
+  const attemptId = crypto.randomUUID();
+
   await env.DB.prepare(
-    `INSERT INTO user_state (user_id, deleting) VALUES (?1, 1)
-       ON CONFLICT (user_id) DO UPDATE SET deleting = 1`,
+    `INSERT INTO user_state (user_id, deleting, purged, purge_attempted_at, purge_attempt_id)
+       VALUES (?1, 1, 0, ?2, ?3)
+       ON CONFLICT (user_id) DO UPDATE SET deleting = 1, purged = 0,
+         purge_attempted_at = ?2, purge_attempt_id = ?3`,
   )
-    .bind(userId)
+    .bind(userId, attemptedAt, attemptId)
     .run();
+  subrequests += 1;
 
   const prefix = prefixFor(userId);
   let deleted = 0;
 
   for (let batch = 0; batch < MAXIMUM_BATCHES; batch += 1) {
     const listing = await env.FINDINGS.list({ prefix, limit: OBJECTS_PER_BATCH });
+    subrequests += 1;
     if (listing.objects.length === 0) break;
     await env.FINDINGS.delete(listing.objects.map((object) => object.key));
+    subrequests += 1;
     deleted += listing.objects.length;
     if (listing.truncated === false && batch + 1 < MAXIMUM_BATCHES) break;
   }
 
-  // The index goes before the confirming listing, not after it. Between a clean listing and the
-  // D1 wipe an upload whose reservation predates the fence could still land, and this order shrinks
-  // that window to nothing that reports success: anything that arrives is caught by the re-list
-  // below and turned into "call again". Deleting the rows first is safe because the fence refuses
-  // every later write, so the retry has only R2 stragglers left to sweep.
-  //
-  // One transaction. The per-user row is dropped and the account-wide total recomputed from the
-  // rows that remain, so the retry the webhook race makes routine cannot double-decrement.
-  await env.DB.batch([
+  const remaining = await env.FINDINGS.list({ prefix, limit: 1 });
+  subrequests += 1;
+  if (remaining.objects.length > 0) {
+    return { complete: false, objects: deleted, subrequests };
+  }
+
+  const cleanup = await env.DB.batch([
     env.DB.prepare("DELETE FROM counter WHERE key = 'user:' || ?1").bind(userId),
     env.DB.prepare(
       `UPDATE counter SET value =
@@ -70,17 +124,18 @@ export async function purgeAccount(env: Env, userId: string): Promise<PurgeResul
     env.DB.prepare('DELETE FROM object_bytes WHERE user_id = ?1').bind(userId),
     env.DB.prepare('DELETE FROM finding_revision WHERE user_id = ?1').bind(userId),
     env.DB.prepare('DELETE FROM finding WHERE user_id = ?1').bind(userId),
+    env.DB
+      .prepare(
+        'UPDATE user_state SET purged = 1 WHERE user_id = ?1 AND purge_attempted_at = ?2 AND purge_attempt_id = ?3',
+      )
+      .bind(userId, attemptedAt, attemptId),
   ]);
+  subrequests += 1;
 
-  const remaining = await env.FINDINGS.list({ prefix, limit: 1 });
-  if (remaining.objects.length > 0) {
-    // Deliberately retryable, and deliberately NOT complete. The caller must not delete the Clerk
-    // user while anything is left: that would destroy the only credential able to name this data.
-    throw new ApiError('internal', 'The purge did not finish; call again.', {
-      purged: { objects: deleted },
-      complete: false,
-    });
-  }
-
-  return { complete: true, objects: deleted };
+  // An overlapping attempt may have re-stamped the fence after this one confirmed storage. The
+  // cleanup batch still removes the now-known-empty account rows, but only the attempt that owns
+  // the row may report completion: otherwise a caller could delete Clerk credentials while the
+  // durable recovery record still says work is pending.
+  const completed = cleanup[cleanup.length - 1]?.meta.changes === 1;
+  return { complete: completed, objects: deleted, subrequests };
 }

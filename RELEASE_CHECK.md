@@ -48,6 +48,15 @@ broken feature.** That is the trade this file exists to catch.
       `cloudflare/findings-worker/PROVISIONING.md`, which also records that this one-time reset must
       not be repeated once real findings exist.
 
+- [ ] `wrangler d1 migrations apply … --remote` has run for **`0004_purge_progress.sql`** on
+      **both** environments, **before** the Worker that reads `user_state.purged` is deployed
+      (AIA-0842). Staging first (`npm run deploy:staging` chains migration and deploy), then
+      production by hand: migrate, confirm `✅ No migrations to apply!`, deploy. Expected effect:
+      every existing fence (staging 7, production 5 on 2026-09-05) re-opens as pending and the
+      daily sweep confirms four per run, so `{"sweep":"incomplete","remaining":N}` falling to 0
+      over two days is the success signal, not a problem. Ticking this means both ledgers are
+      confirmed, not that the file exists.
+
 - [x] **Cloud storage survives the `0003` reset, end to end. Done 2026-09-01.**
 
       The gate as first written named one finding (`user_3IcffP4r…`, backed up 2026-08-31 04:10

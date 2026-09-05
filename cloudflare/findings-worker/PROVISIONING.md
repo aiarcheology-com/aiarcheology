@@ -228,11 +228,33 @@ secrets, and the pairing has to hold:
 Without the secret the webhook route answers `503` and refuses everything. It fails closed, so a
 missing secret costs the backstop, never the data.
 
-### Noticing a purge that never finished (AIA-0773)
+### Noticing a purge that never finished (AIA-0773, AIA-0842)
 
-The Worker retries these itself: a daily cron sweeps fences whose data is still there and
-re-runs the purge (`src/sweep.ts`). That is the mechanism — **not** a notification, because there is
-no notification available to us:
+The Worker retries these itself: a daily cron sweeps fences whose purge is not confirmed and re-runs
+it (`src/sweep.ts`). What "not confirmed" means is a column on the fence row, `user_state.purged`,
+written by the purge itself: pending as its first statement, done only in the batch that drops the
+index after a listing has shown the prefix empty. It does not depend on index rows, which is what
+the first version got wrong — those rows were gone by the time a purge could fail, so an account
+with R2-only leftovers was invisible to the sweep for ever.
+
+One run spends at most the free plan's 50 subrequests. It takes pending accounts least recently
+attempted first and starts another only while a worst-case purge (33 subrequests) still fits: one
+large account, or four already-empty ones at four each (a fifth cannot start while preserving the
+worst-case reservation). Two plateaus in `remaining` are therefore
+legitimate and not the alert condition below: an account with more than 7,500 objects holds
+`remaining ≥ 1` for one day per 7,500 objects, and applying `0004` re-opens every existing fence
+(nothing had recorded whether those purges finished), which takes two daily runs to clear on either
+database. Recovery for pre-existing R2-only leftovers is that same backfill: every old fence is
+re-confirmed once.
+
+Migration `0004` must be applied before the Worker that reads the column is deployed
+(`deploy:staging` chains the two; production is gated by hand in `RELEASE_CHECK.md`). A deploy in
+the wrong order fails closed — every purge and the sweep answer "no such column" until the
+migration lands — and never loses data. There is no down migration: rolling back is redeploying the
+previous Worker, whose `INSERT (user_id, deleting)` still works because the new columns have
+defaults, and its fences stay pending for the next new-code sweep.
+
+That is the mechanism — **not** a notification, because there is no notification available to us:
 
 - svix's `message.attempt.exhausted` and `endpoint.disabled` are **operational** webhooks. They go to
   the webhook *sender's* svix account — Clerk's — not to Clerk's customers. They are not in Clerk's
@@ -242,10 +264,12 @@ no notification available to us:
   pages.
 
 So the sweep is the recovery, and the thing worth watching is the sweep's own output. It logs
-`{"sweep":"incomplete","remaining":N}` when it finds work and `{"sweep":"failed"}` when it cannot
-run. **A `remaining` that does not fall across successive runs is the alertable condition** — one
-straggler surviving four runs in a day is a real problem, and it is the only such signal this
-service can raise about itself.
+`{"sweep":"incomplete","remaining":N,"completed":M}` when work is left, `{"sweep":"purged",…}`
+when the run cleared everything it found, and `{"sweep":"failed"}` when it cannot run. **A
+`remaining` that does not fall across successive runs is the alertable condition** — a straggler
+surviving a week of runs is a real problem, and it is the only such signal this service can raise
+about itself. (Four runs is not enough any more: the sweep runs once a day, and the two plateaus
+above are expected.)
 
 Manual recovery, if it ever comes to that: the Clerk dashboard can replay a failed `user.deleted`
 message, which needs none of the deleted user's credentials because the route authenticates by

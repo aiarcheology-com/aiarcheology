@@ -106,6 +106,16 @@ Keeping the fence row is also what makes the endpoint idempotent, which matters 
 twice at once. The D1 half is a single `db.batch()` with the global decrement computed in SQL,
 because reading the counter and writing it back would double-decrement on exactly that race.
 
+**Whether a purge finished is recorded on the fence row, not inferred from the rows it erases**
+(`user_state.purged`, AIA-0842). The purge marks itself pending and stamps the attempt as its first
+statement; only after a listing has shown the prefix empty does it drop the index, release the
+quota and mark itself done, in that one batch. Every crash point in between leaves the account
+pending, which is what the daily sweep selects — so an account that outgrows one invocation's
+batch budget, or whose purge dies at the boundary, stays discoverable with no credential and no
+webhook. Completion is conditional on the attempt's own random ID (not just its millisecond
+timestamp), so an overlapping attempt that re-stamped the row and died is not papered over by an
+earlier one finishing.
+
 The webhook is the backstop for deletions that never touch the app — the Clerk dashboard, or support
 acting on a request. A verified event it does not handle is **acknowledged, not refused**: svix counts
 every non-2xx as a failure and retries on a finite schedule (immediately, 5s, 5min, 30min, 2h, 5h,
@@ -125,11 +135,17 @@ backstop silently. Spending that budget refusing events we do not care about buy
   backstop for a crashed run.
 - **A purge that keeps failing is retried by the sweep, not by svix.** svix's schedule is finite, and
   after it no client can authenticate as the deleted user. So a daily cron re-runs the purge for
-  any fence whose data is still there (`src/sweep.ts`, AIA-0773). It needs no credential: the fence
-  row is the record that a purge was owed, and the purge is idempotent. What is still missing is an
-  alert on the sweep's own `{"sweep":"incomplete","remaining":N}` line — a `remaining` that never
-  falls is the one thing this service can say about itself that warrants a human, and nothing reads
-  it yet.
+  any fence whose purge is not confirmed (`src/sweep.ts`, AIA-0773, AIA-0842). It needs no
+  credential: the pending mark on the fence row is the record that a purge was owed, and the purge
+  is idempotent. One run confirms up to four already-empty accounts or finishes 7,500 objects of a
+  large one, least-recently-attempted first. What is still missing is an alert on the sweep's own
+  `{"sweep":"incomplete","remaining":N}` line — a `remaining` that never falls is the one thing this
+  service can say about itself that warrants a human, and nothing reads it yet.
+- **One object can survive a confirmed purge.** An upload admitted before the fence can finish its
+  R2 write after the confirming listing; `refuseIfAccountVanished` then deletes it, but a crash
+  between the write and that delete leaves the object behind a fence already marked done. Nothing
+  enumerates R2 by prefix outside a purge, so nothing would find it. Pre-existing, and recorded
+  here rather than fixed: the fix is a prefix reaper, which is deliberately not built.
 - **D1 Time Travel retains purged rows for about 30 days**, and the fence row keeps a Clerk user id
   after erasure. Both belong in the retention record rather than behind a claim of instantaneous
   complete erasure.
@@ -164,12 +180,15 @@ it created; the bucket's 7-day expiry rule is a backstop for a crashed run, not 
 ### Deploying
 
 ```sh
-npm run migrate:staging
 npm run deploy:staging
 ```
 
-For the first Cloudflare release in 1.0.8, `migrate:staging` creates the empty D1 schema from
-`0001_init.sql`; it does not move any existing application data.
+`deploy:staging` applies pending migrations first and deploys only if they succeed: the Worker reads
+columns its migrations add, so a deploy that lands before its migration answers every purge and
+sweep with "no such column". Production keeps the same order by hand — the migration gate in
+`RELEASE_CHECK.md` comes before the deploy gate. There is no down migration; rolling back means
+redeploying the previous Worker, whose statements still work against the newer schema because each
+added column has a default.
 
 The production configuration carries the real Clerk issuer (`clerk.aiarcheology.com`, AIA-741). The
 placeholder values are therefore not a safety net: the only thing standing between a mistaken deploy
