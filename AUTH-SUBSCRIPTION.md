@@ -183,9 +183,9 @@ never can).
 Rows 9–12 note: this is the **hard wall**, one of the paywall's two remaining presentations and the
 only one that is a dead end — Settings, and with it the findings inventory, sits behind the gate
 (the other is the Settings sheet, which is not). It therefore carries
-export and delete affordances for whatever the user saved during the free period, and states when
-billing begins for the subscription it is offering, including for a user who already spent Apple's
-introductory offer and would be charged at once.
+export and delete affordances for all findings saved on this device, including after a subscription
+lapses or is revoked. It states when billing begins for the subscription it is offering, including
+for a user who already spent Apple's introductory offer and would be charged at once.
 
 Row 2 note: with the payments flag off, `subscriptionState.start()` never runs, so no
 `Transaction.updates` listener is installed and `isSubscribed` stays frozen `false` for the whole
@@ -201,7 +201,7 @@ instant payments were switched on. The clock starts at the first launch on which
 |Sign-in completes|Context → `.validated`. Access does not change — the user stays where they are. Analytics switches to that account's consent bucket, and if that account has never answered, the consent question is asked **as a sheet over the app**, never by replacing it. Later purchases carry its `appAccountToken`|
 |Sign Out|Context → `.anonymous`. **The user stays in the app** (AIA-0536): entitlement is the gate, so signing out does not eject an entitled user. `SubscriptionState` is deliberately **not** reset either — the entitlement is device property, so clearing it would be a lie. Analytics switches to the anonymous consent bucket|
 |Delete Account|Clerk user deleted → signedOut. **The Apple subscription keeps billing**|
-|Refund / revocation|`Transaction.updates` → entitlement false → the paywall is laid **over** the app if content has ever been shown this session, and is the root only on a launch that never got there (AIA-0556). It used to swap the root unconditionally|
+|Refund / revocation|`Transaction.updates` → entitlement false. With no open free-access window, the paywall is laid **over** the app if content has ever been shown this session, and is the root only on a launch that never got there (AIA-0556). Both forms retain the findings export/delete controls; local findings are preserved|
 |Ask-to-Buy approval|Arrives via `Transaction.updates`, the launch drain, or the foreground re-check|
 |Foreground|Auth re-validates online; entitlement re-checked so a lapse raises the paywall without a cold launch. The free window is re-evaluated too, which is how one that ran out overnight is noticed|
 |Free window granted|First launch with payments live and no entitlement. The Welcome screen is presented straight away, **ahead of** the onboarding tour: the tour is armed during `initialize()` and started by the gate only once nothing is owed the screen in front of it. The analytics consent question waits behind both|
@@ -297,6 +297,22 @@ is a worse failure than the leak. The same backend that closes #2 closes this pr
 **Family Sharing:** `refreshEntitlement` does not filter `Transaction.ownershipType`, so if Family
 Sharing is enabled for the product in App Store Connect, a family member's entirely different Clerk
 account is entitled. Consistent with the device model — but it is an unstated policy, not a decision.
+
+### Findings after a refund or revocation (AIA-0451)
+
+The original [AIA-0451](https://github.com/aiarcheology-com/aiarcheology/issues/451) proposal predates
+two changes: AIA-0455 removed both in-app refund entry points, and AIA-0556 added findings export
+and deletion to the root paywall. There is no in-app refund tap to intercept. If entitlement is
+revoked and no free-access window remains open, **Export or Delete Findings → Export First…** on
+the paywall still exports the device's saved findings without requiring a subscription or deleting them.
+The same `SubscriptionGateView.paywall()` supplies the repository on a cold launch and when the
+wall covers an existing session. Export is independent of sign-in and free-period flags.
+
+`RemoveAllFindingsTests.test_entitlementRevocation_preservesFindingsAndAllowsPaywallExport`
+simulates the entitlement callback, checks both gate outcomes, builds the ZIP through
+`FindingsEscapeHatch`, reads it with the production importer, and checks that metadata and image
+bytes remain available in both the archive and the SQLite-backed source store. It does not verify
+Apple's refund decision or the system share sheet's presentation.
 
 ## What the money path can and cannot be tested with
 
