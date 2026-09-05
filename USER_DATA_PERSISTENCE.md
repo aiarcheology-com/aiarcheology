@@ -50,12 +50,16 @@ Two accounts using the same finding id stay apart — a case the index lookup al
 
 ## 2. Opting in
 
-**Signing in is the opt-in.** A user who never signs in gets exactly the behaviour the app had
-before sync existed: nothing runs, nothing leaves the device. There is no separate switch, because
-there is nothing a switch would express that signing in does not. Sign-in stays a sheet, never a
-gate (AIA-0536).
+**Signing in enables account-backed sync; upload authorization remains separate.** The account's
+ledger `backUpEnabled` preference controls uploads, and each finding must satisfy the ownership
+or explicit-consent rules below. Signing in does not grant permission to upload every finding
+already on the device. Sign-in stays a sheet, never a gate (AIA-0536).
 
-Sign-out leaves local data untouched.
+Turning backup off suppresses uploads; it does not disable cloud pulls or pending remote deletions.
+Signing out stops account-backed sync and leaves local data untouched. A user who never signs in
+does not upload findings through this sync service; explicit sharing/export is a separate action.
+The [repository privacy boundary](AGENTS.md#data-and-privacy) distinguishes saved-finding sync from
+transient detection frames, which are never uploaded.
 
 ## 3. Whose findings are these
 

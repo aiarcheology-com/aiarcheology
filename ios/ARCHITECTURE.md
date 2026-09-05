@@ -9,9 +9,11 @@ this document describes *what connects to what*.
 
 ML Browser pairs a web browser with on-device CoreML object detection: the user loads
 a CoreML model, and Vision runs it against timed snapshots of the rendered web page,
-drawing detections over the content. Page snapshots and detection imagery never leave
-the device (the privacy invariant — AGENTS.md §10); network traffic is limited to
-browsing itself, auth, subscriptions, model downloads, and crash diagnostics.
+drawing detections over the content. Inference stays on-device and transient page snapshots
+are not uploaded. Saved finding images can leave through authorized sharing or account-backed
+sync, subject to ownership, per-finding consent, and backup preferences. Imagery does not belong
+in telemetry or diagnostics. See the [repository privacy boundary](../AGENTS.md#data-and-privacy)
+and [findings sync rules](../USER_DATA_PERSISTENCE.md).
 
 ## Layering
 

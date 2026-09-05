@@ -466,12 +466,11 @@ or newer. It intentionally uses terminal tests rather than a simulator.
 
 ### Fixture-gated suites: feeding `NATIVE_MODEL_ONNX_DIRECTORY`, `NATIVE_MODEL_REFERENCE_DIRECTORY` and `ADAF_CHECKPOINT_DIRECTORY`
 
-A bare `swift test` does **not** run the numerical parity oracles. They are gated on two environment
-variables, and a gate that is unset **skips** — so the run still reports success while proving
-nothing about conversion accuracy. Measured on a clean checkout: `swift test` with neither variable
-set executes 296 tests, skips 5, and exits 0. Treat "green" from that command as covering graph
-validation and serialization only, never parity. Both variables are the two suites AGENTS.md §13
-requires to stay green, so set them before claiming a converter change is verified.
+A bare `swift test` does not exercise the external-fixture parity gates when their environment
+variables are unset: those tests skip while the command can still succeed. It covers always-on
+structural and other available tests, not the missing oracles. The ONNX/Apple reference lane and
+the published ADAF checkpoint lane have separate fixture requirements. Use the applicable lanes
+and inspect executed tests/skips; see [TESTING.md](TESTING.md#converter-fixtures-and-parity).
 
 | Variable | Unlocks | How to populate |
 | --- | --- | --- |
@@ -480,33 +479,30 @@ requires to stay green, so set them before claiming a converter change is verifi
 | `ADAF_CHECKPOINT_DIRECTORY` | `ADAFCheckpointDirectoryTests` — every published ADAF PyTorch checkpoint is read and identified, and a detector graph is emitted, compiled, and opened | `scripts/fetch_adaf_checkpoints.sh`, then run via `scripts/test_adaf_checkpoints.sh` |
 
 ```bash
-# 1. ONNX + YOLO oracles. Downloads 7 .onnx fixtures (~375 MB) to .native-model-fixtures/,
-#    which is gitignored; each file is SHA-256 verified and re-runs are cached, so this is
-#    cheap after the first time.
+# 1. ONNX + YOLO oracles. Downloads SHA-256-verified fixtures to the gitignored
+#    .native-model-fixtures/ directory; repeated fetches reuse valid cached files.
 ./scripts/fetch_native_test_models.sh
 NATIVE_MODEL_ONNX_DIRECTORY="$PWD/.native-model-fixtures" swift test \
   --filter "ONNXConversionIntegrationTests|YOLOv5TrunkConversionTests|YOLOv8TrunkConversionTests|YOLO11TrunkConversionTests"
 
-# 2. Apple artifact contract. Downloads the two reference .mlmodel files into a temp directory,
-#    exports NATIVE_MODEL_REFERENCE_DIRECTORY, runs the suite, and deletes the directory on exit.
-./scripts/test_native_model_converter.sh
+# 2. Combined ONNX + Apple reference lane. The wrapper supplies Apple reference artifacts
+#    in a temporary directory and excludes the separately gated ADAF checkpoint suite.
+NATIVE_MODEL_ONNX_DIRECTORY="$PWD/.native-model-fixtures" ./scripts/test_native_model_converter.sh
 ```
 
 ```bash
 # 3. ADAF PyTorch checkpoints (AIA-0666). The default fetch reconstructs the metadata ranges the
 #    reader needs and creates sparse, zero-filled bodies. This gate proves structural loadability:
-#    extract, emit, compile and open. Use --full only for a future numerical/prediction assertion;
-#    it downloads all five files (~4.6 GB) and verifies each whole-file md5.
+#    extract, emit, compile and open. Numerical gates such as test_adaf_fasterrcnn_parity.sh
+#    require --full and the configured Python environment; full downloads verify whole-file md5.
 ./scripts/fetch_adaf_checkpoints.sh
 ./scripts/test_adaf_checkpoints.sh
 ```
 
-**The checkpoint gate is the one you should not run with `swift test` directly.** Its wrapper fails
-when the fixtures are missing *or when any test skips*, which a bare run cannot tell you: measured
-on this branch, `swift test --filter ADAFCheckpointDirectoryTests` with the variable unset reports
-skipped checkpoint tests and exits 0 — a green run that opened
-nothing. `scripts/test_adaf_checkpoints.sh` exits 1 in that situation, and 1 again against an empty
-or absent directory.
+**Use the checkpoint wrapper to establish checkpoint coverage.** It fails when required fixtures
+are missing, required named tests did not execute, or any test skips. A direct
+`swift test --filter ADAFCheckpointDirectoryTests` can exit successfully after skipping its gated
+tests, so its exit status alone does not establish coverage.
 
 Unlike the other two, the checkpoint reader also has an **always-on** real-bytes suite. The head and
 tail ranges of two published checkpoints are committed under
@@ -518,16 +514,15 @@ read set narrow: a regression that starts walking the 932 scattered local header
 against the real file and fails loudly here. The gated suite is the redundant check over freshly
 fetched and optionally complete files, not the only one.
 
-**Run all three — no command alone is sufficient.** Each script feeds one gate, so the other gate's
-suites still skip. Measured on this branch: step 1 executes the 4 ONNX Runtime oracles with 0 skips;
-step 2 executes 296 tests with 4 skips, and those 4 skips *are* the ONNX oracles. Only the union
-covers what AGENTS.md §13 asks for. The skip counts are the quickest way to tell which gate you
-forgot: with none of the three variables set the suite now skips 7 (the 5 above plus the 2 checkpoint
-tests), 4 means only the reference gate was fed, and 2 means only the checkpoint gate is missing.
+Step 2 includes the tests selected in step 1 when the ONNX directory is supplied; step 1 is useful
+for focused iteration and need not be repeated for the same inputs. The native-converter CI lane
+supplies ONNX plus Apple references and rejects unexpected skips. The ADAF checkpoint wrapper is
+separate and does not establish dense numerical parity. Select every lane affected by the change;
+use test identifiers and fixture provenance instead of historical fixed test/skip counts.
 
-Run these **sequentially, never alongside an `xcodebuild` invocation**: concurrent builds race the
-SPM `SourcePackages/artifacts` directory and the loser fails with a missing-XCFramework error and
-zero tests run, which reads like a real failure but is a toolchain collision.
+Run builds **sequentially when they share artifact directories**, including `xcodebuild` invocations
+sharing SPM `SourcePackages/artifacts`. Concurrent writers can cause missing-XCFramework failures
+before any tests execute; that is a build failure, not evidence about the tests.
 
 `PARITY_PYTHON` denotes any environment containing PyTorch, torchvision, and NumPy; the primary
 route invokes the Swift `native-model-evaluator` CLI and imports no coremltools code. The present

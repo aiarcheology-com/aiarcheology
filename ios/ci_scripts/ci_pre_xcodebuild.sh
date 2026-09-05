@@ -96,7 +96,7 @@ if [[ "${CI_XCODEBUILD_ACTION:-}" == "archive" ]]; then
         echo "❌ Archive builds require CONFIGCAT_SDK_KEY_LIVE (ConfigCat Production environment)."
         echo "   Set it in the Xcode Cloud archive workflow's environment."
         echo "   Without it the remote kill switch is silently dead: the app falls back to"
-        echo "   compiled defaults (both flags ON) and no dashboard change can ever reach it."
+        echo "   compiled defaults, including disabled share-link emission, and no dashboard change can reach it."
         exit 1
     fi
     # ConfigCat SDK keys are base64url segments joined by single `/` (configcat-sdk-1/…/…).

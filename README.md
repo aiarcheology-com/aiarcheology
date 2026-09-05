@@ -308,7 +308,7 @@ environment, Release uses **Production**. Tests and previews never touch the net
 
 ## Conventions
 
-- **Branches**: `feature/…`, `fix/…`, `doc/…`, `test/…` with a short kebab-case description; pull requests target `develop`. Never commit directly to `develop` or `main`.
+- **Branches**: `<type>/AIA-XXXX/description`, with `feature`, `fix`, `doc`, or `test`; pull requests target `develop`. Never commit directly to `develop` or `main`. See [AGENTS.md](AGENTS.md#issues-and-git) for the repository workflow.
 - **Commits**: imperative summary prefixed with the issue key — `[AIA-XXXX] Fix crash when…`.
 - **Issues**: GitHub Issues carry `AIA-####` keys (normalized automatically by the `auto-issue-key` workflow); production crashes arrive as issues via Sentry → Cloudflare relay.
 
@@ -319,7 +319,7 @@ environment, Release uses **Production**. Tests and previews never touch the net
 `1.0.8` is in preparation and carries model `0.0.2`. Keep both figures current — they are what
 tells you whether a migration is required, whether a stored format may still change freely, and
 which build a bug report is actually about. Updating them is part of shipping a release; see
-`ios/AGENTS.md` §13.
+[AGENTS.md](AGENTS.md#review-and-delivery).
 
 **Two source models are live at once**, because `1.0.6` shipped `0.0.0` and `1.0.7` shipped `0.0.1`,
 and a user on `1.0.6` can update straight to `1.0.8` without ever installing `1.0.7`.
@@ -340,19 +340,26 @@ version needs a mapping from every source model still in the field**, not just f
 Chaining would require adopting `NSStagedMigrationManager` (iOS 17+), which this app does not use.
 
 A missing mapping is not a silent reset: App Store builds disable inference *and* are excluded from
-the destroy-and-recreate recovery, so it is a `criticalFailure` at launch. Debug and TestFlight
-builds infer, which is exactly why this class of bug cannot be caught by running the app locally —
-only `FindingMigrationTests`, which disables inference deliberately, sees it.
+the destroy-and-recreate recovery, so it is a `criticalFailure` at launch. The current Debug app
+configuration also disables inference; TestFlight and the `DataController(storeURL:)` test helper
+can infer mappings. A successful launch is therefore insufficient evidence. `FindingMigrationTests`
+explicitly disables inference and bypasses the controller's recovery path to verify each shipped source.
 
-Once a version's mapping models exist, **that model version is frozen**: each `.xcmappingmodel`
-embeds an archived copy of the destination model, so editing the model silently invalidates every
-mapping that targets it, and the only signal is a migration-test failure.
+**Shipped model versions are immutable.** Evolving one requires a new version. An unreleased
+destination without mappings may be edited in place. Once mappings exist, treat the destination
+and its mapping artifacts as one unit: each `.xcmappingmodel` embeds an archived destination model.
+An intentional edit to an unreleased destination requires regenerating every affected mapping
+with Xcode and running inference-disabled migration tests from every supported shipped source.
+For 1.0.8, preserve and verify both direct upgrade paths above; a successful inferred migration in
+a test helper or TestFlight does not establish App Store compatibility.
 
 ## Further reading
 
 | Document | What it covers |
 |-|-|
-| [ios/AGENTS.md](ios/AGENTS.md) | Engineering guidelines: architecture & state patterns, concurrency, testing strategy, quality gates, code-review bar. **Read this before contributing code** (it applies to humans, not just AI agents) |
+| [AGENTS.md](AGENTS.md) | Repository-wide scope, privacy, verification, Git, review, and delivery rules. **Read before contributing** |
+| [ios/AGENTS.md](ios/AGENTS.md) | Additional app rules: architecture/state, concurrency, persistence, localization, and ownership |
+| [TESTING.md](TESTING.md) | Current suites, relevant-test selection, commands, fixture gates, and trustworthy results |
 | [ios/ARCHITECTURE.md](ios/ARCHITECTURE.md) | Codebase map: layering, composition root, app entry & gating, the detection pipeline, persistence |
 | [ios/MLBrowser/README.md](ios/MLBrowser/README.md) | Project setup, `ProjectTool` reference, pinned tools, secrets via 1Password, Xcode Cloud notes |
 | [FEATUREFLAGS.md](FEATUREFLAGS.md) | Remote feature flags (ConfigCat): the current flags, live vs launch-only application, fail-open limits, environments, and how to add a flag |
