@@ -137,17 +137,65 @@ final class ReceivedFindingsUITests: UITestCase {
 		launch(config)
 
 		XCUIDevice.shared.orientation = .landscapeLeft
-		defer { XCUIDevice.shared.orientation = .portrait }
+		// Rotating back is a REQUEST, not a state change, so it is waited on: the next test in this
+		// class launches into whatever orientation this one left behind, and relaunching the app does
+		// not reset it (raised in review).
+		defer {
+			XCUIDevice.shared.orientation = .portrait
+			_ = waitForPortrait()
+		}
 
-		// Rotation is asynchronous, and the card exists in portrait too. Without waiting for the
-		// window to actually be wider than it is tall, `isHittable` can be answered about a portrait
-		// layout — passing while saying nothing about the landscape clipping this test exists for.
-		let isLandscape = NSPredicate(format: "frame.size.width > frame.size.height")
-		expectation(for: isLandscape, evaluatedWith: app.windows.firstMatch)
-		waitForExpectations(timeout: 10)
+		// The shared helper, not a local copy. This test used to hand-roll the same wait as
+		// `NSPredicate(format: "frame.size.width > frame.size.height")`, which reads `frame` through
+		// KVC — that boxes the CGRect in an NSValue, which answers neither `size` nor `width`, so the
+		// key path never resolved and the wait could not be fulfilled in ANY orientation (AIA-0849).
+		XCTAssertTrue(waitForLandscape(), "the window never reported landscape")
 
 		let done = control(AID.sharedFindingDone)
 		XCTAssertTrue(done.waitForExistence(timeout: 15), "the card never appeared in landscape")
-		XCTAssertTrue(done.isHittable, "Done is off-screen in landscape — the card has no exit")
+
+		// The window having rotated is not the card having re-laid out, and Done exists in portrait
+		// too — so asserting `isHittable` the moment the window turns can be answered about the
+		// pre-rotation layout and pass while the clipping is still to come (raised in review).
+		//
+		// So the check samples the window and the button TOGETHER, demands Done sit fully inside the
+		// window vertically — which is what "clipped off the top" actually means — and requires that
+		// to hold twice in a row, so no single mid-rotation snapshot can satisfy it.
+		//
+		// ## What this has NOT been shown to catch
+		// Two negative controls were run against it and neither failed, so the strength of the
+		// assertion below is unproven (AIA-0849, and honestly stated rather than assumed):
+		//
+		// - restoring the original `.frame(height: 560)` did not clip Done, because Done now lives
+		//   in the toolbar *outside* the capped content — which is how the original bug was fixed,
+		//   so that mutation can no longer reproduce it;
+		// - `.offset(y: -400)` on the toolbar button did not move it, because SwiftUI places toolbar
+		//   items itself.
+		//
+		// The wait itself IS verified: forced to stay portrait this test fails, rotated it passes.
+		// What remains unverified is whether these assertions would notice a real clipping, and a
+		// negative control that reproduces one is worth building before trusting them.
+		var consecutiveGoodSamples = 0
+		var lastObservation = "never sampled"
+		let deadline = Date().addingTimeInterval(15)
+		while Date() < deadline && consecutiveGoodSamples < 2 {
+			let window = app.windows.firstMatch.frame
+			let button = done.frame
+			let isLandscape = window.width > window.height
+			let sitsInsideTheWindow = button.minY >= window.minY && button.maxY <= window.maxY
+			if isLandscape && sitsInsideTheWindow && done.isHittable {
+				consecutiveGoodSamples += 1
+			} else {
+				consecutiveGoodSamples = 0
+				lastObservation = "window \(window), Done \(button), hittable \(done.isHittable)"
+			}
+			if consecutiveGoodSamples < 2 { Thread.sleep(forTimeInterval: 0.4) }
+		}
+
+		XCTAssertEqual(
+			consecutiveGoodSamples,
+			2,
+			"Done is off-screen in landscape — the card has no exit (\(lastObservation))"
+		)
 	}
 }

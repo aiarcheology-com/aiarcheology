@@ -344,6 +344,23 @@ class UITestCase: XCTestCase {
 		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
 	}
 
+	/// Waits until the app window reports portrait dimensions again.
+	///
+	/// The counterpart to ``waitForLandscape(timeout:)``, and the reason it exists: assigning
+	/// `XCUIDevice.shared.orientation` only *requests* a rotation. A test that rotates and then
+	/// returns leaves the device mid-transition, and the next test can launch into it — relaunching
+	/// the app does not reset simulator orientation, which is process-global (raised in review).
+	@discardableResult
+	func waitForPortrait(timeout: TimeInterval = 10) -> Bool {
+		let isPortrait = NSPredicate { object, _ in
+			guard let window = object as? XCUIElement else { return false }
+			let frame = window.frame
+			return frame.height >= frame.width
+		}
+		let expectation = XCTNSPredicateExpectation(predicate: isPortrait, object: app.windows.firstMatch)
+		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+	}
+
 	// MARK: Layout assertions
 
 	/// Asserts the listed button identifiers exist (non-zero width) and are laid out
