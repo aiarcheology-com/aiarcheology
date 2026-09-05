@@ -1,39 +1,32 @@
-Build: A findings export can always be brought back in
+Build: Importing an already-compiled Core ML model
 
-Test Focus: Findings → Data lets you export every finding as a zip and import it back. That file is
-the safety net the app offers right before "Remove all findings" — and for a large collection it
-did not work: the export succeeded, and importing the same file was refused as "not a findings
-archive". This build fixes that. An import is now limited by the free space on the device — and by
-a ceiling of about four thousand findings per file — and by nothing else.
-Separately, if the app's private sync record ever got damaged, backing up used to quietly switch
-itself back ON; it now switches OFF and stays off until you turn it on yourself.
+Test Focus: Core ML models come in two shapes. The ones you usually download — .mlmodel and
+.mlpackage — are source models the app compiles on your device when you import them. A folder named
+something.mlmodelc is a model that has ALREADY been compiled (Xcode produces these). The app has
+always listed .mlmodelc as supported, but importing one failed, because it tried to compile it a
+second time. This build loads a compiled model as-is. Nothing about importing .mlmodel or .mlpackage
+files, or about the built-in demo models, should change.
 
-- The round trip. Open Findings, tap Data → Export, and save the zip to Files. Then Data → Import
-  and pick that same file. You get a question about duplicates — choose Replace. Every finding must
-  still be there, each with its picture, exactly as before. Then import once more and choose Keep:
-  the summary should say 0 restored and all skipped. Import a third time and Cancel: nothing changes.
+- Get a compiled model onto the phone. It must be compiled FOR iPhone: take the .mlmodelc that an
+  Xcode iOS build wrote next to the app (in the Products folder of the build), or ask the team for
+  one. Put it in iCloud Drive or AirDrop it so it shows up in Files. A .mlmodelc compiled on a Mac
+  for the Mac is NOT expected to work — see the last point.
 
-- The case that was broken. If you have a large collection — dozens of findings, especially ones
-  saved on an older version of the app, whose pictures are bigger — export it and import it back. On
-  the previous build that file was refused. It must import now, with the counts matching. While it
-  runs, the Data button becomes a spinner; that is expected, and the list fills in when it finishes.
+- Import it. Models → Import → Files, and choose the .mlmodelc. It should appear as a single item you
+  can pick, not as a folder you can only open. If Files only lets you browse into it, stop there and
+  report that — it is the one part of this we could not check without a phone.
 
-- Nearly full device. If your phone is very low on space, importing a large file refuses up front
-  with an error rather than filling the phone. Freeing space and trying again should work.
+- The import must finish and the new model must show its details (name, type, author or version
+  where the model has them) like any other imported model. Enable it and point the camera at
+  something it should recognise: it must run. Turn it off and on again; force-quit the app, reopen
+  it, and confirm the model is still there and still runs. Then delete it — that must work as it
+  does for any imported model.
 
-- Back-up switch. In Settings, turn "back up my findings" OFF. Use the app normally for a while —
-  background it, sign out and in, restart it. The switch must stay OFF. If you ever find it has
-  turned itself back on without you, that is a bug — please report exactly what you did before.
+- The usual path is unchanged. Import a normal .mlmodel or .mlpackage the way you always have; it
+  must still compile and run exactly as before. The built-in demo models must still work.
 
-- Deleting while signed out. Sign out, delete a finding that was backed up, then sign back in and
-  let the app sync. The deleted finding must NOT come back.
-
-- Killing the app mid-import. Start importing a large archive and force-quit the app while the
-  Data button is a spinner. Reopen, import again and let it finish. This build no longer leaves the
-  interrupted attempt's copy of the archive behind — there is nothing you can see for this, but if
-  you have a way to check the app's storage in Settings, it should not have grown by the size of
-  the archive per kill.
-
-- Two count lines under the sync status now read correctly in every language for 1, 2–4 and 5+
-  findings — e.g. "1 konnte nicht gesichert werden" versus "3 konnten…" in German. Worth a glance
-  if your device is set to German, French, Czech, Polish, Russian or Ukrainian.
+- The expected failure. If you import a .mlmodelc that was compiled for a different platform (a Mac
+  build), or a folder that is only named .mlmodelc, the import must fail with a message that says
+  the compiled model could not be loaded on this device and that compiled models are
+  platform-specific — and the app must stay usable afterwards. A crash, a hang, or a message that
+  says nothing about why is a bug.

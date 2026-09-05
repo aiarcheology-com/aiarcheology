@@ -71,12 +71,24 @@ public enum ModelLoadingError: Error, LocalizedError {
     case modelLoadFailed(URL)
     case metadataExtractionFailed(URL)
     case compilationFailed(URL, Error)
+    /// An already-compiled `.mlmodelc` bundle that Core ML would not load (AIA-0844). Carries the
+    /// underlying error because the likely causes — a bundle compiled for another platform or OS, or
+    /// a directory that merely wears the extension — are only distinguishable from Core ML's message.
+    case compiledModelLoadFailed(URL, Error)
     case modelTypeNotDetermined(URL)
 
     public var errorDescription: String? {
         switch self {
         case .modelLoadFailed(let url):
             return "Failed to load model from \(url.lastPathComponent)"
+        case .compiledModelLoadFailed(let url, let underlyingError):
+            // Core ML's wording is quoted inside parentheses; a trailing period would otherwise read
+            // as "(…).", so it is stripped along with surrounding whitespace.
+            var reason = underlyingError.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+            if reason.hasSuffix(".") {
+                reason.removeLast()
+            }
+            return "Could not load the compiled model \(url.lastPathComponent) on this device (\(reason)). Compiled .mlmodelc bundles are platform-specific; import the .mlmodel or .mlpackage it was built from instead."
         case .metadataExtractionFailed(let url):
             return "Failed to extract metadata from \(url.lastPathComponent)"
         case .compilationFailed(let url, let underlyingError):
@@ -92,13 +104,13 @@ public enum ModelLoadingError: Error, LocalizedError {
 /// `ModelTypeBackfiller` uses the same extraction path as import, while tests can provide a
 /// deterministic loader without compiling a fixture model.
 protocol ModelMetadataLoading: Sendable {
-    func loadAndExtractMetadata(from url: URL, demo: Bool) async throws -> ExtractedModelInfo
+    func loadAndExtractMetadata(from url: URL) async throws -> ExtractedModelInfo
 }
 
 /// Actor responsible for loading ML models and extracting metadata off the MainActor.
 ///
 /// This service handles:
-/// - Model compilation (for non-demo models)
+/// - Model compilation (for `.mlmodel` / `.mlpackage` sources; a compiled `.mlmodelc` loads as-is)
 /// - Model loading via `MLModel.load()`
 /// - Metadata extraction using `MLModelMetadataParser`
 ///
@@ -108,7 +120,7 @@ protocol ModelMetadataLoading: Sendable {
 /// Usage:
 /// ```swift
 /// let service = ModelLoadingService()
-/// let info = try await service.loadAndExtractMetadata(from: modelURL, demo: false)
+/// let info = try await service.loadAndExtractMetadata(from: modelURL)
 /// // info is Sendable, safe to use on MainActor
 /// ```
 public actor ModelLoadingService: ModelMetadataLoading {
@@ -117,20 +129,21 @@ public actor ModelLoadingService: ModelMetadataLoading {
 
     /// Loads a model and extracts its metadata.
     ///
-    /// For non-demo models (`demo == false`), this method first compiles the model
-    /// using `MLModel.compileModel(at:)`, which can be CPU-intensive.
+    /// The route is decided by the artifact's format, not by where the model came from: a source
+    /// `.mlmodel` / `.mlpackage` is first compiled with `MLModel.compileModel(at:)` (CPU-intensive),
+    /// while an already-compiled `.mlmodelc` — a bundled demo *or* an imported bundle — is loaded
+    /// as-is, because Core ML refuses to compile a compiled bundle a second time (AIA-0844).
     ///
-    /// - Parameters:
-    ///   - url: The URL of the model file (.mlmodel, .mlpackage, or .mlmodelc)
-    ///   - demo: If `true`, skips compilation (assumes pre-compiled .mlmodelc)
+    /// - Parameter url: The URL of the model file (.mlmodel, .mlpackage, or .mlmodelc)
     /// - Returns: Extracted model metadata as a `Sendable` struct
-    /// - Throws: `ModelLoadingError` if loading or metadata extraction fails
-    public func loadAndExtractMetadata(from url: URL, demo: Bool) async throws -> ExtractedModelInfo {
-        LoggingPolicy.debug("ModelLoadingService: Loading model from \(url.lastPathComponent), demo=\(demo)", logger: .drivers)
+    /// - Throws: `ModelLoadingError` if compiling, loading, or metadata extraction fails
+    public func loadAndExtractMetadata(from url: URL) async throws -> ExtractedModelInfo {
+        let isCompiled = url.isCompiledCoreMLModel
+        LoggingPolicy.debug("ModelLoadingService: Loading model from \(url.lastPathComponent), compiled=\(isCompiled)", logger: .drivers)
 
-        // Compile model if needed (non-demo models)
+        // Compile a source model; a compiled bundle is used directly.
         let compiledURL: URL
-        if demo {
+        if isCompiled {
             compiledURL = url
         } else {
             do {
@@ -150,7 +163,11 @@ public actor ModelLoadingService: ModelMetadataLoading {
             LoggingPolicy.debug("ModelLoadingService: Model loaded successfully", logger: .drivers)
         } catch {
             LoggingPolicy.error("ModelLoadingService: Load failed", error: error, logger: .drivers)
-            throw ModelLoadingError.modelLoadFailed(url)
+            // A compiled bundle that will not load has skipped the compile step's validation, so the
+            // underlying error is the only clue (wrong platform, malformed bundle); keep it.
+            throw isCompiled
+                ? ModelLoadingError.compiledModelLoadFailed(url, error)
+                : ModelLoadingError.modelLoadFailed(url)
         }
 
         // Extract metadata. Empty metadata is not fatal (AIA-0402): the parser then yields nils and
@@ -225,13 +242,11 @@ public actor ModelLoadingService: ModelMetadataLoading {
     ///   loads as Disabled. So this returns `true` for any model that compiles and loads, including
     ///   one that will import with an undetermined (Disabled) type for the user to set.
     ///
-    /// - Parameters:
-    ///   - url: The URL of the model file
-    ///   - demo: If `true`, skips compilation
+    /// - Parameter url: The URL of the model file (.mlmodel, .mlpackage, or .mlmodelc)
     /// - Returns: `true` if the model loads successfully
-    public func validateModel(at url: URL, demo: Bool) async -> Bool {
+    public func validateModel(at url: URL) async -> Bool {
         do {
-            _ = try await loadAndExtractMetadata(from: url, demo: demo)
+            _ = try await loadAndExtractMetadata(from: url)
             return true
         } catch {
             LoggingPolicy.warning("ModelLoadingService: Validation failed for \(url.lastPathComponent)", logger: .drivers)

@@ -102,7 +102,7 @@ final class ModelTypeBackfiller {
             // MainActor. One load serves both passes when a row needs them together.
             let info: ExtractedModelInfo
             do {
-                info = try await loader.loadAndExtractMetadata(from: file, demo: configuration.demo)
+                info = try await loader.loadAndExtractMetadata(from: file)
             } catch {
                 // A failed load (transient compile failure, low disk, brief file-provider outage)
                 // must not be mistaken for "nothing to backfill": count it so the one-shot guards

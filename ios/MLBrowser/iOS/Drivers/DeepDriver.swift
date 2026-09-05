@@ -107,7 +107,6 @@ struct DeepDriverParams: Sendable {
 	var selectedSymbol: AnnotationSymbol = .circle
 	/// Per-model app-provided annotation sound (AIA-0716).
 	var annotationSound: AnnotationSoundConfiguration = .init()
-	var demo: Bool = false
 	/// Per-model finding-flash style (AIA-0374; classify models).
 	var flashEnabled: Bool = true
 	var flashSize: Double = 8.0
@@ -137,13 +136,15 @@ protocol DeepDriver: Driver, Sendable {
 
 extension DeepDriver {
 	@discardableResult
+	/// Loads a Core ML model for a driver. A source `.mlmodel` / `.mlpackage` is compiled first (a
+	/// compile failure propagates); an already-compiled `.mlmodelc` — a bundled demo or an imported
+	/// compiled bundle — is loaded as-is, since Core ML will not compile it twice (AIA-0844). A load
+	/// failure is logged, recorded, and answered with `nil`.
 	static func loadModel(
 		from path: URL,
-		demo: Bool = false,
 		computeUnit: ModelComputeUnit = .automatic
 	) async throws -> MLModel? {
-		// the file is already handled by copying resources in Xcode: -> mlmodelc (compiled)
-		let compiledModelURL = demo ? path : try await MLModel.compileModel(at: path)
+		let compiledModelURL = path.isCompiledCoreMLModel ? path : try await MLModel.compileModel(at: path)
 
 		do {
 			LoggingPolicy.debug("Loading MLModel from \(compiledModelURL.lastPathComponent)", logger: .drivers)
@@ -207,8 +208,8 @@ class DeepDrivers: ObservableObject {
 		if drivers.count >= 2 {
 			LoggingPolicy.warning("Multiple drivers found with same configuration.entityId: \(entityId.uuidString)", logger: .drivers)
 		}
-		// toDriverParams() preserves ALL fields (including `demo`, which the previous
-		// manual construction silently reset). Awaiting keeps rapid successive updates
+		// toDriverParams() preserves ALL fields (the previous manual construction silently
+		// reset some). Awaiting keeps rapid successive updates
 		// ordered — the old fire-and-forget Task could apply an older config last.
 		let params = configuration.toDriverParams()
 		await drivers.first?.updateConfiguration(params)

@@ -448,14 +448,14 @@ final class RealClassifierDemoModelTests: XCTestCase {
     /// The metadata carries `com.apple.coreml.model.preview.type = imageClassifier`,
     /// which is what routes the demo through the classify pipeline at seeding time.
     func testDemoClassifier_MetadataTask_IsClassify() async throws {
-        let info = try await ModelLoadingService().loadAndExtractMetadata(from: demoModelURL(), demo: true)
+        let info = try await ModelLoadingService().loadAndExtractMetadata(from: demoModelURL())
         XCTAssertEqual(info.task, .classificator)
     }
 
     /// Drives the REAL model through the atomic classify pass: labels come back
     /// non-empty, trimmed to the top-K, best-first.
     func testDemoClassifier_ClassifiesRenderedImage() async throws {
-        let params = DeepDriverParams(entityId: UUID(), modelName: "Test Model", file: try demoModelURL(), demo: true)
+        let params = DeepDriverParams(entityId: UUID(), modelName: "Test Model", file: try demoModelURL())
         let classificator = Classificator(params: params)
         try await classificator.loadFile()
 
@@ -491,7 +491,7 @@ final class FixturePatternQualificationTests: XCTestCase {
 
     func testMazePattern_QualifiesOnDemoModel() async throws {
         let url = try XCTUnwrap(Bundle.main.url(forResource: DemoDataManager.DemoModelResource.fastViT, withExtension: "mlmodelc"))
-        let classificator = Classificator(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model", file: url, demo: true))
+        let classificator = Classificator(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model", file: url))
         try await classificator.loadFile()
 
         let labels = await classificator.classify(image: Self.mazeImage())

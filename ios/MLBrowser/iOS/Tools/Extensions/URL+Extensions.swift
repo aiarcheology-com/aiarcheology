@@ -19,6 +19,16 @@ extension URL {
 	// swiftlint:disable:next force_unwrapping
 	static let appleManageSubscriptions = URL(string: "https://apps.apple.com/account/subscriptions")!
 
+	/// Whether this URL names a Core ML bundle that is *already compiled* (`.mlmodelc`).
+	///
+	/// Core ML refuses to compile a compiled bundle a second time (`MLModel.compileModel(at:)` fails
+	/// with a missing `Manifest.json`), so every loader must route on this instead of on where the
+	/// model came from: an imported model is never a demo yet may well be compiled (AIA-0844). The
+	/// extension is a routing decision only; Core ML still validates the bundle's contents on load.
+	var isCompiledCoreMLModel: Bool {
+		pathExtension.lowercased() == "mlmodelc"
+	}
+
 	func completePath(to directory: FileManager.SearchPathDirectory, isDirectory: Bool) throws -> URL {
 		let baseDirectoryURL = try FileManager.default.url(for: directory, in: .userDomainMask, appropriateFor: nil, create: false)
 		return baseDirectoryURL.appendingPathComponent(self.path, isDirectory: isDirectory)

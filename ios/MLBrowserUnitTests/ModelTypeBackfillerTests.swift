@@ -17,7 +17,7 @@ private actor StubModelMetadataLoader: ModelMetadataLoading {
         self.result = result
     }
 
-    func loadAndExtractMetadata(from url: URL, demo: Bool) async throws -> ExtractedModelInfo {
+    func loadAndExtractMetadata(from url: URL) async throws -> ExtractedModelInfo {
         callCount += 1
         return result
     }
@@ -28,7 +28,7 @@ private actor StubModelMetadataLoader: ModelMetadataLoading {
 }
 
 private actor FailingModelMetadataLoader: ModelMetadataLoading {
-    func loadAndExtractMetadata(from url: URL, demo: Bool) async throws -> ExtractedModelInfo {
+    func loadAndExtractMetadata(from url: URL) async throws -> ExtractedModelInfo {
         throw ModelLoadingError.modelLoadFailed(url)
     }
 }

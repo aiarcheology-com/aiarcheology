@@ -24,7 +24,6 @@ final class DeepDriverParamsTests: XCTestCase {
         XCTAssertNil(params.file)
         XCTAssertEqual(params.phaseOutTime, 1.0)
         XCTAssertEqual(params.selectedSymbol, .circle)
-        XCTAssertFalse(params.demo)
     }
     
     func testCustomValues() {
@@ -37,8 +36,7 @@ final class DeepDriverParamsTests: XCTestCase {
             entityId: entityId, modelName: "Test Model",
             file: fileURL,
             phaseOutTime: 2.5,
-            selectedSymbol: .square,
-            demo: true
+            selectedSymbol: .square
         )
         
         XCTAssertEqual(params.annotationColor, .red)
@@ -47,7 +45,6 @@ final class DeepDriverParamsTests: XCTestCase {
         XCTAssertEqual(params.file, fileURL)
         XCTAssertEqual(params.phaseOutTime, 2.5)
         XCTAssertEqual(params.selectedSymbol, .square)
-        XCTAssertTrue(params.demo)
     }
 }
 

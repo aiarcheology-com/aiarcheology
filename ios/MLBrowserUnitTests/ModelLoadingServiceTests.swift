@@ -318,6 +318,24 @@ final class ModelLoadingErrorTests: XCTestCase {
         XCTAssertTrue(error.errorDescription!.contains("Compilation error"))
     }
 
+    func test_compiledModelLoadFailed_errorDescription_containsFilenameUnderlyingErrorAndRecovery() throws {
+        let url = URL(fileURLWithPath: "/path/to/Model.mlmodelc")
+        let underlyingError = NSError(domain: "TestDomain", code: 7, userInfo: [NSLocalizedDescriptionKey: "Unable to load model"])
+        let error = ModelLoadingError.compiledModelLoadFailed(url, underlyingError)
+
+        let description = try XCTUnwrap(error.errorDescription)
+        XCTAssertTrue(description.contains("Model.mlmodelc"))
+        // Core ML's wording is quoted, not spliced, so the recovery hint is a sentence of its own
+        // whether or not the underlying message ends in a period.
+        XCTAssertTrue(description.contains("(Unable to load model). Compiled"))
+
+        let punctuated = NSError(domain: "TestDomain", code: 7, userInfo: [NSLocalizedDescriptionKey: " Unable to load model. \n"])
+        let punctuatedDescription = try XCTUnwrap(ModelLoadingError.compiledModelLoadFailed(url, punctuated).errorDescription)
+        XCTAssertTrue(punctuatedDescription.contains("(Unable to load model). Compiled"), "A trailing period and whitespace in Core ML's message must not double up: \(punctuatedDescription)")
+        XCTAssertTrue(description.contains("platform-specific"), "The recovery hint must explain why a compiled bundle can fail here")
+        XCTAssertTrue(description.contains(".mlmodel or .mlpackage"), "The recovery hint must say what to import instead")
+    }
+
     func test_modelTypeNotDetermined_errorDescription_containsFilenameAndGuidance() {
         let url = URL(fileURLWithPath: "/path/to/YOLOv3.mlmodel")
         let error = ModelLoadingError.modelTypeNotDetermined(url)
@@ -360,7 +378,7 @@ final class ModelLoadingServiceTests: XCTestCase {
             throw XCTSkip("Demo model not available in test bundle")
         }
 
-        let info = try await sut.loadAndExtractMetadata(from: modelURL, demo: true)
+        let info = try await sut.loadAndExtractMetadata(from: modelURL)
 
         // Demo models should have a valid task type
         XCTAssertNotEqual(info.task, .invalid, "Demo model should have a valid task type")
@@ -373,7 +391,7 @@ final class ModelLoadingServiceTests: XCTestCase {
         let invalidURL = URL(fileURLWithPath: "/nonexistent/path/model.mlmodelc")
 
         do {
-            _ = try await sut.loadAndExtractMetadata(from: invalidURL, demo: true)
+            _ = try await sut.loadAndExtractMetadata(from: invalidURL)
             XCTFail("Expected error to be thrown for invalid URL")
         } catch {
             // Expected behavior - error should be thrown
@@ -406,7 +424,7 @@ final class ModelLoadingServiceTests: XCTestCase {
     func test_validateModel_withInvalidURL_returnsFalse() async {
         let invalidURL = URL(fileURLWithPath: "/nonexistent/model.mlmodelc")
 
-        let isValid = await sut.validateModel(at: invalidURL, demo: true)
+        let isValid = await sut.validateModel(at: invalidURL)
 
         XCTAssertFalse(isValid)
     }
@@ -416,7 +434,7 @@ final class ModelLoadingServiceTests: XCTestCase {
             throw XCTSkip("Demo model not available in test bundle")
         }
 
-        let isValid = await sut.validateModel(at: modelURL, demo: true)
+        let isValid = await sut.validateModel(at: modelURL)
 
         XCTAssertTrue(isValid)
     }
@@ -432,12 +450,188 @@ final class ModelLoadingServiceTests: XCTestCase {
         let service = sut!
 
         // Call multiple times - actor ensures serial execution
-        async let result1 = service.loadAndExtractMetadata(from: modelURL, demo: true)
-        async let result2 = service.loadAndExtractMetadata(from: modelURL, demo: true)
+        async let result1 = service.loadAndExtractMetadata(from: modelURL)
+        async let result2 = service.loadAndExtractMetadata(from: modelURL)
 
         let (info1, info2) = try await (result1, result2)
 
         // Both should return the same metadata
         XCTAssertEqual(info1, info2)
+    }
+}
+
+// MARK: - Compiled artifact routing Tests — AIA-0844
+
+/// An imported `.mlmodelc` is not a demo, yet it is already compiled — and Core ML refuses to compile
+/// a compiled bundle a second time. Both loaders therefore route on the artifact's format, and these
+/// tests drive a real compiled bundle through the non-demo service and driver paths: actual loading
+/// and a real prediction, not an extension helper. Under the previous code every "compiled" case here
+/// failed with `ModelLoadingError.compilationFailed` (service) or threw from `compileModel` (driver).
+///
+/// Not `final`: the class-level `setUp`/`tearDown` overrides below must stay `class func`.
+class CompiledCoreMLArtifactRoutingTests: XCTestCase {
+
+    private enum FixtureError: Error {
+        case probeMissingFromTestBundle
+    }
+
+    /// The probe compiled ONCE for the whole class — compiling is the expensive step and every test
+    /// needs the same artifact — then copied out of the test bundle into a scratch directory, the way
+    /// an import lands in the app's Documents rather than in the app bundle. `Result` rather than a
+    /// skip: a probe that cannot compile on the simulator is a real regression, not an environment
+    /// condition. `nonisolated(unsafe)`: XCTest runs the class-level `setUp`/`tearDown` before and after
+    /// every test in the class, and the tests themselves only read.
+    nonisolated(unsafe) private static var importedCompiledProbe: Result<URL, Error> = .failure(FixtureError.probeMissingFromTestBundle)
+    nonisolated(unsafe) private static var scratchDirectory: URL?
+
+    override class func setUp() {
+        super.setUp()
+        importedCompiledProbe = Result {
+            let bundle = Bundle(for: CompiledCoreMLArtifactRoutingTests.self)
+            let compiled: URL
+            if let source = bundle.url(forResource: "VisionScaleFitProbe", withExtension: "mlmodel") {
+                compiled = try MLModel.compileModel(at: source)
+            } else if let prebuilt = bundle.url(forResource: "VisionScaleFitProbe", withExtension: "mlmodelc") {
+                compiled = prebuilt
+            } else {
+                throw FixtureError.probeMissingFromTestBundle
+            }
+            let scratch = FileManager.default.temporaryDirectory
+                .appendingPathComponent("AIA-0844-\(UUID().uuidString)", isDirectory: true)
+            try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+            scratchDirectory = scratch
+            let imported = scratch.appendingPathComponent("ImportedProbe.mlmodelc", isDirectory: true)
+            try FileManager.default.copyItem(at: compiled, to: imported)
+            return imported
+        }
+    }
+
+    override class func tearDown() {
+        if let scratch = scratchDirectory {
+            try? FileManager.default.removeItem(at: scratch)
+        }
+        scratchDirectory = nil
+        importedCompiledProbe = .failure(FixtureError.probeMissingFromTestBundle)
+        super.tearDown()
+    }
+
+    private func importedCompiledProbe() throws -> URL {
+        try Self.importedCompiledProbe.get()
+    }
+
+    /// A directory that merely wears the extension: what a truncated copy or a foreign bundle looks
+    /// like to the loader before Core ML reads its manifest.
+    private func makeMalformedCompiledBundle() throws -> URL {
+        let scratch = try XCTUnwrap(Self.scratchDirectory)
+        let broken = scratch.appendingPathComponent("Broken-\(UUID().uuidString).mlmodelc", isDirectory: true)
+        try FileManager.default.createDirectory(at: broken, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: broken) }
+        return broken
+    }
+
+    /// Runs a real prediction on the probe: a blank pixel buffer in the model's own input format.
+    /// The output is asserted to exist and to have the probe's pass-through shape, which only a
+    /// loaded, runnable model can produce.
+    private func assertPredicts(_ model: MLModel, file: StaticString = #filePath, line: UInt = #line) throws {
+        let constraint = try XCTUnwrap(
+            model.modelDescription.inputDescriptionsByName["image"]?.imageConstraint,
+            "the probe presents a single image input", file: file, line: line
+        )
+        var buffer: CVPixelBuffer?
+        // IOSurface-backed, as in VisionScaleFitProbeTests: the buffer layout Core ML and Vision
+        // accept on every simulator runtime.
+        let status = CVPixelBufferCreate(
+            nil, constraint.pixelsWide, constraint.pixelsHigh, constraint.pixelFormatType,
+            [kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary] as CFDictionary, &buffer
+        )
+        XCTAssertEqual(status, kCVReturnSuccess, "CVPixelBufferCreate failed with status \(status)", file: file, line: line)
+        let pixelBuffer = try XCTUnwrap(buffer, file: file, line: line)
+        let input = try MLDictionaryFeatureProvider(dictionary: ["image": MLFeatureValue(pixelBuffer: pixelBuffer)])
+        let output = try model.prediction(from: input)
+        let passthrough = try XCTUnwrap(output.featureValue(for: "passthrough")?.multiArrayValue, file: file, line: line)
+        XCTAssertEqual(passthrough.count, 3 * constraint.pixelsWide * constraint.pixelsHigh, file: file, line: line)
+    }
+
+    // MARK: Service (import validation + metadata)
+
+    func test_service_loadsImportedCompiledBundle_withoutRecompiling() async throws {
+        let compiled = try importedCompiledProbe()
+
+        let info = try await ModelLoadingService().loadAndExtractMetadata(from: compiled)
+
+        // The probe declares no task metadata, so the type falls back to the structural signature
+        // (AIA-0402); what matters here is that the compiled bundle loaded at all.
+        XCTAssertFalse(info.typeWasParsed)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: compiled.path), "loading must not consume the imported bundle")
+    }
+
+    func test_service_validatesImportedCompiledBundle() async throws {
+        let compiled = try importedCompiledProbe()
+
+        let isValid = await ModelLoadingService().validateModel(at: compiled)
+
+        XCTAssertTrue(isValid)
+    }
+
+    /// The source route is unchanged: an `.mlmodel` still goes to the compiler first, so a missing
+    /// one fails *there* — not at the load step a compiled bundle would reach. (The test bundle
+    /// carries only Xcode's precompiled probe, so a real compile success cannot be staged here; the
+    /// distinct error case is what pins the routing.)
+    func test_service_sourceModel_stillTakesTheCompileRoute() async {
+        let missingSource = URL(fileURLWithPath: "/nonexistent/AIA-0844/model.mlmodel")
+
+        do {
+            _ = try await ModelLoadingService().loadAndExtractMetadata(from: missingSource)
+            XCTFail("A missing .mlmodel must fail")
+        } catch ModelLoadingError.compilationFailed(let url, _) {
+            XCTAssertEqual(url, missingSource)
+        } catch {
+            XCTFail("Expected compilationFailed for a source model, got \(error)")
+        }
+    }
+
+    func test_service_malformedCompiledBundle_throwsCompiledModelLoadFailed_withUnderlyingError() async throws {
+        let broken = try makeMalformedCompiledBundle()
+
+        do {
+            _ = try await ModelLoadingService().loadAndExtractMetadata(from: broken)
+            XCTFail("An empty .mlmodelc directory must not load")
+        } catch ModelLoadingError.compiledModelLoadFailed(let url, let underlying) {
+            XCTAssertEqual(url, broken)
+            XCTAssertFalse(underlying.localizedDescription.isEmpty, "Core ML's reason must travel with the error")
+        } catch {
+            XCTFail("Expected compiledModelLoadFailed, got \(error)")
+        }
+    }
+
+    // MARK: Drivers (runtime loading + inference)
+
+    func test_detectorDriver_loadsImportedCompiledBundle_andPredicts() async throws {
+        let compiled = try importedCompiledProbe()
+
+        let loaded = try await Detector.loadModel(from: compiled)
+        let model = try XCTUnwrap(loaded)
+
+        try assertPredicts(model)
+    }
+
+    func test_classificatorDriver_loadsImportedCompiledBundle_andPredicts() async throws {
+        let compiled = try importedCompiledProbe()
+
+        let loaded = try await Classificator.loadModel(from: compiled)
+        let model = try XCTUnwrap(loaded)
+
+        try assertPredicts(model)
+    }
+
+    func test_driver_malformedCompiledBundle_returnsNilWithoutThrowing() async throws {
+        let broken = try makeMalformedCompiledBundle()
+
+        do {
+            let model = try await Detector.loadModel(from: broken)
+            XCTAssertNil(model, "A compiled bundle Core ML cannot load is answered with nil, as every load failure is")
+        } catch {
+            XCTFail("A load failure must not throw from the driver: \(error)")
+        }
     }
 }

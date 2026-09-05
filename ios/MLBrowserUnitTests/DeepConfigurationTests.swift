@@ -831,7 +831,6 @@ final class DeepConfigurationTests: XCTestCase {
         config.annotationColor = .green
         config.phaseOutTime = 1.0
         config.selectedSymbol = .square
-        config.demo = true
         
         let params = config.toDriverParams()
 
@@ -839,7 +838,6 @@ final class DeepConfigurationTests: XCTestCase {
         XCTAssertEqual(params.phaseOutTime, 1.0)
         XCTAssertEqual(params.selectedSymbol, .square)
         XCTAssertEqual(params.computeUnit, .automatic)
-        XCTAssertTrue(params.demo)
     }
 
     func testToDriverParams_CarriesTheModelName() {

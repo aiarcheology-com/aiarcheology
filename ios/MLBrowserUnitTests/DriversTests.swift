@@ -22,17 +22,30 @@ final class DriversTests: XCTestCase {
 
     // MARK: - DeepDriver Protocol Tests (via Detector)
 
-    func testDeepDriverLoadModel_InvalidPath() async {
-        // Test static loadModel with an invalid path
-        let invalidURL = URL(fileURLWithPath: "/invalid/path/to/model.mlmodel")
-        
+    /// A compiled bundle skips compilation and goes straight to the load step, whose failures the
+    /// driver swallows into `nil` (logged and crash-reported) rather than throwing.
+    func testDeepDriverLoadModel_MissingCompiledBundle_ReturnsNilWithoutThrowing() async {
+        let invalidURL = URL(fileURLWithPath: "/invalid/path/to/model.mlmodelc")
+
         do {
-            let model = try await Detector.loadModel(from: invalidURL, demo: true)
-            // It might return nil or throw depending on implementation.
-            // Looking at DeepDriver.swift: it catches error and returns nil.
-            XCTAssertNil(model, "Model should be nil for invalid path")
+            let model = try await Detector.loadModel(from: invalidURL)
+            XCTAssertNil(model, "Model should be nil for a missing compiled bundle")
         } catch {
             XCTFail("Should not throw, but return nil: \(error)")
+        }
+    }
+
+    /// A source model is compiled first, and a compile failure propagates to the caller — the
+    /// behaviour every imported `.mlmodel` has always had (AIA-0844 kept it, and only re-routed
+    /// `.mlmodelc` bundles around the compile step).
+    func testDeepDriverLoadModel_MissingSourceModel_ThrowsFromCompilation() async {
+        let invalidURL = URL(fileURLWithPath: "/invalid/path/to/model.mlmodel")
+
+        do {
+            _ = try await Detector.loadModel(from: invalidURL)
+            XCTFail("Compiling a missing .mlmodel should throw")
+        } catch {
+            // Expected: MLModel.compileModel(at:) rejects the missing source.
         }
     }
 

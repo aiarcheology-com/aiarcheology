@@ -303,7 +303,8 @@ final class LocalizationCatalogTests: XCTestCase {
         "NSLocalNetworkUsageDescription": "Your permission is needed to connect with devices on your local network. This allows the app to automatically detect and interact with compatible devices for streamlined data sharing and enhanced functionality.",
         "CFBundleName": "ML Browser",
         "AI Archeology native model graph": "AI Archeology native model graph",
-        "ONNX model": "ONNX model"
+        "ONNX model": "ONNX model",
+        "Compiled Core ML model": "Compiled Core ML model"
     ]
 
     /// Info.plist strings are not generated into `L10n.swift`, so guard their source catalog

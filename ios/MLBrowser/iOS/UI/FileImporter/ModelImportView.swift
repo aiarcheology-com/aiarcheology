@@ -48,6 +48,12 @@ struct ModelImportView: View {
 			UTType("com.apple.coreml.mlpackage"),
 			UTType(filenameExtension: "mlmodel"),
 			UTType(filenameExtension: "mlpackage"),
+			// A compiled bundle is a directory; the package UTI is what lets the Files picker offer it as
+			// one item, and the loader then uses it as-is (AIA-0844). The identifier is Xcode's: on a
+			// Mac with Xcode installed LaunchServices types the folder with Xcode's exported declaration
+			// (the extension lookup below then yields an unrelated dynamic type and the item is greyed
+			// out), and on iOS the app's own imported declaration of the same identifier applies.
+			UTType("com.apple.coreml.mlmodelc"),
 			UTType(filenameExtension: "mlmodelc"),
 			// Self-contained ONNX models the app converts to Core ML on-device. The imported UTI
 			// (declared in Info.plist) makes the Files picker surface `.onnx` reliably; the
@@ -878,7 +884,7 @@ struct ModelImportView: View {
 		let service = ModelLoadingService()
 		let extractedInfo: ExtractedModelInfo
 		do {
-			extractedInfo = try await service.loadAndExtractMetadata(from: modelURL, demo: false)
+			extractedInfo = try await service.loadAndExtractMetadata(from: modelURL)
 			try Task.checkCancellation()
 		} catch {
 			if let reportStore {

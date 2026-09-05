@@ -43,7 +43,7 @@ final class DetectionEngineTests: XCTestCase {
             Bundle.main.url(forResource: modelResource, withExtension: "mlmodelc"),
             "Demo model \(modelResource).mlmodelc is missing from the app bundle"
         )
-        let detector = Detector(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model", file: url, demo: true))
+        let detector = Detector(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model", file: url))
         try await detector.loadFile()
         return detector
     }

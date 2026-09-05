@@ -224,7 +224,7 @@ final class DemoDataManager {
         let extractedInfo: ExtractedModelInfo
         do {
             let service = ModelLoadingService()
-            extractedInfo = try await service.loadAndExtractMetadata(from: url, demo: true)
+            extractedInfo = try await service.loadAndExtractMetadata(from: url)
         } catch {
             LoggingPolicy.error("Failed to load demo model metadata", error: error, logger: .configuration)
             return

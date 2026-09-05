@@ -63,7 +63,7 @@ class ADAFDetectorDeviceTestSupport: XCTestCase {
 		// CPU is selected explicitly for the strict parity measurement. Product placement comes from
 		// DeepConfiguration, whose Automatic value resolves to Core ML `.all`.
 		let loadedCPUModel = try await Detector.loadModel(
-			from: probe.compiledModel, demo: true, computeUnit: .processorOnly
+			from: probe.compiledModel, computeUnit: .processorOnly
 		)
 		let cpuModel = try XCTUnwrap(
 			loadedCPUModel,
@@ -95,7 +95,7 @@ class ADAFDetectorDeviceTestSupport: XCTestCase {
 		// geometry itself is separately pinned in ADAFBoxRoundTripTests.
 		let detector = Detector(params: DeepDriverParams(
 			computeUnit: .processorOnly,
-			entityId: UUID(), modelName: "AIA-0697 device parity", file: probe.compiledModel, demo: true
+			entityId: UUID(), modelName: "AIA-0697 device parity", file: probe.compiledModel
 		))
 		try await detector.loadFile()
 		let appObjects = await detector.detect(image: probe.sourceImage, regions: [TileLayout.fullFrame])
@@ -135,7 +135,7 @@ class ADAFDetectorDeviceTestSupport: XCTestCase {
 		for computeUnit in [ModelComputeUnit.neuralEngine, .graphicsProcessor] {
 			guard computeUnit.isAvailable() else { continue }
 			let loadedModel = try await Detector.loadModel(
-				from: probe.compiledModel, demo: true, computeUnit: computeUnit
+				from: probe.compiledModel, computeUnit: computeUnit
 			)
 			let model = try XCTUnwrap(
 				loadedModel,
@@ -161,7 +161,7 @@ class ADAFDetectorDeviceTestSupport: XCTestCase {
 		let probe = try makeProbe()
 		let regions = TileLayout.regions(for: [.pyramid, .grid3x3])
 		let detector = Detector(params: DeepDriverParams(
-			entityId: UUID(), modelName: "AIA-0697 memory benchmark", file: probe.compiledModel, demo: true
+			entityId: UUID(), modelName: "AIA-0697 memory benchmark", file: probe.compiledModel
 		))
 		try await detector.loadFile()
 

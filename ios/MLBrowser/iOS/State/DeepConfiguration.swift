@@ -176,7 +176,6 @@ extension DeepConfiguration {
 			phaseOutTime: phaseOutTime,
 			selectedSymbol: selectedSymbol,
 			annotationSound: annotationSoundConfiguration,
-			demo: demo,
 			flashEnabled: flashOnFindingEnabled,
 			flashSize: flashSize
 		)

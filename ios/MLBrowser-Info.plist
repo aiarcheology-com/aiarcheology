@@ -84,6 +84,29 @@
 	</array>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
+		<!-- A compiled Core ML bundle is a directory that iOS does not type, so without this the Files
+		     picker shows an .mlmodelc as a browsable folder and it can never be chosen; the package
+		     conformance makes it one selectable item, like .aiagraph above (AIA-0844). The identifier
+		     is the one Xcode exports for the same extension: on a Mac with Xcode installed that
+		     declaration wins and types the folder, and the picker must recognise that type, so both
+		     platforms agree on one identifier rather than each seeing a different one. -->
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.apple.coreml.mlmodelc</string>
+			<key>UTTypeDescription</key>
+			<string>Compiled Core ML model</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>com.apple.package</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mlmodelc</string>
+				</array>
+			</dict>
+		</dict>
 		<dict>
 			<key>UTTypeIdentifier</key>
 			<string>com.aiarcheology.onnx-model</string>

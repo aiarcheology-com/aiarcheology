@@ -35,7 +35,7 @@ final class VisionScaleFitProbeTests: XCTestCase {
 	///
 	/// Both lookups are here because whether Xcode's CoreML build rule fires for a model in a test
 	/// target's Resources phase is a build-system detail, not something this test should depend on —
-	/// and the runtime-compile branch is what `DeepDriver.loadModel(from:demo:)` does for an imported
+	/// and the runtime-compile branch is what `DeepDriver.loadModel(from:computeUnit:)` does for an imported
 	/// model anyway. `XCTUnwrap` on the pair means an absent fixture fails loudly rather than skipping.
 	private func loadProbeModel() throws -> MLModel {
 		let bundle = Bundle(for: Self.self)
