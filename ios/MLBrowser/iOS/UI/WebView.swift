@@ -42,7 +42,18 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
     }
 
     public func makeUIView(context: Context) -> WKWebView {
-		let contentController = Self.makeUserContentController()
+		// AIA-0821: the initial answer, for the document this web view opens with. Every subsequent
+		// document is decided again in `decidePolicyFor`, which is the one hook guaranteed to run
+		// before a destination document exists.
+		let initiallyArmed = browserState.mapParserArming.isArmed(for: browserState.currentURL)
+		let contentController = Self.makeUserContentController(armed: initiallyArmed)
+		// The coordinator switches the map registry on and off on THIS instance; it must not reach it
+		// through `webView.configuration`, which is a copy (AIA-0821).
+		context.coordinator.userContentController = contentController
+		// Record what the initial controller holds. Without this a session restored straight into a
+		// document — which may never produce an action-policy decision — would be labelled disarmed
+		// while carrying the registry.
+		context.coordinator.installedArmed = initiallyArmed
 		contentController.add(context.coordinator, name: "interactionHandler")
 		// AIA-0817: every frame announces itself here, which is the only way to obtain a
 		// `WKFrameInfo` for a child frame — WebKit has no API to enumerate them.
@@ -63,20 +74,92 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 	/// Split out of `makeUIView` so a test can assert against the scripts the app *actually ships*
 	/// rather than a configuration the test built for itself. AIA-0817 shipped inert precisely
 	/// because its registry was installed only by its own tests, which could never notice.
-	static func makeUserContentController() -> WKUserContentController {
+	static func makeUserContentController(armed: Bool = true) -> WKUserContentController {
 		let contentController = WKUserContentController()
+		applyMapRegistry(to: contentController, armed: armed)
+		return contentController
+	}
+
+	/// Installs the app's user scripts, with or without the map registry (AIA-0821).
+	///
+	/// ## Why the whole list is rebuilt
+	/// `WKUserContentController` has no per-script removal — only `addUserScript` and a bulk
+	/// `removeAllUserScripts`. So switching the registry off means rebuilding the list, and the two
+	/// scripts that must survive every rebuild are re-added here rather than anywhere else. A page
+	/// with no touch detection cannot pause detection while the user scrolls; a page with no
+	/// diagnostics cannot report the blankness the breaker keys on.
+	///
+	/// ## Why this is the only place that decides
+	/// Injection used to be decided in the factory, so anything wanting to switch it off mid-session
+	/// had to make the same decision a second time — and a restored session could then carry the
+	/// registry against the user's switch. One behaviour, one decision point.
+	///
+	/// ## When it takes effect
+	/// User scripts are injected as a document is created, so a change here applies to the NEXT
+	/// document, never the one on screen. That is exactly the guarantee the caller wants: the
+	/// breaker disarms and then reloads, and the reloaded document is the first one to run without
+	/// the registry.
+	static func applyMapRegistry(to contentController: WKUserContentController, armed: Bool) {
+		contentController.removeAllUserScripts()
+		contentController.addUserScript(touchDetectionScript)
+		// AIA-0817: records map instances as their libraries construct them, so a finding saved on
+		// a map page can ask the live map where it is looking.
+		//
+		// Must be `.atDocumentStart`: it has to be watching for `L`, `ol` and the rest before the
+		// page's own scripts assign them, and at `.atDocumentEnd` every one of those assignments has
+		// already happened. (It watches by polling — an earlier version installed accessor
+		// properties on `window` and broke bundled applications outright.)
+		//
+		// Injected into every frame, because portals and documentation shells routinely put the map
+		// in an iframe. Each frame announces itself through the `aiaMapFrame` handler, which is the
+		// only way to obtain a `WKFrameInfo` — WebKit cannot enumerate frames — and the probe then
+		// asks those frames as well as the main one.
+		if armed {
+			contentController.addUserScript(mapRegistryScript)
+		}
+		// AIA-0827: counts the page's own script errors. Deliberately OUTSIDE the switch above — the
+		// switch is what a tester, and now the breaker, uses to find out whether our injection broke
+		// a page, and a diagnostic that disappears in exactly that experiment is worth nothing.
+		contentController.addUserScript(pageDiagnosticsUserScript)
+	}
+
+	private static let mapRegistryScript = WKUserScript(
+		source: MapProbeScript.registry,
+		injectionTime: .atDocumentStart,
+		forMainFrameOnly: false
+	)
+
+	private static let pageDiagnosticsUserScript = WKUserScript(
+		source: MLWebView.pageDiagnosticsScript,
+		injectionTime: .atDocumentStart,
+		forMainFrameOnly: false
+	)
 
 		// Inject JavaScript to detect touch/pointer events
-		let touchDetectionScript = WKUserScript(
+		private static let touchDetectionScript = WKUserScript(
 			source: """
 			(function() {
 				let interactionTimeout = null;
 				var isInteracting = false;
 
+				// Never let reporting an interaction throw into the page (AIA-0821, raised in review).
+				// This runs on touch, pointer, mouse and wheel events on every page the user visits,
+				// so if the handler were ever missing — a registration regression, a page that
+				// replaced `window.webkit` — an unguarded call would throw on every gesture. The
+				// worst case here must be that detection does not pause, never that the page breaks.
+				function post(message) {
+					try {
+						if (window.webkit && window.webkit.messageHandlers
+							&& window.webkit.messageHandlers.interactionHandler) {
+							window.webkit.messageHandlers.interactionHandler.postMessage(message);
+						}
+					} catch (e) {}
+				}
+
 				function notifyInteractionStart() {
 					if (!isInteracting) {
 						isInteracting = true;
-						window.webkit.messageHandlers.interactionHandler.postMessage('start');
+						post('start');
 					}
 					clearTimeout(interactionTimeout);
 				}
@@ -86,7 +169,7 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 					interactionTimeout = setTimeout(function() {
 						if (isInteracting) {
 							isInteracting = false;
-							window.webkit.messageHandlers.interactionHandler.postMessage('end');
+							post('end');
 						}
 					}, 150);
 				}
@@ -122,43 +205,6 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			injectionTime: .atDocumentEnd,
 			forMainFrameOnly: false
 		)
-		contentController.addUserScript(touchDetectionScript)
-
-		// AIA-0817: records map instances as their libraries construct them, so a finding saved on
-		// a map page can ask the live map where it is looking.
-		//
-		// Must be `.atDocumentStart`: it has to be watching for `L`, `ol` and the rest before the
-		// page's own scripts assign them, and at `.atDocumentEnd` every one of those assignments has
-		// already happened. (It watches by polling — an earlier version installed accessor
-		// properties on `window` and broke bundled applications outright.)
-		//
-		// Injected into every frame, because portals and documentation shells routinely put the map
-		// in an iframe. Each frame announces itself through the `aiaMapFrame` handler below, which
-		// is the only way to obtain a `WKFrameInfo` — WebKit cannot enumerate frames — and the probe
-		// then asks those frames as well as the main one.
-		if AppEnvironment.isMapLocationParserDisabled.not {
-			contentController.addUserScript(
-				WKUserScript(
-					source: MapProbeScript.registry,
-					injectionTime: .atDocumentStart,
-					forMainFrameOnly: false
-				)
-			)
-		}
-
-		// AIA-0827: counts the page's own script errors. Deliberately OUTSIDE the map-parser switch
-		// above — the switch is what a tester flips to find out whether our injection broke a page,
-		// and a diagnostic that disappears in exactly that experiment is worth nothing.
-		contentController.addUserScript(
-			WKUserScript(
-				source: Self.pageDiagnosticsScript,
-				injectionTime: .atDocumentStart,
-				forMainFrameOnly: false
-			)
-		)
-
-		return contentController
-	}
 
 	/// Counts the page's own uncaught errors and reports the running total.
 	///
@@ -328,6 +374,75 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		/// honest summary available from these messages, and it is what the log line says.
 		private var worstFramePageErrors = 0
 
+		/// Errors reported by the MAIN frame of the current document, which is the only count the
+		/// circuit breaker may act on (AIA-0821).
+		///
+		/// Separate from `worstFramePageErrors`, which is a log line about the worst frame anywhere.
+		/// A third-party advertising iframe throwing has nothing to do with whether the page the
+		/// user asked for rendered, and disarming a site because its ad frame is broken would be a
+		/// breaker that fires on the wrong evidence.
+		private var mainFramePageErrors = 0
+
+		/// Whether the map registry was installed for the document currently on screen.
+		///
+		/// Adopted at COMMIT from what the controller actually holds, and never recomputed after that.
+		/// Reading the switch again at trip time
+		/// would judge a document by a rule it was not loaded under — a user who turns the setting
+		/// off while a page is loading would otherwise see the breaker conclude that a page loaded
+		/// WITH the registry had been loaded without it, or the reverse.
+		private var armedForThisDocument = false
+
+		/// What the content controller currently holds — armed or not.
+		///
+		/// This is the source of truth for `armedForThisDocument`, and it is deliberately not "the
+		/// last decision we made". A decision that never turned into a navigation would leave a
+		/// prediction behind that the next document then inherited as a fact. What the controller
+		/// holds, by contrast, is what the next document created from it will actually run, so
+		/// adopting it at provisional start is true by construction rather than by timing.
+		/// Internal rather than private: `makeUIView` seeds it with what the initial controller was
+		/// built with, and that seeding is the thing that keeps a restored session honest.
+		var installedArmed = false
+
+		/// Whether `applyArming` must act even when the value matches, because nothing has been
+		/// applied through it yet. Without this the no-op guard would skip the first apply whenever
+		/// it happens to agree with the seeded value.
+		var userContentControllerNeedsInitialApply = true
+
+		/// The host of the document currently on screen, captured at commit.
+		private var documentHost: String?
+
+		/// Which document the breaker's evidence belongs to.
+		///
+		/// The rendered-content measurement is asynchronous twice over — a delayed second look, and
+		/// an `evaluateJavaScript` completion after that — so its result can arrive once a different
+		/// document is on screen. Comparing URLs is not enough, because a reload of the same address
+		/// is a different document at the same URL.
+		private var documentGeneration = 0
+
+		/// The exact URL the confirmed blank verdict was made about, if there is one.
+		///
+		/// A URL and not a flag, and the whole URL rather than its host: a single-page application
+		/// that renders nothing on route A and is then navigated to a healthy route B never starts a
+		/// new document, so a flag set for A would still be standing when A's delayed diagnostics
+		/// arrive — and the breaker would reload B, which was fine.
+		private var blankVerdictURL: URL?
+
+		/// Whether the breaker has already fired for the document on screen. One trip per document:
+		/// the evidence arrives from two independent sensors and either may be last.
+		private var breakerTripped = false
+
+		/// The content controller this web view was built with (AIA-0821).
+		///
+		/// Held directly rather than reached through `webView.configuration`, which is `@NSCopying`.
+		/// The copy does share this instance today — `MapParserArmingSeamTests` asserts exactly that,
+		/// and both spellings pass — but the sharing is an implementation detail of the copy, not a
+		/// documented guarantee, and the switch silently doing nothing is the failure mode. Holding
+		/// the instance removes the dependency instead of resting on it.
+		///
+		/// Weak, because `WKUserContentController` retains the message handlers registered on it,
+		/// and this coordinator is one of them.
+		weak var userContentController: WKUserContentController?
+
         init(_ parent: MLWebView) {
             self.parent = parent
         }
@@ -344,7 +459,25 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			// How many errors the page threw, as a COUNT and never a message: an error string can
 			// carry a URL or page content, and this runs on every page the user visits (AIA-0827).
 			if message.name == "aiaPageDiagnostics" {
-				guard let errors = (message.body as? NSNumber)?.intValue, errors > worstFramePageErrors else { return }
+				guard let errors = (message.body as? NSNumber)?.intValue else { return }
+				// AIA-0821: which frame spoke is decided by WebKit, never by the page. The body is
+				// page-controlled and a hostile page could claim to be the main frame; `frameInfo`
+				// is the native handle the message arrived with and cannot be forged.
+				if message.frameInfo.isMainFrame {
+					// Evaluated on EVERY main-frame report, not only when the count grows: the eight
+					// second report usually carries the same number as the two second one, so
+					// requiring an increase meant a blank verdict arriving between them could never
+					// be paired with the errors already recorded (raised in review).
+					mainFramePageErrors = max(mainFramePageErrors, errors)
+					// The blank verdict and this report have no ordering guarantee — the verdict
+					// lands two seconds after `didFinish`, these at two and eight seconds after
+					// document start — so the breaker is evaluated wherever the last piece of
+					// evidence happens to arrive.
+					if let webView = message.webView {
+						evaluateMapParserBreaker(on: webView)
+					}
+				}
+				guard errors > worstFramePageErrors else { return }
 				worstFramePageErrors = errors
 				// The WORST single frame, not a page total: each frame reports its own running count,
 				// so adding them would double-count every repeat report from the same frame, and
@@ -478,6 +611,11 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			// reproduced by opening it.
 			let page = webView.url
 			let site = page?.host ?? "unknown"
+			// Captured now; the callbacks below refuse to RECORD anything for a different document
+			// (AIA-0821). The Sentry line for a confirmed blank page deliberately sits outside that
+			// guard — it is AIA-0827's diagnostic about the document it measured, and suppressing it
+			// because the user has since navigated away would lose the report worth having.
+			let generation = documentGeneration
 			measureRenderedContent(of: webView) { first in
 				guard let first else { return }
 				guard first.drewNothing else {
@@ -492,8 +630,9 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 				DispatchQueue.main.asyncAfter(deadline: .now() + Self.blankPageConfirmationDelay) { [weak self, weak webView] in
 					guard let self, let webView else { return }
 					// A page that navigated away in the meantime is a different document, and its
-					// emptiness is not this one's.
-					guard webView.url == page else { return }
+					// emptiness is not this one's. The generation check catches what the URL cannot:
+					// a reload of the very same address is also a different document.
+					guard webView.url == page, self.documentGeneration == generation else { return }
 					self.measureRenderedContent(of: webView) { second in
 						guard let second, second.drewNothing else {
 							LoggingPolicy.debug(
@@ -512,6 +651,12 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 						// issue per broken site, which is the question being asked.
 						LoggingPolicy.debug("Still nothing drawn — \(second.counts)", logger: .ui)
 						LoggingPolicy.error("Web page rendered nothing [site: \(site)]", page: page, logger: .ui)
+						// AIA-0821: the confirmed verdict, not the first look. The breaker is
+						// evaluated here as well as on each diagnostics message because either
+						// sensor may be the last to report.
+						guard self.documentGeneration == generation else { return }
+						self.blankVerdictURL = page
+						self.evaluateMapParserBreaker(on: webView)
 					}
 				}
 			}
@@ -578,7 +723,163 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			}
 		}
 
+		/// Applies an arming decision to the controller and remembers what was applied.
+		///
+		/// Every path that changes the scripts goes through here, so `installedArmed` cannot drift
+		/// away from what a page will actually receive.
+		func applyArming(_ armed: Bool) {
+			// Fragment and anchor navigations reach the policy delegate too, and tearing the script
+			// list down and rebuilding it to arrive at the same answer is pure churn.
+			guard armed != installedArmed || userContentControllerNeedsInitialApply else { return }
+			guard let userContentController else {
+				// The controller is gone, so the scripts were NOT changed. Saying so is the point:
+				// this guard is the one silent path in the arming chain.
+				LoggingPolicy.error("Map parser arming could not be applied: no content controller", logger: .ui)
+				return
+			}
+			userContentControllerNeedsInitialApply = false
+			MLWebView.applyMapRegistry(to: userContentController, armed: armed)
+			installedArmed = armed
+		}
+
+		/// Disarms the map-location parser for a site whose page failed with our script injected
+		/// (AIA-0821).
+		///
+		/// ## The trip condition, and why each term is load-bearing
+		/// Errors alone prove nothing: the page-diagnostics listener is *capturing*, so it counts
+		/// failed sub-resource loads, and a perfectly healthy page routinely reports a 404 image.
+		/// Blankness alone proves nothing either: it is the ordinary state of an application shell,
+		/// which is why AIA-0827 already looks twice before believing it. Only the conjunction — a
+		/// document that threw AND, two seconds after finishing, had drawn nothing — is the shape of
+		/// the failure this exists for, where a bundled application died on its first module and
+		/// rendered no canvas at all.
+		///
+		/// ## Why it must have been armed
+		/// A page that renders nothing while the parser was switched off is a broken page, not our
+		/// broken page. Disarming a site we never touched would be a breaker that learns nothing and
+		/// costs the user a coordinate anyway.
+		///
+		/// ## Why the reload is guarded so tightly
+		/// Reloading a document the user has already left would throw away wherever they went, and
+		/// reloading into an in-flight load cancels it. So the evidence must still describe what is
+		/// on screen. Accepted and deliberate: `reload()` re-submits a form POST without asking —
+		/// bounded here to one reload per host per session, which is the price of the page coming
+		/// back at all.
+		private func evaluateMapParserBreaker(on webView: WKWebView) {
+			guard breakerTripped.not else { return }
+			guard MapParserArming.shouldDisarm(
+				armedForDocument: armedForThisDocument,
+				mainFrameErrors: mainFramePageErrors,
+				renderedNothing: blankVerdictURL != nil
+			) else { return }
+			// The evidence must describe the page that is on screen NOW — the same URL the blankness
+			// was measured on, not merely the same host — and no navigation may be in flight.
+			guard let host = documentHost,
+			      webView.isLoading.not,
+			      let current = webView.url,
+			      current == blankVerdictURL,
+			      current.host?.caseInsensitiveCompare(host) == .orderedSame
+			else { return }
+
+			// The blank verdict may be seconds old by the time a late error report arrives, and a page
+			// is perfectly entitled to have started drawing since. Confirming blankness ONCE and then
+			// trusting it would reload a page that recovered at three seconds because an unrelated
+			// resource failed at four (raised in review) — the two pieces of evidence need never have
+			// been true at the same moment. So the verdict is re-taken here, against the document as
+			// it is now, and a page that has drawn since clears it instead of tripping.
+			let generation = documentGeneration
+			measureRenderedContent(of: webView) { [weak self, weak webView] current in
+				guard let self, let webView else { return }
+				guard self.documentGeneration == generation, self.breakerTripped.not else { return }
+				// A refusal is not an absence: a page that would not answer is not evidence of
+				// emptiness, so the trip is abandoned rather than guessed at.
+				guard let current, current.drewNothing else {
+					self.blankVerdictURL = nil
+					LoggingPolicy.debug("Map parser breaker stood down: the page has drawn since", logger: .ui)
+					return
+				}
+				self.tripMapParserBreaker(on: webView, host: host)
+			}
+		}
+
+		/// Disarms and reloads, once the evidence has been re-confirmed against the live document.
+		private func tripMapParserBreaker(on webView: WKWebView, host: String) {
+			breakerTripped = true
+			let mayReload = browserState?.mapParserArming.recordFailure(host: host) ?? false
+			// Takes effect for the next document, which is the reload below — or, if this host has
+			// already spent its reload, for whatever the user opens next on it.
+			applyArming(false)
+			// Logged with the site, matching the blank-page line above: a breaker trip that cannot
+			// be attributed to a site is not a diagnostic, and this is the event worth having.
+			LoggingPolicy.error(
+				"Map location parser disarmed for this session after a blank page [site: \(host)]",
+				page: webView.url,
+				logger: .ui
+			)
+			guard mayReload else { return }
+			LoggingPolicy.info("Reloading once with the map location parser disarmed", logger: .ui)
+			browserState?.reloadAfterMapParserDisarmed()
+		}
+
 		// MARK: - WKNavigationDelegate
+
+		/// Chooses whether the map registry is injected into the document this navigation is about
+		/// to create (AIA-0821).
+		///
+		/// ## Why here
+		/// User scripts are injected as a document is created, so the only way to change what a page
+		/// receives is to change the list *before* that page exists. This is the one callback
+		/// guaranteed to run at that moment. `didStartProvisionalNavigation` is already too late to
+		/// be sure of, and rebuilding the whole web view — the other way to swap a content
+		/// controller — would discard the page state the user is standing on.
+		///
+		/// ## It is not a navigation gate
+		/// Every path allows. The method exists for its side effect, and the app had no action
+		/// policy before it, so anything that relied on the default must keep working: the handler
+		/// is called exactly once, synchronously, on every path.
+		///
+		/// ## Main frame only, and what that costs
+		/// The registry is injected into every frame, but a policy decision describes one
+		/// navigation. A tripped host embedded as an iframe inside an untripped page therefore still
+		/// receives the script. `WKUserScript` offers no per-frame URL policy — the script is chosen
+		/// before any frame's document exists — so the breaker is honestly keyed on the TOP-LEVEL
+		/// document's host, and MAP_LOCATION.md says so.
+		@MainActor
+		public func webView(
+			_ webView: WKWebView,
+			decidePolicyFor navigationAction: WKNavigationAction,
+			decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
+		) {
+			// `targetFrame` is nil for a navigation that would open a new frame or window, which is
+			// not the main frame of this web view and must not redecide its scripts.
+			if navigationAction.targetFrame?.isMainFrame == true, let browserState {
+				applyArming(browserState.mapParserArming.isArmed(for: navigationAction.request.url))
+			}
+			// NOT an unconditional `.allow`. With no delegate implemented, WebKit consults
+			// `shouldPerformDownload` and routes those actions to its download handling; answering
+			// `.allow` everywhere would quietly turn an `<a download>` for renderable content into a
+			// navigation that replaces the page (raised in review). Mirroring the default is the
+			// entire intent — this method exists for the side effect above, not to change policy.
+			decisionHandler(navigationAction.shouldPerformDownload ? .download : .allow)
+		}
+
+		/// Re-decides arming when the server sends the navigation somewhere else.
+		///
+		/// **Belt and braces, and deliberately so.** WebKit does run the redirected request through
+		/// the action-policy delegate again, so `decidePolicyFor` alone would very probably cover
+		/// this; a first draft of this comment asserted the opposite and was wrong. What this adds is
+		/// that `webView.url` is already the redirect target here, so the decision is made against
+		/// the address the document will actually have, and the cost of being wrong in this direction
+		/// is one redundant call while the cost of being wrong in the other is injecting into exactly
+		/// the host the breaker just disarmed.
+		///
+		/// Still provisional, so the destination document does not exist yet and its script list can
+		/// still be changed. The arming label is adopted at commit, which is after this.
+		// swiftlint:disable:next implicitly_unwrapped_optional
+		public func webView(_ webView: WKWebView, didReceiveServerRedirectForProvisionalNavigation navigation: WKNavigation!) {
+			guard let browserState else { return }
+			applyArming(browserState.mapParserArming.isArmed(for: webView.url))
+		}
 
 		// AIA-0509: navigation identity for failure publication. Recorded for EVERY navigation,
 		// not just user-initiated ones — recovery loads and restore-lastPage loads never reach
@@ -604,6 +905,32 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
         // swiftlint:disable:next implicitly_unwrapped_optional
         public func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
 			LoggingPolicy.debug("Navigation stage: document committed after \(elapsedMilliseconds())ms", logger: .ui)
+			// AIA-0821: everything the breaker reasons about belongs to ONE document, and it is all
+			// reset here — at commit, not at provisional start.
+			//
+			// The previous document keeps running for the whole provisional phase, and its
+			// diagnostics script reports at fixed 2s and 8s marks. Resetting when the *next*
+			// navigation starts therefore zeroed the count and then let the OLD page's late report
+			// land in the new page's state: a stray 404 on the page you left became evidence against
+			// the page you arrived at, and a slow-but-innocent application shell was disarmed and
+			// silently reloaded. A document's own user scripts cannot post before its commit
+			// message, so resetting here discards exactly what the previous document could still say.
+			//
+			// Adopting the arming label here also lets a server redirect, which lands between start
+			// and commit, be reflected — at provisional start the label could describe the request
+			// before the redirect rather than the document that actually loaded.
+			documentGeneration &+= 1
+			mainFramePageErrors = 0
+			blankVerdictURL = nil
+			breakerTripped = false
+			// What the controller holds is what this document ran. A back/forward document restored
+			// from the page cache is the known exception: it keeps whatever it ran with originally,
+			// and nothing native can observe that, so its label may be wrong. The cost is one false
+			// or missed trip on a back navigation, bounded by the once-per-host reload.
+			armedForThisDocument = installedArmed
+			// The host the breaker's evidence belongs to. Read at commit, because that is the first
+			// moment the URL describes a document that actually exists.
+			documentHost = webView.url?.host
             parent.loadStatusChanged?(true, nil)
 			browserState?.navigationSettled(navigation, error: nil)
 			browserState?.navigationCommitted(navigation, from: webView)
@@ -650,6 +977,13 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		// here, not in didFail — without this the user-load display gate would strand.
 		// swiftlint:disable:next implicitly_unwrapped_optional
 		public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+			// AIA-0821: the abandoned destination's policy is still installed, while the document on
+			// screen belongs to the previous address. Left alone, navigating away from a tripped host
+			// and failing would re-arm the controller with that tripped page still displayed, so its
+			// next iframe would receive the registry (raised in review).
+			if let browserState {
+				applyArming(browserState.mapParserArming.isArmed(for: webView.url))
+			}
 			parent.loadStatusChanged?(false, error)
 			browserState?.navigationSettled(navigation, error: error)
 			// Provisional: the previously committed page is still fully rendered, so over live

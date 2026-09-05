@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Bundle namespace bootstrap</title>
+</head>
+<body>
+<!--
+  AIA-0821 regression fixture.
+
+  This page does what the bundles that AIA-0817 broke do to `window`. The accessor-based registry
+  installed get/set pairs for names like `L` and `define`, and americanamap.org died with "Cannot
+  set properties of undefined" and rendered nothing at all.
+
+  It reproduces the CLASS of operation rather than one symptom, because a transparent accessor with
+  a backing store would survive a narrower test while still being the thing that broke real sites.
+  For every name the registry watches, the page:
+
+    1. assigns the namespace EMPTY and populates it afterwards (the UMD `factory(global.L = {})`
+       shape, and the reason the registry polls instead of reading once);
+    2. deletes it and re-assigns it (Leaflet's own `noConflict`);
+    3. redefines it with `Object.defineProperty(..., {value:})`, which THROWS against an accessor
+       that is not configurable, and silently does nothing useful against one that is;
+    4. reads it back and checks the value survived the round trip.
+
+  The sentinel below is rendered only if every step of every name succeeded, so a page that renders
+  it is a page our injection did not damage.
+-->
+<div id="status">running</div>
+<script>
+  window.__fixtureFailures = [];
+  window.__fixtureSteps = 0;
+
+  // Every global the registry watches. `define` and `require` are here because wrapping the module
+  // loaders is what broke americanamap.org outright, and the fixture must still cover the shape
+  // even though that wrapping was removed.
+  var NAMES = [
+    'L', 'ol', 'OpenLayers', 'maplibregl', 'mapboxgl', 'google',
+    'Potree', 'deck', 'esri', 'Cesium', 'define', 'require'
+  ];
+
+  function fail(name, step, detail) {
+    window.__fixtureFailures.push(name + '/' + step + ': ' + detail);
+  }
+
+  // What the injected registry left on `window`, read BEFORE this page touches anything.
+  //
+  // Reading it afterwards would prove nothing: step 3 below redefines each name as a data
+  // property, so a configurable accessor installed by the registry would have been overwritten by
+  // the very test meant to detect it. Only the descriptor as found at document start is evidence.
+  window.__descriptorsAtStart = {};
+  (function () {
+    try {
+      NAMES.forEach(function (name) {
+        var d = Object.getOwnPropertyDescriptor(window, name);
+        window.__descriptorsAtStart[name] = !d ? 'missing' : (('value' in d) ? 'data' : 'accessor');
+      });
+    } catch (e) {
+      window.__descriptorsAtStart.error = String(e);
+    }
+  }());
+
+  NAMES.forEach(function (name) {
+    // 1. assign empty, then populate — the namespace exists before its contents do
+    try {
+      window[name] = {};
+      window[name].Map = function StubMap() { this.kind = name; };
+      window[name].Viewer = function StubViewer() { this.kind = name; };
+      window[name].Deck = function StubDeck() { this.kind = name; };
+      window.__fixtureSteps += 1;
+    } catch (e) {
+      fail(name, 'assign-empty-then-populate', String(e));
+    }
+
+    // 2. delete and re-assign — `noConflict`, and the operation an accessor makes non-obvious
+    try {
+      delete window[name];
+      window[name] = { Map: function ReassignedMap() { this.kind = name; } };
+      window.__fixtureSteps += 1;
+    } catch (e) {
+      fail(name, 'delete-and-reassign', String(e));
+    }
+
+    // 3. redefine as a DATA property — throws outright against a non-configurable accessor
+    try {
+      Object.defineProperty(window, name, {
+        value: {
+          Map: function DefinedMap() { this.kind = name; },
+          Viewer: function DefinedViewer() { this.kind = name; },
+          Deck: function DefinedDeck() { this.kind = name; }
+        },
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+      window.__fixtureSteps += 1;
+    } catch (e) {
+      fail(name, 'defineProperty-value', String(e));
+    }
+
+    // 4. the value must survive the round trip
+    try {
+      if (!window[name] || typeof window[name].Map !== 'function') {
+        fail(name, 'read-back', 'namespace lost its contents');
+      } else {
+        window.__fixtureSteps += 1;
+      }
+    } catch (e) {
+      fail(name, 'read-back', String(e));
+    }
+  });
+
+  // The AMD probe a bundle performs before choosing its loader path.
+  try {
+    window.define = function stubDefine() {};
+    window.define.amd = {};
+    if (!(typeof window.define === 'function' && window.define.amd)) {
+      fail('define', 'amd-probe', 'define.amd was not visible');
+    }
+    window.__fixtureSteps += 1;
+  } catch (e) {
+    fail('define', 'amd-probe', String(e));
+  }
+
+  // Constructing through the namespace, which is what a real bundle does next and what a Proxy
+  // trap on the constructor has to leave working.
+  //
+  // Deferred, and that is the point. The registry watches for these globals by POLLING every 20ms,
+  // so a page that assigns and constructs synchronously finishes before the poller has ever looked
+  // and never meets `traceConstructor`'s Proxy at all. Waiting lets the traps install first, so the
+  // construction below goes through the wrapped constructor the way a real page's does.
+  function constructThroughTheTraps() {
+    // Evidence that the wait actually outlasted the registry's 20ms poller and that the constructor
+    // really was wrapped. Without this the page renders identically whether the traps installed or
+    // silently never ran, and the test would agree with itself.
+    //
+    // Potree, not Leaflet: the registry wraps `Potree.Viewer` with `traceConstructor`, whereas its
+    // Leaflet adapter uses `L.Map.addInitHook` and never replaces the constructor at all. So `new
+    // L.Map()` passes through nothing, and only this branch can witness a trap.
+    // Deliberately NOT `Potree.Viewer.__aiaTraced`. That marker is defined on the Proxy, and
+    // `defineProperty` on a Proxy forwards to its target — so the original constructor carries it
+    // too, and the assertion would pass even if the wrapper was never installed (raised in review).
+    // What cannot be faked is the registry actually recording the instance we construct.
+    var before = 0;
+    try {
+      before = (window.__aiaMapRegistry && window.__aiaMapRegistry.instances.length) || 0;
+    } catch (e) {}
+    try {
+      var instance = new window.L.Map();
+      if (!instance) { fail('L', 'construct', 'constructor returned nothing'); }
+      window.__fixtureSteps += 1;
+    } catch (e) {
+      fail('L', 'construct', String(e));
+    }
+    try {
+      var viewer = new window.Potree.Viewer();
+      if (!viewer) { fail('Potree', 'construct', 'constructor returned nothing'); }
+      window.__fixtureSteps += 1;
+    } catch (e) {
+      fail('Potree', 'construct', String(e));
+    }
+    // Did constructing through the namespace actually reach `traceConstructor`'s Proxy? Only a
+    // recorded instance answers that, and only if the poller installed the trap in time.
+    try {
+      var after = (window.__aiaMapRegistry && window.__aiaMapRegistry.instances.length) || 0;
+      window.__viewerWasTraced = after > before;
+    } catch (e) {
+      window.__viewerWasTraced = false;
+    }
+  }
+
+  // The sentinel renders only if nothing above failed. It is a real, sized, visible element so a
+  // rendered-content measurement can see it.
+  function finish() {
+  if (window.__fixtureFailures.length === 0) {
+    var ok = document.createElement('div');
+    ok.id = 'bundle-sentinel';
+    ok.style.width = '200px';
+    ok.style.height = '80px';
+    ok.style.background = '#2c6';
+    ok.textContent = 'bundle bootstrapped';
+    document.body.appendChild(ok);
+    document.getElementById('status').textContent = 'ok';
+  } else {
+    document.getElementById('status').textContent = 'failed';
+  }
+
+  // The readiness flag every harness page in this folder publishes, so a test waits on the page
+  // rather than on a timer.
+  window.__harnessReady = true;
+  }
+
+  // Comfortably more than the registry's 20ms poll interval.
+  setTimeout(function () {
+    constructThroughTheTraps();
+    finish();
+  }, 250);
+</script>
+</body>
+</html>

@@ -48237,6 +48237,222 @@
         }
       }
     },
+    "settings.readMapPositionFromPages" : {
+      "comment" : "Toggle controlling whether the app may read a map's position from the pages you browse (AIA-0821)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "قراءة موقع الخريطة من الصفحات"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "পৃষ্ঠা থেকে মানচিত্রের অবস্থান পড়ুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Číst pozici mapy ze stránek"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Kartenposition von Seiten lesen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read map position from pages"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Leer la posición del mapa en las páginas"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "خواندن موقعیت نقشه از صفحه‌ها"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lire la position de la carte depuis les pages"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "קריאת מיקום המפה מהדפים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "पृष्ठों से मानचित्र की स्थिति पढ़ें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Térkép helyzetének beolvasása az oldalakról"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Odczytuj pozycję mapy ze stron"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Читать положение карты со страниц"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Читати положення карти зі сторінок"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "从页面读取地图位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "從頁面讀取地圖位置"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "從頁面讀取地圖位置"
+          }
+        }
+      }
+    },
+    "settings.readMapPositionFromPagesFooter" : {
+      "comment" : "Footer explaining what turning off map position reading does, and what is still recorded",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يتيح للاكتشاف المحفوظ تسجيل الموقع الذي كانت الخريطة تعرضه. أوقف هذا الخيار إذا أساء أحد المواقع التصرف — سيظل عنوان الصفحة محفوظًا في كلتا الحالتين."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সংরক্ষিত সন্ধান মানচিত্রটি কোথায় দেখছিল তা রেকর্ড করতে দেয়। কোনো সাইট ঠিকমতো কাজ না করলে এটি বন্ধ করুন — পৃষ্ঠার ঠিকানা যেকোনো ক্ষেত্রেই সংরক্ষিত থাকে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Umožní uloženému nálezu zaznamenat, kam se mapa dívala. Pokud se stránka chová špatně, vypněte to — adresa stránky se uloží tak jako tak."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ermöglicht es einem gespeicherten Fund festzuhalten, wohin die Karte blickte. Schalte dies aus, wenn sich eine Seite fehlerhaft verhält — die Seitenadresse wird in jedem Fall gespeichert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lets a saved finding record where a map was looking. Turn this off if a site misbehaves — the page address is still saved either way."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Permite que un hallazgo guardado registre hacia dónde miraba el mapa. Desactívalo si un sitio se comporta mal: la dirección de la página se guarda igualmente."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "به یافتهٔ ذخیره‌شده اجازه می‌دهد ثبت کند نقشه به کجا نگاه می‌کرد. اگر سایتی درست کار نکرد این را خاموش کنید — نشانی صفحه در هر حال ذخیره می‌شود."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Permet à une trouvaille enregistrée de noter ce que la carte affichait. Désactivez cette option si un site se comporte mal : l’adresse de la page est enregistrée dans tous les cas."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מאפשר לממצא שנשמר לתעד לאן המפה הביטה. כבה זאת אם אתר מתנהג באופן שגוי — כתובת הדף נשמרת בכל מקרה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "सहेजी गई खोज को यह दर्ज करने देता है कि मानचित्र कहाँ देख रहा था। यदि कोई साइट ठीक से काम न करे तो इसे बंद कर दें — पृष्ठ का पता दोनों ही स्थितियों में सहेजा जाता है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lehetővé teszi, hogy a mentett lelet rögzítse, hová nézett a térkép. Kapcsold ki, ha egy oldal hibásan viselkedik — az oldal címe mindenképp mentésre kerül."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pozwala zapisanemu znalezisku zapamiętać, na co patrzyła mapa. Wyłącz tę opcję, jeśli witryna działa nieprawidłowo — adres strony i tak zostanie zapisany."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Позволяет сохранённой находке записать, куда смотрела карта. Отключите, если сайт работает неправильно, — адрес страницы сохраняется в любом случае."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Дозволяє збереженій знахідці записати, куди дивилася карта. Вимкніть, якщо сайт працює неправильно, — адреса сторінки зберігається в будь-якому разі."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "让保存的发现记录地图当时查看的位置。如果某个网站出现异常，请关闭此项——页面地址无论如何都会保存。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "讓儲存的發現記錄地圖當時檢視的位置。若某個網站出現異常，請關閉此項——頁面位址無論如何都會儲存。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "讓儲存的發現記錄地圖當時檢視的位置。若某個網站出現異常，請關閉此項——頁面網址無論如何都會儲存。"
+          }
+        }
+      }
+    },
     "settings.reopenLastPage" : {
       "comment" : "Toggle for reopen last page setting",
       "extractionState" : "manual",

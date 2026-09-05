@@ -180,11 +180,15 @@ final class BrowserState: ObservableObject {
 	/// on when they tapped rather than wherever the app drifted to while the page was being asked.
 	func resolveCaptureLocation() async -> MapPageLocation {
 		let url = captureURL
+		// AIA-0821: the same arbiter that decides whether the script is injected decides whether the
+		// page is questioned. A switch that stopped the injection but still ran JavaScript in the
+		// user's document at capture time would only look like a kill switch.
 		let resolved = await MapLocationResolver.resolve(
 			url: url,
 			webView: webView,
 			frames: mapFrames.childFrames,
-			pageMaintainsItsURL: hasObservedSameDocumentURLChange
+			pageMaintainsItsURL: hasObservedSameDocumentURLChange,
+			mayProbe: { [mapParserArming] page in mapParserArming.isArmed(for: page) }
 		)
 		// The probe can take seconds, and the page can move during them — a redirect, a tapped
 		// link, a pushState. What comes back then describes the document that is on screen NOW,
@@ -203,6 +207,12 @@ final class BrowserState: ObservableObject {
 
 	/// Frames that announced a map, so an iframed map can be probed (AIA-0817).
 	let mapFrames = MapFrameRegistry()
+
+	/// Whether the map-location parser may touch a page (AIA-0821).
+	///
+	/// Lives here for the same reason `mapFrames` does: the web view and the settings it answers to
+	/// are both already owned by this object, and a second home would have to be handed them again.
+	private(set) lazy var mapParserArming = MapParserArming(settings: settings)
 	/// Whether the attached web view currently renders a committed document (AIA-0552). Set on
 	/// commit; cleared when the instance is invalidated or replaced — and cleared at
 	/// `navigationFailed`'s publish point, because a page the overlay has declared broken no
@@ -356,6 +366,20 @@ final class BrowserState: ObservableObject {
 	func reloadTapped() {
 		recoveryPolicy.userDidNavigate()
 		loadFailure = nil
+		webView?.reload()
+	}
+
+	/// Reloads because the map parser was disarmed for this site, not because anyone asked.
+	///
+	/// Deliberately NOT `reloadTapped`: that one calls `recoveryPolicy.userDidNavigate()`, which
+	/// replenishes the AIA-0509 recovery budget on the grounds that a person just expressed intent.
+	/// Nobody expressed anything here — the breaker fired — and spending a real user's recovery
+	/// allowance on an automatic reload would let a misbehaving site quietly exhaust the ladder that
+	/// exists to rescue them (AIA-0821).
+	///
+	/// `loadFailure` is left alone for the same reason: a failure the user can see is theirs to
+	/// dismiss, and this reload does not know whether it fixed anything.
+	func reloadAfterMapParserDisarmed() {
 		webView?.reload()
 	}
 

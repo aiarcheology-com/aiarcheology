@@ -100,13 +100,29 @@ enum MapLocationResolver {
 	}
 
 	/// Resolves against a live web view: runs the probe, then combines.
+	///
+	/// - Parameter mayProbe: whether a given page may be questioned at all (AIA-0821). When it says
+	///   no, the URL tiers still run — reading a coordinate out of an address the app already holds
+	///   cannot cost anyone the page — but no JavaScript is executed in the user's document.
+	///
+	///   A closure rather than a `Bool`, and asked again by the probe before each execution: the
+	///   probe can wait seconds and the page can move during them, so a single answer taken against
+	///   the capture URL would not describe the document the script would actually run in.
+	///
+	///   The decision belongs to the caller, which owns the arming policy; making it here would mean
+	///   this type reaching for global state to answer a question it is not the authority on. It
+	///   deliberately has **no default** — a default of "yes" would let the next caller run
+	///   JavaScript in the user's page with the switch off, by saying nothing.
 	static func resolve(
 		url: URL?,
 		webView: WKWebView?,
 		frames: [WKFrameInfo] = [],
-		pageMaintainsItsURL: Bool = true
+		pageMaintainsItsURL: Bool = true,
+		mayProbe: @escaping @MainActor (URL?) -> Bool
 	) async -> MapPageLocation {
-		let probe = await MapLocationProbe(webView: webView).runAcrossFrames(frames)
+		let probe = mayProbe(url)
+			? await MapLocationProbe(webView: webView, mayProbe: mayProbe).runAcrossFrames(frames)
+			: .empty
 		return resolve(url: url, probe: probe, pageMaintainsItsURL: pageMaintainsItsURL)
 	}
 

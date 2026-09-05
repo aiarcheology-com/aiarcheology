@@ -40,6 +40,10 @@ final class Settings: ObservableObject, Validatable {
 		/// existing user's persisted value.
 		static let pyramidTiling = "tiledDetection"
 		static let grid3x3Tiling = "grid3x3Tiling"
+		/// AIA-0821: whether the map-location parser may run on pages. On by default; the switch
+		/// exists so a user hitting a site our injected script breaks can stop it without a
+		/// developer build.
+		static let readMapPositionFromPages = "readMapPositionFromPages"
 		static let tiledBorders = "tiledBorders"
 		/// Optional TelemetryDeck analytics. Both values default to false: a fresh install sends
 		/// no telemetry and presents a choice after the app's auth/subscription gates (AIA-0447).
@@ -170,6 +174,22 @@ final class Settings: ObservableObject, Validatable {
 	@Published public var disableDetectionAnimations: Bool {
 		didSet {
 			defaults.set(disableDetectionAnimations, forKey: UserDefaultsKeys.disableDetectionAnimations)
+		}
+	}
+
+	/// Whether the app may read a map's position from the pages you browse (AIA-0821).
+	///
+	/// On by default. Turning it off stops the two things that TOUCH a page — the script injected at
+	/// document start, and the probe that questions the live map at capture time. It does not stop
+	/// the finding from recording the page's own URL, and it does not stop a coordinate being read
+	/// out of that URL: neither can cost the user the page, which is the only thing this switch
+	/// exists to protect.
+	///
+	/// The developer switch `DISABLE_URL_LOCATION_PARSER` does the same thing and remains, because a
+	/// launch argument can be flipped without a build and this cannot.
+	@Published public var readMapPositionFromPages: Bool {
+		didSet {
+			defaults.set(readMapPositionFromPages, forKey: UserDefaultsKeys.readMapPositionFromPages)
 		}
 	}
 
@@ -490,6 +510,10 @@ final class Settings: ObservableObject, Validatable {
             UserDefaultsKeys.pyramidTiling: true,
             // 3x3 tiling and the debug tile-border overlay are opt-in (AIA-0426).
             UserDefaultsKeys.grid3x3Tiling: false,
+            // On by default: this is how the map-location feature works at all (AIA-0817). The
+            // switch is a safety valve for a user whose site our injection breaks, not a
+            // preference we expect anyone to set (AIA-0821).
+            UserDefaultsKeys.readMapPositionFromPages: true,
 			UserDefaultsKeys.tiledBorders: false,
 			UserDefaultsKeys.analyticsEnabled: false,
 			UserDefaultsKeys.analyticsChoiceMade: false,
@@ -519,6 +543,7 @@ final class Settings: ObservableObject, Validatable {
 		self.disableDetectionAnimations = defaults.bool(forKey: UserDefaultsKeys.disableDetectionAnimations)
 		self.pyramidTiling = defaults.bool(forKey: UserDefaultsKeys.pyramidTiling)
 		self.grid3x3Tiling = defaults.bool(forKey: UserDefaultsKeys.grid3x3Tiling)
+		self.readMapPositionFromPages = defaults.bool(forKey: UserDefaultsKeys.readMapPositionFromPages)
 		self.tiledBorders = defaults.bool(forKey: UserDefaultsKeys.tiledBorders)
 		self.analyticsEnabled = defaults.bool(forKey: UserDefaultsKeys.analyticsEnabled)
 		self.analyticsChoiceMade = defaults.bool(forKey: UserDefaultsKeys.analyticsChoiceMade)
@@ -605,6 +630,7 @@ final class Settings: ObservableObject, Validatable {
 		pyramidTiling = true
 		grid3x3Tiling = false
 		tiledBorders = false
+		readMapPositionFromPages = true
 		analyticsEnabled = false
 		analyticsChoiceMade = false
 		analyticsAccountEnabled = false
@@ -658,6 +684,7 @@ final class Settings: ObservableObject, Validatable {
 		defaults.set(pyramidTiling, forKey: UserDefaultsKeys.pyramidTiling)
 		defaults.set(grid3x3Tiling, forKey: UserDefaultsKeys.grid3x3Tiling)
 		defaults.set(tiledBorders, forKey: UserDefaultsKeys.tiledBorders)
+		defaults.set(readMapPositionFromPages, forKey: UserDefaultsKeys.readMapPositionFromPages)
 		defaults.set(analyticsEnabled, forKey: UserDefaultsKeys.analyticsEnabled)
 		defaults.set(analyticsChoiceMade, forKey: UserDefaultsKeys.analyticsChoiceMade)
 		defaults.set(analyticsAccountEnabled, forKey: UserDefaultsKeys.analyticsAccountEnabled)

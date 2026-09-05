@@ -299,6 +299,8 @@ extension TestabilityIdentification {
 		case settingsRunAtLaunch
 		case settingsShowLabels
 		case settingsReopenLastPage
+		/// AIA-0821: the switch that stops the map-location parser touching pages.
+		case settingsReadMapPositionFromPages
 		case settingsFullscreenDetection
 		case settingsDisableDetectionAnimations
 		case settingsAnalytics

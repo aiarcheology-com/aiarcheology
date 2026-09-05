@@ -73,8 +73,18 @@ struct MapLocationProbe {
 	/// The web view to interrogate. Weak: the probe must never keep a torn-down view alive.
 	private weak var webView: WKWebView?
 
-	init(webView: WKWebView?) {
+	/// Whether the page currently on screen may be questioned (AIA-0821).
+	///
+	/// Asked again immediately before each execution rather than decided once by the caller. The
+	/// probe can wait seconds — four per frame, six across frames — and the page can move during
+	/// them. A decision made against the capture URL would let a drift onto a host the breaker has
+	/// disarmed be met with JavaScript anyway, which is the one thing that host was disarmed to
+	/// prevent (raised in review).
+	private let mayProbe: @MainActor (URL?) -> Bool
+
+	init(webView: WKWebView?, mayProbe: @escaping @MainActor (URL?) -> Bool = { _ in true }) {
 		self.webView = webView
+		self.mayProbe = mayProbe
 	}
 
 	/// Asks the main frame, then any child frame that announced itself, stopping at the first real
@@ -122,6 +132,8 @@ struct MapLocationProbe {
 		// exactly as the app did before this feature rather than merely finding nothing.
 		guard AppEnvironment.isMapLocationParserDisabled.not else { return .empty }
 		guard let webView else { return .empty }
+		// Re-asked against the page as it is NOW, not as it was when the capture began.
+		guard mayProbe(webView.url) else { return .empty }
 
 		// A one-shot continuation, resumed by whichever of the two arrives first.
 		//
@@ -143,6 +155,14 @@ struct MapLocationProbe {
 				// harmless, but harmless is not free: `runAcrossFrames` starts one of these per frame
 				// (raised in review).
 				defer { timer.cancel() }
+				// Asked again HERE, immediately before WebKit is called. The check above happens
+				// before this task is scheduled, and main-actor isolation does not preserve a
+				// decision across a scheduling boundary: the switch can be turned off, or the page
+				// can reach a disarmed host, in between (raised in review).
+				guard mayProbe(webView.url) else {
+					gate.finish(.empty)
+					return
+				}
 				do {
 					let raw = try await webView.callAsyncJavaScript(
 						MapProbeScript.probe,

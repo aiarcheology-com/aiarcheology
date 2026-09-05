@@ -315,6 +315,15 @@ struct SettingsForm: View {
 		}
 	}
 
+	/// Two groups, for the reason set out on ``mlBrowserSection``: a row whose explanatory text sits
+	/// underneath gets its **own** group, so the caption reads as belonging to that row rather than
+	/// to whichever row happens to be last in a shared block. It matters more than usual here — the
+	/// caption explains what is still recorded when the switch is off, and read as a note about
+	/// "Delete cache" it would say something untrue.
+	///
+	/// Last in the section, because it is the one control here that nobody should need to touch: the
+	/// feature works by default, and this exists for the person whose site it broke (AIA-0821).
+	@ViewBuilder
 	private var webContentSection: some View {
 		Section(header: Text(L10n.Settings.Section.webContent)) {
 			HStack {
@@ -344,6 +353,14 @@ struct SettingsForm: View {
 			}
 			.testability(Testability.NavigationLink.settingsHistory)
 			deleteCacheRow
+		}
+
+		Section(footer: Text(L10n.Settings.readMapPositionFromPagesFooter)) {
+			// The user-reachable half of the map parser's kill switch. The developer launch argument
+			// is unreachable to someone who has simply hit a site our injected script breaks, and
+			// that person is the one who needs it.
+			Toggle(L10n.Settings.readMapPositionFromPages, isOn: $settings.readMapPositionFromPages)
+				.testability(Testability.Toggle.settingsReadMapPositionFromPages)
 		}
 	}
 

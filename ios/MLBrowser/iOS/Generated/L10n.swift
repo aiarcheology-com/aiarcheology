@@ -1099,6 +1099,10 @@ internal enum L10n {
     internal static let historyLimitPlaceholder = L10n.tr("Localizable", "settings.historyLimitPlaceholder", fallback: "0-100")
     /// Pyramid tiling
     internal static let pyramidTiling = L10n.tr("Localizable", "settings.pyramidTiling", fallback: "Pyramid tiling")
+    /// Read map position from pages
+    internal static let readMapPositionFromPages = L10n.tr("Localizable", "settings.readMapPositionFromPages", fallback: "Read map position from pages")
+    /// Lets a saved finding record where a map was looking. Turn this off if a site misbehaves — the page address is still saved either way.
+    internal static let readMapPositionFromPagesFooter = L10n.tr("Localizable", "settings.readMapPositionFromPagesFooter", fallback: "Lets a saved finding record where a map was looking. Turn this off if a site misbehaves — the page address is still saved either way.")
     /// Reopen Last Page
     internal static let reopenLastPage = L10n.tr("Localizable", "settings.reopenLastPage", fallback: "Reopen Last Page")
     /// Replay onboarding

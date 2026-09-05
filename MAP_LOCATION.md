@@ -137,6 +137,133 @@ navigation is in flight. That second half is what makes it follow a map pan: `pu
 `replaceState` fire KVO and never commit, and `WKNavigationDelegate` has no public same-document
 callback — the only such method is private SPI and not App Store safe.
 
+## Failing without taking the page down
+
+Introduced by AIA-0821. The parser injects a script into every page at document start, and during
+AIA-0817's development that script broke real sites outright — americanamap.org, openlayers.org and
+basemap.at rendered nothing at all, because it installed accessor properties on `window` for names
+like `L` and `define`. Those causes are fixed. What follows is the part that does not depend on
+their staying fixed.
+
+**The principle: if the parser fails, it must fail so the page is still usable.** A finding with no
+coordinate is a small loss. A page that will not render is the product not working.
+
+### One arbiter, three ways to be disarmed
+
+`MapParserArming` answers a single question — may the parser touch this page? — and everything
+consults it: the script injection, and the probe that questions the live map at capture time. It
+says no when any of these holds.
+
+| Switch | Who reaches it | Scope |
+|-|-|-|
+| `DISABLE_URL_LOCATION_PARSER` launch argument | a developer, bisecting | the whole session |
+| **Settings → Web content → Read map position from pages** | the user | until they turn it back on |
+| the circuit breaker | nobody; it fires itself | one host, this session |
+
+Before this, only the launch argument existed, and only `MapLocationProbe` honoured it — so the
+developer switch worked and a user had nothing at all. The switch suppresses the two things that
+*touch* a page. The page's own URL is still recorded and the URL tiers still run, because reading a
+coordinate out of an address the app already holds cannot cost anyone the page.
+
+There is deliberately **no remote kill switch**. AGENTS.md §Feature flags asks for one and AIA-0821
+revisited the question with the evidence in hand; the decision was that this feature is essential to
+the app, so the flag would be a switch nobody should ever throw. A bad release therefore still needs
+an app update to disarm globally. That is the accepted cost.
+
+### The breaker, and why it trips on so little
+
+It adds no JavaScript. Both of its sensors already existed for AIA-0827:
+
+- **the confirmed blank verdict** — `RenderedContentSummary.drewNothing`, measured after the
+  document finished and then again two seconds later, counting elements that actually *rendered*
+  rather than elements that exist;
+- **the main frame's error count**, from the page-diagnostics script.
+
+It trips only on the conjunction: a document that was **armed**, whose **main frame** threw at least
+once, and which **rendered nothing**. Each term is load-bearing. Errors alone are ordinary — the
+listener is capturing, so it counts failed sub-resource loads, and a healthy page with one 404 image
+reports an error. Blankness alone is how every application shell starts, which is why the
+measurement behind it looks twice. And a page that broke while the parser was switched off is not a
+page we broke. Which frame spoke is taken from WebKit's own `frameInfo`, never from the message
+body, which the page controls.
+
+On a trip the host is disarmed for the session and the page is reloaded **once** — silently, because
+the user's problem is that the page is blank, not that they want to be told about it. The reload is
+guarded: only while the web view is still showing the measured host and is not mid-navigation, and
+never through `reloadTapped`, which would replenish the AIA-0509 recovery budget on the false
+premise that a person had just expressed intent. Accepted and deliberate: `reload()` re-submits a
+form POST without asking, bounded to one reload per host per session.
+
+### Where the switch takes effect, and the limit that comes with it
+
+User scripts are chosen when a document is created, so the script list is rebuilt in
+`decidePolicyFor` — the one callback guaranteed to run before a destination document exists — and
+again in `didReceiveServerRedirectForProvisionalNavigation`, where `webView.url` is already the
+redirect target, so the decision is made against the address the document will actually have.
+WebKit does run a redirected request through the action-policy delegate again, so the redirect
+handler is belt-and-braces rather than the only guard — being wrong in that direction costs one
+redundant call, while being wrong in the other carries the registry into the very host the breaker
+just disarmed.
+`WKUserContentController` has no per-script removal, only a bulk one, so every arming change
+rebuilds the whole list; the touch-detection and diagnostics scripts are re-added by the same
+function, which is why a test asserts they survive.
+
+A navigation policy describes one navigation, so the breaker is keyed on the **top-level document's
+host**. A tripped host embedded as an iframe inside an untripped page still receives the script.
+`WKUserScript` offers no per-frame URL policy — the script is chosen before any frame's document
+exists — so this is a limit of the platform rather than an oversight.
+
+**This is not a hole in the no-hostnames rule.** That rule governs what gets *recorded*: coverage
+must never grow by authored domains. The tripped set is observed at runtime, never written down,
+never shipped, and decides only whether to stop — the rule is "no **authored** hostnames".
+
+### The known limit: a document restored from the page cache
+
+Going back to a page WebKit kept in its page cache restores the document that already ran, rather
+than creating a new one. Nothing native can observe what that document was originally served, so
+the arming label adopted at commit describes what the controller holds now, which may not be what
+that document ran with. Turn the switch off, navigate away, turn it on, go back: the restored page
+is labelled armed while its document never received the registry, and the reverse is equally
+possible.
+
+Two consequences, both accepted. A false trip disarms a site that did not deserve it, costing a
+coordinate and one reload; a missed trip leaves a site armed that should not be. And because the
+error count is reset per document, a restored page whose diagnostic timers already fired supplies
+no fresh report, so a blank verdict on it cannot pair with anything and cannot trip at all.
+
+The bound on all of it is the once-per-host reload, and relaunching re-arms everything. Fixing it
+properly would need a way to ask a restored document what it ran with, which WebKit does not offer.
+
+### What still runs on every page, honestly
+
+The blast radius at document start was audited rather than redesigned. The honest finding is that
+the poll loop is the smaller risk: it reads a dozen `window` properties every 20 ms and *writes*
+nothing. It is not literally inert — reading `window[name]` invokes any getter the page has defined
+there, and a side effect of that getter survives our `try` — but it installs nothing and replaces
+nothing. The larger residual risk is the two mutations that persist:
+
+- **`traceConstructor` replaces `ns.Map` / `Viewer` / `Deck` with a `Proxy`** for the life of the
+  page. This is the largest untested page mutation in the feature.
+- **`hookArcGIS3` rewrites five prototype methods.**
+
+By contrast the `bind` trap, which looks like the most invasive thing here, restores the original
+`Function.prototype.bind` after four seconds or 4000 inspections — and only if ours is still the
+installed value, so a page that replaced `bind` in the meantime keeps its own.
+
+The regression net is `map_bundle_namespace.html`, which performs the operations a bundle performs
+on every watched global — assign empty then populate, delete then re-assign, `defineProperty` with a
+value, and the AMD probe — and renders a sentinel only if every one succeeded. Its test asserts none
+of those globals was an **accessor** when the page started, because an accessor is what broke the
+real sites and is the first thing a future change would reintroduce. The descriptors are captured
+before the page redefines anything; read afterwards they would only prove the page had overwritten
+whatever was there.
+
+**What that fixture does not cover**, so nobody mistakes it for a whole safety net: it constructs
+through the traced constructors after a delay, so it meets `traceConstructor`'s `Proxy`, but it does
+not exercise the ArcGIS 3.x prototype wrappers or the `bind` trap, and it is one synthetic page
+rather than the real bundles. The breaker exists precisely because a test cannot enumerate the ways
+a real site differs.
+
 ## Trust and privacy
 
 The page is untrusted input. It can lie, clobber the registry, or return nonsense, so every value is
@@ -144,8 +271,13 @@ re-validated in Swift and **no returned string is ever evaluated**. Scripts are 
 page data, URL or user input is ever interpolated into JavaScript. The probe fails closed — a
 finding with no coordinate is correct, one with a guess is not.
 
-Nothing about a URL, a fragment, a coordinate or page content is ever logged. Diagnostics are
-library names, counts and booleans only.
+Nothing about a URL, a fragment, a coordinate or page content is ever logged **by the probe**.
+Its diagnostics are library names, counts and booleans only.
+
+The page-diagnostics path (AIA-0827) is the deliberate exception and always was: a blank-page
+verdict, and now a breaker trip, records the site in the message and the address in the crash
+service's context. Both exist to answer "which site broke, and can I reproduce it", which a log
+without the site cannot answer at all.
 
 ## Extending coverage
 
