@@ -179,15 +179,20 @@ final class ReceivedFindingsUITests: UITestCase {
 		var lastObservation = "never sampled"
 		let deadline = Date().addingTimeInterval(15)
 		while Date() < deadline && consecutiveGoodSamples < 2 {
+			// Every value in one sample is read ONCE, up front. Querying `isHittable` again while
+			// building the diagnostic would ask the app a second time, and during a rotation the two
+			// answers can come from different snapshots — so the failure message would describe a
+			// state other than the one that actually failed (raised in review).
 			let window = app.windows.firstMatch.frame
 			let button = done.frame
+			let isHittable = done.isHittable
 			let isLandscape = window.width > window.height
 			let sitsInsideTheWindow = button.minY >= window.minY && button.maxY <= window.maxY
-			if isLandscape && sitsInsideTheWindow && done.isHittable {
+			if isLandscape && sitsInsideTheWindow && isHittable {
 				consecutiveGoodSamples += 1
 			} else {
 				consecutiveGoodSamples = 0
-				lastObservation = "window \(window), Done \(button), hittable \(done.isHittable)"
+				lastObservation = "window \(window), Done \(button), hittable \(isHittable)"
 			}
 			if consecutiveGoodSamples < 2 { Thread.sleep(forTimeInterval: 0.4) }
 		}

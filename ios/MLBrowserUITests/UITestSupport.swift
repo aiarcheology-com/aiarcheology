@@ -350,12 +350,16 @@ class UITestCase: XCTestCase {
 	/// `XCUIDevice.shared.orientation` only *requests* a rotation. A test that rotates and then
 	/// returns leaves the device mid-transition, and the next test can launch into it — relaunching
 	/// the app does not reset simulator orientation, which is process-global (raised in review).
+	/// Strictly taller than wide, mirroring ``waitForLandscape(timeout:)``'s strict `>`. A square
+	/// window satisfies neither, which is the intent: `>=` here would accept the moment a rotation
+	/// passes through square and report a settled portrait layout that has not settled at all
+	/// (raised in review).
 	@discardableResult
 	func waitForPortrait(timeout: TimeInterval = 10) -> Bool {
 		let isPortrait = NSPredicate { object, _ in
 			guard let window = object as? XCUIElement else { return false }
 			let frame = window.frame
-			return frame.height >= frame.width
+			return frame.height > frame.width
 		}
 		let expectation = XCTNSPredicateExpectation(predicate: isPortrait, object: app.windows.firstMatch)
 		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
