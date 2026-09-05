@@ -23,8 +23,9 @@ enum FindingArchiveImportError: Error, Equatable {
 	case duplicateFindingId(UUID)
 	/// The archive declares a schema this build does not know how to read.
 	case unsupportedSchemaVersion(Int)
-	/// The archive's images exceed what an import may hold in memory in total, whatever each
-	/// individual image was allowed to be.
+	/// The archive's images do not fit on the device. Since AIA-0755 this is a DISK bound, not a
+	/// memory one: images are staged to files as they are validated, so what an import needs is
+	/// room for them, not room for all of them at once in RAM.
 	case archiveTooLarge(byteCount: Int)
 	case malformedManifest(String)
 	/// An image whose DECLARED size or pixel dimensions exceed what an import may hold.
@@ -88,12 +89,49 @@ extension ImportedFindingRow {
 	}
 }
 
-/// What an archive turned out to contain: rows, and the image bytes belonging to them.
+/// One finding's picture, wherever it happens to be.
+///
+/// The two cases are not an optimisation. An archive import validates images one at a time and
+/// leaves each on disk, because holding them all was the reason a self-export could not be
+/// re-imported (AIA-0755); cloud sync downloads exactly one image and already has it in memory.
+/// Making the caller ask for the bytes is what keeps a 700 MB restore from ever assembling itself.
+enum ImportedImage: Equatable {
+	/// Bytes already in memory — the single downloaded image cloud sync applies.
+	case data(Data)
+	/// A validated image staged under the contents' `stagingDirectory`. Verbatim archive bytes:
+	/// nothing decodes and re-encodes them, so a round trip does not degrade the picture.
+	case file(URL)
+
+	/// The bytes, read now. One image at a time is bounded by `maximumImageByteCount`; the whole
+	/// archive is not, which is the entire point of staging.
+	func read() throws -> Data {
+		switch self {
+		case let .data(data): return data
+		case let .file(url): return try Data(contentsOf: url)
+		}
+	}
+}
+
+/// What an archive turned out to contain: rows, and the images belonging to them.
 struct FindingArchiveContents: Equatable {
 	let rows: [ImportedFindingRow]
-	/// Verbatim archive bytes, keyed by finding id. Stored as-is rather than decoded and re-encoded,
-	/// so an export/import round trip does not degrade the picture.
-	let images: [UUID: Data]
+	let images: [UUID: ImportedImage]
+	/// Where `.file` images were staged, or nil when nothing was staged (cloud sync's single-row
+	/// construction). The owner calls ``discard()`` once the contents have been applied or dropped.
+	let stagingDirectory: URL?
+
+	init(rows: [ImportedFindingRow], images: [UUID: ImportedImage], stagingDirectory: URL? = nil) {
+		self.rows = rows
+		self.images = images
+		self.stagingDirectory = stagingDirectory
+	}
+
+	/// Removes the staged images. Non-mutating and idempotent: the contents are held in SwiftUI
+	/// `@State` across an alert, and both the commit and the cancel path have to be able to call it.
+	func discard() {
+		guard let stagingDirectory else { return }
+		try? FileManager.default.removeItem(at: stagingDirectory)
+	}
 }
 
 /// Pure, Core-Data-free decoding of a findings archive.
@@ -119,42 +157,81 @@ enum FindingArchiveImport {
 	/// Pixels, not bytes. A few hundred KB of JPEG can declare a 60000x60000 canvas, which costs
 	/// ~14 GB the moment anything decodes it — a bomb that no byte-count bound catches.
 	static let maximumImagePixelCount = 50_000_000
-	/// Total inflated image bytes an import may hold at once. The per-image cap alone is not a
-	/// bound: 4,096 findings at 16 MB each satisfies every other limit and still asks for ~64 GB,
-	/// and a highly compressible payload makes the ZIP itself small enough to look harmless.
-	static let maximumTotalImageByteCount = 256 * 1024 * 1024
-	/// The archive file itself, checked before a byte of it is copied into memory.
-	///
-	/// Every cap above bounds what the archive *declares*; none of them bounds the file. Turning a
-	/// multi-gigabyte pick -- a wrong file as easily as a hostile one -- into `[UInt8]` costs its
-	/// full size in RAM before any of them can apply, and the app is killed rather than refusing.
-	static let maximumArchiveByteCount = 320 * 1024 * 1024
+	/// Free space an import leaves alone, so staging a large archive cannot be the thing that fills
+	/// the device out from under everything else.
+	static let reservedFreeDiskByteCount = 64 * 1024 * 1024
 
 	private static let manifestName = "findings.json"
 
-	static func read(archiveAt url: URL) throws -> FindingArchiveContents {
-		let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-		guard size <= maximumArchiveByteCount else {
-			throw FindingArchiveImportError.archiveTooLarge(byteCount: size)
-		}
-		let data: Data
-		do {
-			data = try Data(contentsOf: url, options: .mappedIfSafe)
-		} catch {
-			throw FindingArchiveImportError.unreadableArchive(error.localizedDescription)
-		}
-		guard data.count <= maximumArchiveByteCount else {
-			throw FindingArchiveImportError.archiveTooLarge(byteCount: data.count)
-		}
-		return try read(archiveBytes: [UInt8](data))
+	/// Where validated images are staged, one directory per import.
+	///
+	/// One constant, because three separate exits delete it: `read` on its own failure, the owner's
+	/// `discard()` when the contents have been applied or dropped, and a purge of what an earlier
+	/// RUN of the app left behind.
+	static var stagingRootDirectory: URL {
+		FileManager.default.temporaryDirectory.appendingPathComponent("FindingImports", isDirectory: true)
 	}
 
-	static func read(archiveBytes: [UInt8]) throws -> FindingArchiveContents {
+	/// Where `FindingRepository` keeps the hard-link backups of the images an import replaces, one
+	/// directory per import. Declared here rather than there so that ONE purge covers both trees:
+	/// a kill mid-import strands the backups exactly as it strands the staging, and a link to an
+	/// image that was then replaced keeps the old bytes allocated for as long as it exists.
+	static var backupRootDirectory: URL {
+		FileManager.default.temporaryDirectory.appendingPathComponent("FindingImportBackups", isDirectory: true)
+	}
+
+	/// A prefix only this process gives its directories, so "made by an earlier run" is a fact
+	/// about a NAME rather than about timing.
+	///
+	/// The first version of this snapshotted the roots the first time an import ran, and that
+	/// was a race: cloud sync also replaces images through `FindingRepository`, from the list's
+	/// `onAppear`, and a backup it had just made could be in the snapshot -- and then deleted --
+	/// while the import that needed it was still running.
+	private static let processToken = UUID().uuidString
+
+	/// A fresh directory under `root` that the purge will never touch while this process lives.
+	static func transientDirectory(under root: URL) -> URL {
+		root.appendingPathComponent("\(processToken)-\(UUID().uuidString)", isDirectory: true)
+	}
+
+	/// Deletes what a previous run of the app left behind — staged images and replaced-image
+	/// backups — so a crash costs disk only until the next import.
+	///
+	/// Deliberately NOT "delete everything under the roots". The import task is unstructured and
+	/// outlives the view that started it, so a user who starts a long import, leaves the findings
+	/// list, comes back and starts another would otherwise have the second import delete the
+	/// first one's images while it was still reading them. Anything this process named is spared.
+	static func purgeStagedImportsFromEarlierRuns() {
+		let mine = processToken + "-"
+		for root in [stagingRootDirectory, backupRootDirectory] {
+			let names = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
+			for name in names where name.hasPrefix(mine) == false {
+				try? FileManager.default.removeItem(at: root.appendingPathComponent(name))
+			}
+		}
+	}
+
+	static func read(archiveAt url: URL) throws -> FindingArchiveContents {
+		try read(archiveAt: url, availableCapacity: availableCapacity(forStagingOn:))
+	}
+
+	/// - Parameter availableCapacity: free bytes on the volume the staging directory sits on.
+	///   Injected so the refusal can be tested without filling a disk.
+	static func read(
+		archiveAt url: URL,
+		availableCapacity: (URL) -> Int64?
+	) throws -> FindingArchiveContents {
 		let reader: ZipArchiveReader
 		do {
+			// Read from the FILE, never from a copy of it. `Data(contentsOf:)` + `[UInt8](...)`
+			// cost the archive's full size in RAM, which is what forced the 320 MB cap this method
+			// used to apply -- and that cap is what made the app's own export un-importable
+			// (AIA-0755). The reader touches the end record and the central directory, then one
+			// local header per entry it is actually asked for.
+			//
 			// Deflate is required, not optional: NSFileCoordinator(.forUploading) — how this app
 			// exports — compresses every entry, including already-compressed images.
-			reader = try ZipArchiveReader(bytes: archiveBytes, allowsDeflate: true)
+			reader = try ZipArchiveReader(fileAt: url, allowsDeflate: true)
 		} catch {
 			throw FindingArchiveImportError.unreadableArchive("\(error)")
 		}
@@ -181,8 +258,79 @@ enum FindingArchiveImport {
 		}
 
 		let rows = try decodeRows(Data(manifestBytes))
-		let images = try readImages(for: rows, root: root, reader: reader)
-		return FindingArchiveContents(rows: rows, images: images)
+
+		let staging = transientDirectory(under: stagingRootDirectory)
+		var staged = false
+		// Any refusal after the directory exists takes it with it. Without this, an archive that
+		// fails validation on its fortieth image leaves the first thirty-nine on disk until some
+		// later import happens to purge the root -- for a user who just saw an error and may never
+		// import again.
+		defer { if staged == false { try? FileManager.default.removeItem(at: staging) } }
+		do {
+			try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+		} catch {
+			throw FindingArchiveImportError.unreadableArchive(error.localizedDescription)
+		}
+
+		try refuseIfItWillNotFit(rows: rows, root: root, reader: reader, availableCapacity: availableCapacity(staging))
+		let images = try readImages(for: rows, root: root, reader: reader, stagingDirectory: staging)
+		staged = true
+		return FindingArchiveContents(rows: rows, images: images, stagingDirectory: staging)
+	}
+
+	/// Free bytes on the volume the staging directory lives on.
+	///
+	/// `volumeAvailableCapacityForImportantUsage` rather than the raw free space: it is the number
+	/// that accounts for what iOS would purge to make room, which is what an import can actually
+	/// count on.
+	private static func availableCapacity(forStagingOn directory: URL) -> Int64? {
+		let probe = FileManager.default.fileExists(atPath: directory.path)
+			? directory
+			: FileManager.default.temporaryDirectory
+		return try? probe.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+			.volumeAvailableCapacityForImportantUsage
+	}
+
+	/// Refuses an archive whose images will not fit before a single one is written.
+	///
+	/// A fail-fast for the user, not a security bound — the security bounds are the per-image and
+	/// per-entry caps, which apply whatever this decides. It is worth having because the alternative
+	/// is discovering the problem partway through, having already filled the volume.
+	///
+	/// The declared sum is exactly what staging will cost, by the reader's construction: `bytes(of:)`
+	/// sizes the inflate buffer at exactly `uncompressedSize` and refuses when the inflated length
+	/// disagrees, and nothing reaches the staging directory until that call has returned. Under-
+	/// declaring therefore buys an attacker no disk; it buys a truncated file that fails the image
+	/// header check. The bytes are counted once because the later copy into the findings store is a
+	/// clone on the same volume, not a second full-size write.
+	private static func refuseIfItWillNotFit(
+		rows: [ImportedFindingRow],
+		root: String,
+		reader: ZipArchiveReader,
+		availableCapacity: Int64?
+	) throws {
+		guard let availableCapacity else { return }
+		var declaredSizes: [String: Int] = [:]
+		declaredSizes.reserveCapacity(reader.entries.count)
+		for entry in reader.entries { declaredSizes[entry.name] = entry.uncompressedSize }
+
+		var total = 0
+		for row in rows {
+			guard let ext = row.screenshotExtension,
+				let size = declaredSizes["\(root)images/\(row.id.uuidString).\(ext)"]
+			else { continue }
+			// Declared sizes are attacker-chosen, so the sum is added the only way that cannot wrap.
+			let (sum, overflowed) = total.addingReportingOverflow(size)
+			guard overflowed == false else {
+				throw FindingArchiveImportError.archiveTooLarge(byteCount: Int.max)
+			}
+			total = sum
+		}
+
+		let room = availableCapacity - Int64(reservedFreeDiskByteCount)
+		guard Int64(total) <= room else {
+			throw FindingArchiveImportError.archiveTooLarge(byteCount: total)
+		}
 	}
 
 	/// True when `name` is exactly `<something>/findings.json` or `findings.json` — one manifest at
@@ -352,13 +500,20 @@ enum FindingArchiveImport {
 
 	// MARK: - Images
 
+	/// Validates each image and leaves it on disk.
+	///
+	/// **One image is resident at a time, deliberately.** This used to build a `[UUID: Data]` and
+	/// needed a 256 MB aggregate cap to bound it — which a 1.0.7-upgraded store's 2–6 MB PNGs
+	/// exceeded at roughly fifty findings, so the app could not re-import its own export (AIA-0755).
+	/// Writing each validated image out as it is read removes the reason for the cap rather than
+	/// raising it, and the peak stays at one picture no matter how many the archive holds.
 	private static func readImages(
 		for rows: [ImportedFindingRow],
 		root: String,
-		reader: ZipArchiveReader
-	) throws -> [UUID: Data] {
-		var images: [UUID: Data] = [:]
-		var totalByteCount = 0
+		reader: ZipArchiveReader,
+		stagingDirectory: URL
+	) throws -> [UUID: ImportedImage] {
+		var images: [UUID: ImportedImage] = [:]
 		for row in rows {
 			guard let ext = row.screenshotExtension else { continue }
 			let name = "\(root)images/\(row.id.uuidString).\(ext)"
@@ -374,15 +529,29 @@ enum FindingArchiveImport {
 			} catch {
 				throw FindingArchiveImportError.unreadableArchive("\(error)")
 			}
-			let data = Data(bytes)
-			// Aggregate budget, checked as we go: the per-image cap bounds one picture, this bounds
-			// the import.
-			totalByteCount += data.count
-			guard totalByteCount <= maximumTotalImageByteCount else {
-				throw FindingArchiveImportError.archiveTooLarge(byteCount: totalByteCount)
+			// The bytes are validated BEFORE they are written, exactly as when they were validated
+			// before being kept: a file that is not an image never reaches the staging directory.
+			try autoreleasepool {
+				let data = Data(bytes)
+				try validateImageDimensions(data, id: row.id)
+				// The name is built from the row's validated UUID, never from the entry name, so
+				// the staging directory is as traversal-proof as the findings store itself.
+				let staged = stagingDirectory.appendingPathComponent("\(row.id.uuidString).\(ext)")
+				do {
+					try data.write(to: staged, options: .atomic)
+				} catch {
+					// Out of room is the expected failure here and says something true about the
+					// archive; anything else is this device having a bad day and must not be
+					// reported as "your archive is too large". The caller's staging cleanup is what
+					// keeps either from costing the disk twice.
+					let failure = error as NSError
+					if failure.domain == NSCocoaErrorDomain, failure.code == NSFileWriteOutOfSpaceError {
+						throw FindingArchiveImportError.archiveTooLarge(byteCount: data.count)
+					}
+					throw FindingArchiveImportError.unreadableArchive(error.localizedDescription)
+				}
+				images[row.id] = .file(staged)
 			}
-			try validateImageDimensions(data, id: row.id)
-			images[row.id] = data
 		}
 		return images
 	}

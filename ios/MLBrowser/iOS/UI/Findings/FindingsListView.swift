@@ -81,6 +81,8 @@ struct FindingsListView: View {
 	/// — rather than the file URL — means answering the question does not re-read or re-inflate it.
 	@State private var pendingImport: FindingArchiveContents?
 	@State private var pendingDuplicateCount = 0
+	/// The decode in flight, held so leaving the sheet can tell it there is nobody to report to.
+	@State private var importTask: Task<Void, Never>?
 	@State private var importSummary: FindingRepository.ImportSummary?
 
 	// MARK: Back up (AIA-740)
@@ -173,6 +175,17 @@ struct FindingsListView: View {
 			}
 		}
 		.onChange(of: tab) { _, _ in dropFilterIfUnavailable() }
+		// A decoded archive waiting on the duplicates question is staged on disk. Leaving the
+		// sheet with that question up would otherwise strand it until the next run's purge.
+		// Safe against the commit path: `commitPendingImport` nils the state before applying,
+		// so this finds nothing to discard there.
+		.onDisappear {
+			// ...and a decode still running would otherwise finish, set state on a view that no
+			// longer exists, and strand its staged images the same way.
+			importTask?.cancel()
+			pendingImport?.discard()
+			pendingImport = nil
+		}
 		// Keyed on the labels themselves, not on `findings.count`: a sync or an edit can remove the
 		// last row carrying the active label without changing how many rows there are, which would
 		// leave a selected chip over an unexplained empty list.
@@ -256,11 +269,22 @@ struct FindingsListView: View {
 		// overwrite one either.
 		.alert(
 			L10n.Findings.Import.Duplicates.title,
-			isPresented: Binding(get: { pendingImport != nil }, set: { if $0 == false { pendingImport = nil } })
+			// The setter cannot tell a cancel from a commit, and does not need to: SwiftUI runs the
+			// button's action BEFORE it sets the binding false, so after Keep or Replace
+			// `pendingImport` is already nil here and this is a no-op. `commitPendingImport`'s own
+			// `guard let` depends on the same ordering. Do not "simplify" this into discarding
+			// first -- that would delete the staged images out from under the import.
+			isPresented: Binding(
+				get: { pendingImport != nil },
+				set: { if $0 == false { pendingImport?.discard(); pendingImport = nil } }
+			)
 		) {
 			Button(L10n.Findings.Import.Duplicates.keep) { commitPendingImport(duplicates: .skip) }
 			Button(L10n.Findings.Import.Duplicates.replace, role: .destructive) { commitPendingImport(duplicates: .replace) }
-			Button(L10n.Common.cancel, role: .cancel) { pendingImport = nil }
+			Button(L10n.Common.cancel, role: .cancel) {
+				pendingImport?.discard()
+				pendingImport = nil
+			}
 		} message: {
 			Text(L10n.Findings.Import.Duplicates.message(pendingDuplicateCount))
 		}
@@ -284,6 +308,15 @@ struct FindingsListView: View {
 	/// decode that follows is asynchronous.
 	private func decodeArchive(at url: URL) async {
 		isImporting = true
+		// Anything an earlier RUN left behind goes now. The read cleans up after its own failures
+		// and `discard()` cleans up after a finished one, but neither runs if the app was killed
+		// while the duplicates question was on screen (AIA-0755). Imports this run started are
+		// deliberately spared: the decode task outlives this view, so a second import must not
+		// delete a first one's images while it is still reading them. Off the main actor: a
+		// large leftover tree is real IO, and this method runs on the view's.
+		await Task.detached(priority: .utility) {
+			FindingArchiveImport.purgeStagedImportsFromEarlierRuns()
+		}.value
 		let staged = FileManager.default.temporaryDirectory
 			.appendingPathComponent("findings-import-\(UUID().uuidString).zip")
 		do {
@@ -302,7 +335,7 @@ struct FindingsListView: View {
 			return
 		}
 
-		Task {
+		importTask = Task {
 			defer { try? FileManager.default.removeItem(at: staged) }
 			do {
 				// Unzip, JSON parsing and image inspection all run off the MainActor: this view's
@@ -310,6 +343,13 @@ struct FindingsListView: View {
 				let contents = try await Task.detached(priority: .userInitiated) {
 					try FindingArchiveImport.read(archiveAt: staged)
 				}.value
+				// The sheet may have gone while that ran. There is nobody to hand the contents to,
+				// and publishing them to a view that no longer exists would strand the staged
+				// images until the next run's purge (AIA-0755).
+				guard Task.isCancelled == false else {
+					contents.discard()
+					return
+				}
 
 				let duplicates = findingRepository.duplicateCount(in: contents)
 				if duplicates > 0 {
@@ -329,6 +369,15 @@ struct FindingsListView: View {
 	private func commitPendingImport(duplicates: FindingRepository.DuplicatePolicy) {
 		guard let contents = pendingImport else { return }
 		pendingImport = nil
+		// iOS may purge the temporary directory while the app is suspended with this question on
+		// screen, and the staged images live there. Saying so is the honest outcome; going ahead
+		// would report every row as failed and leave the user guessing why (AIA-0755).
+		if let staging = contents.stagingDirectory,
+			FileManager.default.fileExists(atPath: staging.path) == false {
+			LoggingPolicy.warning("The staged findings import was purged before it was applied", logger: .storage)
+			importFailed = true
+			return
+		}
 		// Deferred by one turn: setting `importSummary` synchronously here would raise the result
 		// alert while the duplicates alert is still dismissing, and SwiftUI drops the second — the
 		// user would replace their findings and be told nothing at all.
@@ -338,6 +387,9 @@ struct FindingsListView: View {
 	}
 
 	private func apply(_ contents: FindingArchiveContents, duplicates: FindingRepository.DuplicatePolicy) {
+		// The staged images have done their job either way — the repository has copied what it
+		// accepted into the findings store, and a failure has already been rolled back.
+		defer { contents.discard() }
 		do {
 			importSummary = try findingRepository.importFindings(contents, duplicates: duplicates)
 		} catch {

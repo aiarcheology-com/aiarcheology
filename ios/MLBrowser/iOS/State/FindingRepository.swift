@@ -393,8 +393,13 @@ final class FindingRepository {
 		duplicates: DuplicatePolicy
 	) throws -> ImportSummary {
 		var summary = ImportSummary()
-		var replacedImages: [(filename: String, data: Data?)] = []
+		var replacedImages: [(filename: String, backup: URL?)] = []
 		var writtenFilenames: [String] = []
+		// Backups are hard links, not bytes (AIA-0755). This used to hold `Data` for every replaced
+		// screenshot until the import committed, so restoring 120 findings meant ~700 MB resident --
+		// the same failure the archive reader was just fixed for, one layer down.
+		let backupDirectory = FindingArchiveImport.transientDirectory(under: FindingArchiveImport.backupRootDirectory)
+		defer { try? FileManager.default.removeItem(at: backupDirectory) }
 		// Which rows this import created and which it replaced, so a failed commit can be undone in
 		// the PARENT context too. `importContext.reset()` only abandons the child: by then the child
 		// save has already pushed every row into the parent, where they sit pending and get written
@@ -426,16 +431,16 @@ final class FindingRepository {
 				continue
 			}
 
-			var backup: (filename: String, data: Data?)?
+			var backup: (filename: String, backup: URL?)?
 			var filename: String?
 			do {
-				if let imageData = contents.images[row.id] {
+				if let image = contents.images[row.id] {
 					let ext = row.screenshotExtension ?? "jpg"
 					if let previous = existing?.screenshotFilename,
 						let previousURL = FindingScreenshotStore.url(forFilename: previous) {
-						backup = (previous, try? Data(contentsOf: previousURL))
+						backup = (previous, try linkedBackup(of: previousURL, named: previous, in: backupDirectory))
 					}
-					let written = try FindingScreenshotStore.save(imageData, for: row.id, pathExtension: ext)
+					let written = try write(image, for: row.id, pathExtension: ext)
 					filename = written
 					writtenFilenames.append(written)
 					if let backup { replacedImages.append(backup) }
@@ -616,18 +621,104 @@ final class FindingRepository {
 		if finding.lifeCycle != .draft { finding.transition(to: .draft) }
 	}
 
-	/// Puts a replaced image back, or removes the replacement when there was nothing there before.
-	private func restore(_ backup: (filename: String, data: Data?)?) {
+	/// Writes one imported image into the findings store, from wherever it is.
+	///
+	/// The `.file` case never loads the picture: an archive import stages every validated image on
+	/// disk exactly so the set is never resident, and reading each one back to hand it to
+	/// `save(_ data:)` would put the peak straight back (AIA-0755).
+	private func write(_ image: ImportedImage, for id: UUID, pathExtension: String) throws -> String {
+		switch image {
+		case let .data(data):
+			return try FindingScreenshotStore.save(data, for: id, pathExtension: pathExtension)
+		case let .file(url):
+			return try FindingScreenshotStore.save(copyingFrom: url, for: id, pathExtension: pathExtension)
+		}
+	}
+
+	/// Backs up the image about to be replaced, by HARD LINK rather than by copying its bytes.
+	///
+	/// The original stays exactly where it is, so nothing is at risk in the window before the
+	/// import commits — a move would leave the row pointing at a file that is no longer there if
+	/// the app died in between, and for the `.png` → `.jpg` case a 1.0.7-upgraded store actually
+	/// produces, the moved file would be the only copy. The link works because every writer into
+	/// this directory replaces by rename (`save(_ data:)` writes `.atomic`,
+	/// `save(copyingFrom:)` swaps a sibling in), so the new bytes land on a new inode and the link
+	/// keeps the old ones.
+	///
+	/// Nil means there is nothing to put back — the file was already gone — which `restore` reads
+	/// as "delete whatever is at that name", exactly as the byte-copy version did.
+	///
+	/// **A backup that could not be MADE throws instead of returning nil, and the difference
+	/// matters.** Conflating the two lets a full disk destroy the picture it was protecting: the
+	/// backup fails, the replacement write then fails too and leaves the original untouched, and a
+	/// `restore` that read nil as "there was nothing here" would delete it. Throwing costs the row
+	/// — counted as failed, like any other — and costs the user nothing.
+	private func linkedBackup(of source: URL, named filename: String, in directory: URL) throws -> URL? {
+		guard FileManager.default.fileExists(atPath: source.path) else { return nil }
+		do {
+			try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+			let destination = directory.appendingPathComponent(filename)
+			try? FileManager.default.removeItem(at: destination)
+			do {
+				try FileManager.default.linkItem(at: source, to: destination)
+			} catch {
+				// A hard link is refused across volumes and on filesystems that have no links.
+				// Copying is slower and costs the bytes, but it is still a correct backup.
+				try FileManager.default.copyItem(at: source, to: destination)
+			}
+			return destination
+		} catch {
+			LoggingPolicy.warning("Could not back up a finding image before replacing it", logger: .storage)
+			throw error
+		}
+	}
+
+	/// Puts a replaced image back.
+	///
+	/// **Idempotent, and that is required rather than tidy.** A row that fails after its image was
+	/// written restores here immediately, and the same backup is restored a second time if the
+	/// commit later fails — because that path deletes every written file first and then restores.
+	/// The backup is therefore linked back rather than moved back, so it survives its own use; the
+	/// caller's `defer` removes the backup directory once the import is over.
+	private func restore(_ backup: (filename: String, backup: URL?)?) {
 		guard let backup else { return }
-		guard let data = backup.data else {
+		guard let source = backup.backup else {
 			FindingScreenshotStore.delete(filename: backup.filename)
 			return
 		}
 		guard let url = FindingScreenshotStore.url(forFilename: backup.filename) else { return }
 		do {
-			try data.write(to: url, options: .atomic)
+			// Staged beside the destination and swapped in, never remove-then-link: if the link AND
+			// the copy both failed after the removal, the rollback would have destroyed the one
+			// image it existed to bring back.
+			let staged = url.deletingLastPathComponent()
+				.appendingPathComponent("\(UUID().uuidString).\(url.pathExtension)")
+			do {
+				try FileManager.default.linkItem(at: source, to: staged)
+			} catch {
+				try FileManager.default.copyItem(at: source, to: staged)
+			}
+			do {
+				if FileManager.default.fileExists(atPath: url.path) {
+					_ = try FileManager.default.replaceItemAt(url, withItemAt: staged)
+				} else {
+					try FileManager.default.moveItem(at: staged, to: url)
+				}
+			} catch {
+				try? FileManager.default.removeItem(at: staged)
+				throw error
+			}
 		} catch {
-			LoggingPolicy.warning("Could not restore a replaced finding image", logger: .storage)
+			// Last resort, and the one place a backup's bytes are ever read: the link and the copy
+			// both failed, and `replaceItemAt` does not promise to leave the destination as it was.
+			// Writing the bytes back costs one image of memory, bounded, and is exactly what the
+			// pre-link version of this method did every time. Without it the caller's `defer`
+			// removes the backup next, and the picture is gone for good.
+			do {
+				try Data(contentsOf: source).write(to: url, options: .atomic)
+			} catch {
+				LoggingPolicy.warning("Could not restore a replaced finding image", logger: .storage)
+			}
 		}
 	}
 

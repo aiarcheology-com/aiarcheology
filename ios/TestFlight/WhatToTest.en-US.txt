@@ -1,43 +1,29 @@
-Build: The map-position reader can no longer cost you the page
+Build: A findings export can always be brought back in
 
-Test Focus: Reading a map's position means running a small script on every page you visit. That
-script once broke real sites — they came up blank. This build makes that impossible to ship again:
-there is now a switch you can turn off, and the app stops by itself on a site it appears to have
-broken. Nothing about how coordinates are read has changed, so the first thing to check is that
-everything still works exactly as before.
+Test Focus: Findings → Data lets you export every finding as a zip and import it back. That file is
+the safety net the app offers right before "Remove all findings" — and for a large collection it
+did not work: the export succeeded, and importing the same file was refused as "not a findings
+archive". This build fixes that. An import is now limited by the free space on the device — and by
+a ceiling of about four thousand findings per file — and by nothing else.
+Separately, if the app's private sync record ever got damaged, backing up used to quietly switch
+itself back ON; it now switches OFF and stays off until you turn it on yourself.
 
-- Browse normally for a while first: follow links, go back and forward, sign in somewhere, visit a
-  site whose address starts http:// and upgrades itself to https://. Everything must behave exactly
-  as it did before. This build changes how pages are loaded, so ordinary browsing is the most
-  important thing to try.
+- The round trip. Open Findings, tap Data → Export, and save the zip to Files. Then Data → Import
+  and pick that same file. You get a question about duplicates — choose Replace. Every finding must
+  still be there, each with its picture, exactly as before. Then import once more and choose Keep:
+  the summary should say 0 restored and all skipped. Import a third time and Cancel: nothing changes.
 
-- Save a finding on https://www.freemap.sk/#map=15/47.941230/18.709545 — the GPS field should fill
-  in by itself, starting with "leaflet:". Do the same on
-  https://caltopo.com/map.html#ll=38.97469,-100.06486&z=12 and on
-  https://openlayers.org/en/latest/examples/simple.html, which should show a coordinate starting
-  "Web Mercator".
+- The case that was broken. If you have a large collection — dozens of findings, especially ones
+  saved on an older version of the app, whose pictures are bigger — export it and import it back. On
+  the previous build that file was refused. It must import now, with the counts matching. While it
+  runs, the Data button becomes a spinner; that is expected, and the list fills in when it finishes.
 
-- Open americanamap.org, openlayers.org and basemap.at. Each must draw its map normally. These three
-  are the sites that went blank while this feature was being built, so they are the ones that
-  matter.
+- Nearly full device. If your phone is very low on space, importing a large file refuses up front
+  with an error rather than filling the phone. Freeing space and trying again should work.
 
-- Go to Settings, Web content. There is a new switch, "Read map position from pages", and it is on.
-  Turn it OFF. Now open a map page — you must load a page after flipping the switch, because it
-  applies to the next page you open, not the one already on screen. Save a finding on freemap.sk or
-  openlayers.org: the GPS field must stay EMPTY, and the Page field must still show the address.
-  Losing the coordinate is the point; losing the address would be a bug.
+- Back-up switch. In Settings, turn "back up my findings" OFF. Use the app normally for a while —
+  background it, sign out and in, restart it. The switch must stay OFF. If you ever find it has
+  turned itself back on without you, that is a bug — please report exactly what you did before.
 
-  One thing that is NOT a bug: on a site whose address itself carries coordinates — for example
-  zbgis.skgeodesy.sk/mapka/en/teren?pos=48.800000,19.530000,12 — you will still see a GPS value
-  beginning "url:" with the switch off. That is read from the address the app already has, not from
-  the page, so it cannot cost you the page and is deliberately left working. The switch turns off
-  only what touches the page: values beginning "leaflet:", "arcgis:", "maplibre:" or "shown:".
-
-- Turn the switch back ON, open a map page again, and confirm coordinates come back.
-
-- In Settings, Reset: the switch must return to on afterwards.
-
-- If you ever meet a map page that comes up blank, watch what happens next: the app should reload it
-  once by itself, and the page should then work — with no coordinate on that site for the rest of
-  the session. It must not reload over and over, and it must never reload a page that was fine.
-  This is hard to provoke deliberately; report it if you see it happen at the wrong moment.
+- Deleting while signed out. Sign out, delete a finding that was backed up, then sign back in and
+  let the app sync. The deleted finding must NOT come back.

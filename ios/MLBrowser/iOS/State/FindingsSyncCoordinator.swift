@@ -935,7 +935,7 @@ final class FindingsSyncCoordinator: ObservableObject {
             var pageApplied = true
             for row in page.findings {
                 guard stillSignedIn(as: account) else { throw CancellationError() }
-                if await apply(row, account: account, transport: transport, store: store, ledger: &ledger) == false {
+                if await apply(row, account: account, transport: transport, store: store, ledger: &ledger) == .halted {
                     // One row that did not land stops the page. Advancing over it would move the
                     // cursor past a finding this device never received, and no later cycle would
                     // ever look at it again.
@@ -949,10 +949,27 @@ final class FindingsSyncCoordinator: ObservableObject {
             // The cursor moves only after a page has been applied, so an interrupted pull resumes
             // rather than skipping what it did not get to.
             ledger.cursor = cursor
+            // The end of the index, with every page applied, is the moment `uploaded` has been
+            // rebuilt from the account's own records -- so a ledger that was reset after corruption
+            // stops being treated as holding unknown copies (AIA-0755). Cleared BEFORE the save so
+            // it lands in the same write: clearing after it would be lost whenever the cycle stops
+            // for a sign-out, and the account would keep writing conservative tombstones until some
+            // later pull happened to finish.
+            // Every row the index listed has been recorded by now -- `apply` records even the rows
+            // it could not use while the flag is set -- so the ledger is authoritative again.
+            if page.hasMore == false { ledger.holdsUnknownCloudCopies = false }
             await store.save(ledger)
             guardRail += 1
             if page.hasMore == false { break }
         } while guardRail < 200
+    }
+
+    /// What a pull did with one row of the index.
+    private enum RowDisposition {
+        /// Dealt with, and the ledger now records what the account holds for it.
+        case accounted
+        /// Not dealt with. Stops the page, so the cursor does not step past it.
+        case halted
     }
 
     /// What became of one downloaded row.
@@ -967,14 +984,14 @@ final class FindingsSyncCoordinator: ObservableObject {
         case failed
     }
 
-    /// Returns whether the row was dealt with. A `false` stops the page.
+    /// What became of one row. `.halted` stops the page.
     private func apply(
         _ row: CloudFindingRow,
         account: String,
         transport: FindingsCloudTransport,
         store: FindingsSyncLedgerStore,
         ledger: inout FindingsSyncLedger
-    ) async -> Bool {
+    ) async -> RowDisposition {
         let key = row.id.uuidString
 
         // A delete the user has made but this device has not yet sent outranks a live cloud row it
@@ -983,7 +1000,7 @@ final class FindingsSyncCoordinator: ObservableObject {
         if row.deleted == false,
            let pending = store.tombstones.load().first(where: { $0.id == row.id }),
            pending.modifiedAt >= row.modifiedAt {
-            return true
+            return .accounted
         }
         let local = Finding.select(row.id, in: context)
         let localModifiedAt = local.map { effectiveMilliseconds(of: $0) }
@@ -994,24 +1011,41 @@ final class FindingsSyncCoordinator: ObservableObject {
             // owes the cloud that newer version.
             if let localModifiedAt, localModifiedAt > row.modifiedAt {
                 ledger.uploaded[key] = nil
-                return true
+                return .accounted
             }
             do {
                 try findingRepository.deleteReceivedFromCloud(row.id)
             } catch {
                 LoggingPolicy.warning("Could not apply a synced delete: \(error.localizedDescription)", logger: .storage)
-                return false
+                return .halted
             }
             ledger.uploaded[key] = nil
-            return true
+            return .accounted
         }
 
         if let localModifiedAt, localModifiedAt >= row.modifiedAt {
-            // This device is already at least as new. Recording the row as uploaded matters when
-            // the timestamps are equal: it is this device's own write coming back, and without it
-            // the finding would look permanently owed and be pushed again on every cycle.
-            if localModifiedAt == row.modifiedAt { ledger.uploaded[key] = row.modifiedAt }
-            return true
+            // This device is already at least as new, and either way the row is recorded as held.
+            //
+            // On an EQUAL timestamp it is this device's own write coming back, and without the
+            // record the finding would look permanently owed and be pushed again on every cycle.
+            //
+            // On a NEWER local copy this used to record nothing, which was safe only because the
+            // push that follows would record it. A ledger rebuilt after corruption has back-up
+            // switched off, so no push runs -- and `accountsHolding` would then fail to name this
+            // account for every finding edited since it was uploaded, which is precisely the
+            // deleted-finding-comes-back bug AIA-0755 exists to close. The index has just said the
+            // account holds this row, so saying so locally is a statement of fact, not a new
+            // permission: `mayUpload` still refuses anything the user excluded, and `needsUpload`
+            // still returns true because the local copy is newer than what is confirmed.
+            //
+            // It does change one visible thing. A finding this account holds but did not create
+            // here used to sit on the consent card until a push recorded it; now it leaves the
+            // card at the pull. That is the right way round: the card asks whether the account may
+            // have a finding, and the account's own index has just answered that it already does.
+            // Asking a question whose premise the server has disproved is not consent, it is
+            // noise -- and `excluded` still wins, so a "no" the user has already given stands.
+            ledger.uploaded[key] = row.modifiedAt
+            return .accounted
         }
 
         // Awaited, not spawned. A detached download would let the cursor advance past this row
@@ -1024,16 +1058,30 @@ final class FindingsSyncCoordinator: ObservableObject {
             // and immediately pushing all N back, each with a new receipt, which every other device
             // would then pull again.
             ledger.uploaded[key] = row.modifiedAt
-            return true
+            return .accounted
         case .supersededLocally:
-            // The local copy moved on while this was in flight and is now the newer one. Clearing
-            // the acknowledgement is what makes the next push send it.
-            ledger.uploaded[key] = nil
-            return true
+            // The local copy moved on while this was in flight and is now the newer one -- the
+            // same state as the local-newer branch above, one suspension later, and recorded the
+            // same way: the index lists the row, so the account holds it. The next push still
+            // sends the local copy, because `needsUpload` compares the local timestamp against
+            // this one and local is newer. Clearing the entry instead used to be how that push was
+            // triggered, and while a ledger is rebuilding it left a held finding unnamed
+            // (AIA-0755): the walk ended, the flag cleared, and a signed-out delete of that
+            // finding wrote no tombstone for the account.
+            ledger.uploaded[key] = row.modifiedAt
+            return .accounted
         case .skipped:
-            return true
+            // Moved past without a copy landing. Ordinarily nothing is recorded: what the cloud
+            // holds for this id is a blob this build could not use, and claiming it as uploaded
+            // would be a guess. While the ledger is being REBUILT after corruption the rule is the
+            // opposite (AIA-0755): the index listed the row, and "rebuilt from the index" has to
+            // mean every row the index listed -- otherwise the walk ends, the flag clears, the
+            // cursor never comes back this way, and a signed-out delete writes no tombstone for a
+            // finding the account still holds. `mayUpload` still refuses anything excluded.
+            if ledger.holdsUnknownCloudCopies { ledger.uploaded[key] = row.modifiedAt }
+            return .accounted
         case .failed:
-            return false
+            return .halted
         }
     }
 
@@ -1063,7 +1111,10 @@ final class FindingsSyncCoordinator: ObservableObject {
             // not get to set the local timestamp.
             let decoded = stored.replacingModifiedAt(Date(timeIntervalSince1970: Double(row.modifiedAt) / 1000))
 
-            var images: [UUID: Data] = [:]
+            // One image, already in memory: cloud sync downloads exactly one, so the `.data` case
+            // is the right payload. The archive path stages to files instead, because holding all
+            // of them was what stopped a self-export from being re-importable (AIA-0755).
+            var images: [UUID: ImportedImage] = [:]
             if row.hasImage {
                 do {
                     let bytes = try await transport.downloadImage(id: row.id)
@@ -1071,7 +1122,7 @@ final class FindingsSyncCoordinator: ObservableObject {
                     // archive reader, so without this a small file declaring an enormous canvas
                     // would be stored unchecked and allocate wherever the list first draws it.
                     try FindingArchiveImport.validateDownloadedImage(bytes, id: row.id)
-                    images[row.id] = bytes
+                    images[row.id] = .data(bytes)
                 } catch let error as FindingsCloudError where error.code == "not_found" {
                     // The picture is gone but the finding is not. Importing it without the image
                     // keeps the title, the note and the coordinates; returning early here used to

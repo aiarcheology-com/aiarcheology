@@ -188,4 +188,59 @@ final class FindingsArchiveReadingTests: XCTestCase {
 			XCTAssertEqual(error as? ZipArchiveReaderError, .notAZipArchive)
 		}
 	}
+
+	// MARK: - Reading the archive off disk (AIA-0755)
+
+	/// The file-backed reader is only useful if it is the SAME reader: findings import moved to it
+	/// so a large export never costs its own size in RAM, and that swap is only safe while both
+	/// initialisers see byte-identical entries.
+	func test_fileReader_seesTheSameEntriesAndBytesAsTheInMemoryReader() throws {
+		let url = try XCTUnwrap(Bundle.module.url(forResource: "findings-export-deflate", withExtension: "zip"))
+		let fromDisk = try ZipArchiveReader(fileAt: url, allowsDeflate: true)
+		let fromMemory = try ZipArchiveReader(bytes: try findingsArchiveBytes(), allowsDeflate: true)
+
+		XCTAssertEqual(fromDisk.entries, fromMemory.entries)
+		for entry in fromMemory.entries {
+			XCTAssertEqual(
+				try fromDisk.bytes(named: entry.name, maximumByteCount: 1024 * 1024),
+				try fromMemory.bytes(named: entry.name, maximumByteCount: 1024 * 1024),
+				"entry '\(entry.name)' differs between the two readers"
+			)
+		}
+	}
+
+	/// The per-entry bomb bound is the reader's, not the in-memory initialiser's, so it has to hold
+	/// on the path that no longer has an archive-size cap in front of it.
+	func test_fileReader_stillRefusesAnEntryOverTheCapOnItsDeclaredSize() throws {
+		let url = try XCTUnwrap(Bundle.module.url(forResource: "findings-export-deflate", withExtension: "zip"))
+		let reader = try ZipArchiveReader(fileAt: url, allowsDeflate: true)
+		let name = "Findings/images/00000000-0000-0000-0000-000000000001.jpg"
+		XCTAssertThrowsError(try reader.bytes(named: name, maximumByteCount: 64)) { error in
+			XCTAssertEqual(error as? ZipArchiveReaderError, .entryTooLarge(name: name, byteCount: 4100))
+		}
+	}
+
+	/// A directory is what a document picker really hands back for some selections, so it must be a
+	/// refusal rather than a trap. Deliberately asserts only THAT it throws: `FileHandle` opens a
+	/// directory successfully on Darwin, so which refusal arrives is a detail of where the read
+	/// fails, not a contract worth pinning.
+	func test_fileReader_directoryURL_throws() throws {
+		let directory = FileManager.default.temporaryDirectory
+			.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+		defer { try? FileManager.default.removeItem(at: directory) }
+
+		XCTAssertThrowsError(try ZipArchiveReader(fileAt: directory, allowsDeflate: true))
+	}
+
+	/// A path with nothing behind it is the resumable case — an import whose staged copy was purged
+	/// — and it must surface as an ordinary refusal.
+	func test_fileReader_missingFile_isUnreadableRatherThanATrap() {
+		let missing = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).zip")
+		XCTAssertThrowsError(try ZipArchiveReader(fileAt: missing, allowsDeflate: true)) { error in
+			guard case .unreadable = error as? ZipArchiveReaderError else {
+				return XCTFail("expected .unreadable, got \(error)")
+			}
+		}
+	}
 }

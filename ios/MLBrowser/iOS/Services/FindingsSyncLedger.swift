@@ -33,6 +33,12 @@ struct PendingDelete: Codable, Sendable, Equatable {
 /// cost is bandwidth, not correctness — which is the whole reason this can live in a file rather
 /// than needing a Core Data model version and a hand-written migration.
 struct FindingsSyncLedger: Codable, Sendable, Equatable {
+    /// - Important: bumping this is not free. ``FindingsSyncLedgerStore/loadLedger()`` compares it
+    ///   for EQUALITY and treats any other value as unreadable — which since AIA-0755 means the
+    ///   fail-safe: back-up switched off and the account marked as holding unknown uploads. A bump
+    ///   would therefore do that to every device at once, so a new version needs a migration path
+    ///   in `loadLedger` rather than just a new number here. Adding an OPTIONAL field needs no
+    ///   bump: synthesised decoding fills it with nil and the accessor supplies the default.
     static let currentSchemaVersion = 1
 
     var schemaVersion = FindingsSyncLedger.currentSchemaVersion
@@ -79,6 +85,27 @@ struct FindingsSyncLedger: Codable, Sendable, Equatable {
     var backUpEnabled: Bool {
         get { backUpEnabledFlag ?? true }
         set { backUpEnabledFlag = newValue }
+    }
+
+    /// Set when this ledger replaced one that could not be read (AIA-0755).
+    ///
+    /// A reset loses `uploaded`, and `uploaded` is how ``FindingsSyncLedgerStore/accountsHolding``
+    /// finds the account that owns a cloud copy. Without this the user could delete a finding
+    /// while signed out, no tombstone would be written for that account, and the copy would come
+    /// back on the next sign-in — for this app, site coordinates reappearing after someone chose
+    /// to remove them. While it is set the account is treated as possibly holding anything, which
+    /// is the conservative direction; it is cleared by the first pull that reaches the end of the
+    /// account's index, because at that point `uploaded` has been rebuilt from the index itself.
+    ///
+    /// Optional and **declared last** for the same two reasons as `backUpEnabledFlag`: an older
+    /// file has no such key, and the memberwise initialiser's argument order follows declaration
+    /// order, so appending is the only change that cannot break an existing call site.
+    var holdsUnknownUploads: Bool?
+
+    /// Whether this account might hold cloud copies the ledger cannot name.
+    var holdsUnknownCloudCopies: Bool {
+        get { holdsUnknownUploads ?? false }
+        set { holdsUnknownUploads = newValue }
     }
 
     /// Whether this account may upload the finding at all.
@@ -154,10 +181,33 @@ actor FindingsSyncLedgerStore {
         var accounts: Set<String> = []
         let key = entityId.uuidString
         for file in files where file.hasPrefix("ledger-") && file.hasSuffix(".json") {
-            guard let data = try? Data(contentsOf: directory.appendingPathComponent(file)),
-                  let ledger = try? JSONDecoder().decode(FindingsSyncLedger.self, from: data),
-                  ledger.uploaded[key] != nil
-            else { continue }
+            // A file whose BYTES will not read is not "an account that holds nothing" -- it is an
+            // account this device can say nothing about, which is the same state as one that will
+            // not decode. Skipping it here was how the missing tombstone got missed twice.
+            let data = try? Data(contentsOf: directory.appendingPathComponent(file))
+            let decoded = data.flatMap { try? JSONDecoder().decode(FindingsSyncLedger.self, from: $0) }
+            // Judged by the same rule `loadLedger` uses, so the two cannot disagree about which
+            // ledgers are trustworthy: a version this build does not know may store ownership
+            // differently, and reading its `uploaded` as authoritative is a guess.
+            let ledger = decoded.flatMap {
+                $0.schemaVersion == FindingsSyncLedger.currentSchemaVersion ? $0 : nil
+            }
+            // Three ways an account earns a tombstone, and two of them are AIA-0755.
+            //
+            //  - Its ledger names this finding. The ordinary case.
+            //  - Its ledger was reset after being unreadable and has not been rebuilt yet, so it
+            //    cannot name anything it once held.
+            //  - Its ledger will not decode AT ALL. That is the same state one moment earlier,
+            //    before any save has replaced the file, and skipping it here is exactly the hole
+            //    that let a deleted finding come back.
+            //
+            // The conservative direction is not free: the Worker's DELETE writes a tombstone row
+            // even for an id the account never held, and that tombstone is listed to the account's
+            // other devices. It is the same thing that already happens for whichever account is
+            // signed in, it lasts only until the first complete pull, and the alternative is a
+            // finding the user deleted reappearing with its coordinates.
+            let holds = ledger.map { $0.uploaded[key] != nil || $0.holdsUnknownCloudCopies } ?? true
+            guard holds else { continue }
             // The ledger filename carries the account's hash, not the account -- which is the
             // point -- so what comes back addresses a ledger rather than naming a person.
             accounts.insert(String(file.dropFirst("ledger-".count).dropLast(".json".count)))
@@ -171,15 +221,40 @@ actor FindingsSyncLedgerStore {
     }
 
     func loadLedger() -> FindingsSyncLedger {
-        guard let ledgerURL, let data = try? Data(contentsOf: ledgerURL) else { return FindingsSyncLedger() }
-        guard let decoded = try? JSONDecoder().decode(FindingsSyncLedger.self, from: data),
+        guard let ledgerURL else { return FindingsSyncLedger() }
+        // NO FILE and UNREADABLE FILE are different answers, and collapsing them fails open.
+        // No file is a first run for this account: nothing was ever decided, so the defaults are
+        // right. A file that exists but will not read is a decision this device made and can no
+        // longer see -- possibly "do not back up" -- and it gets the same fail-safe as one that
+        // will not decode.
+        let data = try? Data(contentsOf: ledgerURL)
+        if data == nil, FileManager.default.fileExists(atPath: ledgerURL.path) == false {
+            return FindingsSyncLedger()
+        }
+        guard let data,
+              let decoded = try? JSONDecoder().decode(FindingsSyncLedger.self, from: data),
               decoded.schemaVersion == FindingsSyncLedger.currentSchemaVersion
         else {
-            // Unreadable or from a future build: start over rather than guess. Everything in here
-            // is recoverable by re-uploading, and the Worker accepts a replay at an equal
-            // timestamp without duplicating anything.
+            // Unreadable or from a future build: start over rather than guess. Most of what is lost
+            // is recoverable by re-uploading, and the Worker accepts a replay at an equal timestamp
+            // without duplicating anything.
+            //
+            // Two fields are NOT just cache, and resetting them silently was AIA-0755:
+            //
+            //  - `backUpEnabledFlag`. An absent flag means ON, so a plain reset turns a user's
+            //    "do not back up my findings" back into "do", and the next cycle starts uploading.
+            //    A ledger that cannot be read is not consent, so the fail-safe direction is off.
+            //    Nothing is destroyed by that: the push is skipped, the pull still runs, tombstones
+            //    still flush, and the Settings toggle turns it back on.
+            //  - `uploaded`. It is what `accountsHolding` uses to find the account that owns a
+            //    cloud copy, so losing it means a signed-out delete writes no tombstone and the
+            //    finding returns on the next sign-in. The account is therefore marked as holding
+            //    unknown copies until a pull has rebuilt the list from the account's own index.
             LoggingPolicy.warning("Findings sync ledger was unreadable and has been reset", logger: .storage)
-            return FindingsSyncLedger()
+            var reset = FindingsSyncLedger()
+            reset.backUpEnabled = false
+            reset.holdsUnknownCloudCopies = true
+            return reset
         }
         return decoded
     }

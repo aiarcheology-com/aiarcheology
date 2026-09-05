@@ -119,6 +119,132 @@ final class FindingArchiveImportTests: XCTestCase {
 		try Finding.save(in: moc)
 	}
 
+	// MARK: - Staging the images rather than holding them (AIA-0755)
+
+	/// The point of the whole change: a validated image is a FILE, not bytes the import is carrying.
+	///
+	/// This is what removed the 256 MB aggregate cap, and with it the case where the app exported an
+	/// archive it then refused to read back -- offered as the escape hatch immediately before
+	/// "Remove all findings".
+	func testRead_stagesEachValidatedImageOnDiskRatherThanInMemory() throws {
+		try saveFinding(title: "Ringfort")
+		try saveFinding(title: "Burial mound")
+		let archive = try exportEverything()
+
+		let contents = try FindingArchiveImport.read(archiveAt: archive)
+		defer { contents.discard() }
+
+		let staging = try XCTUnwrap(contents.stagingDirectory)
+		XCTAssertEqual(contents.images.count, 2)
+		for (id, image) in contents.images {
+			guard case let .file(url) = image else {
+				return XCTFail("finding \(id) was carried in memory, not staged")
+			}
+			XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+			XCTAssertEqual(url.deletingLastPathComponent().standardizedFileURL, staging.standardizedFileURL)
+		}
+	}
+
+	/// Staged bytes are the archive's bytes. Nothing decodes and re-encodes on the way through, so a
+	/// round trip does not quietly degrade the picture.
+	func testRead_stagedImageBytesAreTheArchivesOwn() throws {
+		try saveFinding(title: "Ringfort")
+		let original = try Data(contentsOf: XCTUnwrap(sut.allFindingSnapshots().first?.screenshotSourceURL))
+		let archive = try exportEverything()
+
+		let contents = try FindingArchiveImport.read(archiveAt: archive)
+		defer { contents.discard() }
+
+		let image = try XCTUnwrap(contents.images.values.first)
+		XCTAssertEqual(try image.read(), original)
+	}
+
+	/// The staged files are the caller's to clean up, and `discard` is how.
+	func testDiscard_removesTheStagedImages() throws {
+		try saveFinding(title: "Ringfort")
+		let contents = try FindingArchiveImport.read(archiveAt: try exportEverything())
+		let staging = try XCTUnwrap(contents.stagingDirectory)
+		XCTAssertTrue(FileManager.default.fileExists(atPath: staging.path))
+
+		contents.discard()
+		XCTAssertFalse(FileManager.default.fileExists(atPath: staging.path))
+		// Held in SwiftUI @State across an alert, so both the commit and the cancel path can call it.
+		contents.discard()
+	}
+
+	/// Refused BEFORE anything is written, so a device that cannot hold the archive does not first
+	/// fill itself up discovering that.
+	func testRead_whenTheImagesWillNotFit_isRefusedAndStagesNothing() throws {
+		try saveFinding(title: "Ringfort")
+		let archive = try exportEverything()
+		// Removed directly rather than through the production purge, which deliberately spares
+		// imports this run staged -- including the ones other tests are holding.
+		try? FileManager.default.removeItem(at: FindingArchiveImport.stagingRootDirectory)
+
+		XCTAssertThrowsError(
+			try FindingArchiveImport.read(archiveAt: archive, availableCapacity: { _ in 0 })
+		) { error in
+			guard case .archiveTooLarge = error as? FindingArchiveImportError else {
+				return XCTFail("expected .archiveTooLarge, got \(error)")
+			}
+		}
+		XCTAssertEqual(
+			stagedImportDirectories(), [],
+			"a refused import must leave no staged images behind"
+		)
+	}
+
+	/// A capacity the archive DOES fit in is not refused -- otherwise the test above would pass for
+	/// the wrong reason for ever.
+	func testRead_whenThereIsRoom_isNotRefused() throws {
+		try saveFinding(title: "Ringfort")
+		let archive = try exportEverything()
+
+		let contents = try FindingArchiveImport.read(archiveAt: archive, availableCapacity: { _ in .max })
+		defer { contents.discard() }
+		XCTAssertEqual(contents.rows.count, 1)
+	}
+
+	/// A failure partway through takes the images it already staged with it. Without this an archive
+	/// that fails on its fortieth image leaves thirty-nine on disk, for a user who just saw an error
+	/// and may never import again.
+	func testRead_failingPartWayThrough_leavesNothingStaged() throws {
+		let good = UUID()
+		let bad = UUID()
+		let manifest = """
+		{"schemaVersion":1,"findings":[
+		  {"id":"\(good.uuidString)","title":"Good","screenshot":"images/\(good.uuidString).jpg"},
+		  {"id":"\(bad.uuidString)","title":"Bad","screenshot":"images/\(bad.uuidString).jpg"}
+		]}
+		"""
+		let realImage = try XCTUnwrap(makeImage().jpegData(compressionQuality: 0.8))
+		let archive = try makeArchive(
+			manifest: manifest,
+			images: [
+				"\(good.uuidString).jpg": realImage,
+				"\(bad.uuidString).jpg": Data("not an image".utf8)
+			]
+		)
+		// Removed directly rather than through the production purge, which deliberately spares
+		// imports this run staged -- including the ones other tests are holding.
+		try? FileManager.default.removeItem(at: FindingArchiveImport.stagingRootDirectory)
+
+		XCTAssertThrowsError(try FindingArchiveImport.read(archiveAt: archive))
+		XCTAssertEqual(
+			stagedImportDirectories(), [],
+			"the good image staged before the bad one was rejected is still on disk"
+		)
+	}
+
+	/// Per-import staging directories currently on disk. The ROOT is allowed to survive as an empty
+	/// shell -- it is one `mkdir` and the next import reuses it; what must never survive a refusal
+	/// is a staged import inside it.
+	private func stagedImportDirectories() -> [String] {
+		(try? FileManager.default.contentsOfDirectory(
+			atPath: FindingArchiveImport.stagingRootDirectory.path
+		)) ?? []
+	}
+
 	// MARK: - The round trip this phase exists for
 
 	/// Export, wipe, import: every field and the image bytes come back. Uses the REAL exporter, so

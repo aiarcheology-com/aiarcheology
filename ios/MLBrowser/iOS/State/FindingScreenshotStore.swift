@@ -76,6 +76,46 @@ enum FindingScreenshotStore {
         return filename
     }
 
+    /// Stores a screenshot that is already a file, without reading it into memory (AIA-0755).
+    ///
+    /// An archive import stages every validated image on disk precisely so the whole set is never
+    /// resident; loading each one back just to hand it to `save(_ data:)` would put the peak
+    /// straight back. On APFS the copy is a clone, so this costs no additional bytes either.
+    ///
+    /// **Replaces by rename, exactly as `save(_ data:)`'s `.atomic` write does, and that is
+    /// load-bearing.** `FindingRepository` backs up the image it is about to replace with a hard
+    /// link; a writer that truncated the existing file in place would change the bytes behind that
+    /// link and leave the rollback with nothing to restore.
+    static func save(copyingFrom source: URL, for entityId: UUID, pathExtension: String = "jpg") throws -> String {
+        guard let directory else {
+            throw ModelFileStorageError.cannotAccessDocuments
+        }
+        guard let filename = Finding.screenshotFilename(for: entityId, pathExtension: pathExtension) else {
+            throw ModelFileStorageError.fileOperationFailed
+        }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let destination = directory.appendingPathComponent(filename)
+
+        // Copied to a sibling first, then swapped in: `copyItem` refuses an existing destination,
+        // and a remove-then-copy would leave a window where the finding has no image at all.
+        let staged = directory.appendingPathComponent("\(UUID().uuidString).\(pathExtension)")
+        do {
+            // The copy sits inside the cleanup scope too: a copy that fails partway leaves a
+            // partial sibling, and nothing but the orphan sweep would ever remove it.
+            try FileManager.default.copyItem(at: source, to: staged)
+            if FileManager.default.fileExists(atPath: destination.path) {
+                _ = try FileManager.default.replaceItemAt(destination, withItemAt: staged)
+            } else {
+                try FileManager.default.moveItem(at: staged, to: destination)
+            }
+        } catch {
+            try? FileManager.default.removeItem(at: staged)
+            throw error
+        }
+        LoggingPolicy.debug("Finding screenshot stored from a staged file", logger: .storage)
+        return filename
+    }
+
     /// Scales the image down so its longest PIXEL edge is at most `maximumLongEdgePixels`.
     /// Never upscales — a small capture is returned untouched, so the only images that pay the
     /// redraw are the ones that would otherwise waste bytes.

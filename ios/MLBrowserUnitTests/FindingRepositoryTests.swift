@@ -452,4 +452,91 @@ final class FindingRepositoryTests: XCTestCase {
 		else { return [] }
 		return Set(urls.map(\.lastPathComponent))
 	}
+
+	// MARK: - The hard-link backup the import rollback depends on (AIA-0755)
+
+	/// **This is the assertion the whole rollback rests on.**
+	///
+	/// `importFindings` no longer copies a replaced screenshot's bytes into memory -- it hard-links
+	/// the file and lets the writer put the new picture at the same name. That is only a backup while
+	/// every writer into the findings directory REPLACES BY RENAME. A writer that truncated the file
+	/// in place would change the bytes behind the link, and a rollback would restore the very image it
+	/// was supposed to undo -- silently, and only on a path that already went wrong.
+	///
+	/// The inode comparison is the real assertion; the bytes are the symptom. To prove this test can
+	/// fail, change `FindingScreenshotStore.save`'s write to `options: []` and watch it go red.
+	func testSaveData_replacingAnImage_leavesAHardLinkedBackupHoldingTheOldBytes() throws {
+		let id = UUID()
+		let before = Data(repeating: 0xA1, count: 2048)
+		let after = Data(repeating: 0xB2, count: 4096)
+
+		let filename = try FindingScreenshotStore.save(before, for: id, pathExtension: "jpg")
+		let stored = try XCTUnwrap(FindingScreenshotStore.url(forFilename: filename))
+		let backup = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		try FileManager.default.linkItem(at: stored, to: backup)
+		defer {
+			try? FileManager.default.removeItem(at: backup)
+			FindingScreenshotStore.delete(filename: filename)
+		}
+
+		_ = try FindingScreenshotStore.save(after, for: id, pathExtension: "jpg")
+
+		XCTAssertEqual(try Data(contentsOf: stored), after)
+		XCTAssertEqual(try Data(contentsOf: backup), before, "the backup followed the new write")
+		XCTAssertNotEqual(
+			try stored.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier as? NSObject,
+			try backup.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier as? NSObject,
+			"the write must land on a NEW inode -- an in-place write silently voids every backup"
+		)
+	}
+
+	/// The same property for the file-to-file writer an archive import uses. It has its own code
+	/// path -- copy to a sibling, then swap -- so it needs its own proof.
+	func testSaveCopyingFrom_replacingAnImage_leavesAHardLinkedBackupHoldingTheOldBytes() throws {
+		let id = UUID()
+		let before = Data(repeating: 0xC3, count: 2048)
+		let after = Data(repeating: 0xD4, count: 4096)
+
+		let filename = try FindingScreenshotStore.save(before, for: id, pathExtension: "jpg")
+		let stored = try XCTUnwrap(FindingScreenshotStore.url(forFilename: filename))
+		let backup = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		try FileManager.default.linkItem(at: stored, to: backup)
+		let incoming = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).jpg")
+		try after.write(to: incoming)
+		defer {
+			try? FileManager.default.removeItem(at: backup)
+			try? FileManager.default.removeItem(at: incoming)
+			FindingScreenshotStore.delete(filename: filename)
+		}
+
+		_ = try FindingScreenshotStore.save(copyingFrom: incoming, for: id, pathExtension: "jpg")
+
+		XCTAssertEqual(try Data(contentsOf: stored), after)
+		XCTAssertEqual(try Data(contentsOf: backup), before, "the backup followed the new write")
+		XCTAssertNotEqual(
+			try stored.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier as? NSObject,
+			try backup.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier as? NSObject,
+			"the swap must land on a NEW inode -- an in-place write silently voids every backup"
+		)
+	}
+
+	/// Storing from a file leaves no debris beside the finding it stored. The sibling the swap uses
+	/// is not canonical, and the orphan sweep would delete it -- but only later, and only if it ran.
+	func testSaveCopyingFrom_leavesNoStagedSiblingBehind() throws {
+		let id = UUID()
+		let incoming = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).jpg")
+		try Data(repeating: 0xE5, count: 1024).write(to: incoming)
+		defer { try? FileManager.default.removeItem(at: incoming) }
+
+		// Measured against what was already there: this suite shares the real Documents/Findings
+		// directory, so the property is "one new file", not "one file".
+		let before = Self.screenshotFilenames()
+		let filename = try FindingScreenshotStore.save(copyingFrom: incoming, for: id, pathExtension: "jpg")
+		defer { FindingScreenshotStore.delete(filename: filename) }
+
+		XCTAssertEqual(
+			Self.screenshotFilenames().subtracting(before), [filename],
+			"the sibling the swap copies through must not survive the store"
+		)
+	}
 }

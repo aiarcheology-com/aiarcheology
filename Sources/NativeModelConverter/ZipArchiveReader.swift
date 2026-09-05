@@ -71,6 +71,26 @@ public struct ZipArchiveReader {
 		}
 	}
 
+	/// Opens an archive that stays on disk.
+	///
+	/// Nothing here materialises the file. `open` reads the end-of-central-directory records and the
+	/// central directory and nothing else, and ``bytes(named:maximumByteCount:)`` resolves one
+	/// entry's local header when that entry is actually asked for — so a multi-hundred-megabyte
+	/// archive costs a few hundred kilobytes of reads instead of its own size in RAM. That is the
+	/// whole reason a findings export can be larger than the device would tolerate holding.
+	///
+	/// - Important: the underlying file handle lives as long as the reader and closes with it. The
+	///   caller must not delete or replace the file while the reader is alive.
+	public init(fileAt url: URL, allowsDeflate: Bool = false) throws {
+		do {
+			archive = try PyTorchZipArchive.open(try FileBytes(url: url), allowsDeflate: allowsDeflate)
+		} catch let error as PyTorchZipArchiveError {
+			throw Self.surface(error, name: nil)
+		} catch let error as RandomAccessBytesError {
+			throw ZipArchiveReaderError.unreadable("\(error)")
+		}
+	}
+
 	/// Every entry the central directory declares, in directory order.
 	public var entries: [Entry] {
 		archive.entries.map { Entry(name: $0.name, uncompressedSize: $0.uncompressedSize) }

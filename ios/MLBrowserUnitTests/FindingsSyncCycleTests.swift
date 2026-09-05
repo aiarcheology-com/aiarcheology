@@ -361,6 +361,79 @@ extension FindingsSyncCycleTests {
 
 	/// Saves a finding while nobody is signed in, so the store holds work this account did not make
 	/// — the shared-device case.
+	// MARK: - Rebuilding a ledger after corruption (AIA-0755)
+
+	private func ledgerStore() throws -> FindingsSyncLedgerStore {
+		FindingsSyncLedgerStore(accountIdentifier: try XCTUnwrap(auth.accountIdentifier), directory: scratch)
+	}
+
+	/// Overwrites the signed-in account's ledger with bytes that will not decode, which is the state
+	/// `loadLedger` answers with back-up off and "holds unknown copies".
+	private func corruptLedger() async throws {
+		try await ledgerStore().save(FindingsSyncLedger())
+		let file = try XCTUnwrap(
+			try FileManager.default.contentsOfDirectory(atPath: scratch.path).first { $0.hasPrefix("ledger-") }
+		)
+		try Data("not json".utf8).write(to: scratch.appendingPathComponent(file))
+	}
+
+	/// One index row whose metadata this build cannot read, so the pull moves past it.
+	private func stubIndex(row id: UUID, modifiedAt: Int64, hasMore: Bool, secondPage: (Int, Data)? = nil) {
+		StubWorkerProtocol.handler = { request in
+			let path = request.url?.path ?? ""
+			if path.hasSuffix("/meta") { return (200, Data("not json".utf8)) }
+			if request.url?.query?.contains("cursor") == true, let secondPage { return secondPage }
+			return (200, StubWorkerProtocol.json([
+				"findings": request.url?.query?.contains("cursor") == true ? [] : [[
+					"id": id.uuidString, "modifiedAt": modifiedAt, "receivedAt": modifiedAt + 1,
+					"deleted": false, "bytes": 512, "hasImage": false
+				]],
+				"nextCursor": "1.\(id.uuidString)", "hasMore": hasMore,
+				"usage": ["used": 512, "limit": 52_428_800]
+			]))
+		}
+	}
+
+	/// A ledger rebuilt after corruption has to end up naming every row the index lists -- including
+	/// one whose metadata this build could not use. Otherwise the walk ends, the flag clears, the
+	/// cursor never comes back this way, and a signed-out delete writes no tombstone for a finding
+	/// the account still holds: the very resurrection AIA-0755 exists to stop.
+	func testRebuildingALedgerRecordsEvenTheRowsItCouldNotUse() async throws {
+		try await corruptLedger()
+		let id = UUID()
+		let modifiedAt: Int64 = 1_700_000_000_000
+		stubIndex(row: id, modifiedAt: modifiedAt, hasMore: false)
+
+		await sut.syncNow()?.value
+
+		let ledger = try await ledgerStore().loadLedger()
+		XCTAssertNil(storedFinding(id), "precondition: the row was moved past, not applied")
+		XCTAssertFalse(ledger.backUpEnabled, "a ledger that could not be read is not consent")
+		XCTAssertTrue(
+			StubWorkerProtocol.requests.filter { $0.hasPrefix("PUT") }.isEmpty,
+			"with back-up off nothing may leave the device"
+		)
+		XCTAssertFalse(ledger.holdsUnknownCloudCopies, "reaching the end of the index clears the flag")
+		XCTAssertEqual(
+			ledger.uploaded[id.uuidString], modifiedAt,
+			"and it may only clear because the row the walk could not use was recorded as held"
+		)
+	}
+
+	/// The flag is cleared by reaching the END of the index and by nothing less. A walk that stops
+	/// early -- here the second page fails -- has not rebuilt anything it can vouch for.
+	func testRebuildingALedgerIsNotDeclaredDoneByAWalkThatStoppedEarly() async throws {
+		try await corruptLedger()
+		let id = UUID()
+		stubIndex(row: id, modifiedAt: 1_700_000_000_000, hasMore: true, secondPage: (500, Data()))
+
+		await sut.syncNow()?.value
+
+		let ledger = try await ledgerStore().loadLedger()
+		XCTAssertTrue(ledger.holdsUnknownCloudCopies, "the walk did not reach the end, so the account still holds unknown copies")
+		XCTAssertFalse(ledger.backUpEnabled)
+	}
+
 	private func saveFindingBelongingToNobody(title: String) throws -> Finding {
 		auth.setOutcomeForTesting(.signedOut)
 		defer { auth.setOutcomeForTesting(.ready) }

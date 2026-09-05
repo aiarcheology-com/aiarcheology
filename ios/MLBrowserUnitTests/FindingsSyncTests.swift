@@ -15,8 +15,20 @@ import XCTest
 /// tested as arithmetic rather than only through a full sync.
 final class FindingsSyncLedgerTests: XCTestCase {
 
+	/// Every directory a test asked for, removed when it ends. The test host is the app itself and
+	/// shares its container, so without this each run left one `tmp/<UUID>` of ledger files behind
+	/// per test -- harmless, but indistinguishable at a glance from an import that leaked.
+	private var scratchDirectories: [URL] = []
+
+	override func tearDown() async throws {
+		for directory in scratchDirectories { try? FileManager.default.removeItem(at: directory) }
+		scratchDirectories = []
+		try await super.tearDown()
+	}
+
 	private func makeStore(account: String) -> (FindingsSyncLedgerStore, URL) {
 		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		scratchDirectories.append(directory)
 		return (FindingsSyncLedgerStore(accountIdentifier: account, directory: directory), directory)
 	}
 
@@ -81,6 +93,7 @@ final class FindingsSyncLedgerTests: XCTestCase {
 		// A shared device. If a single ledger served both, the second account's client would
 		// believe the first account's findings were already backed up, and would read its cursor.
 		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		scratchDirectories.append(directory)
 		let first = FindingsSyncLedgerStore(accountIdentifier: "user_first", directory: directory)
 		let second = FindingsSyncLedgerStore(accountIdentifier: "user_second", directory: directory)
 
@@ -99,6 +112,7 @@ final class FindingsSyncLedgerTests: XCTestCase {
 	func testTheAccountIdIsNotSpelledIntoAFilename() async throws {
 		// It identifies a person, and filenames are the least protected thing an app writes.
 		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		scratchDirectories.append(directory)
 		let store = FindingsSyncLedgerStore(accountIdentifier: "user_2abcSECRETid", directory: directory)
 		await store.save(FindingsSyncLedger())
 
@@ -109,9 +123,14 @@ final class FindingsSyncLedgerTests: XCTestCase {
 		}
 	}
 
-	func testACorruptLedgerIsDiscardedRatherThanTrusted() async throws {
+	func testACorruptLedgerIsDiscardedButFailsSafeRatherThanOpenly() async throws {
+		// Renamed from ...IsDiscardedRatherThanTrusted at AIA-0755. Discarding the cache is right;
+		// discarding it QUIETLY was the bug. Two of these fields are not cache, and the old test
+		// passed without noticing either.
 		let (store, directory) = makeStore(account: "user_corrupt")
-		await store.save(FindingsSyncLedger(schemaVersion: 1, cursor: "9.z", uploaded: ["A": 3]))
+		var stored = FindingsSyncLedger(schemaVersion: 1, cursor: "9.z", uploaded: ["A": 3])
+		stored.backUpEnabled = false
+		await store.save(stored)
 		let file = try XCTUnwrap(
 			try FileManager.default.contentsOfDirectory(atPath: directory.path).first { $0.hasPrefix("ledger-") }
 		)
@@ -120,6 +139,99 @@ final class FindingsSyncLedgerTests: XCTestCase {
 		let recovered = await store.loadLedger()
 		XCTAssertNil(recovered.cursor)
 		XCTAssertTrue(recovered.uploaded.isEmpty)
+		XCTAssertFalse(
+			recovered.backUpEnabled,
+			"an unreadable ledger is not consent: resetting to the default turned the user's 'do not back up' back into 'do'"
+		)
+		XCTAssertTrue(
+			recovered.holdsUnknownCloudCopies,
+			"the account may still hold cloud copies this ledger can no longer name"
+		)
+	}
+
+	/// A ledger from a build this one does not know takes the same fail-safe. It is the same guard,
+	/// and pinning it is what stops a future schema bump from quietly shipping the OPPOSITE -- every
+	/// device in the field silently resuming uploads on first launch.
+	func testALedgerFromAnUnknownSchemaAlsoFailsSafe() async throws {
+		let (store, directory) = makeStore(account: "user_future")
+		await store.save(FindingsSyncLedger())
+		let file = try XCTUnwrap(
+			try FileManager.default.contentsOfDirectory(atPath: directory.path).first { $0.hasPrefix("ledger-") }
+		)
+		// A REAL ledger with only the version changed. A hand-written fixture that happens to be
+		// missing a non-optional key fails to decode at all and takes the same fail-safe branch for
+		// the wrong reason -- which is what the first version of this test did.
+		var object = try XCTUnwrap(
+			JSONSerialization.jsonObject(with: JSONEncoder().encode(FindingsSyncLedger())) as? [String: Any]
+		)
+		object["schemaVersion"] = FindingsSyncLedger.currentSchemaVersion + 1
+		let data = try JSONSerialization.data(withJSONObject: object)
+		XCTAssertNoThrow(try JSONDecoder().decode(FindingsSyncLedger.self, from: data), "the fixture must decode")
+		try data.write(to: directory.appendingPathComponent(file))
+
+		let recovered = await store.loadLedger()
+		XCTAssertFalse(recovered.backUpEnabled)
+		XCTAssertTrue(recovered.holdsUnknownCloudCopies)
+	}
+
+	/// The other half of the corrupt-ledger bug: with `uploaded` gone, nothing could tell a
+	/// signed-out delete which account owned the cloud copy, so no tombstone was written and the
+	/// finding came back on the next sign-in -- for this app, site coordinates reappearing after
+	/// someone chose to remove them.
+	func testAnAccountWithAnUnreadableLedgerStillGetsATombstone() async throws {
+		let (store, directory) = makeStore(account: "user_unreadable")
+		await store.save(FindingsSyncLedger(schemaVersion: 1, uploaded: ["A": 3]))
+		let file = try XCTUnwrap(
+			try FileManager.default.contentsOfDirectory(atPath: directory.path).first { $0.hasPrefix("ledger-") }
+		)
+		try Data("not json".utf8).write(to: directory.appendingPathComponent(file))
+
+		XCTAssertFalse(
+			FindingsSyncLedgerStore.accountsHolding(UUID(), in: directory).isEmpty,
+			"a ledger that will not decode names nothing, so it must be treated as naming everything"
+		)
+	}
+
+	/// And it keeps getting one after the reset ledger has been written back over the corrupt file,
+	/// which is the state the account actually spends its time in.
+	func testAnAccountWhoseLedgerWasResetStillGetsATombstone() async throws {
+		let (store, directory) = makeStore(account: "user_reset")
+		await store.save(FindingsSyncLedger(schemaVersion: 1, uploaded: ["A": 3]))
+		let file = try XCTUnwrap(
+			try FileManager.default.contentsOfDirectory(atPath: directory.path).first { $0.hasPrefix("ledger-") }
+		)
+		try Data("not json".utf8).write(to: directory.appendingPathComponent(file))
+
+		// Exactly what a cycle does: load (which resets), then save the result back.
+		let recovered = await store.loadLedger()
+		await store.save(recovered)
+
+		XCTAssertFalse(
+			FindingsSyncLedgerStore.accountsHolding(UUID(), in: directory).isEmpty,
+			"the flag is what carries the warning across the save that replaces the corrupt file"
+		)
+	}
+
+	/// The flag has to be able to go away again, or the account writes conservative tombstones for
+	/// ever. This pins only that `accountsHolding` honours a cleared flag; WHEN the coordinator
+	/// clears it -- at the end of a complete walk of the index -- is pinned in
+	/// `FindingsSyncCycleTests`.
+	func testAnAccountStopsGettingBlanketTombstonesOnceItsLedgerIsRebuilt() async throws {
+		let (store, directory) = makeStore(account: "user_rebuilt")
+		let held = UUID()
+		var rebuilt = FindingsSyncLedger()
+		rebuilt.holdsUnknownCloudCopies = false
+		rebuilt.uploaded = [held.uuidString: 3]
+		await store.save(rebuilt)
+
+		XCTAssertEqual(
+			FindingsSyncLedgerStore.accountsHolding(held, in: directory).count, 1,
+			"a rebuilt ledger still names the findings it actually holds"
+		)
+		XCTAssertTrue(
+			FindingsSyncLedgerStore.accountsHolding(UUID(), in: directory).isEmpty,
+			"and stops claiming the ones it does not -- otherwise every delete keeps costing a phantom tombstone"
+		)
 	}
 
 	func testACorruptLedgerDoesNotTakeUnsentDeletesWithIt() async throws {

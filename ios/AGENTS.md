@@ -548,6 +548,14 @@ and a missing key stalls a TestFlight build silently, so leave it in place.
 
 ## 14. Code Review Guidelines (what "good" looks like)
 
+**Scope a review to the branch by default, never the whole repository.** Point the reviewer — a
+person, `/code-review`, CodeRabbit, codex, or any agent — at the branch diff against `develop` and
+the files that diff touches. Widen it only when the change's blast radius genuinely reaches
+further, and say so when you do. Two reasons: a whole-repo review returns findings nobody asked for
+and buries the ones about the change, and for a metered reviewer it costs a multiple of the tokens
+for that worse result — a plan review that read the repo freely burned 178K tokens where the diff
+would have cost a fraction.
+
 - Correctness: edge cases handled, errors not swallowed, thread/actor correctness.
 - Maintainability: clear names, minimal public surface area, avoids needless abstraction.
 - SwiftUI: avoids update loops, state is owned appropriately, previews cover key states.
