@@ -169,7 +169,9 @@ final class MapLocationProbeTests: XCTestCase {
 	func testArcGIS_NoProjectionModule_RefreshesTheURLAndNamesTheSystem() async throws {
 		try await load("map_arcgis_no_projection")
 		let stale = URL(string: "https://example.org/av/?extent=-831002.32,-1032569.72,-826473.74,-1029973.39&zvd=dmr5g")
-		let location = MapLocationResolver.resolve(url: stale, probe: await probe())
+		// `pageMaintainsItsURL: false` is the page this test is about: one whose address bar stays at
+		// the view the user arrived with, which is the only case AIA-0871 still refreshes.
+		let location = MapLocationResolver.resolve(url: stale, probe: await probe(), pageMaintainsItsURL: false)
 
 		XCTAssertEqual(location.gpsPrefill, "S-JTSK (EPSG:5514): -828738.04, -1031271.56")
 		let refreshed = location.sourceURL?.absoluteString ?? ""

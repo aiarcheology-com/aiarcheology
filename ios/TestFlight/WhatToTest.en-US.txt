@@ -1,32 +1,44 @@
-Build: Aim a finding with the centre crosshair
+Build: Findings record the map page's own address again
 
-Test Focus: Saving a finding used to be a single tap anywhere on the page. It is now an aiming
-step. Tap Find (the crosshair button in the top-right) and a large copy of that same icon — four
-times as wide and four times as tall as the small one in the hint bar — appears in the middle of
-the web content. Tapping it always saves a finding; its colour says what kind. RED means nothing
-was detected under it and the place itself is stored. GREEN means a detected rectangle covers it
-and that rectangle is stored.
+Test Focus: Two changes. Saving a finding is now an aiming step with a crosshair, and a finding
+taken on a map site that keeps its own address bar up to date records that address unchanged.
 
-- With no model running, tap Find and then tap the red crosshair. The finding form must open for
-  the spot under it. Save it and check the finding in the list. This is the "record something the
-  models did not find" case and it must work with detection switched off entirely.
+AIMING A FINDING
+Tap Find (the crosshair button, top right). A large copy of that icon appears in the middle of the
+web content. Tapping it always saves; its colour says what kind. RED means nothing was detected
+under it and the place itself is stored. GREEN means a detected rectangle covers it and that
+rectangle is stored.
 
-- Only a small area in the very middle of the crosshair reacts to a tap. Everywhere else on the
-  page — including most of the drawn crosshair — must still pan, pinch-zoom and flick normally.
-  If the page will not move while the crosshair is up, that is the most important bug to report.
+- With no model running, tap Find and then the red crosshair. The finding form must open for the
+  spot under it. This must work with detection switched off entirely.
 
-- Now enable a model and start detection on a page where rectangles are found. Pan the page to
-  bring one under the crosshair; it must turn green. Tap it and confirm the form opens for that
-  rectangle, with its image and label, rather than for a blank spot.
+- Only a small area in the very middle reacts to a tap. Everywhere else on the page — including
+  most of the drawn crosshair — must still pan, pinch-zoom and flick normally. If the page will
+  not move while the crosshair is up, that is the most important bug to report.
 
-- Detection keeps running the whole time you are aiming: the coloured rectangles should refresh and
-  follow the content after each pan or pinch settles, rather than staying stuck where they were.
+- Enable a model, start detection, then pan a detected rectangle under the crosshair. It must turn
+  green; tapping it must open the form for that rectangle, with its image and label.
 
-- Move the page again in the moment between the tap and the form appearing. The form must not open
-  on the old position; you should be left aiming, with a red crosshair, until the page settles.
-
-- Cancel in the hint bar must leave aiming mode at any point without saving anything, and detection
-  must carry on as before.
+- Cancel in the hint bar must leave aiming mode at any point without saving anything.
 
 - The guided tour is deliberately unchanged: its map lesson is still the old single tap, with no
   large crosshair. Run the tour from Settings and confirm it still completes.
+
+THE PAGE ADDRESS SAVED WITH A FINDING
+Reported on atlas.bayern.de: the address stored with a finding pointed at a different country.
+Sites like that one write their own position into the address bar as you pan, and we were
+overwriting it with our own reading of the map.
+
+- On atlas.bayern.de, pan the map and watch the address bar change. Save a finding, then check the
+  Page field in the finding form and in the saved finding: it must be exactly the address the
+  browser is showing, character for character.
+
+- Open that saved link afterwards. It must land on the same place you recorded, not somewhere else.
+
+- KNOWN GAP, please test this specifically: the protection only engages once the app has been seen
+  updating its own address. If you reopen the app straight onto a map page (Reopen Last Page) and
+  save a finding WITHOUT panning first, the old behaviour can still apply and the address may be
+  wrong. Please report whether that reproduces — it decides whether a further fix is needed.
+
+- Sites that never change their address bar while you pan must still behave as before: the saved
+  address should carry the view you were actually looking at, not the one you arrived with.

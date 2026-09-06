@@ -34,10 +34,17 @@ enum MapLocationResolver {
 
 	/// Resolves without touching the web view. Used by tests, by the live harness, and whenever a
 	/// probe is not available.
+	/// - Parameter pageMaintainsItsURL: whether this page has been *seen* rewriting its own address.
+	///   Defaults to `false`, which is the observation's own initial state: nothing has been seen
+	///   yet. It defaults that way deliberately. `true` now skips the whole viewport refresh
+	///   (AIA-0871), so a default of `true` would silently disable AIA-0817 for every caller that
+	///   forgot the argument — including `MapLocationLiveSiteHarness`, whose entire job is to show
+	///   what a frozen-URL site records. Production never relies on this: `BrowserState`
+	///   passes `hasObservedSameDocumentURLChange` explicitly.
 	static func resolve(
 		url: URL?,
 		probe: MapLocationProbe.Result = .empty,
-		pageMaintainsItsURL: Bool = true
+		pageMaintainsItsURL: Bool = false
 	) -> MapPageLocation {
 		let urlReading = url.flatMap(MapURLLocationInference.reading(from:))
 
@@ -69,19 +76,37 @@ enum MapLocationResolver {
 		// The live reading is offered too: a `#Z/LAT/LON` hash is degrees by definition, so it can
 		// only be refreshed from a geographic coordinate, not from the map's native units.
 		let live = probe.reading
-		// A fragment viewport is only refreshed for a page that maintains its own URL. One that never
-		// rewrites its hash is not using it as state, and almost certainly does not read it on load
-		// either — writing a viewport there yields a link that looks precise and opens on the
-		// default view. Query parameters are different: those are what a site's own share action
-		// produces, and refreshing one is how a frozen `extent=` becomes current.
-		let refreshedURL = url.flatMap {
+		// AIA-0871: an app that rewrites its own address as the user pans has ALREADY published this
+		// viewport, and `BrowserState.urlChanged` follows those same-document rewrites into
+		// `committedURL` — so the URL in hand is the app's own and is already current. Refreshing it
+		// substitutes our reading for the app's own numbers, and the two need not mean the same
+		// thing: `unitsAgree` only separates degrees from not-degrees, so a map whose view is held
+		// in one projection while its URL is written in another would pass unchallenged, and so
+		// would a correct pair in the opposite axis order. A finding taken on a Bavarian atlas
+		// recorded a `?c=` pointing into the Baltic; which of those produced it was never
+		// diagnosed against the site's source, and the rule below does not depend on the answer.
+		//
+		// The refresh exists for the opposite page (AIA-0817): one that never touches its address
+		// bar, whose URL stays frozen at the view the user arrived with, so that every finding on
+		// the site records the same place. Only there is our reading better than what is in hand.
+		//
+		// KNOWN GAP: `pageMaintainsItsURL` is an observation, not a property — it is false until the
+		// app is *seen* rewriting its address. A page restored from `lastPage` already carries the
+		// app's own viewport, and a capture taken before the user pans still reaches the refresh.
+		// Closing that needs a guard inside the refresh itself; see AIA-0871's follow-up.
+		//
+		// Consequence worth stating: `refreshedFragment` required `pageMaintainsItsURL`, which is
+		// now exactly the case that skips the refresh, so that path is unreachable from here. The
+		// named-parameter branch inside `replacing()` still handles a `#center=x,y` fragment for a
+		// frozen page. The capability is kept and directly tested — see AIA-0871 before wiring it up.
+		let refreshedURL: URL? = pageMaintainsItsURL ? nil : url.flatMap {
 			MapURLViewportRefresh.refreshed(
 				url: $0,
 				extent: probe.nativeExtent,
 				center: probe.nativeCenter,
 				geographic: live.map { (latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude) },
 				zoom: live?.zoom,
-				mayRefreshFragment: pageMaintainsItsURL
+				mayRefreshFragment: false
 			)
 		}
 
@@ -117,7 +142,8 @@ enum MapLocationResolver {
 		url: URL?,
 		webView: WKWebView?,
 		frames: [WKFrameInfo] = [],
-		pageMaintainsItsURL: Bool = true,
+		// Same default, same reason, as the pure overload above.
+		pageMaintainsItsURL: Bool = false,
 		mayProbe: @escaping @MainActor (URL?) -> Bool
 	) async -> MapPageLocation {
 		let probe = mayProbe(url)

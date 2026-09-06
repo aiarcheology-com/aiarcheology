@@ -176,7 +176,8 @@ final class MapLocationResolverTests: XCTestCase {
 		let stale = url("https://ags.cuzk.cz/av/?extent=-831002.32,-1032569.72,-826473.74,-1029973.39&zvd=dmr5g")
 		let location = MapLocationResolver.resolve(
 			url: stale,
-			probe: probe(nativeExtent: [-820000, -1025000, -815000, -1020000])
+			probe: probe(nativeExtent: [-820000, -1025000, -815000, -1020000]),
+			pageMaintainsItsURL: false
 		)
 		let refreshed = location.sourceURL?.absoluteString ?? ""
 		XCTAssertTrue(refreshed.contains("extent=-820000,-1025000,-815000,-1020000"), refreshed)
@@ -189,20 +190,32 @@ final class MapLocationResolverTests: XCTestCase {
 		// A projected extent, matching the projected replacement. Pairing it with `1,2,3,4` would
 		// now be refused as a units mismatch — the intended behaviour, not a gap.
 		let stale = url("https://example.org/app?extent=-830000,-1030000,-825000,-1025000")
-		let location = MapLocationResolver.resolve(url: stale, probe: probe(nativeExtent: [-820000, -1025000, -815000, -1020000]))
+		let location = MapLocationResolver.resolve(
+			url: stale,
+			probe: probe(nativeExtent: [-820000, -1025000, -815000, -1020000]),
+			pageMaintainsItsURL: false
+		)
 		XCTAssertTrue(location.sourceURL?.absoluteString.contains("-820000") ?? false)
 	}
 
 	func testURLWithNoViewportParameter_IsLeftAlone() {
 		let plain = url("https://ags.cuzk.cz/av/")
-		let location = MapLocationResolver.resolve(url: plain, probe: probe(nativeExtent: [1, 2, 3, 4]))
+		let location = MapLocationResolver.resolve(
+			url: plain,
+			probe: probe(nativeExtent: [1, 2, 3, 4]),
+			pageMaintainsItsURL: false
+		)
 		XCTAssertEqual(location.sourceURL, plain, "a URL that carries no viewport must not be invented")
 	}
 
 	/// A parameter whose value is not a viewport must not be rewritten just because its name matches.
 	func testNonNumericViewportParameter_IsNotTouched() {
 		let odd = url("https://example.org/app?center=auto")
-		let location = MapLocationResolver.resolve(url: odd, probe: probe(nativeCenter: [10, 20]))
+		let location = MapLocationResolver.resolve(
+			url: odd,
+			probe: probe(nativeCenter: [10, 20]),
+			pageMaintainsItsURL: false
+		)
 		XCTAssertEqual(location.sourceURL, odd)
 	}
 
@@ -213,7 +226,8 @@ final class MapLocationResolverTests: XCTestCase {
 		let latitudeFirst = url("https://example.org/app?ll=47.941230,18.709545")
 		let location = MapLocationResolver.resolve(
 			url: latitudeFirst,
-			probe: probe(nativeCenter: [18.71, 47.95], nativeWkid: 4326)
+			probe: probe(nativeCenter: [18.71, 47.95], nativeWkid: 4326),
+			pageMaintainsItsURL: false
 		)
 		let refreshed = location.sourceURL?.absoluteString ?? ""
 		XCTAssertTrue(refreshed.contains("ll=47.95,18.71"), "expected latitude first, got \(refreshed)")
@@ -223,7 +237,8 @@ final class MapLocationResolverTests: XCTestCase {
 		let longitudeFirst = url("https://example.org/app?center=18.709545,47.941230")
 		let location = MapLocationResolver.resolve(
 			url: longitudeFirst,
-			probe: probe(nativeCenter: [18.71, 47.95], nativeWkid: 4326)
+			probe: probe(nativeCenter: [18.71, 47.95], nativeWkid: 4326),
+			pageMaintainsItsURL: false
 		)
 		XCTAssertTrue(location.sourceURL?.absoluteString.contains("center=18.71,47.95") ?? false)
 	}
@@ -249,33 +264,50 @@ final class MapLocationResolverTests: XCTestCase {
 
 	func testCentreRefresh_UnknownParameterName_IsRefused() {
 		let unknown = url("https://example.org/app?q=10,80")
-		let location = MapLocationResolver.resolve(url: unknown, probe: probe(nativeCenter: [-70, 20]))
+		let location = MapLocationResolver.resolve(
+			url: unknown,
+			probe: probe(nativeCenter: [-70, 20]),
+			pageMaintainsItsURL: false
+		)
 		XCTAssertEqual(location.sourceURL, unknown, "an unknown ordering must not be guessed")
 	}
 
 	// MARK: - Fragment viewports
+
+	// AIA-0871: the resolver no longer reaches the fragment path. It required a page that maintains
+	// its own URL, and that is now exactly the case where the URL is left alone — the app has
+	// already published this viewport, so rewriting it can only substitute our reading of it. These
+	// three therefore exercise `MapURLViewportRefresh` directly: the grammar handling is still
+	// correct and still worth pinning, and re-reaching it needs only a caller that can show the
+	// fragment is stale. `testFragmentIsNotRefreshedThroughTheResolver` pins the policy itself.
 
 	/// Reported from the app: demotiles and basemap.at recorded a generic URL, so opening the
 	/// finding's link showed a whole globe rather than the place. Both keep their viewport in the
 	/// fragment, which the named-parameter refresh never looked at.
 	func testMapLibreHash_IsRefreshedFromTheLiveMap() {
 		let stale = url("https://example.org/#1.5/0/0")
-		let location = MapLocationResolver.resolve(
+		let refreshed = MapURLViewportRefresh.refreshed(
 			url: stale,
-			probe: probe(live: coordinate(47.941230, 18.709545))
+			extent: nil,
+			center: nil,
+			geographic: (latitude: 47.941230, longitude: 18.709545),
+			zoom: 1.5
 		)
-		XCTAssertEqual(location.sourceURL?.fragment, "1.5/47.94123/18.709545")
+		XCTAssertEqual(refreshed?.fragment, "1.5/47.94123/18.709545")
 	}
 
 	func testOSMStyleHash_KeepsItsPrefixAndTrailingState() {
 		// Decimals: an all-integer triple is deliberately refused, because three integers split by
 		// slashes is also what a date route looks like.
 		let stale = url("https://example.org/#map=15/10.0/10.0&layers=X")
-		let location = MapLocationResolver.resolve(
+		let refreshed = MapURLViewportRefresh.refreshed(
 			url: stale,
-			probe: probe(live: coordinate(47.941230, 18.709545))
+			extent: nil,
+			center: nil,
+			geographic: (latitude: 47.941230, longitude: 18.709545),
+			zoom: 15
 		)
-		let fragment = location.sourceURL?.fragment ?? ""
+		let fragment = refreshed?.fragment ?? ""
 		XCTAssertTrue(fragment.hasPrefix("map=15/47.94123/18.709545"), fragment)
 		XCTAssertTrue(fragment.hasSuffix("&layers=X"), "the app's other state must survive: \(fragment)")
 	}
@@ -284,20 +316,79 @@ final class MapLocationResolverTests: XCTestCase {
 	/// units — converting it would produce a link the app could not read.
 	func testJSONFragment_CentreIsRefreshedInTheMapsOwnUnits() {
 		let stale = url("https://example.org/app#%7B%22center%22:%5B1445590,6059660%5D,%22zoom%22:8%7D")
-		let location = MapLocationResolver.resolve(
+		let refreshed = MapURLViewportRefresh.refreshed(
 			url: stale,
-			probe: probe(nativeCenter: [1446284.5383729, 6037564.370422], nativeWkid: 3857)
+			extent: nil,
+			center: [1446284.5383729, 6037564.370422],
+			geographic: nil,
+			zoom: 8
 		)
-		let fragment = (location.sourceURL?.fragment ?? "").removingPercentEncoding ?? ""
+		let fragment = (refreshed?.fragment ?? "").removingPercentEncoding ?? ""
 		XCTAssertTrue(fragment.contains("1446284.5383729"), fragment)
 		XCTAssertTrue(fragment.contains("\"zoom\""), "unrelated view state must survive: \(fragment)")
+	}
+
+	// MARK: - AIA-0871: a URL the app maintains itself is never rewritten
+
+	/// The reported failure: atlas.bayern.de rewrites `?c=` as the user pans, so the URL in hand is
+	/// the app's own and is already correct. Refreshing it substituted the map's native pair for the
+	/// app's own numbers and the finding recorded a link to a different country. The exact mismatch
+	/// (axis order, or a view held in one projection while the URL is written in another) was never
+	/// diagnosed against the site's source, and this policy does not depend on which it was: a page
+	/// that maintains its URL is left completely alone.
+	func testAppMaintainedCentre_IsNotRewritten() {
+		let own = url("https://atlas.bayern.de/?c=21.33360,56.06944&z=14&r=0&l=vt_standard&mid=1")
+		let location = MapLocationResolver.resolve(
+			url: own,
+			probe: probe(nativeCenter: [56.06944, 21.33360], nativeWkid: 4326),
+			pageMaintainsItsURL: true
+		)
+		XCTAssertEqual(
+			location.sourceURL, own,
+			"a URL the app keeps current must be recorded exactly as the app wrote it"
+		)
+	}
+
+	/// The same guarantee for an extent, so the policy is not read as a `c=`-only patch.
+	func testAppMaintainedExtent_IsNotRewritten() {
+		let own = url("https://example.org/app?extent=-831002.32,-1032569.72,-826473.74,-1029973.39")
+		let location = MapLocationResolver.resolve(
+			url: own,
+			probe: probe(nativeExtent: [-820000, -1025000, -815000, -1020000]),
+			pageMaintainsItsURL: true
+		)
+		XCTAssertEqual(location.sourceURL, own)
+	}
+
+	/// And for the fragment, which used to be refreshed in exactly this case and now is not.
+	func testFragmentIsNotRefreshedThroughTheResolver() {
+		let own = url("https://example.org/#1.5/0/0")
+		let location = MapLocationResolver.resolve(
+			url: own,
+			probe: probe(live: coordinate(47.941230, 18.709545)),
+			pageMaintainsItsURL: true
+		)
+		XCTAssertEqual(location.sourceURL, own)
+	}
+
+	/// The AIA-0817 case must survive: an app that never touches its address bar still gets the
+	/// refresh, or every finding on such a site records the view the user arrived with. This fails
+	/// if the new gate is ever applied unconditionally.
+	func testFrozenURL_StillGetsItsViewportRefreshed() {
+		let frozen = url("https://example.org/app?center=18.709545,47.941230")
+		let location = MapLocationResolver.resolve(
+			url: frozen,
+			probe: probe(nativeCenter: [19.5, 48.8], nativeWkid: 4326),
+			pageMaintainsItsURL: false
+		)
+		XCTAssertNotEqual(location.sourceURL, frozen, "a frozen viewport must still be brought current")
+		XCTAssertTrue(location.sourceURL?.absoluteString.contains("center=19.5,48.8") ?? false)
 	}
 
 	/// A hash that is not a viewport must not be rewritten.
 	func testUnrelatedFragment_IsLeftAlone() {
 		let plain = url("https://example.org/page#section-3")
-		let location = MapLocationResolver.resolve(url: plain, probe: probe(live: coordinate(48.8, 19.53)))
-		XCTAssertEqual(location.sourceURL, plain)
+		XCTAssertNil(refreshedFragment(of: plain, latitude: 48.8, longitude: 19.53, zoom: 10))
 	}
 
 	/// A page that never rewrites its own hash is not using it as state.
@@ -335,7 +426,8 @@ final class MapLocationResolverTests: XCTestCase {
 		let degrees = url("https://example.org/app?center=18.709545,47.941230")
 		let location = MapLocationResolver.resolve(
 			url: degrees,
-			probe: probe(nativeCenter: [1_605_000.0, 6_461_000.0], nativeWkid: 3857)
+			probe: probe(nativeCenter: [1_605_000.0, 6_461_000.0], nativeWkid: 3857),
+			pageMaintainsItsURL: false
 		)
 		XCTAssertEqual(location.sourceURL, degrees, "metres were written into a degrees parameter")
 	}
@@ -345,18 +437,20 @@ final class MapLocationResolverTests: XCTestCase {
 		let projected = url("https://example.org/app?extent=-832098,-1032881,-825377,-1029661")
 		let location = MapLocationResolver.resolve(
 			url: projected,
-			probe: probe(nativeExtent: [14.0, 50.0, 15.0, 51.0], nativeWkid: 4326)
+			probe: probe(nativeExtent: [14.0, 50.0, 15.0, 51.0], nativeWkid: 4326),
+			pageMaintainsItsURL: false
 		)
 		XCTAssertEqual(location.sourceURL, projected)
 	}
 
 	func testJSONFragment_UnitMismatch_IsRefused() {
 		let degrees = url("https://example.org/app#%7B%22center%22:%5B18.7,47.9%5D,%22zoom%22:8%7D")
-		let location = MapLocationResolver.resolve(
-			url: degrees,
-			probe: probe(nativeCenter: [1_446_284.5, 6_037_564.4], nativeWkid: 3857)
+		XCTAssertNil(
+			MapURLViewportRefresh.refreshed(
+				url: degrees, extent: nil, center: [1_446_284.5, 6_037_564.4], geographic: nil, zoom: 8
+			),
+			"metres were written into a degrees view state"
 		)
-		XCTAssertEqual(location.sourceURL, degrees)
 	}
 
 	func testUnitsAgree_ComparesMagnitudeClass() {
@@ -371,20 +465,29 @@ final class MapLocationResolverTests: XCTestCase {
 	/// any live reading existed.
 	func testDateLikeFragment_IsNotMistakenForAViewport() {
 		let route = url("https://example.org/archive#2024/05/01")
-		let location = MapLocationResolver.resolve(url: route, probe: probe(live: coordinate(47.941230, 18.709545)))
-		XCTAssertEqual(location.sourceURL, route)
+		XCTAssertNil(refreshedFragment(of: route, latitude: 47.941230, longitude: 18.709545, zoom: 10))
 	}
 
 	func testFragmentWithImplausibleZoom_IsNotRewritten() {
 		let odd = url("https://example.org/#45/10.5/10.5")
-		let location = MapLocationResolver.resolve(url: odd, probe: probe(live: coordinate(47.941230, 18.709545)))
-		XCTAssertEqual(location.sourceURL, odd)
+		XCTAssertNil(refreshedFragment(of: odd, latitude: 47.941230, longitude: 18.709545, zoom: 45))
 	}
 
 	func testFragmentWithOutOfRangeLatitude_IsNotRewritten() {
 		let odd = url("https://example.org/#10/91.5/10.5")
-		let location = MapLocationResolver.resolve(url: odd, probe: probe(live: coordinate(47.941230, 18.709545)))
-		XCTAssertEqual(location.sourceURL, odd)
+		XCTAssertNil(refreshedFragment(of: odd, latitude: 47.941230, longitude: 18.709545, zoom: 10))
+	}
+
+	/// AIA-0871: these guards live on the fragment path, which the resolver no longer reaches, so
+	/// they are asked of `MapURLViewportRefresh` directly. Routed through the resolver they would
+	/// pass for the wrong reason — no refresh is attempted at all — and would keep passing if the
+	/// guard they name were deleted.
+	private func refreshedFragment(of url: URL?, latitude: Double, longitude: Double, zoom: Double) -> URL? {
+		guard let url else { return nil }
+		return MapURLViewportRefresh.refreshed(
+			url: url, extent: nil, center: nil,
+			geographic: (latitude: latitude, longitude: longitude), zoom: zoom
+		)
 	}
 
 	// MARK: - Prefill
