@@ -48,14 +48,17 @@ broken feature.** That is the trade this file exists to catch.
       `cloudflare/findings-worker/PROVISIONING.md`, which also records that this one-time reset must
       not be repeated once real findings exist.
 
-- [ ] `wrangler d1 migrations apply … --remote` has run for **`0004_purge_progress.sql`** on
+- [x] `wrangler d1 migrations apply … --remote` has run for **`0004_purge_progress.sql`** on
       **both** environments, **before** the Worker that reads `user_state.purged` is deployed
-      (AIA-0842). Staging first (`npm run deploy:staging` chains migration and deploy), then
-      production by hand: migrate, confirm `✅ No migrations to apply!`, deploy. Expected effect:
-      every existing fence (staging 7, production 5 on 2026-09-05) re-opens as pending and the
-      daily sweep confirms four per run, so `{"sweep":"incomplete","remaining":N}` falling to 0
-      over two days is the success signal, not a problem. Ticking this means both ledgers are
-      confirmed, not that the file exists.
+      (AIA-0842). **Done 2026-09-06.** Staging on 2026-09-05 via `deploy:staging` (version
+      `1bdffbc0`, then `6b7ea15c` with #864); its 03:00 UTC sweep confirmed four of the seven
+      backfilled fences at 03:01Z and left three pending for the next run, exactly the documented
+      budget. Production on 2026-09-06: `0004` applied (ledger `✅ No migrations to apply!`, all
+      five fences pending and unstamped), then Worker version `c37ebbe0-b3e7-4707-ac6e-2e6a78adce9d`
+      deployed; post-deploy probes: `/health` 200, and three requests without a valid token (a
+      bare GET, a malformed bearer token, and a DELETE on `/v1/me/data`) each **401, not 500**. Expected next: production's daily sweep
+      confirms four fences on 2026-09-07 and the last one on 2026-09-08, so
+      `{"sweep":"incomplete","remaining":N}` falling to 0 over two runs is the success signal.
 
 - [x] **Cloud storage survives the `0003` reset, end to end. Done 2026-09-01.**
 

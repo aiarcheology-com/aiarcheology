@@ -153,7 +153,7 @@ writing into production storage.
 | | |
 |-|-|
 | Staging | `https://aia-findings-staging.vladimir-slavik.workers.dev` |
-| Production | `https://aia-findings-production.vladimir-slavik.workers.dev` — deployed 2026-08-26 against the real Clerk issuer (AIA-741) |
+| Production | `https://aia-findings-production.vladimir-slavik.workers.dev` — deployed 2026-08-26 against the real Clerk issuer (AIA-741); migration `0004` and the purge-progress Worker deployed 2026-09-06 (AIA-0842) |
 
 ## Clerk
 
