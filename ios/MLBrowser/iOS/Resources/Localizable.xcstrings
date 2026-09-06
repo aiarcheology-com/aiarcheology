@@ -23333,6 +23333,222 @@
         }
       }
     },
+    "finding.pick.align" : {
+      "comment" : "AIA-0868: alignment-mode banner while no detected rectangle covers the centre crosshair.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "المس علامة التصويب لحفظ هذا الموضع، أو حرّك مستطيلاً مكتشفًا أسفلها"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই জায়গাটি সংরক্ষণ করতে ক্রসহেয়ারে ট্যাপ করুন, বা এর নিচে একটি শনাক্ত করা আয়তক্ষেত্র আনুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Klepnutím na zaměřovací kříž uložíte toto místo, nebo pod něj přesuňte zjištěný obdélník"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Auf das Fadenkreuz tippen, um diese Stelle zu sichern, oder ein erkanntes Rechteck darunter bewegen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the crosshair to store this place, or move a detection under it"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Toca la cruz para guardar este lugar, o mueve una detección debajo"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "برای ذخیرهٔ این مکان روی خط‌نشان ضربه بزنید، یا یک شناسایی را زیر آن ببرید"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Touchez le réticule pour enregistrer cet endroit, ou amenez une détection dessous"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הקש על הכוונת כדי לשמור את המקום הזה, או הזז זיהוי מתחתיה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "इस जगह को सहेजने के लिए क्रॉसहेयर पर टैप करें, या उसके नीचे कोई पहचान लाएँ"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Koppintson a célkeresztre a hely mentéséhez, vagy mozgasson alá egy észlelést"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Stuknij celownik, aby zapisać to miejsce, albo przesuń pod niego wykrycie"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Коснитесь перекрестия, чтобы сохранить это место, или переместите под него обнаружение"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Торкніться перехрестя, щоб зберегти це місце, або перемістіть під нього виявлення"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "轻点十字准星即可保存此位置，或将检测结果移到其下方"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "輕點十字準星即可儲存此位置，或將偵測結果移到其下方"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "輕按十字準星即可儲存呢個位置，或將偵測結果移到下面"
+          }
+        }
+      }
+    },
+    "finding.pick.aligned" : {
+      "comment" : "AIA-0868: alignment-mode banner once a detected rectangle covers the centre crosshair, which is then tappable.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تمت المحاذاة — المس علامة التصويب لحفظه"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সারিবদ্ধ — সংরক্ষণ করতে ক্রসহেয়ারে ট্যাপ করুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zarovnáno — uložíte klepnutím na zaměřovací kříž"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ausgerichtet — zum Sichern auf das Fadenkreuz tippen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aligned — tap the crosshair to store it"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Alineado: toca la cruz para guardarlo"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "هم‌راستا شد — برای ذخیره روی خط‌نشان ضربه بزنید"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aligné — touchez le réticule pour l’enregistrer"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מיושר — הקש על הכוונת כדי לשמור"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "संरेखित — सहेजने के लिए क्रॉसहेयर पर टैप करें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Igazítva — a mentéshez koppintson a célkeresztre"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wyrównano — stuknij celownik, aby zapisać"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Выровнено — коснитесь перекрестия, чтобы сохранить"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Вирівняно — торкніться перехрестя, щоб зберегти"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "已对齐 — 轻点十字准星即可保存"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "已對齊 — 輕點十字準星即可儲存"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "已對齊 — 輕按十字準星即可儲存"
+          }
+        }
+      }
+    },
     "finding.pick.hint" : {
       "comment" : "Banner shown in pick mode: the next tap marks the place to store",
       "extractionState" : "manual",
@@ -27660,103 +27876,103 @@
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "استخدم زر البحث، ثم المس المكان في محتوى الويب لحفظه هنا."
+            "value" : "استخدم زر البحث، ثم المس علامة التصويب لحفظ ما يوجد أسفلها هنا."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "খুঁজুন বোতামটি ব্যবহার করুন, তারপর ওয়েব কনটেন্টে যে জায়গাটি এখানে রাখতে চান সেখানে ট্যাপ করুন।"
+            "value" : "খুঁজুন ব্যবহার করুন, তারপর ক্রসহেয়ারের নিচে যা আছে তা এখানে সংরক্ষণ করতে সেটিতে ট্যাপ করুন।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Použijte tlačítko Najít a pak klepněte na místo ve webovém obsahu, které chcete uložit."
+            "value" : "Použijte tlačítko Najít a pak klepnutím na zaměřovací kříž sem uložte to, co je pod ním."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tippen Sie auf die Fund-Taste und dann auf die Stelle im Webinhalt, um sie hier zu sichern."
+            "value" : "Fund-Taste antippen und dann auf das Fadenkreuz tippen, um zu sichern, was darunter liegt."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Use the Find button, then tap the place in the web content to store it here."
+            "value" : "Use Find, then tap the crosshair to store what is under it here."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Usa el botón Buscar y luego toca el lugar del contenido web para guardarlo aquí."
+            "value" : "Usa Buscar y luego toca la cruz para guardar aquí lo que haya debajo."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "از دکمهٔ یافتن استفاده کنید، سپس روی جای موردنظر در محتوای وب ضربه بزنید تا اینجا ذخیره شود."
+            "value" : "از یافتن استفاده کنید، سپس روی خط‌نشان ضربه بزنید تا آنچه زیر آن است اینجا ذخیره شود."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Utilisez le bouton Trouver, puis touchez l’endroit dans le contenu web pour l’enregistrer ici."
+            "value" : "Utilisez Trouver, puis touchez le réticule pour enregistrer ici ce qui se trouve dessous."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "השתמש בכפתור ״מצא״, ולאחר מכן הקש על המקום בתוכן האינטרנט כדי לשמור אותו כאן."
+            "value" : "השתמש ב״מצא״, ולאחר מכן הקש על הכוונת כדי לשמור כאן את מה שנמצא מתחתיה."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "खोज बटन का उपयोग करें, फिर वेब सामग्री में उस जगह पर टैप करें जिसे यहाँ सहेजना है।"
+            "value" : "खोज का उपयोग करें, फिर क्रॉसहेयर पर टैप करके उसके नीचे जो है उसे यहाँ सहेजें।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Koppintson a lelet gombra, majd a webes tartalomban arra a helyre, amelyet ide szeretne menteni."
+            "value" : "Használja a Lelet gombot, majd koppintson a célkeresztre, hogy ide mentse, ami alatta van."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Użyj przycisku Znajdź, a następnie stuknij miejsce w treści strony, aby je tutaj zapisać."
+            "value" : "Użyj przycisku Znajdź, a potem stuknij celownik, aby zapisać tutaj to, co jest pod nim."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Нажмите кнопку «Найти», затем коснитесь места на странице, чтобы сохранить его здесь."
+            "value" : "Нажмите «Найти», затем коснитесь перекрестия, чтобы сохранить здесь то, что под ним."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Натисніть кнопку «Знайти», потім торкніться місця на сторінці, щоб зберегти його тут."
+            "value" : "Натисніть «Знайти», потім торкніться перехрестя, щоб зберегти тут те, що під ним."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "使用“查找”按钮，然后轻点网页内容中的位置，即可保存到这里。"
+            "value" : "使用“查找”，然后轻点十字准星，即可将其下方的内容保存到这里。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "使用「尋找」按鈕，然後輕點網頁內容中的位置，即可儲存到這裡。"
+            "value" : "使用「尋找」，然後輕點十字準星，即可將其下方的內容儲存到這裡。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "使用「尋找」按鈕，然後輕按網頁內容中的位置，即可儲存到這裡。"
+            "value" : "使用「尋找」，然後輕按十字準星，即可將下面嘅內容儲存到呢度。"
           }
         }
       }

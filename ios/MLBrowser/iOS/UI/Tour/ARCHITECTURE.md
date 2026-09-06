@@ -102,6 +102,14 @@ stateDiagram-v2
     end note
 ```
 
+`CaptureArea` is the one step that no longer matches production. Outside the tour, AIA-0868 turned
+Find into an *alignment* mode: the page stays live under a large centre crosshair, and a finding is
+taken by panning a detected rectangle beneath it and tapping the crosshair once it goes green.
+`FindPickOverlay` therefore branches on `tour.isActive` and keeps the original full-screen one-tap
+picker for the lesson, whose scripted map has no dependable detection to aim at. Teaching alignment
+needs a fixture whose rectangles are deterministic; until then, do not "fix" that branch by deleting
+it — the lesson's `tap map → sheet opens` transition is what it feeds.
+
 ## 3. Gate + arm/start decision (first launch)
 
 Deciding that onboarding is owed and actually beginning it are two steps. `AppState.initialize()`

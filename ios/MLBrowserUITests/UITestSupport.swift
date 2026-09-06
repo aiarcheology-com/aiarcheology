@@ -172,6 +172,9 @@ enum AID {
 	// Save-finding sheet (AIA-0333 capture step)
 	static let saveFindingTitle = "_AIA:TextField.SaveFindingTitle"
 	static let saveFindingSave = "_AIA:Button.SaveFindingSave"
+	static let findPickCancel = "_AIA:Button.FindPickCancel"
+	static let findingAlignmentCrosshair = "_AIA:View.FindingAlignmentCrosshair"
+	static let saveFindingCancel = "_AIA:Button.SaveFindingCancel"
 
 	// Auth gate (AIA-0340)
 	static let authSignIn = "_AIA:Button.AuthSignIn"

@@ -81,6 +81,28 @@ struct FindingCapture: Identifiable {
 		return best.map { ($0.observation, $0.params) }
 	}
 
+	/// The smallest displayed detection that genuinely contains the centre of the web view.
+	///
+	/// This intentionally does not reuse the 44-point expansion in ``detection(at:in:results:minimumTarget:)``:
+	/// that expansion makes a small box finger-friendly, but would claim crosshair alignment before
+	/// the rectangle actually reaches the stationary target. Vision's y-axis is inverted relative
+	/// to SwiftUI, but `(0.5, 0.5)` is the centre in both coordinate systems.
+	static func detectionAlignedWithCentre(
+		in results: [DetectionResult]
+	) -> (observation: DetectedObject, params: DeepDriverParams)? {
+		let centre = CGPoint(x: 0.5, y: 0.5)
+		var best: (observation: DetectedObject, params: DeepDriverParams, area: CGFloat)?
+		for group in results {
+			for observation in group.observations where observation.boundingBox.contains(centre) {
+				let area = observation.boundingBox.width * observation.boundingBox.height
+				if area < (best?.area ?? .infinity) {
+					best = (observation, group.params, area)
+				}
+			}
+		}
+		return best.map { ($0.observation, $0.params) }
+	}
+
 	/// The visible window of the crop editor as a normalized TOP-LEFT rect of the
 	/// image. The image is aspect-FILLED to `cover` (so it covers the `fitted`
 	/// viewport with no letterbox), then zoomed by `scale` and panned by `offset`

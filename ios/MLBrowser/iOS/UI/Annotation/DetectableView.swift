@@ -268,6 +268,12 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             }
         }
         .onChange(of: interactionState) { _, state in
+            // Observers run FIRST because one of them may end a capture in response to this very
+            // event: AIA-0868's alignment mode abandons an in-flight capture when the user moves
+            // the page again. `setInteracting` skips the clear while a capture is freezing the
+            // frame, so running it first would read the capture that is about to be abandoned and
+            // leave the pre-pan frame — and its boxes — standing for the rest of the movement.
+            onInteractionStateChanged?(state)
             // While the save dialog is up the frame stays frozen (interaction events
             // can still arrive from the web view as the sheet animates in).
             // The coordinator invalidates in-flight detection + clears the frame when
@@ -284,8 +290,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 				// next cadence; the session emits a run-scoped replacement request instead.
 				contentInteractionDidEnd()
             }
-            // Notify external observer if provided
-            onInteractionStateChanged?(state)
         }
         .onAppear {
             // Bind the coordinator's live apply-time guards from the installed view's CONNECTED

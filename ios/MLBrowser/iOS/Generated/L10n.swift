@@ -562,6 +562,10 @@ internal enum L10n {
     /// Zoom
     internal static let zoom = L10n.tr("Localizable", "finding.zoom", fallback: "Zoom")
     internal enum Pick {
+      /// Tap the crosshair to store this place, or move a detection under it
+      internal static let align = L10n.tr("Localizable", "finding.pick.align", fallback: "Tap the crosshair to store this place, or move a detection under it")
+      /// Aligned — tap the crosshair to store it
+      internal static let aligned = L10n.tr("Localizable", "finding.pick.aligned", fallback: "Aligned — tap the crosshair to store it")
       /// Tap the place to store
       internal static let hint = L10n.tr("Localizable", "finding.pick.hint", fallback: "Tap the place to store")
     }
@@ -664,8 +668,8 @@ internal enum L10n {
     /// Findings
     internal static let title = L10n.tr("Localizable", "findings.title", fallback: "Findings")
     internal enum Empty {
-      /// Use the Find button, then tap the place in the web content to store it here.
-      internal static let message = L10n.tr("Localizable", "findings.empty.message", fallback: "Use the Find button, then tap the place in the web content to store it here.")
+      /// Use Find, then tap the crosshair to store what is under it here.
+      internal static let message = L10n.tr("Localizable", "findings.empty.message", fallback: "Use Find, then tap the crosshair to store what is under it here.")
       /// No Findings Yet
       internal static let title = L10n.tr("Localizable", "findings.empty.title", fallback: "No Findings Yet")
     }

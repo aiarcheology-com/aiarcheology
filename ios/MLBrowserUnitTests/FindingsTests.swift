@@ -535,6 +535,39 @@ final class FindingPickHitTestTests: XCTestCase {
         let box = CGRect(x: 0.2, y: 0.2, width: 0.2, height: 0.2)
         XCTAssertNil(FindingCapture.detection(at: CGPoint(x: 950, y: 50), in: size, results: results([box])))
     }
+
+    func testCentreAlignment_RequiresTheExactDetectionRectangle() {
+        // A 10×10pt target can be selected via the normal 44pt finger expansion, but cannot turn
+        // the crosshair green until its real rectangle reaches the screen centre.
+        let nearCentre = CGRect(x: 0.49, y: 0.49, width: 0.005, height: 0.005)
+        XCTAssertNil(FindingCapture.detectionAlignedWithCentre(in: results([nearCentre])))
+
+        let centred = CGRect(x: 0.49, y: 0.49, width: 0.02, height: 0.02)
+        XCTAssertEqual(
+            FindingCapture.detectionAlignedWithCentre(in: results([centred]))?.observation.boundingBox,
+            centred
+        )
+    }
+
+    func testCentreManualBox_SurroundsTheCrosshairInVisionSpace() {
+        // The red crosshair stores the centre as a manual observation. Its box has to contain the
+        // centre in Vision's inverted space too, or the saved finding would highlight a different
+        // part of the image than the one the crosshair was over.
+        let size = CGSize(width: 402, height: 874)
+        let box = FindingCapture.manualBox(at: CGPoint(x: size.width / 2, y: size.height / 2), in: size)
+        XCTAssertTrue(box.contains(CGPoint(x: 0.5, y: 0.5)), "Centre manual box misses the crosshair")
+        XCTAssertEqual(box.midX, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(box.midY, 0.5, accuracy: 0.0001)
+    }
+
+    func testCentreAlignment_NestedRectanglesChooseTheSmallest() {
+        let outer = CGRect(x: 0.1, y: 0.1, width: 0.8, height: 0.8)
+        let inner = CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2)
+        XCTAssertEqual(
+            FindingCapture.detectionAlignedWithCentre(in: results([outer, inner]))?.observation.boundingBox,
+            inner
+        )
+    }
 }
 
 // MARK: - Orphan sweep

@@ -1,32 +1,32 @@
-Build: Importing an already-compiled Core ML model
+Build: Aim a finding with the centre crosshair
 
-Test Focus: Core ML models come in two shapes. The ones you usually download — .mlmodel and
-.mlpackage — are source models the app compiles on your device when you import them. A folder named
-something.mlmodelc is a model that has ALREADY been compiled (Xcode produces these). The app has
-always listed .mlmodelc as supported, but importing one failed, because it tried to compile it a
-second time. This build loads a compiled model as-is. Nothing about importing .mlmodel or .mlpackage
-files, or about the built-in demo models, should change.
+Test Focus: Saving a finding used to be a single tap anywhere on the page. It is now an aiming
+step. Tap Find (the crosshair button in the top-right) and a large copy of that same icon — four
+times as wide and four times as tall as the small one in the hint bar — appears in the middle of
+the web content. Tapping it always saves a finding; its colour says what kind. RED means nothing
+was detected under it and the place itself is stored. GREEN means a detected rectangle covers it
+and that rectangle is stored.
 
-- Get a compiled model onto the phone. It must be compiled FOR iPhone: take the .mlmodelc that an
-  Xcode iOS build wrote next to the app (in the Products folder of the build), or ask the team for
-  one. Put it in iCloud Drive or AirDrop it so it shows up in Files. A .mlmodelc compiled on a Mac
-  for the Mac is NOT expected to work — see the last point.
+- With no model running, tap Find and then tap the red crosshair. The finding form must open for
+  the spot under it. Save it and check the finding in the list. This is the "record something the
+  models did not find" case and it must work with detection switched off entirely.
 
-- Import it. Models → Import → Files, and choose the .mlmodelc. It should appear as a single item you
-  can pick, not as a folder you can only open. If Files only lets you browse into it, stop there and
-  report that — it is the one part of this we could not check without a phone.
+- Only a small area in the very middle of the crosshair reacts to a tap. Everywhere else on the
+  page — including most of the drawn crosshair — must still pan, pinch-zoom and flick normally.
+  If the page will not move while the crosshair is up, that is the most important bug to report.
 
-- The import must finish and the new model must show its details (name, type, author or version
-  where the model has them) like any other imported model. Enable it and point the camera at
-  something it should recognise: it must run. Turn it off and on again; force-quit the app, reopen
-  it, and confirm the model is still there and still runs. Then delete it — that must work as it
-  does for any imported model.
+- Now enable a model and start detection on a page where rectangles are found. Pan the page to
+  bring one under the crosshair; it must turn green. Tap it and confirm the form opens for that
+  rectangle, with its image and label, rather than for a blank spot.
 
-- The usual path is unchanged. Import a normal .mlmodel or .mlpackage the way you always have; it
-  must still compile and run exactly as before. The built-in demo models must still work.
+- Detection keeps running the whole time you are aiming: the coloured rectangles should refresh and
+  follow the content after each pan or pinch settles, rather than staying stuck where they were.
 
-- The expected failure. If you import a .mlmodelc that was compiled for a different platform (a Mac
-  build), or a folder that is only named .mlmodelc, the import must fail with a message that says
-  the compiled model could not be loaded on this device and that compiled models are
-  platform-specific — and the app must stay usable afterwards. A crash, a hang, or a message that
-  says nothing about why is a bug.
+- Move the page again in the moment between the tap and the form appearing. The form must not open
+  on the old position; you should be left aiming, with a red crosshair, until the page settles.
+
+- Cancel in the hint bar must leave aiming mode at any point without saving anything, and detection
+  must carry on as before.
+
+- The guided tour is deliberately unchanged: its map lesson is still the old single tap, with no
+  large crosshair. Run the tour from Settings and confirm it still completes.

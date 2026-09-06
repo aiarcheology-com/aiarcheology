@@ -507,6 +507,8 @@ extension TestabilityIdentification {
 		/// sat. Identified because it is the visible half of the ticket's first criterion, and the
 		/// half no localized string can stand in for.
 		case sharedFindingBoxDiagram
+		/// The large, red/green capture target shown after Find starts alignment mode (AIA-0868).
+		case findingAlignmentCrosshair
 		// Onboarding tour coach-mark bubble.
 		case tourBubble
 		// App Messages banner container (AIA-0115)
