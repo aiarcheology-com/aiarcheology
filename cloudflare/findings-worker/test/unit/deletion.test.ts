@@ -201,7 +201,7 @@ describe('a purge that cannot finish in one call', () => {
     // listing and one completing D1 batch.
     const result = await purgeAccountMetered(env, nextUser(), 1_000);
 
-    expect(result).toEqual({ complete: true, objects: 0, subrequests: 4 });
+    expect(result).toEqual({ complete: true, objects: 0, subrequests: 4, marked: true });
   });
 
   it('stays pending after exceeding the batch budget, and the sweep finishes it without a credential', async () => {
@@ -314,7 +314,9 @@ describe('a purge that cannot finish in one call', () => {
       }),
     };
     const result = await purgeAccountMetered(earlier, user, attemptAt);
-    expect(result.complete).toBe(false);
+    // The answer and the mark part ways here; see `MeteredPurgeResult.marked`.
+    expect(result.complete).toBe(true);
+    expect(result.marked).toBe(false);
     expect(earlierAttemptId).toEqual(expect.any(String));
     expect(laterAttemptId).toEqual(expect.any(String));
     expect(laterAttemptId).not.toBe(earlierAttemptId);

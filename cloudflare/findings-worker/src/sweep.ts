@@ -21,7 +21,9 @@ const CANDIDATE_LIMIT = 5;
 export interface SweepResult {
   /// Accounts that were owed a purge and not yet confirmed when the run started.
   pending: number;
-  /// How many of them this run confirmed clean.
+  /// How many of them this run closed: its own completion mark landed. An account this run saw
+  /// empty but whose row an overlapping attempt re-stamped is not counted; it shows in `remaining`
+  /// if that attempt did not close it.
   completed: number;
   /// What is still pending at the end of this run. This is the number an operator watches: one
   /// that does not fall across successive runs is the alertable condition.
@@ -72,7 +74,7 @@ export async function sweepIncompleteFences(env: Env, now: number = Date.now()):
     try {
       const result = await purgeAccountMetered(env, candidate.userId, now);
       used += result.subrequests;
-      if (result.complete) completed += 1;
+      if (result.marked) completed += 1;
     } catch {
       // A storage error mid-purge. The account is still pending -- the purge marked it so before
       // touching anything -- and its attempt stamp sends it to the back of the queue. Charge the

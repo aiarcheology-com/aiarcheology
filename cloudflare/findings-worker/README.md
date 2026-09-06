@@ -112,9 +112,10 @@ statement; only after a listing has shown the prefix empty does it drop the inde
 quota and mark itself done, in that one batch. Every crash point in between leaves the account
 pending, which is what the daily sweep selects — so an account that outgrows one invocation's
 batch budget, or whose purge dies at the boundary, stays discoverable with no credential and no
-webhook. Completion is conditional on the attempt's own random ID (not just its millisecond
-timestamp), so an overlapping attempt that re-stamped the row and died is not papered over by an
-earlier one finishing.
+webhook. The completion mark is conditional on the attempt's own random ID (not just its
+millisecond timestamp), so an overlapping attempt that re-stamped the row and died is not papered
+over by an earlier one finishing; the earlier one still answers `complete`, because it saw the
+prefix empty behind the fence, and the sweep closes the record it could not.
 
 The webhook is the backstop for deletions that never touch the app — the Clerk dashboard, or support
 acting on a request. A verified event it does not handle is **acknowledged, not refused**: svix counts

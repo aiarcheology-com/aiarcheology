@@ -26,6 +26,16 @@ export interface PurgeResult {
 /// the public shape and never expose the counter.
 export interface MeteredPurgeResult extends PurgeResult {
   subrequests: number;
+  /// Whether this attempt's completion mark landed on the fence row -- distinct from `complete`.
+  ///
+  /// Two attempts overlap routinely (app and webhook), and their millisecond timestamps can
+  /// coincide, so the mark is conditional on the attempt's own random ID: if a later attempt
+  /// re-stamped the row and then died, an earlier one finishing must not close the record over
+  /// it. That earlier attempt still answers `complete: true` -- it saw the prefix empty behind the
+  /// fence, which is all its caller needs before the Clerk user goes -- and the sweep closes the
+  /// record at the cost of an empty purge. Answering "call again" instead would make the routine
+  /// overlap a retryable failure for one of the two callers.
+  marked: boolean;
 }
 
 /// The prefix a user's objects live under.
@@ -74,10 +84,8 @@ export async function purgeAccount(env: Env, userId: string): Promise<PurgeResul
 /// reservation predates the fence can still land after the listing in either order; that is what
 /// `refuseIfAccountVanished` in index.ts is for.
 ///
-/// Completion is conditional on this attempt's own ID. Two attempts overlap routinely (app and
-/// webhook), and their millisecond timestamps can coincide; if a later one re-stamped the row and
-/// then died, this one's completion must not paper over it. The mark no-ops, the row stays pending,
-/// and the sweep re-confirms at the cost of an empty purge.
+/// The completion mark is conditional on this attempt's own ID; the answer is not. See
+/// `MeteredPurgeResult.marked`.
 export async function purgeAccountMetered(
   env: Env,
   userId: string,
@@ -112,7 +120,7 @@ export async function purgeAccountMetered(
   const remaining = await env.FINDINGS.list({ prefix, limit: 1 });
   subrequests += 1;
   if (remaining.objects.length > 0) {
-    return { complete: false, objects: deleted, subrequests };
+    return { complete: false, objects: deleted, subrequests, marked: false };
   }
 
   const cleanup = await env.DB.batch([
@@ -132,10 +140,7 @@ export async function purgeAccountMetered(
   ]);
   subrequests += 1;
 
-  // An overlapping attempt may have re-stamped the fence after this one confirmed storage. The
-  // cleanup batch still removes the now-known-empty account rows, but only the attempt that owns
-  // the row may report completion: otherwise a caller could delete Clerk credentials while the
-  // durable recovery record still says work is pending.
-  const completed = cleanup[cleanup.length - 1]?.meta.changes === 1;
-  return { complete: completed, objects: deleted, subrequests };
+  // The cleanup batch removes the now-known-empty rows either way; see `marked`.
+  const marked = cleanup[cleanup.length - 1]?.meta.changes === 1;
+  return { complete: true, objects: deleted, subrequests, marked };
 }
