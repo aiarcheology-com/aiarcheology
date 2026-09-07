@@ -340,19 +340,34 @@ struct SaveFindingSheet: View {
 				// be pasted into that site's own search. Both carry a visible copy button rather
 				// than only a long-press menu; the whole point of recording them is to paste them
 				// somewhere else.
-				Section(L10n.Finding.page) {
+				// AIA-0873: the address is honest but not always sufficient. A site that keeps its
+				// URL fixed records a page, not a place — geoland.at saved one carrying nothing but
+				// an `fbclid`, and reopening it showed the whole of Austria while the coordinate sat
+				// correct in the field below. Capture cannot fix that: inventing a viewport
+				// parameter a site does not read produces a link that looks precise and opens
+				// nowhere (see `MapURLViewportRefresh`). So the form says which record to trust.
+				Section {
 					HStack(alignment: .firstTextBaseline, spacing: 8) {
 						// Editable, not static text: the app cannot resolve a usable URL for every
 						// map site, and this is where a user corrects or pastes one.
+						// Body size, like GPS directly below and every other field here. It was
+						// `.caption`, which bought a line or two of height for a long URL and cost
+						// legibility on the one field a user has to read character by character to
+						// judge — and made the sheet look like the address mattered less than the
+						// coordinate. The extra line allowance below pays for the height instead.
 						TextField(L10n.Finding.page, text: $page, axis: .vertical)
-							.font(.caption)
-							.lineLimit(1...3)
+							.lineLimit(1...4)
 							.keyboardType(.URL)
 							.textInputAutocapitalization(.never)
 							.autocorrectionDisabled()
 							.testability(Testability.TextField.saveFindingPage)
 						copyButton(page, identifier: Testability.Button.saveFindingCopyPage)
 					}
+				} header: {
+					Text(L10n.Finding.page)
+				} footer: {
+					Text(L10n.Finding.Page.footnote)
+						.testability(Testability.Label.saveFindingPageFootnote)
 				}
 				Section(L10n.Finding.gps) {
 					HStack(alignment: .firstTextBaseline, spacing: 8) {

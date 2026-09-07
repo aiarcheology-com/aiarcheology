@@ -395,6 +395,9 @@ extension TestabilityIdentification {
 	}
 	
 	enum Label: String, TestabilityIdentification {
+		/// The note under the finding form's Page field saying the address may not carry the
+		/// captured position, and which record to trust when it does not (AIA-0873).
+		case saveFindingPageFootnote
 		case drawerAccountOffline
 		case settingsAccountOffline
 		/// The note under Settings → Manage Account saying deletion does not stop billing

@@ -1,44 +1,29 @@
-Build: Findings record the map page's own address again
+Build: The page address saved with a finding
 
-Test Focus: Two changes. Saving a finding is now an aiming step with a crosshair, and a finding
-taken on a map site that keeps its own address bar up to date records that address unchanged.
+Test Focus: The Save Finding form now explains what the Page address can and cannot do, and shows
+it at a readable size. Nothing about what gets captured or stored has changed in this build.
 
-AIMING A FINDING
-Tap Find (the crosshair button, top right). A large copy of that icon appears in the middle of the
-web content. Tapping it always saves; its colour says what kind. RED means nothing was detected
-under it and the place itself is stored. GREEN means a detected rectangle covers it and that
-rectangle is stored.
+- Save a finding on any map site. Under the Page field there is now a note: the address may be
+  fixed and may not carry the position you captured, so open it once to check where it lands and
+  fall back to the GPS position below if it is wrong. Please say whether that reads clearly, and
+  whether it still looks right at the largest text sizes (Settings > Accessibility > Display & Text
+  Size > Larger Text, with "Larger Accessibility Sizes" on).
 
-- With no model running, tap Find and then the red crosshair. The finding form must open for the
-  spot under it. This must work with detection switched off entirely.
+- The URL in the Page field is now the same size as the GPS value below it, instead of noticeably
+  smaller. Check a long address still fits sensibly and can be read and corrected comfortably.
 
-- Only a small area in the very middle reacts to a tap. Everywhere else on the page — including
-  most of the drawn crosshair — must still pan, pinch-zoom and flick normally. If the page will
-  not move while the crosshair is up, that is the most important bug to report.
+- Reported case worth reproducing: on geoland.at the saved address carries no position at all, so
+  reopening it shows the whole of Austria while the GPS value is correct. That is the situation the
+  new note is there to explain — confirm it now makes sense rather than looking like a bug.
 
-- Enable a model, start detection, then pan a detected rectangle under the crosshair. It must turn
-  green; tapping it must open the form for that rectangle, with its image and label.
+STILL WORTH RETESTING FROM THE PREVIOUS BUILD
 
-- Cancel in the hint bar must leave aiming mode at any point without saving anything.
+- Aiming a finding: tap Find, then the large crosshair in the middle of the web content. RED stores
+  the place under it, GREEN stores a detected rectangle covering it. Only a small area in the very
+  middle takes the tap; everywhere else must still pan and pinch-zoom normally.
 
-- The guided tour is deliberately unchanged: its map lesson is still the old single tap, with no
-  large crosshair. Run the tour from Settings and confirm it still completes.
-
-THE PAGE ADDRESS SAVED WITH A FINDING
-Reported on atlas.bayern.de: the address stored with a finding pointed at a different country.
-Sites like that one write their own position into the address bar as you pan, and we were
-overwriting it with our own reading of the map.
-
-- On atlas.bayern.de, pan the map and watch the address bar change. Save a finding, then check the
-  Page field in the finding form and in the saved finding: it must be exactly the address the
-  browser is showing, character for character.
-
-- Open that saved link afterwards. It must land on the same place you recorded, not somewhere else.
-
-- KNOWN GAP, please test this specifically: the protection only engages once the app has been seen
-  updating its own address. If you reopen the app straight onto a map page (Reopen Last Page) and
-  save a finding WITHOUT panning first, the old behaviour can still apply and the address may be
-  wrong. Please report whether that reproduces — it decides whether a further fix is needed.
-
-- Sites that never change their address bar while you pan must still behave as before: the saved
-  address should carry the view you were actually looking at, not the one you arrived with.
+- KNOWN GAP, please test specifically: on a map site that writes its own position into the address
+  bar (atlas.bayern.de), the protection against us overwriting that address only engages once the
+  app has seen the site update it. If you reopen the app straight onto such a page (Reopen Last
+  Page) and save a finding WITHOUT panning first, the address may still be wrong. Please report
+  whether that reproduces — it decides whether a further fix is needed.
