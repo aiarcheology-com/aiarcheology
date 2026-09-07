@@ -442,12 +442,20 @@ struct WebScreenView: View {
             DispatchQueue.main.async { appState.chromeState.pageToOpen = nil }
             openRequested(url.absoluteString)
         }
-        .onReceive(appState.chromeState.$findModeRequested) { requested in
-            guard requested else { return }
-            appState.chromeState.findModeRequested = false
-			// Find is still reachable while the overlay is up. Re-entering would freeze a second
-			// time with no matching end, and during the tour would re-take a freeze it already holds.
-			guard findPickActive == false else { return }
+        .onReceive(appState.chromeState.$findPickActive) { active in
+			// The dedupe is what makes the state safe to write from both sides. It absorbs the
+			// publish that this screen's own exits (`present`/`cancelFindPick`) cause, so those
+			// never re-enter here, and it absorbs the value replayed on every mount. It also does
+			// the job the old `guard findPickActive == false` did: Find stays reachable while the
+			// overlay is up, and re-entering would freeze a second time with no matching end.
+			guard active != findPickActive else { return }
+			guard active else {
+				// Cancelled from the Find/Store control. Deliberately the same path as the overlay's
+				// own Cancel button, so the pending capture is abandoned and the detection freeze
+				// released identically — a second way out must not become a second lifecycle.
+				cancelFindPick()
+				return
+			}
 			if appState.tour.isActive {
 				// The published onboarding lesson still teaches its original one-tap map capture. It is
 				// intentionally kept out of alignment mode (and therefore never shows the large
@@ -816,14 +824,27 @@ struct WebScreenView: View {
 
 	/// Alignment mode ends only when the capture is ready (or cancelled).
 	private func present(_ capture: FindingCapture) {
-		findPickActive = false
+		endFindPick()
 		findingCapture = capture
+	}
+
+	/// Leaves pick mode and brings the chrome's copy back in step, so the Find/Store control stops
+	/// offering to cancel a pick that is over.
+	///
+	/// The order is load-bearing, not stylistic. `@Published` publishes from `willSet`, so
+	/// `findPickEnded()` delivers to this screen's own `onReceive` *inside* that assignment; the
+	/// local flag is cleared first precisely so the dedupe there absorbs the delivery. Clearing it
+	/// afterwards would re-enter `cancelFindPick()` from `present(_:)` and abandon the capture that
+	/// was just built. Same family of hazard as the `pageToOpen` latch documented above (AIA-0657).
+	private func endFindPick() {
+		findPickActive = false
+		appState.chromeState.findPickEnded()
 	}
 
 	/// Leaves pick mode without storing: unfreeze and resume (the sheet path
 	/// does the same via its onDismiss).
 	private func cancelFindPick() {
-		findPickActive = false
+		endFindPick()
 		// Releases the freeze only if one was actually taken: alignment mode leaves detection
 		// running until the crosshair is tapped, so a cancel from the red state has nothing to end.
 		abandonPendingCapture()
@@ -965,15 +986,44 @@ private struct FindPickOverlay: View {
 			Image(systemName: "plus.viewfinder")
 				.font(.system(size: Self.hintSymbolPointSize))
 			Text(hintText)
-			Button(L10n.Common.cancel, action: onCancel)
-				.bold()
-				.testability(Testability.Button.findPickCancel)
+			// Red on white, not the accent tint: testers reported not finding the way out of pick
+			// mode, and a tinted word in a row of tinted chrome did not read as the exit (AIA-0880).
+			// Painted explicitly rather than with `.borderedProminent`, whose fill follows whatever
+			// tint the surrounding material inherits.
+			Button(action: onCancel) {
+				Text(L10n.Common.cancel)
+					.bold()
+					.foregroundStyle(.white)
+					.padding(.horizontal, 12)
+					.padding(.vertical, 6)
+					.background(Color.red, in: Capsule())
+			}
+			.buttonStyle(.plain)
+			.testability(Testability.Button.findPickCancel)
 		}
 		.padding(.horizontal, 16)
 		.padding(.vertical, 10)
 		.background(.regularMaterial, in: Capsule())
 		.padding(.top, 12)
 		.frame(maxWidth: .infinity)
+	}
+}
+
+/// The alignment crosshair's two colours and the contour drawn behind them (AIA-0880).
+///
+/// Green and red alone are only legible against page content that happens to contrast with them —
+/// a green crosshair over foliage, a red one over brickwork, both vanish. The contour is the
+/// opposite luminance to its fill, so whichever of the two the background defeats, the other holds
+/// the shape. That is why the pairing is dark-behind-green and light-behind-red rather than one
+/// contour colour for both.
+///
+/// Split out of the view so the mapping is unit-testable: this is the part with a rule in it.
+enum FindingCrosshairPalette {
+	/// Aligned means a detection sits under the centre — the state the user is aiming for.
+	static func fill(isAligned: Bool) -> Color { isAligned ? .green : .red }
+
+	static func contour(isAligned: Bool) -> Color {
+		isAligned ? Color.black.opacity(0.65) : Color.white.opacity(0.85)
 	}
 }
 
@@ -997,10 +1047,18 @@ private struct FindingAlignmentCrosshair: View {
 	private static let tapCoreSide: CGFloat = 44
 
 	var body: some View {
-		Image(systemName: "plus.viewfinder")
+		Image(systemName: FindControlAppearance.startSymbol)
 			.font(.system(size: Self.pointSize, weight: .regular))
-			.symbolRenderingMode(.hierarchical)
-			.foregroundStyle(isAligned ? Color.green : Color.red)
+			// Monochrome, not hierarchical. Hierarchical draws the glyph's secondary layer at
+			// reduced alpha, and the contour behind a translucent stroke shows through it and
+			// muddies the very colour that carries the meaning. A solid glyph is also the higher
+			// contrast of the two, which is what this crosshair is for (AIA-0880).
+			.symbolRenderingMode(.monochrome)
+			.foregroundStyle(FindingCrosshairPalette.fill(isAligned: isAligned))
+			// The contour, doubled to build up density. It is what makes the state readable over
+			// arbitrary page content rather than only over the mid-tones the fill happens to beat.
+			.shadow(color: FindingCrosshairPalette.contour(isAligned: isAligned), radius: 2)
+			.shadow(color: FindingCrosshairPalette.contour(isAligned: isAligned), radius: 2)
 			.scaleEffect(pulseExpanded ? 1.08 : 0.92)
 			.opacity(pulseExpanded ? 1 : 0.68)
 			.animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulseExpanded)

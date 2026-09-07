@@ -1,4 +1,23 @@
-Build: Detection and pages that reload themselves
+Build: Storing a finding, and pages that reload themselves
+
+Test Focus: Three changes to storing a finding, all from tester reports. The crosshair has a
+contour so its colour survives whatever is behind it; Find now cancels the aiming mode it started;
+and Cancel is red on white, because people could not find the way out.
+
+- Tap Find (top right). The crosshair appears. Tap Find AGAIN - aiming should end, with no finding
+  saved and no form appearing. A third tap starts it again. While aiming is on, Find itself should
+  be a red cross, not the grey crosshair.
+
+- Cancel in the top bar should now be a red pill with white text, and must end aiming exactly like
+  the Find button does.
+
+- Crosshair contrast is the thing to judge: try a dark satellite view, a bright white map and a
+  busy aerial photo. It should stay readable on all three, and red vs green must stay obvious.
+  Please say if any background still swallows it.
+
+- Check the old ways out still work: saving a finding, and cancelling the form, should each leave
+  aiming off and let detection resume, not stay frozen.
+
 
 Test Focus: On heavy map sites the page could reload itself every few minutes while detection was
 running. The app now steps out of the way when that happens instead of walking straight back into
@@ -12,10 +31,9 @@ it. Nothing about what is captured or stored has changed in this build.
   minutes, detection should stop and stay stopped until you press the button again.
 
 - Please report how often you end up restarting detection, and whether the page still reloads with
-  detection stopped. Some reloading is expected to survive this: measured, the page on its own
-  accounts for about 970 MB of the roughly 1,190 MB the web content was using, so it can exhaust
-  memory without any help from us. This is meant to cut how often it happens, not to guarantee it
-  never does.
+  detection stopped. Some reloading is expected to survive this: the page alone accounts for about
+  970 MB of the ~1,190 MB the web content was using, so it can exhaust memory on its own. This cuts
+  how often it happens; it cannot guarantee it never does.
 
 - Check the ordinary paths did not regress: detection keeps running normally across page loads on
   a light map site (mapy.cz); following a link while detection runs does not stop it; saving a
@@ -33,9 +51,9 @@ STILL WORTH RETESTING FROM THE PREVIOUS BUILD
   carries no position at all, so reopening it shows the whole of Austria while the GPS value is
   correct — that is the situation the note is there to explain.
 
-- Aiming a finding: tap Find, then the large crosshair in the middle of the web content. RED stores
-  the place under it, GREEN stores a detected rectangle covering it. Only a small area in the very
-  middle takes the tap; everywhere else must still pan and pinch-zoom normally.
+- Aiming a finding: RED stores the place under the crosshair, GREEN stores a detected rectangle
+  covering it. Only a small area in the very middle takes the tap; everywhere else must still pan
+  and pinch-zoom normally.
 
 - KNOWN GAP, please test specifically: on a map site that writes its own position into the address
   bar (atlas.bayern.de), the protection against us overwriting that address only engages once the

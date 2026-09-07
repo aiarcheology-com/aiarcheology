@@ -29,6 +29,10 @@ struct ContentView: View {
     // Fullscreen detection mode (one-way bridges from detectionState/settings; the view only reads):
     @State private var detectionEnabled = false
     @State private var chromeVisible = true
+    /// Mirrors `chromeState.findPickActive` so the floating capsule's Find item can show that it
+    /// now cancels (AIA-0880). Fed by the publisher below, not read directly: `chromeState` is a
+    /// nested ObservableObject and its changes do not invalidate this view on their own.
+    @State private var findPickActive = false
     @State private var fullscreenFeatureEnabled = true
     @State private var selectedMode = AppMode.web
     @State private var floatingButtonPosition: CGPoint?
@@ -79,10 +83,18 @@ struct ContentView: View {
             // Tour hook (AIA-0333): detection starting fulfills the PLAY step → reveal Next.
             appState.tour.evaluate()
         }
-        .onReceive(appState.chromeState.$findModeRequested) { requested in
-            // Tour hook (AIA-0333): `findModeRequested` is a transient pulse (reset to false by
-            // WebScreen), so act on the pulse value rather than polling it later.
-            if requested { appState.tour.pickModeDidStart() }
+        .onReceive(appState.chromeState.$findPickActive) { active in
+            // `chromeState` is a nested ObservableObject, so its changes don't reach this view by
+            // reading the property — hence the publisher, as elsewhere in this file. Kept local so
+            // the floating capsule can show the cancel affordance (AIA-0880).
+            let wasActive = findPickActive
+            findPickActive = active
+            // Tour hook (AIA-0333): the entering edge fulfills the pick-mode step → reveal Next.
+            // The rising edge, not every `true`: `actionFulfilled` calls `advance()` for a step
+            // that auto-advances, so a repeated `true` — the value replayed when this view
+            // re-subscribes, or a non-cancelling tap on an already-active pick — would advance the
+            // tour twice and skip the step after it.
+            if active, wasActive == false { appState.tour.pickModeDidStart() }
         }
         .onReceive(appState.detectionState.$chromeVisible) { visible in
             withAnimation { chromeVisible = visible }
@@ -205,6 +217,10 @@ struct ContentView: View {
                 Screens.barItems(mode, position: .trailing)
                     .environmentObject(appState.chromeState)
                     .environmentObject(appState.detectionState)
+                    // The Find button reads the tour to know whether it may offer to cancel
+                    // (AIA-0880). Without this the lookup is nil and that guard never fires — the
+                    // button would flip to a red Cancel while the tour's bubble still says to tap it.
+                    .environment(appState.tour)
             }
         )
         .tabItem {
@@ -238,8 +254,11 @@ struct ContentView: View {
             FloatingNavBar(
                 position: $floatingNavBarPosition,
                 showsFind: fullscreenActive,
-                onFind: {
-                    appState.chromeState.findTapped()
+                // The tour drives this control itself and its pick step does not re-arm, so while
+                // the tour runs the capsule neither shows nor performs a cancel (AIA-0880).
+                findActive: findPickActive && appState.tour.isActive == false,
+                onFind: { cancels in
+                    appState.chromeState.findTapped(allowsCancel: cancels)
                 },
                 // Keep the capsule above the bottom address bar when it's shown (AIA-0338).
                 bottomReserve: showsBottomAddressBar ? BottomAddressBarMetrics.reserve : 0

@@ -19,8 +19,13 @@ struct FloatingNavBar: View {
 	/// Find joins the capsule only in fullscreen, where the top bar (and its Find button)
 	/// are hidden. In normal mode the capsule is back/reload/forward only (AIA-0294).
 	let showsFind: Bool
-	/// Starts the store-a-finding pick mode (used when Find lives in the capsule).
-	let onFind: () -> Void
+	/// A pick is in progress and this control may cancel it, so Find shows the cancel affordance
+	/// instead of its usual crosshair (AIA-0880). False during the guided tour, which drives the
+	/// control itself and cannot recover from a cancel.
+	let findActive: Bool
+	/// Starts the store-a-finding pick mode, or cancels the one in progress (used when Find lives
+	/// in the capsule). The flag says whether this tap is allowed to cancel.
+	let onFind: (_ allowsCancel: Bool) -> Void
 	/// Extra space to keep clear at the bottom so the capsule floats above the adaptive
 	/// bottom address bar (AIA-0338). Applied to the clamp's lower bound, so it lifts both
 	/// the default and any dragged position. 0 when the bottom bar isn't shown.
@@ -58,12 +63,15 @@ struct FloatingNavBar: View {
 				}
 				if showsFind {
 					navItem(
-						systemImage: "plus.viewfinder",
+						systemImage: FindControlAppearance.symbol(cancels: findActive),
 						enabled: true,
-						label: L10n.Finding.Save.title,
-						testability: .floatingNavFind
+						label: FindControlAppearance.label(cancels: findActive),
+						testability: .floatingNavFind,
+						// Red is the same cancel cue the pick overlay's own Cancel button uses, so
+						// the two ways out of pick mode read as the same action (AIA-0880).
+						tint: findActive ? .red : .primary
 					) {
-						onFind()
+						onFind(findActive)
 					}
 				}
 			}
@@ -112,13 +120,14 @@ struct FloatingNavBar: View {
 		enabled: Bool,
 		label: String,
 		testability: Testability.Button,
+		tint: Color = .primary,
 		action: @escaping () -> Void
 	) -> some View {
 		// Not a Button — a Button claims the touch and the capsule's drag gesture would
 		// rarely win (see FloatingChromeButton).
 		Image(systemName: systemImage)
 			.font(.system(size: 18, weight: .semibold))
-			.foregroundStyle(.primary)
+			.foregroundStyle(tint)
 			.opacity(enabled ? 1 : 0.35)
 			.frame(width: Self.itemWidth, height: Self.height)
 			.contentShape(Rectangle())

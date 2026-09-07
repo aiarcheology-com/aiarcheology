@@ -1420,3 +1420,167 @@ final class FindingsStorageBandTests: XCTestCase {
         )
     }
 }
+
+// MARK: - Find/Store control (AIA-0880)
+
+/// The Find/Store control both opens pick mode and cancels it. The rule lives in `AppChromeState`
+/// rather than the view precisely so it can be tested: nothing automated reaches a SwiftUI
+/// `onReceive`, so the state machine is the only part of this flow a test can hold to account.
+@MainActor
+final class FindControlTests: XCTestCase {
+	var settings: Settings!
+	var snapState: SnapState!
+	var deepState: DeepState!
+	// `DetectionSessionState.snapAdjustment` is `unowned`; hold it strong for the whole test.
+	var snapAdjustment: SnapAdjustment!
+	var dataController: DataController!
+	var demoDataManager: DemoDataManager!
+	var detectionState: DetectionSessionState!
+	var sut: AppChromeState!
+
+	override func setUp() async throws {
+		try await super.setUp()
+		settings = Settings()
+		dataController = DataController(inMemory: true)
+		snapState = SnapState(settings: settings)
+		deepState = DeepState(dataController: dataController)
+		snapAdjustment = SnapAdjustment()
+		demoDataManager = DemoDataManager(dataController: dataController)
+		detectionState = DetectionSessionState(
+			snap: snapState,
+			settings: settings,
+			snapAdjustment: snapAdjustment
+		)
+		sut = AppChromeState(
+			detectionState: detectionState,
+			deep: deepState,
+			settings: settings,
+			demoDataManager: demoDataManager
+		)
+	}
+
+	override func tearDown() async throws {
+		snapState.stopTimer()
+		sut = nil
+		detectionState = nil
+		demoDataManager = nil
+		dataController = nil
+		snapAdjustment = nil
+		deepState = nil
+		snapState = nil
+		settings = nil
+		try await super.tearDown()
+	}
+
+	func testTheControlStartsIdle() {
+		XCTAssertFalse(sut.findPickActive, "nothing has asked for pick mode yet")
+	}
+
+	func testATapOpensPickMode() {
+		sut.findTapped()
+		XCTAssertTrue(sut.findPickActive)
+	}
+
+	/// The ticket: a user who opened this by accident can back out with the control they opened it
+	/// with. Before AIA-0880 the second tap was dropped by a guard.
+	func testASecondTapCancelsThePickItStarted() {
+		sut.findTapped()
+		sut.findTapped()
+		XCTAssertFalse(sut.findPickActive, "the same control did not cancel the pick it started")
+	}
+
+	func testTheControlKeepsToggling() {
+		sut.findTapped()
+		sut.findTapped()
+		sut.findTapped()
+		XCTAssertTrue(sut.findPickActive, "a third tap should open pick mode again")
+	}
+
+	/// The guided tour taps this control itself, and its pick-mode step does not re-arm once
+	/// fulfilled — a tour-driven tap that cancelled would strand the tour on a step it can no
+	/// longer satisfy. Mutating `allowsCancel` to `true` here must fail the test.
+	func testATourDrivenTapNeverCancels() {
+		sut.findTapped(allowsCancel: false)
+		XCTAssertTrue(sut.findPickActive)
+		sut.findTapped(allowsCancel: false)
+		XCTAssertTrue(sut.findPickActive, "a non-cancelling tap turned pick mode off")
+	}
+
+	/// `allowsCancel: false` must still be able to *open* pick mode — it suppresses the cancel, not
+	/// the control.
+	func testANonCancellingTapStillOpensPickMode() {
+		sut.findTapped(allowsCancel: false)
+		XCTAssertTrue(sut.findPickActive)
+	}
+
+	/// WebScreen reports the exits it drives itself (the capture was presented, or the screen went
+	/// away). Without this the control would keep offering to cancel a pick that is over.
+	func testWebScreenReportingItsOwnExitClearsTheControl() {
+		sut.findTapped()
+		sut.findPickEnded()
+		XCTAssertFalse(sut.findPickActive)
+		sut.findTapped()
+		XCTAssertTrue(sut.findPickActive, "after its own exit the next tap must open, not cancel")
+	}
+
+	func testEndingAPickThatNeverStartedIsHarmless() {
+		sut.findPickEnded()
+		XCTAssertFalse(sut.findPickActive)
+	}
+
+	// MARK: Appearance
+
+	func testTheControlNamesItsTwoFaces() {
+		XCTAssertEqual(FindControlAppearance.symbol(cancels: false), FindControlAppearance.startSymbol)
+		XCTAssertEqual(FindControlAppearance.symbol(cancels: true), FindControlAppearance.cancelSymbol)
+		XCTAssertEqual(FindControlAppearance.label(cancels: true), L10n.Common.cancel)
+		XCTAssertEqual(FindControlAppearance.label(cancels: false), L10n.Finding.Save.title)
+	}
+
+	/// An SF Symbol name that does not exist renders *nothing* and still compiles, so the cancel
+	/// face could ship as an invisible button with no build or lint failure. `xmark.viewfinder` —
+	/// the obvious name for it — is exactly such a name. This resolves the constants the views
+	/// actually render, not copies of them, so a typo cannot pass here and fail on screen.
+	func testBothFacesResolveToRealSymbolsOnThisPlatform() {
+		for name in [FindControlAppearance.startSymbol, FindControlAppearance.cancelSymbol] {
+			XCTAssertNotNil(UIImage(systemName: name), "\(name) is not an SF Symbol on this platform")
+		}
+	}
+}
+
+/// The alignment crosshair's colour rule (AIA-0880): the contour is the opposite luminance to the
+/// fill, so a page that defeats one cannot defeat both.
+@MainActor
+final class FindingCrosshairPaletteTests: XCTestCase {
+	func testAlignedIsGreenAndNotAlignedIsRed() {
+		XCTAssertEqual(FindingCrosshairPalette.fill(isAligned: true), .green)
+		XCTAssertEqual(FindingCrosshairPalette.fill(isAligned: false), .red)
+	}
+
+	/// The pairing, not the exact colours: dark behind the green, light behind the red. Asserted by
+	/// luminance so the test states the rule the ticket asked for rather than restating a constant —
+	/// swapping the two contours must fail this.
+	func testTheContourOpposesItsFill() {
+		let dark = UIColor(FindingCrosshairPalette.contour(isAligned: true))
+		let light = UIColor(FindingCrosshairPalette.contour(isAligned: false))
+
+		var darkWhite: CGFloat = 0, darkAlpha: CGFloat = 0
+		var lightWhite: CGFloat = 0, lightAlpha: CGFloat = 0
+		XCTAssertTrue(dark.getWhite(&darkWhite, alpha: &darkAlpha))
+		XCTAssertTrue(light.getWhite(&lightWhite, alpha: &lightAlpha))
+
+		XCTAssertLessThan(darkWhite, 0.5, "the contour behind the green crosshair must be the dark one")
+		XCTAssertGreaterThan(lightWhite, 0.5, "the contour behind the red crosshair must be the light one")
+	}
+
+	/// A fully opaque contour would read as a second glyph rather than an edge, and a transparent
+	/// one would not survive a busy page.
+	func testTheContourIsVisibleButNotOpaque() {
+		for isAligned in [true, false] {
+			var white: CGFloat = 0, alpha: CGFloat = 0
+			XCTAssertTrue(UIColor(FindingCrosshairPalette.contour(isAligned: isAligned)).getWhite(&white, alpha: &alpha))
+			XCTAssertGreaterThan(alpha, 0.5, "the contour is too faint to hold the shape")
+			XCTAssertLessThan(alpha, 1.0, "an opaque contour reads as a second glyph, not an edge")
+		}
+	}
+}

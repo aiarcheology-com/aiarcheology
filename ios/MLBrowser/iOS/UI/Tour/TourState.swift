@@ -319,9 +319,10 @@ final class TourState {
 		case .detectionStarted:
 			return detectionState?.ontheflyDetectionEnabled == true
 		case .pickModeEntered, .modelEnabled, .captureStarted, .findingSaved:
-			// Event-driven (no app-state poll — `findModeRequested` is a transient pulse, so it
-			// can't be polled here): signalled by pickModeDidStart() / userEnabledModel() /
-			// captureDidStart() / findingDidSave() respectively.
+			// Event-driven rather than polled: these are edges, not conditions — re-reading
+			// `findPickActive` later would also see a pick the user started for their own reasons.
+			// Signalled by pickModeDidStart() / userEnabledModel() / captureDidStart() /
+			// findingDidSave() respectively.
 			return false
 		}
 	}
@@ -338,7 +339,9 @@ final class TourState {
 		case .detectionStarted:
 			detectionState?.ontheflyDetectionTapped()
 		case .pickModeEntered:
-			chromeState?.findTapped()
+			// Never cancelling: this step's fulfilment (`pickModeDidStart()`) does not re-arm, so a
+			// tap that toggled pick mode back off would strand the tour on a step it cannot satisfy.
+			chromeState?.findTapped(allowsCancel: false)
 		case .modelEnabled:
 			if enableModelHook?() == true { actionFulfilled(step) }
 		case .captureStarted, .findingSaved:
@@ -352,8 +355,8 @@ final class TourState {
 		actionFulfilled(step)
 	}
 
-	/// Finding-capture (pick) mode was entered (the user tapped Find). `findModeRequested` is a
-	/// transient pulse, so the view layer signals this on the pulse rather than polling.
+	/// Finding-capture (pick) mode was entered (the user tapped Find). The view layer signals the
+	/// entering edge of `chromeState.findPickActive`; a cancel must not reach this (AIA-0880).
 	func pickModeDidStart() {
 		guard isActive, let step = currentStep, case .userAction(.pickModeEntered) = step.advance else { return }
 		actionFulfilled(step)

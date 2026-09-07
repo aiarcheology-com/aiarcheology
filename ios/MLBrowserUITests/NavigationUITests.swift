@@ -67,6 +67,34 @@ final class NavigationUITests: UITestCase {
 		)
 	}
 
+	/// AIA-0880: the Find button starts alignment mode and now ends it too. Testers reported being
+	/// unable to back out of the store-a-finding flow, and before this the second tap was dropped by
+	/// a guard. Cancelling here has to run the same teardown the overlay's Cancel button runs, so
+	/// this asserts the mode is genuinely over — and that the button will still re-open it, which is
+	/// what fails if the cancel left the state stuck.
+	@MainActor
+	func testFind_findButtonCancelsTheAlignmentModeItStarted() {
+		enterAlignmentMode()
+		let crosshair = element(AID.findingAlignmentCrosshair)
+		let find = app.buttons[AID.findTop]
+
+		find.tap()
+		XCTAssertTrue(
+			waitForDisappearance(of: crosshair),
+			"Tapping Find again left alignment mode on screen"
+		)
+		XCTAssertFalse(
+			app.textFields[AID.saveFindingTitle].waitForExistence(timeout: 2),
+			"Cancelling from the Find button was mistaken for a capture"
+		)
+
+		find.tap()
+		XCTAssertTrue(
+			crosshair.waitForExistence(timeout: 10),
+			"Find could not re-open alignment mode after cancelling it"
+		)
+	}
+
 	/// Loads the plain local fixture — no model is enabled, so the crosshair is always red — and
 	/// enters alignment mode with the Find button.
 	@MainActor

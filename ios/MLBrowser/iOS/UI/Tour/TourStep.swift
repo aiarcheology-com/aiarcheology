@@ -65,7 +65,7 @@ enum AdvanceCondition: Sendable {
 	case modelEnabled
 	/// Detection started (the user tapped PLAY) — `guide.ontheflyDetectionEnabled`.
 	case detectionStarted
-	/// Finding-capture mode entered (the user tapped Find) — `guide.findModeRequested`.
+	/// Finding-capture mode entered (the user tapped Find) — `guide.findPickActive` going true.
 	case pickModeEntered
 	/// The finding-capture sheet appeared (the user tapped the map). Auto-advances the step.
 	case captureStarted
