@@ -421,7 +421,12 @@ struct MLBrowser: App {
 				}
 				if appState.detectionState.ontheflyDetectionEnabled {
 					appState.settings.isDetectionPaused = true
-					appState.detectionState.ontheflyDetectionTapped()
+					// `isUserInitiated: false`: this pause and the foreground resume are one detection
+					// session either side of a suspend. Treating them as a fresh start would clear an
+					// outstanding web-content interruption and refill the escalation budget, so a page
+					// that kills its renderer could survive the fix by the user visiting the home
+					// screen (AIA-0879).
+					appState.detectionState.ontheflyDetectionTapped(isUserInitiated: false)
 				}
 			}
 			.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
@@ -430,7 +435,7 @@ struct MLBrowser: App {
 				if appState.settings.isDetectionPaused {
 					appState.settings.isDetectionPaused = false
 					// Resume is a continuation of the same detection session, not a new run.
-					appState.detectionState.ontheflyDetectionTapped(recordAnalytics: false)
+					appState.detectionState.ontheflyDetectionTapped(recordAnalytics: false, isUserInitiated: false)
 				}
 			}
 			// Attached above the analytics/auth/subscription gates, so a bug on the paywall or the

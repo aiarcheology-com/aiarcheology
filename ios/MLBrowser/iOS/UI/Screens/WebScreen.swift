@@ -485,6 +485,44 @@ struct WebScreenView: View {
         }
         .onReceive(appState.browserState.$loadFailure) { failure in
             loadFailure = failure
+            // The recovery ladder is exhausted and the failure UI is up, so a run interrupted by the
+            // termination has nothing to come back to. Read from `BrowserState` rather than from the
+            // raw delegate error: this verdict is already filtered for the current web view and
+            // ignores the cancellations that are the ordinary result of navigating away, which the
+            // delegate callback is not (raised in review).
+            if failure != nil {
+                appState.detectionState.webContentDidFailToLoad()
+            }
+        }
+        // Deliberately NOT `dropFirst()`. `@Published` replays its current value to every new
+        // subscriber and SwiftUI resubscribes whenever it remounts this screen, so dropping the first
+        // delivery loses a termination that happened while this screen was unmounted — and during a
+        // transition the outgoing and incoming subscriptions can both receive the same live change,
+        // which dropping cannot prevent either. The generation is consumed in `DetectionSessionState`
+        // instead, which outlives the view and can tell a repeat from a redelivery (AIA-0879).
+        // One publisher, not two. `@Published` replays its current value to every new subscriber and
+        // SwiftUI resubscribes whenever it remounts this screen, so two of them would replay
+        // INDEPENDENTLY — a termination from while the screen was unmounted and the recovery that
+        // settled after it, in whichever order these modifiers happened to be written. That order
+        // decided whether detection came back or stayed paused forever (raised in review). One value
+        // replays once, and it is the latest, which is all a remounting observer needs.
+        //
+        // Not `dropFirst()`: that would discard an event published while this screen was unmounted.
+        // The sequence is consumed in `DetectionSessionState`, which outlives the view.
+        .onReceive(appState.browserState.$webContentEvent) { event in
+            switch event.kind {
+            case .none:
+                break
+            case let .processTerminated(host):
+                appState.detectionState.webContentProcessDidTerminate(
+                    sequence: event.sequence,
+                    host: host
+                )
+            case .loaded:
+                appState.detectionState.webContentDidLoad(sequence: event.sequence)
+            case .stopped:
+                appState.detectionState.webContentDidStopLoading(sequence: event.sequence)
+            }
         }
         .onReceive(appState.browserState.$rebuildRequest) { request in
             guard let request else { return }

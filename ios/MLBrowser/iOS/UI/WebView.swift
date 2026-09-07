@@ -940,6 +940,9 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
         public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
 			LoggingPolicy.debug("Navigation stage: load finished after \(elapsedMilliseconds())ms", logger: .ui)
 			parent.loadStatusChanged?(false, nil)
+			// Carries the navigation token and the web view, so BrowserState can reject a finish that
+			// belongs to a superseded navigation or to an instance being replaced (AIA-0879).
+			browserState?.navigationFinished(navigation, from: webView)
 			reportRenderedContent(of: webView)
 
 			guard let url = webView.url, let domain = url.host else {

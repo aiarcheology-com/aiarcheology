@@ -1,22 +1,37 @@
-Build: The page address saved with a finding
+Build: Detection and pages that reload themselves
 
-Test Focus: The Save Finding form now explains what the Page address can and cannot do, and shows
-it at a readable size. Nothing about what gets captured or stored has changed in this build.
+Test Focus: On heavy map sites the page could reload itself every few minutes while detection was
+running. The app now steps out of the way when that happens instead of walking straight back into
+it. Nothing about what is captured or stored has changed in this build.
 
-- Save a finding on any map site. Under the Page field there is now a note: the address may be
-  fixed and may not carry the position you captured, so open it once to check where it lands and
-  fall back to the GPS position below if it is wrong. Please say whether that reads clearly, and
-  whether it still looks right at the largest text sizes (Settings > Accessibility > Display & Text
-  Size > Larger Text, with "Larger Accessibility Sizes" on).
+- Reproduce on a heavy GIS site. The reported one is the Hessen wind atlas
+  (umweltdaten.hessen.de); zbgis.skgeodesy.sk and ags.cuzk.cz are the same family. Start detection
+  with Find and leave it running for 15-20 minutes. Previously the page reloaded roughly every 2-7
+  minutes and detection carried straight on. Now the FIRST reload should pause detection briefly
+  and resume it once the page has finished loading; if the same site does it AGAIN within ten
+  minutes, detection should stop and stay stopped until you press the button again.
 
-- The URL in the Page field is now the same size as the GPS value below it, instead of noticeably
-  smaller. Check a long address still fits sensibly and can be read and corrected comfortably.
+- Please report how often you end up restarting detection, and whether the page still reloads with
+  detection stopped. Some reloading is expected to survive this: measured, the page on its own
+  accounts for about 970 MB of the roughly 1,190 MB the web content was using, so it can exhaust
+  memory without any help from us. This is meant to cut how often it happens, not to guarantee it
+  never does.
 
-- Reported case worth reproducing: on geoland.at the saved address carries no position at all, so
-  reopening it shows the whole of Austria while the GPS value is correct. That is the situation the
-  new note is there to explain — confirm it now makes sense rather than looking like a bug.
+- Check the ordinary paths did not regress: detection keeps running normally across page loads on
+  a light map site (mapy.cz); following a link while detection runs does not stop it; saving a
+  finding and closing the sheet still resumes detection afterwards.
+
+- iPad 8th generation (3 GB memory) is the device this was reported on and the likeliest to show
+  it. A newer iPad may not reproduce it at all.
 
 STILL WORTH RETESTING FROM THE PREVIOUS BUILD
+
+- The page address saved with a finding: under the Page field there is a note saying the address
+  may be fixed and may not carry the position you captured. Please say whether it reads clearly,
+  and whether it still looks right at the largest text sizes (Settings > Accessibility > Display &
+  Text Size > Larger Text, with "Larger Accessibility Sizes" on). On geoland.at the saved address
+  carries no position at all, so reopening it shows the whole of Austria while the GPS value is
+  correct — that is the situation the note is there to explain.
 
 - Aiming a finding: tap Find, then the large crosshair in the middle of the web content. RED stores
   the place under it, GREEN stores a detected rectangle covering it. Only a small area in the very

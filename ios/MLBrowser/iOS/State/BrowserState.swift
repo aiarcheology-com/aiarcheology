@@ -52,6 +52,40 @@ public struct LoadRequest: Equatable, Sendable {
 	}
 }
 
+/// The last thing that happened to the web content, for a detection run that has to answer it
+/// (AIA-0879).
+///
+/// ## Why one event and not two publishers
+/// Termination and settlement were separate `@Published` values, and that was a bug. `@Published`
+/// replays its current value to every new subscriber, `WebScreen` resubscribes whenever SwiftUI
+/// remounts it, and two publishers replay **independently**: a termination that happened while the
+/// screen was unmounted and the recovery that settled afterwards would both arrive, in whichever
+/// order the view's modifiers were applied. With settlement first, its generation was consumed
+/// while nothing was interrupted, and the termination that followed then interrupted the run with
+/// no settlement left to clear it — stuck until some later navigation (raised in review).
+///
+/// One value replays once, and it is the LATEST one, which is the only one a remounting observer
+/// needs: if the page came back, the termination before it is history. Making the order of two
+/// `.onReceive` modifiers load-bearing would have been the fragile way to fix the same thing.
+struct WebContentEvent: Equatable {
+	enum Kind: Equatable {
+		/// Nothing has happened yet. The value a fresh `BrowserState` carries.
+		case none
+		/// The web content process died. `host` is the site it died on, `nil` when unattributable.
+		case processTerminated(host: String?)
+		/// A document finished loading and is on screen.
+		case loaded
+		/// The load stopped without putting one on screen, and nothing superseded it. Pressing Stop
+		/// is the case this exists for, but it also covers an unrenderable scheme or a response that
+		/// became a download — every way a navigation can end with the previous page still showing.
+		case stopped
+	}
+
+	/// Starts at zero and only ever increases. Zero means nothing has happened.
+	var sequence: UInt64 = 0
+	var kind: Kind = .none
+}
+
 /// A request to rebuild the `WKWebView` (AIA-0509 recovery rung 2). Identity-bearing so a view can
 /// tell a new request from a repeat of one it already served.
 struct WebViewRebuildRequest: Equatable {
@@ -239,6 +273,18 @@ final class BrowserState: ObservableObject {
 	/// Set when the browser wants a rebuild; `WebScreen` observes it and bumps the web view's
 	/// SwiftUI identity.
 	@Published private(set) var rebuildRequest: WebViewRebuildRequest?
+	/// The latest thing to happen to the web content, for observers that must answer it (AIA-0879).
+	///
+	/// Sequence-stamped and never cleared. Consumers ignore a redelivery by SEQUENCE, not by
+	/// dropping the first value they see: `.dropFirst()` looks like the fix and is not, because it
+	/// also discards an event published while the observer was unmounted, and it cannot help when an
+	/// outgoing and an incoming subscription both receive the same live change during a view
+	/// transition. `DetectionSessionState` records the highest sequence it has answered.
+	///
+	/// Published from the guarded navigation callbacks rather than read off the raw delegate, so a
+	/// late callback from an outgoing web view or a superseded navigation cannot settle a recovery
+	/// that is still running.
+	@Published private(set) var webContentEvent = WebContentEvent()
 
 	/// - Parameter activeNotification: the "app became active" notification to retry on. Injected
 	///   as a name rather than read from `UIApplication` so this file stays free of UIKit — a
@@ -477,6 +523,20 @@ final class BrowserState: ObservableObject {
 		hasCommittedContent = true
 	}
 
+	/// A navigation finished with its document on screen.
+	///
+	/// Guarded exactly as the other navigation callbacks are: a `didFinish` from the web view being
+	/// replaced, or from a navigation a newer one superseded, must not be taken as "the recovery is
+	/// over" (AIA-0879).
+	func navigationFinished(_ navigation: WKNavigation?, from webView: WKWebView? = nil) {
+		guard isCurrent(webView), isLatest(navigation) else { return }
+		publishWebContentEvent(.loaded)
+	}
+
+	private func publishWebContentEvent(_ kind: WebContentEvent.Kind) {
+		webContentEvent = WebContentEvent(sequence: webContentEvent.sequence &+ 1, kind: kind)
+	}
+
 	/// A navigation failed. Publishes only reachability-class failures (see `WebLoadFailure`) and
 	/// only for the newest navigation.
 	///
@@ -496,7 +556,21 @@ final class BrowserState: ObservableObject {
 		// session -- no later map pan would ever be recorded.
 		clearProvisionalNavigation(navigation)
 		recoveryStartedAt = nil
-		guard var failure = WebLoadFailure.classify(error) else { return }
+		guard var failure = WebLoadFailure.classify(error) else {
+			// NOT necessarily a cancellation. `classify` is an allowlist of five reachability codes,
+			// so `nil` covers everything else too: a cancelled load, an unrenderable scheme
+			// (`mailto:`), a response turned into a download (`WebKitErrorDomain` 102). What they have
+			// in common is the only thing this publication claims — the navigation stopped without
+			// putting a document on screen (raised in review, where an earlier comment here asserted
+			// `NSURLErrorCancelled` semantics the code does not check for).
+			//
+			// The call already passed `isLatest`, so nothing superseded this navigation: it stopped
+			// and nothing is coming after it. Saying so is what stops a detection run waiting on a
+			// recovery from waiting for a callback that can never arrive (AIA-0879); a genuinely
+			// superseded load returned above and says nothing at all.
+			publishWebContentEvent(.stopped)
+			return
+		}
 		// AIA-0552: never replace usable content with the opaque overlay. On-device detection and
 		// classification keep working on the committed page, so any navigation intent that fails
 		// provisionally over it — an offline submit, reload, or back/forward — fails silently by
@@ -614,6 +688,10 @@ final class BrowserState: ObservableObject {
 			page: page,
 			logger: .ui
 		)
+		// Published BEFORE recovery is attempted, so anything that must stand down has already done
+		// so by the time the reload is issued. Detection resuming into the replacement document was
+		// the AIA-0879 loop.
+		publishWebContentEvent(.processTerminated(host: page?.host))
 		webViewInvalidated()
 		attemptRecovery(now: Date())
 	}

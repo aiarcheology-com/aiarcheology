@@ -96,6 +96,7 @@
 		8A4F0E492F110A0600ABCDEF /* FindingExporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E482F110A0600ABCDEF /* FindingExporterTests.swift */; };
 		8A4F0E912F110A0300ABCDEF /* WebLoadFailure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E902F110A0300ABCDEF /* WebLoadFailure.swift */; };
 		8A4F0E932F110A0300ABCDEF /* WebContentRecoveryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E922F110A0300ABCDEF /* WebContentRecoveryPolicy.swift */; };
+		8A4F0E9B2F110A0300ABCDEF /* WebContentTerminationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E9A2F110A0300ABCDEF /* WebContentTerminationPolicy.swift */; };
 		8A4F0E952F110A0300ABCDEF /* WebLoadFailureOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E942F110A0300ABCDEF /* WebLoadFailureOverlay.swift */; };
 		8A51D1BB2B0B1EA400D2417C /* MLBrowser.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 8A51D1B92B0B1EA400D2417C /* MLBrowser.xcdatamodeld */; };
 		8A51D1BE2B0B98E300D2417C /* DeepConfiguration+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A51D1BC2B0B98E200D2417C /* DeepConfiguration+CoreDataClass.swift */; };
@@ -212,6 +213,7 @@
 		94AA03070000000000000002 /* BrowsingHistoryRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AA03070000000000000001 /* BrowsingHistoryRefreshTests.swift */; };
 		94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000A0001 /* WebViewLoadErrorLevelTests.swift */; };
 		94AB0C2960296000000A0012 /* WebContentRecoveryPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000A0011 /* WebContentRecoveryPolicyTests.swift */; };
+		94AB0C2960296000000A0032 /* WebContentTerminationPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000A0031 /* WebContentTerminationPolicyTests.swift */; };
 		94AB0C2960296000000A0022 /* WebLoadFailureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000A0021 /* WebLoadFailureTests.swift */; };
 		94AB0C2960296000000B0002 /* WebViewInteractionSettleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000B0001 /* WebViewInteractionSettleTests.swift */; };
 		94AE91762F0D9E2F00B326B7 /* Color+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AE91752F0D9E2800B326B7 /* Color+Extension.swift */; };
@@ -537,6 +539,7 @@
 		8A4F0E482F110A0600ABCDEF /* FindingExporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingExporterTests.swift; sourceTree = "<group>"; };
 		8A4F0E902F110A0300ABCDEF /* WebLoadFailure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLoadFailure.swift; sourceTree = "<group>"; };
 		8A4F0E922F110A0300ABCDEF /* WebContentRecoveryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebContentRecoveryPolicy.swift; sourceTree = "<group>"; };
+		8A4F0E9A2F110A0300ABCDEF /* WebContentTerminationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebContentTerminationPolicy.swift; sourceTree = "<group>"; };
 		8A4F0E942F110A0300ABCDEF /* WebLoadFailureOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLoadFailureOverlay.swift; sourceTree = "<group>"; };
 		8A51D1BA2B0B1EA400D2417C /* MLBrowser.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = MLBrowser.xcdatamodel; sourceTree = "<group>"; };
 		8A51D1BC2B0B98E200D2417C /* DeepConfiguration+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DeepConfiguration+CoreDataClass.swift"; sourceTree = "<group>"; };
@@ -656,6 +659,7 @@
 		94AA03070000000000000001 /* BrowsingHistoryRefreshTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowsingHistoryRefreshTests.swift; sourceTree = "<group>"; };
 		94AB0C2960296000000A0001 /* WebViewLoadErrorLevelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewLoadErrorLevelTests.swift; sourceTree = "<group>"; };
 		94AB0C2960296000000A0011 /* WebContentRecoveryPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebContentRecoveryPolicyTests.swift; sourceTree = "<group>"; };
+		94AB0C2960296000000A0031 /* WebContentTerminationPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebContentTerminationPolicyTests.swift; sourceTree = "<group>"; };
 		94AB0C2960296000000A0021 /* WebLoadFailureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLoadFailureTests.swift; sourceTree = "<group>"; };
 		94AB0C2960296000000B0001 /* WebViewInteractionSettleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewInteractionSettleTests.swift; sourceTree = "<group>"; };
 		94AE91752F0D9E2800B326B7 /* Color+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Extension.swift"; sourceTree = "<group>"; };
@@ -1109,6 +1113,7 @@
 				8AC650AC2B2B9A6200922648 /* AppChromeState.swift */,
 				8A4F0E152F110A0300ABCDEF /* BrowserState.swift */,
 				8A4F0E922F110A0300ABCDEF /* WebContentRecoveryPolicy.swift */,
+				8A4F0E9A2F110A0300ABCDEF /* WebContentTerminationPolicy.swift */,
 				8A4F0E902F110A0300ABCDEF /* WebLoadFailure.swift */,
 				8A4F0E212F110A0400ABCDEF /* VisitTrail.swift */,
 				8A8153712B3E272800B3B079 /* ModelProvider.swift */,
@@ -1419,6 +1424,7 @@
 				94AB0C2960296000000A0001 /* WebViewLoadErrorLevelTests.swift */,
 				94AB0C2960296000000B0001 /* WebViewInteractionSettleTests.swift */,
 				94AB0C2960296000000A0011 /* WebContentRecoveryPolicyTests.swift */,
+				94AB0C2960296000000A0031 /* WebContentTerminationPolicyTests.swift */,
 				94AB0C2960296000000A0021 /* WebLoadFailureTests.swift */,
 				940A10042F0500010000A004 /* LocalizationTests.swift */,
 				94929E842ED65555001A4C63 /* LowerPriorityTests.swift */,
@@ -2251,6 +2257,7 @@
 				8A4F0E162F110A0300ABCDEF /* BrowserState.swift in Sources */,
 				D6AF7F9A304A0375007E0A6D /* MLBrowser_0.0.1_0.0.2.xcmappingmodel in Sources */,
 				8A4F0E932F110A0300ABCDEF /* WebContentRecoveryPolicy.swift in Sources */,
+				8A4F0E9B2F110A0300ABCDEF /* WebContentTerminationPolicy.swift in Sources */,
 				8A4F0E912F110A0300ABCDEF /* WebLoadFailure.swift in Sources */,
 				8A4F0E182F110A0300ABCDEF /* FloatingNavBar.swift in Sources */,
 				8A4F0E1A2F110A0300ABCDEF /* LocationSheetView.swift in Sources */,
@@ -2432,6 +2439,7 @@
 				94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */,
 				94AB0C2960296000000B0002 /* WebViewInteractionSettleTests.swift in Sources */,
 				94AB0C2960296000000A0012 /* WebContentRecoveryPolicyTests.swift in Sources */,
+				94AB0C2960296000000A0032 /* WebContentTerminationPolicyTests.swift in Sources */,
 				94AB0C2960296000000A0022 /* WebLoadFailureTests.swift in Sources */,
 				940A10052F0500010000A005 /* LocalizationTests.swift in Sources */,
 				94929E772ED633C1001A4C63 /* DeepDriversTests.swift in Sources */,
