@@ -562,8 +562,8 @@ internal enum L10n {
     /// Zoom
     internal static let zoom = L10n.tr("Localizable", "finding.zoom", fallback: "Zoom")
     internal enum Page {
-      /// Some map sites keep this address fixed, so it may not carry the position you captured. Open it once to check where it lands; if it does not show the right place, rely on the GPS position below.
-      internal static let footnote = L10n.tr("Localizable", "finding.page.footnote", fallback: "Some map sites keep this address fixed, so it may not carry the position you captured. Open it once to check where it lands; if it does not show the right place, rely on the GPS position below.")
+      /// Some map sites keep this address fixed, so it may not carry the position you captured. Open it once to check where it lands; if it does not show the right place, rely on the GPS position below. If the site has its own share button, the link it makes usually does carry the position — you can paste it in here.
+      internal static let footnote = L10n.tr("Localizable", "finding.page.footnote", fallback: "Some map sites keep this address fixed, so it may not carry the position you captured. Open it once to check where it lands; if it does not show the right place, rely on the GPS position below. If the site has its own share button, the link it makes usually does carry the position — you can paste it in here.")
     }
     internal enum Pick {
       /// Tap the crosshair to store this place, or move a detection under it

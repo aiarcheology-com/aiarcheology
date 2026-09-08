@@ -23340,103 +23340,103 @@
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "تُبقي بعض مواقع الخرائط هذا العنوان ثابتًا، لذا قد لا يحمل الموضع الذي التقطته. افتحه مرة للتحقق من المكان الذي يصل إليه؛ وإذا لم يُظهر المكان الصحيح، فاعتمد على موضع GPS أدناه."
+            "value" : "تُبقي بعض مواقع الخرائط هذا العنوان ثابتًا، لذا قد لا يحمل الموضع الذي التقطته. افتحه مرة للتحقق من المكان الذي يصل إليه؛ وإذا لم يُظهر المكان الصحيح، فاعتمد على موضع GPS أدناه. إذا كان للموقع زر مشاركة خاص به، فإن الرابط الذي ينشئه يحمل الموضع عادةً — ويمكنك لصقه هنا."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "কিছু মানচিত্র সাইট এই ঠিকানাটি অপরিবর্তিত রাখে, তাই এটি আপনার ধরা অবস্থানটি বহন নাও করতে পারে। একবার খুলে দেখে নিন এটি কোথায় নিয়ে যায়; সঠিক জায়গা না দেখালে নিচের GPS অবস্থানের উপর নির্ভর করুন।"
+            "value" : "কিছু মানচিত্র সাইট এই ঠিকানাটি অপরিবর্তিত রাখে, তাই এটি আপনার ধরা অবস্থানটি বহন নাও করতে পারে। একবার খুলে দেখে নিন এটি কোথায় নিয়ে যায়; সঠিক জায়গা না দেখালে নিচের GPS অবস্থানের উপর নির্ভর করুন। সাইটে যদি নিজস্ব শেয়ার বোতাম থাকে, সেটির তৈরি লিঙ্ক সাধারণত অবস্থান বহন করে — আপনি সেটি এখানে পেস্ট করতে পারেন।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Některé mapové weby nechávají tuto adresu neměnnou, takže nemusí nést zachycenou polohu. Jednou ji otevřete a ověřte, kam vede; pokud neukáže správné místo, spolehněte se na polohu GPS níže."
+            "value" : "Některé mapové weby nechávají tuto adresu neměnnou, takže nemusí nést zachycenou polohu. Jednou ji otevřete a ověřte, kam vede; pokud neukáže správné místo, spolehněte se na polohu GPS níže. Pokud má web vlastní tlačítko sdílení, odkaz, který vytvoří, obvykle polohu nese — můžete ho sem vložit."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Manche Kartenseiten lassen diese Adresse unverändert, sodass sie die erfasste Position möglicherweise nicht enthält. Öffnen Sie sie einmal und prüfen Sie, wo sie landet; zeigt sie nicht den richtigen Ort, verlassen Sie sich auf die GPS-Position unten."
+            "value" : "Manche Kartenseiten lassen diese Adresse unverändert, sodass sie die erfasste Position möglicherweise nicht enthält. Öffnen Sie sie einmal und prüfen Sie, wo sie landet; zeigt sie nicht den richtigen Ort, verlassen Sie sich auf die GPS-Position unten. Hat die Seite einen eigenen Teilen-Button, trägt der damit erzeugte Link die Position meist mit — Sie können ihn hier einfügen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Some map sites keep this address fixed, so it may not carry the position you captured. Open it once to check where it lands; if it does not show the right place, rely on the GPS position below."
+            "value" : "Some map sites keep this address fixed, so it may not carry the position you captured. Open it once to check where it lands; if it does not show the right place, rely on the GPS position below. If the site has its own share button, the link it makes usually does carry the position — you can paste it in here."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Algunos sitios de mapas mantienen esta dirección fija, por lo que puede no llevar la posición que capturaste. Ábrela una vez para comprobar dónde lleva; si no muestra el lugar correcto, usa la posición GPS de abajo."
+            "value" : "Algunos sitios de mapas mantienen esta dirección fija, por lo que puede no llevar la posición que capturaste. Ábrela una vez para comprobar dónde lleva; si no muestra el lugar correcto, usa la posición GPS de abajo. Si el sitio tiene su propio botón de compartir, el enlace que genera suele llevar la posición: puedes pegarlo aquí."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "برخی سایت‌های نقشه این نشانی را ثابت نگه می‌دارند، بنابراین ممکن است موقعیتی را که ثبت کرده‌اید در بر نداشته باشد. یک بار آن را باز کنید و ببینید کجا می‌رسد؛ اگر مکان درست را نشان نداد، به موقعیت GPS زیر تکیه کنید."
+            "value" : "برخی سایت‌های نقشه این نشانی را ثابت نگه می‌دارند، بنابراین ممکن است موقعیتی را که ثبت کرده‌اید در بر نداشته باشد. یک بار آن را باز کنید و ببینید کجا می‌رسد؛ اگر مکان درست را نشان نداد، به موقعیت GPS زیر تکیه کنید. اگر سایت دکمهٔ هم‌رسانی خودش را دارد، پیوندی که می‌سازد معمولاً موقعیت را در خود دارد — می‌توانید آن را اینجا بچسبانید."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Certains sites de cartographie gardent cette adresse figée : elle peut donc ne pas porter la position que vous avez enregistrée. Ouvrez-la une fois pour voir où elle mène ; si le lieu est incorrect, fiez-vous à la position GPS ci-dessous."
+            "value" : "Certains sites de cartographie gardent cette adresse figée : elle peut donc ne pas porter la position que vous avez enregistrée. Ouvrez-la une fois pour voir où elle mène ; si le lieu est incorrect, fiez-vous à la position GPS ci-dessous. Si le site a son propre bouton de partage, le lien qu’il produit contient généralement la position — vous pouvez le coller ici."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "אתרי מפות מסוימים משאירים את הכתובת הזו קבועה, ולכן ייתכן שאינה נושאת את המיקום שתיעדת. פתח אותה פעם אחת כדי לבדוק לאן היא מובילה; אם אינה מציגה את המקום הנכון, הסתמך על מיקום ה-GPS שלמטה."
+            "value" : "אתרי מפות מסוימים משאירים את הכתובת הזו קבועה, ולכן ייתכן שאינה נושאת את המיקום שתיעדת. פתח אותה פעם אחת כדי לבדוק לאן היא מובילה; אם אינה מציגה את המקום הנכון, הסתמך על מיקום ה-GPS שלמטה. אם לאתר יש כפתור שיתוף משלו, הקישור שהוא יוצר בדרך כלל כן נושא את המיקום — אפשר להדביק אותו כאן."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "कुछ मानचित्र साइटें इस पते को स्थिर रखती हैं, इसलिए इसमें वह स्थिति नहीं हो सकती जो आपने रिकॉर्ड की थी। एक बार खोलकर देखें कि यह कहाँ ले जाता है; यदि यह सही जगह न दिखाए, तो नीचे दी गई GPS स्थिति पर भरोसा करें।"
+            "value" : "कुछ मानचित्र साइटें इस पते को स्थिर रखती हैं, इसलिए इसमें वह स्थिति नहीं हो सकती जो आपने रिकॉर्ड की थी। एक बार खोलकर देखें कि यह कहाँ ले जाता है; यदि यह सही जगह न दिखाए, तो नीचे दी गई GPS स्थिति पर भरोसा करें। अगर साइट पर अपना शेयर बटन है, तो उससे बना लिंक आमतौर पर स्थिति साथ रखता है — आप उसे यहाँ चिपका सकते हैं।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Egyes térképoldalak változatlanul hagyják ezt a címet, így elképzelhető, hogy nem tartalmazza a rögzített pozíciót. Nyissa meg egyszer, és nézze meg, hová vezet; ha nem a megfelelő helyet mutatja, támaszkodjon az alábbi GPS-pozícióra."
+            "value" : "Egyes térképoldalak változatlanul hagyják ezt a címet, így elképzelhető, hogy nem tartalmazza a rögzített pozíciót. Nyissa meg egyszer, és nézze meg, hová vezet; ha nem a megfelelő helyet mutatja, támaszkodjon az alábbi GPS-pozícióra. Ha az oldalnak van saját megosztás gombja, az így kapott hivatkozás általában tartalmazza a pozíciót — beillesztheti ide."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Niektóre serwisy map pozostawiają ten adres bez zmian, więc może nie zawierać zapisanej pozycji. Otwórz go raz i sprawdź, dokąd prowadzi; jeśli nie pokazuje właściwego miejsca, polegaj na pozycji GPS poniżej."
+            "value" : "Niektóre serwisy map pozostawiają ten adres bez zmian, więc może nie zawierać zapisanej pozycji. Otwórz go raz i sprawdź, dokąd prowadzi; jeśli nie pokazuje właściwego miejsca, polegaj na pozycji GPS poniżej. Jeśli witryna ma własny przycisk udostępniania, tworzony przez nią odnośnik zwykle zawiera pozycję — możesz go tutaj wkleić."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Некоторые картографические сайты не меняют этот адрес, поэтому он может не содержать записанную позицию. Откройте его один раз и проверьте, куда он ведёт; если место неверное, полагайтесь на позицию GPS ниже."
+            "value" : "Некоторые картографические сайты не меняют этот адрес, поэтому он может не содержать записанную позицию. Откройте его один раз и проверьте, куда он ведёт; если место неверное, полагайтесь на позицию GPS ниже. Если у сайта есть своя кнопка «Поделиться», созданная ею ссылка обычно содержит позицию — её можно вставить сюда."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Деякі картографічні сайти залишають цю адресу незмінною, тож вона може не містити збережену позицію. Відкрийте її один раз і перевірте, куди вона веде; якщо місце неправильне, покладайтеся на позицію GPS нижче."
+            "value" : "Деякі картографічні сайти залишають цю адресу незмінною, тож вона може не містити збережену позицію. Відкрийте її один раз і перевірте, куди вона веде; якщо місце неправильне, покладайтеся на позицію GPS нижче. Якщо на сайті є власна кнопка «Поділитися», створене нею посилання зазвичай містить позицію — його можна вставити сюди."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "某些地图网站不会改变这个网址，因此它可能不包含你记录的位置。先打开一次看看它会到哪里；如果不是正确的地点，请以下方的 GPS 位置为准。"
+            "value" : "某些地图网站不会改变这个网址，因此它可能不包含你记录的位置。先打开一次看看它会到哪里；如果不是正确的地点，请以下方的 GPS 位置为准。如果该网站有自己的分享按钮，它生成的链接通常会包含位置——你可以把它粘贴到这里。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "某些地圖網站不會變更這個網址，因此它可能不包含你記錄的位置。先開啟一次看看它會到哪裡；如果不是正確的地點，請以下方的 GPS 位置為準。"
+            "value" : "某些地圖網站不會變更這個網址，因此它可能不包含你記錄的位置。先開啟一次看看它會到哪裡；如果不是正確的地點，請以下方的 GPS 位置為準。如果該網站有自己的分享按鈕，它產生的連結通常會包含位置——你可以把它貼到這裡。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "某些地圖網站唔會改呢個網址，所以佢可能唔包含你記錄嘅位置。先開一次睇下佢去邊；如果唔係正確嘅地點，請以下面嘅 GPS 位置為準。"
+            "value" : "某些地圖網站唔會改呢個網址，所以佢可能唔包含你記錄嘅位置。先開一次睇下佢去邊；如果唔係正確嘅地點，請以下面嘅 GPS 位置為準。如果個網站有自己嘅分享掣，佢整出嚟嘅連結通常會包含位置——你可以貼喺呢度。"
           }
         }
       }
