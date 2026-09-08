@@ -2669,6 +2669,7 @@
 				INFOPLIST_FILE = "MLBrowser-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Your permission is needed to connect with devices on your local network. This allows the app to automatically detect and interact with compatible devices for streamlined data sharing and enhanced functionality.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Saving a finding's picture to your photo library needs your permission. It is used only when you pick Save Image while sharing a finding; nothing is written to Photos otherwise.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = NO;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -2714,6 +2715,7 @@
 				INFOPLIST_FILE = "MLBrowser-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Your permission is needed to connect with devices on your local network. This allows the app to automatically detect and interact with compatible devices for streamlined data sharing and enhanced functionality.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Saving a finding's picture to your photo library needs your permission. It is used only when you pick Save Image while sharing a finding; nothing is written to Photos otherwise.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = NO;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

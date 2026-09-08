@@ -301,6 +301,10 @@ final class LocalizationCatalogTests: XCTestCase {
     /// though its value is a protected product name.
     private static let infoPlistSourceValues = [
         "NSLocalNetworkUsageDescription": "Your permission is needed to connect with devices on your local network. This allows the app to automatically detect and interact with compatible devices for streamlined data sharing and enhanced functionality.",
+        // AIA-0867: iOS terminates the app if this is missing when the share sheet's Save Image
+        // writes to Photos. Kept here in full so the guard fails on a value that drifts from the
+        // INFOPLIST_KEY_ setting, not merely on a key that disappears.
+        "NSPhotoLibraryAddUsageDescription": "Saving a finding's picture to your photo library needs your permission. It is used only when you pick Save Image while sharing a finding; nothing is written to Photos otherwise.",
         "CFBundleName": "ML Browser",
         "AI Archeology native model graph": "AI Archeology native model graph",
         "ONNX model": "ONNX model",

@@ -433,6 +433,114 @@
         }
       }
     },
+    "NSPhotoLibraryAddUsageDescription" : {
+      "comment" : "Why the app asks to add to the photo library. Shown inside the iOS permission alert; without this key iOS terminates the app on Save Image (AIA-0867).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يحتاج حفظ صورة اكتشاف في مكتبة صورك إلى إذنك. ولا يُستخدم إلا عند اختيار «حفظ الصورة» أثناء مشاركة اكتشاف؛ ولا يُكتب أي شيء آخر إلى الصور."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "কোনও আবিষ্কারের ছবি আপনার ফটো লাইব্রেরিতে সংরক্ষণ করতে আপনার অনুমতি প্রয়োজন। এটি কেবল তখনই ব্যবহৃত হয় যখন আপনি কোনও আবিষ্কার শেয়ার করার সময় Save Image বেছে নেন; অন্য কিছু ফটোতে লেখা হয় না।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "K uložení obrázku nálezu do fotogalerie je potřeba vaše svolení. Použije se jen tehdy, když při sdílení nálezu zvolíte Uložit obrázek; nic jiného se do Fotek nezapisuje."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zum Sichern des Bildes eines Fundes in Ihrer Fotomediathek wird Ihre Erlaubnis benötigt. Sie wird nur genutzt, wenn Sie beim Teilen eines Fundes „Bild sichern“ wählen; sonst wird nichts in Fotos geschrieben."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving a finding's picture to your photo library needs your permission. It is used only when you pick Save Image while sharing a finding; nothing is written to Photos otherwise."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Guardar la imagen de un hallazgo en tu fototeca necesita tu permiso. Solo se usa cuando eliges Guardar imagen al compartir un hallazgo; no se escribe nada más en Fotos."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ذخیرهٔ تصویر یک یافته در کتابخانهٔ عکس شما به اجازهٔ شما نیاز دارد. تنها زمانی استفاده می‌شود که هنگام هم‌رسانی یک یافته «ذخیرهٔ تصویر» را انتخاب کنید؛ چیز دیگری در عکس‌ها نوشته نمی‌شود."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Enregistrer l’image d’une trouvaille dans votre photothèque nécessite votre autorisation. Elle n’est utilisée que si vous choisissez « Enregistrer l’image » en partageant une trouvaille ; rien d’autre n’est écrit dans Photos."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "שמירת התמונה של ממצא בספריית התמונות שלך דורשת את הרשאתך. היא משמשת רק כאשר בוחרים ״שמור תמונה״ בעת שיתוף ממצא; דבר אחר אינו נכתב לתמונות."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "किसी खोज की तस्वीर को अपनी फ़ोटो लाइब्रेरी में सहेजने के लिए आपकी अनुमति चाहिए। इसका उपयोग तभी होता है जब आप खोज साझा करते समय Save Image चुनते हैं; इसके अलावा फ़ोटो में कुछ नहीं लिखा जाता।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Egy lelet képének a fotókönyvtárba mentéséhez az Ön engedélye szükséges. Csak akkor használjuk, ha egy lelet megosztásakor a Kép mentése lehetőséget választja; egyébként semmi nem kerül a Fotókba."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zapisanie zdjęcia znaleziska w bibliotece zdjęć wymaga Twojej zgody. Jest używana tylko wtedy, gdy podczas udostępniania znaleziska wybierzesz Zapisz obraz; nic innego nie jest zapisywane w Zdjęciach."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Для сохранения изображения находки в медиатеку нужно ваше разрешение. Оно используется только когда вы выбираете «Сохранить изображение» при отправке находки; больше в «Фото» ничего не записывается."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Щоб зберегти зображення знахідки у вашій медіатеці, потрібен ваш дозвіл. Він використовується лише коли ви обираєте «Зберегти зображення» під час надсилання знахідки; більше нічого у «Фото» не записується."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "将发现的图片存入你的照片图库需要你的许可。仅当你在分享发现时选择“存储图像”才会用到；除此之外不会向“照片”写入任何内容。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "將發現的圖片儲存到你的照片圖庫需要你的許可。只有在你分享發現時選擇「儲存影像」才會用到；除此之外不會寫入任何內容到「照片」。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "將發現嘅圖片儲存到你嘅相片圖庫需要你嘅許可。只有喺你分享發現時揀「儲存影像」先會用到；除此之外唔會寫任何嘢入「相片」。"
+          }
+        }
+      }
+    },
     "ONNX model" : {
       "comment" : "Description of an ONNX model file, shown by Files and Open With.",
       "extractionState" : "manual",
