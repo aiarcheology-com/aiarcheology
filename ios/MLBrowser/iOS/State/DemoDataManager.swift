@@ -224,7 +224,11 @@ final class DemoDataManager {
         let extractedInfo: ExtractedModelInfo
         do {
             let service = ModelLoadingService()
-            extractedInfo = try await service.loadAndExtractMetadata(from: url)
+            // Exempt from the AIA-0889 memory gate. Seeding is not retryable — the guard above
+            // skips all demo creation once any demo exists, so a demo refused on one launch is
+            // never created again. Bundled models are small and their size is fixed at build time,
+            // so the gate could not usefully fire here anyway.
+            extractedInfo = try await service.loadAndExtractMetadata(from: url, admission: .exempt)
         } catch {
             LoggingPolicy.error("Failed to load demo model metadata", error: error, logger: .configuration)
             return

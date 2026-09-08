@@ -93,6 +93,8 @@ struct ModelImportView: View {
 	/// The archive is deleted when the system share sheet completes or is dismissed.
 	@State private var nativeModelSharePayload: ActivitySharePayload?
 	@State private var isPreparingNativeModelExport = false
+	/// A converted model kept after a memory refusal, awaiting a safe moment to delete.
+	@State private var retainedModelPendingCleanup: NativeModelConversionImportReport?
 	
 	/// Error to display in alert
 	@State private var errorMessage: String?
@@ -144,6 +146,11 @@ struct ModelImportView: View {
 		.overlay {
 			if isLoading {
 				loadingOverlay
+			} else if isPreparingNativeModelExport {
+				// Zipping a ~190 MB model takes seconds with no other visible sign (AIA-0889). The
+				// alert that offers the export dismisses on tap, so without this the app simply looks
+				// frozen until the share sheet appears.
+				exportPreparationOverlay
 			}
 		}
 		.fileImporter(
@@ -185,13 +192,23 @@ struct ModelImportView: View {
 						}
 					}
 				}
+				// Offered where the failure is announced (AIA-0889). A load refused for memory is the
+				// one failure whose artifact is good — the conversion succeeded and only this device
+				// cannot load it — so the model is still here and can leave for a device that can.
+				// Burying that behind the log sheet would lose it: the model is deleted the moment
+				// this failure stops being on screen.
+				if canExportConvertedModel(for: report) {
+					Button(L10n.Import.exportConvertedModel) {
+						exportConvertedModel(report)
+					}
+				}
 				Button(L10n.Import.showConversionLog) {
 					presentedNativeConversionReport = report
 				}
 			}
 			Button(L10n.Common.ok, role: .cancel) { }
 		} message: {
-			Text(errorMessage ?? L10n.Alert.Error.unexpected)
+			Text(errorAlertMessage)
 		}
 		.alert(importedModelInfo?.needsReview == true ? L10n.Import.confirmTypeTitle : L10n.Import.successTitle,
 			   isPresented: .init(
@@ -322,10 +339,54 @@ struct ModelImportView: View {
 			NativeModelConversionReportView(
 				report: report,
 				isPreparingExport: isPreparingNativeModelExport,
+				canExport: canExportConvertedModel(for: report),
 				onExport: { exportConvertedModel(report) }
 			)
 		}
 		.activityShareSheet($nativeModelSharePayload)
+		// The retained model has exactly two ends (AIA-0889): the failure dialog closes, or an export
+		// of it succeeds. A *failed* export deliberately keeps it — deleting there would destroy the
+		// only copy at the moment the user asked to save it and would have nothing to retry with.
+		.onChange(of: showErrorAlert) { _, isShowing in
+			guard isShowing.not else { return }
+			removeRetainedConvertedModelIfIdle()
+		}
+		.onChange(of: presentedNativeConversionReport) { previous, current in
+			guard current == nil, previous != nil else { return }
+			removeRetainedConvertedModelIfIdle()
+		}
+		.onChange(of: interruptedNativeConversion) { previous, current in
+			guard current == nil, previous != nil else { return }
+			removeRetainedConvertedModelIfIdle()
+		}
+	}
+
+	/// Removes the model kept after a memory refusal, once nothing on screen still offers it.
+	///
+	/// Held back while an export is in flight: tapping Export dismisses the alert immediately, and
+	/// the exporter has to copy the model into its archive before the original can go. The export's
+	/// own success path calls back here once that copy exists.
+	private func removeRetainedConvertedModelIfIdle() {
+		guard let report = retainedModelPendingCleanup,
+			isPreparingNativeModelExport.not,
+			showErrorAlert.not,
+			presentedNativeConversionReport == nil,
+			interruptedNativeConversion == nil,
+			let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID)
+		else {
+			return
+		}
+		retainedModelPendingCleanup = nil
+		// Off the main actor: this runs the instant a dialog closes, which is exactly when the user
+		// touches the screen again, and it removes a ~190 MB file plus a directory scan for partials.
+		// State is already cleared above, so nothing waits on the result.
+		Task.detached(priority: .utility) {
+			NativeModelConversionImportReport.removeTransientArtifacts(
+				for: report,
+				in: configurationDirectory,
+				includingSourcePackage: false
+			)
+		}
 	}
 
 	// MARK: - Content
@@ -453,6 +514,38 @@ struct ModelImportView: View {
 	
 	// MARK: - Loading Overlay
 	
+	/// Whether this report can be exported *now* — the model has to still be on disk.
+	private func canExportConvertedModel(for report: NativeModelConversionImportReport) -> Bool {
+		guard let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) else {
+			return false
+		}
+		return report.hasExportableConvertedModel(in: configurationDirectory)
+	}
+
+	/// The failure alert's text, plus the export offer only when there is genuinely something to
+	/// export. The loader's own message stays generic because it also serves direct `.mlmodel`
+	/// imports, which never had a conversion to keep (AIA-0889).
+	private var errorAlertMessage: String {
+		let base = errorMessage ?? L10n.Alert.Error.unexpected
+		guard let report = nativeConversionReport, canExportConvertedModel(for: report) else {
+			return base
+		}
+		return "\(base)\n\n\(L10n.Import.insufficientMemoryCanExport)"
+	}
+
+	private var exportPreparationOverlay: some View {
+		ZStack {
+			Color.black.opacity(0.3)
+				.ignoresSafeArea()
+
+			ProgressView {
+				Text(L10n.Import.preparingExport)
+			}
+			.padding()
+			.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+		}
+	}
+
 	private var loadingOverlay: some View {
 		ZStack {
 			Color.black.opacity(0.3)
@@ -588,6 +681,17 @@ struct ModelImportView: View {
 		else {
 			return
 		}
+		// An `emitted` report whose configuration row exists actually finished: Core Data is saved
+		// before the report reaches `registered`, so a termination in that window leaves a durable
+		// registration described by a stale report. Treating that as interrupted would delete the
+		// model a live configuration points at (AIA-0889). Repair the report instead.
+		if report.state == .emitted, DeepConfiguration.select(report.configurationID, in: moc) != nil {
+			report.repairRegisteredStateAfterStaleEmission()
+			if let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) {
+				try? report.write(in: configurationDirectory)
+			}
+			return
+		}
 		if report.markInterruptedIfIncomplete(),
 			let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) {
 			NativeModelConversionImportReport.removeTransientArtifacts(
@@ -596,6 +700,11 @@ struct ModelImportView: View {
 				includingSourcePackage: false
 			)
 			try? report.write(in: configurationDirectory)
+		}
+		// Without this the retained model leaks: only `recordNativeImportFailure` armed the cleanup,
+		// so a refusal survived by relaunching the app owned nothing and was never removed.
+		if report.keepsConvertedModelForExport {
+			retainedModelPendingCleanup = report
 		}
 		interruptedNativeConversion = report
 	}
@@ -637,7 +746,8 @@ struct ModelImportView: View {
 	}
 
 	private func exportConvertedModel(_ report: NativeModelConversionImportReport) {
-		guard report.state == .registered, !isPreparingNativeModelExport else { return }
+		guard report.state == .registered || report.keepsConvertedModelForExport,
+			!isPreparingNativeModelExport else { return }
 		guard let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) else {
 			errorMessage = NativeModelConversionImportReportError.invalidReport.localizedDescription
 			showErrorAlert = true
@@ -645,6 +755,7 @@ struct ModelImportView: View {
 		}
 		isPreparingNativeModelExport = true
 		Task {
+			var exportSucceeded = false
 			do {
 				let archiveURL = try await Task.detached(priority: .userInitiated) {
 					try NativeModelConversionExporter.makeZip(
@@ -656,12 +767,18 @@ struct ModelImportView: View {
 					items: [archiveURL],
 					completion: { NativeModelConversionExporter.removeExportArchive(at: archiveURL) }
 				)
+				exportSucceeded = true
 			} catch {
 				LoggingPolicy.error("Failed to export converted model", error: error, logger: .storage)
 				errorMessage = error.localizedDescription
 				showErrorAlert = true
 			}
 			isPreparingNativeModelExport = false
+			// The archive holds its own copy of the model, so the retained original has served its
+			// purpose. Success only: a failed export must leave the model there to retry with.
+			if exportSucceeded {
+				removeRetainedConvertedModelIfIdle()
+			}
 		}
 	}
 
@@ -951,7 +1068,7 @@ struct ModelImportView: View {
 			// here would freeze the UI before conversion even starts. `nonisolated` alone does not
 			// move the work — it still runs on the caller's executor.
 			let sourceByteCount = await Task.detached(priority: .utility) {
-				Self.byteCount(at: storedURL)
+				ModelLoadingService.byteCount(at: storedURL)
 			}.value
 			// The URL is sanitised inside `record` — see `loggableSourceURL`. It is passed raw
 			// here on purpose, so the one place that decides what is safe to log is the one place
@@ -1018,72 +1135,42 @@ struct ModelImportView: View {
 		}
 	}
 
-	/// Total bytes at `url`, whether it is a file or a package directory.
-	///
-	/// A source can be either: ONNX arrives as a single file, a native graph package as a
-	/// directory. Summing the directory's contents is what makes the two comparable in a report.
-	/// `nil` when the size cannot be read — a missing number is honest, a zero would not be.
-	nonisolated static func byteCount(at url: URL) -> UInt64? {
-		let manager = FileManager.default
-		var isDirectory: ObjCBool = false
-		guard manager.fileExists(atPath: url.path, isDirectory: &isDirectory) else { return nil }
-
-		guard isDirectory.boolValue else {
-			guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize else { return nil }
-			return UInt64(size)
-		}
-		// `nil` on the first unreadable entry rather than a partial sum: a number that silently
-		// omits half a package is worse than no number, because a support reader cannot tell.
-		var failed = false
-		guard let enumerator = manager.enumerator(
-			at: url,
-			includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
-			options: [],
-			errorHandler: { _, _ in
-				failed = true
-				return false
-			}
-		) else { return nil }
-
-		var total: UInt64 = 0
-		for case let file as URL in enumerator {
-			guard let values = try? file.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]) else {
-				return nil
-			}
-			// Directories and symlinks contribute nothing: a symlink reports its own metadata size,
-			// not its target's, so counting it would double or mis-state the total.
-			guard values.isRegularFile == true, let size = values.fileSize, size >= 0 else { continue }
-			// Sparse or hostile inputs must not trap the app for a diagnostic number.
-			let (sum, overflowed) = total.addingReportingOverflow(UInt64(size))
-			if overflowed { return nil }
-			total = sum
-		}
-		return failed ? nil : total
-	}
-
 	private func recordNativeImportFailure(
 		_ error: Error,
 		reportStore: NativeModelConversionImportReportStore,
 		configurationDirectory: URL,
 		reportObserver: @escaping @Sendable (NativeModelConversionImportReport) -> Void
 	) async {
-		let diagnostic = nativeConversionDiagnostic(for: error)
+		let diagnostic = Self.nativeConversionDiagnostic(for: error)
 		let isCancelled = isNativeConversionCancellation(error)
 		let terminalState: NativeModelConversionImportState = isCancelled ? .cancelled : .failed
 		try? await reportStore.transition(to: terminalState, diagnostic: diagnostic)
 		let report = await reportStore.snapshot()
+		// Armed here rather than at a surface's dismissal: both the alert and the log sheet can be
+		// the last thing to close, and whichever it is must find something to clean up.
+		if report.keepsConvertedModelForExport {
+			retainedModelPendingCleanup = report
+		}
 		// Cancellation and a normal error both finish this *attempt*. Never retain generated output
 		// from an unregistered attempt: the source and report are the durable retry/support records.
 		// A process termination is different—the process cannot run this cleanup, so recovery owns it.
+		//
+		// AIA-0889 carves out one exception: a load refused for memory is the only failure whose
+		// artifact is good. The conversion succeeded and merely this device cannot load it, so the
+		// model is kept for export and removed when the failure report is dismissed instead.
 		NativeModelConversionImportReport.removeTransientArtifacts(
 			for: report,
 			in: configurationDirectory,
-			includingSourcePackage: false
+			includingSourcePackage: false,
+			includingConvertedModel: !report.keepsConvertedModelForExport
 		)
 		reportObserver(report)
 	}
 
-	private func nativeConversionDiagnostic(for error: Error) -> NativeModelConversionDiagnostic {
+	/// Pure and `nonisolated static` so the privacy rail below is asserted by tests rather than
+	/// merely stated: this message is exported and shared, so it is the one string in the import
+	/// path that must be proven not to carry a file name, a path, or Core ML's own wording.
+	nonisolated static func nativeConversionDiagnostic(for error: Error) -> NativeModelConversionDiagnostic {
 		if let error = error as? NativeModelConversionError {
 			return error.diagnostic
 		}
@@ -1094,8 +1181,41 @@ struct ModelImportView: View {
 				message: "Conversion was cancelled before the next safe checkpoint."
 			)
 		}
+		// AIA-0889: the load-stage failures used to collapse into the catch-all below, so the one
+		// artefact a user exports for support named neither the stage nor the reason. These carry a
+		// stable code and fixed wording.
+		//
+		// Nothing derived from the error's own text may appear here. `diagnostic.message` is
+		// rendered verbatim, written into the exported log, and shared, while
+		// `ModelLoadingError.errorDescription` embeds the file name and Core ML's raw message — so
+		// forwarding `localizedDescription` would publish both. Fixed strings plus byte counts only.
+		if let error = error as? ModelLoadingError {
+			switch error {
+			case .insufficientMemory(_, let requiredByteCount, let availableByteCount):
+				return NativeModelConversionDiagnostic(
+					code: NativeModelConversionImportReport.AppDiagnosticCode.insufficientMemoryForModelLoad,
+					phase: .failed,
+					message: "The device did not have enough free memory to load the converted model (needed about \(ModelLoadingError.megabytes(requiredByteCount)), about \(ModelLoadingError.megabytes(availableByteCount)) available)."
+				)
+			case .compilationFailed:
+				return NativeModelConversionDiagnostic(
+					code: NativeModelConversionImportReport.AppDiagnosticCode.modelCompilationFailed,
+					phase: .failed,
+					message: "The emitted model could not be compiled by Core ML."
+				)
+			case .modelLoadFailed, .compiledModelLoadFailed:
+				return NativeModelConversionDiagnostic(
+					code: NativeModelConversionImportReport.AppDiagnosticCode.modelLoadFailed,
+					phase: .failed,
+					message: "The emitted model compiled but could not be loaded by Core ML."
+				)
+			case .metadataExtractionFailed, .modelTypeNotDetermined:
+				break
+			}
+		}
+
 		return NativeModelConversionDiagnostic(
-			code: "app.modelValidationOrRegistrationFailed",
+			code: NativeModelConversionImportReport.AppDiagnosticCode.modelValidationOrRegistrationFailed,
 			phase: .failed,
 			message: "The emitted model could not be loaded, validated, or registered."
 		)

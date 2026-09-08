@@ -309,14 +309,39 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 	/// This does not claim a crash diagnosis. iOS can terminate or suspend an app for several reasons
 	/// and the durable journal only proves that its last checkpoint was incomplete. The user can see
 	/// the last saved phase and retry from the retained source package.
+	/// Corrects a report left at `emitted` by a termination that happened *after* Core Data was
+	/// saved, so the app's durable state and the report agree again.
+	///
+	/// The registration is the Core Data row, not this file: the row is written first and this
+	/// report follows, so a stale `emitted` beside a live configuration means the import finished.
+	mutating func repairRegisteredStateAfterStaleEmission() {
+		guard state == .emitted else { return }
+		transition(to: .registered)
+	}
+
 	@discardableResult
 	mutating func markInterruptedIfIncomplete() -> Bool {
+		// `emitted` is a distinct situation, not another incomplete conversion (AIA-0889). The
+		// conversion finished and the model is on disk; what did not finish is loading it, which is
+		// where the app was being killed. Left out of this guard, such a report stayed at `emitted`
+		// with no diagnostic at all — a half-finished import that explained nothing.
+		if state == .emitted {
+			transition(
+				to: .interrupted,
+				diagnostic: NativeModelConversionDiagnostic(
+					code: AppDiagnosticCode.interruptedAfterEmission,
+					phase: .failed,
+					message: "Conversion finished and the model was written, but the app was no longer running before the model could be loaded and registered. Loading a converted model is the most memory-intensive step of an import; this report cannot confirm the termination cause, but memory is the usual one at this stage. Resume to retry the load, or free memory first by closing other apps."
+				)
+			)
+			return true
+		}
 		guard state == .staged || state == .converting else { return false }
 		let lastPhase = lastProgress?.phase ?? .preparing
 		transition(
 			to: .interrupted,
 			diagnostic: NativeModelConversionDiagnostic(
-				code: "app.interruptedBeforeCompletion",
+				code: AppDiagnosticCode.interruptedBeforeCompletion,
 				phase: lastPhase,
 				message: "The app was no longer running before conversion completed. The last saved phase was \(lastPhase.rawValue). The exact process-termination cause is not available in this report; resume to retry from the staged source package."
 			)
@@ -324,15 +349,52 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 		return true
 	}
 
+	/// Diagnostic codes the *app* raises, as opposed to the converter's own.
+	///
+	/// Shared rather than written at each site so the producer and the readers that branch on them
+	/// cannot drift apart — the report is persisted, so these strings are a format, not a label.
+	enum AppDiagnosticCode {
+		static let insufficientMemoryForModelLoad = "app.insufficientMemoryForModelLoad"
+		static let modelCompilationFailed = "app.modelCompilationFailed"
+		static let modelLoadFailed = "app.modelLoadFailed"
+		static let modelValidationOrRegistrationFailed = "app.modelValidationOrRegistrationFailed"
+		static let interruptedAfterEmission = "app.interruptedAfterEmission"
+		static let interruptedBeforeCompletion = "app.interruptedBeforeCompletion"
+	}
+
+	/// Whether this failed import kept its converted model so the user can still export it.
+	///
+	/// AIA-0889: a load refused for memory is the one failure where the artifact is *good* — the
+	/// conversion succeeded and only this device cannot load it. Deleting it would throw away the
+	/// expensive half of the work and leave the user no way to use the model anywhere else, so it
+	/// is retained until the failure report is dismissed.
+	var keepsConvertedModelForExport: Bool {
+		state == .failed && diagnostic?.code == AppDiagnosticCode.insufficientMemoryForModelLoad
+	}
+
+	/// Whether a converted model is actually on disk to export right now.
+	///
+	/// `keepsConvertedModelForExport` records the *intent* to retain and stays true for the life of
+	/// the report — it is a fact about how the import failed. Once the model has been cleaned up,
+	/// the report would still advertise an export that could only fail, so every surface offering
+	/// one asks this instead (AIA-0889).
+	func hasExportableConvertedModel(in configurationDirectory: URL) -> Bool {
+		guard state == .registered || keepsConvertedModelForExport else { return false }
+		return FileManager.default.fileExists(atPath: convertedModelURL(in: configurationDirectory).path)
+	}
+
 	static func removeTransientArtifacts(
 		for report: Self,
 		in configurationDirectory: URL,
-		includingSourcePackage: Bool
+		includingSourcePackage: Bool,
+		includingConvertedModel: Bool = true
 	) {
 		let fileManager = FileManager.default
 		let convertedModelURL = report.convertedModelURL(in: configurationDirectory)
-		try? fileManager.removeItem(at: convertedModelURL)
-		try? fileManager.removeItem(at: NativeModelMetadataSidecar.url(for: convertedModelURL))
+		if includingConvertedModel {
+			try? fileManager.removeItem(at: convertedModelURL)
+			try? fileManager.removeItem(at: NativeModelMetadataSidecar.url(for: convertedModelURL))
+		}
 		let partialPrefix = ".\(report.convertedModelFilename).partial-"
 		if let siblingURLs = try? fileManager.contentsOfDirectory(
 			at: configurationDirectory,

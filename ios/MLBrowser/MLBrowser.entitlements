@@ -12,5 +12,7 @@
 		<string>webcredentials:clerk.aiarcheology.com</string>
 		<string>applinks:link.aiarcheology.com</string>
 	</array>
+	<key>com.apple.developer.kernel.increased-memory-limit</key>
+	<true/>
 </dict>
 </plist>

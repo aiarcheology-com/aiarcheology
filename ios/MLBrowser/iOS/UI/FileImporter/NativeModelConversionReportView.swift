@@ -18,15 +18,19 @@ struct NativeModelConversionReportView: View {
 	@Environment(\.dismiss) private var dismiss
 	let report: NativeModelConversionImportReport
 	let isPreparingExport: Bool
+	/// Whether a converted model is actually on disk to export right now.
+	let canExport: Bool
 	let onExport: () -> Void
 
 	init(
 		report: NativeModelConversionImportReport,
 		isPreparingExport: Bool = false,
+		canExport: Bool = false,
 		onExport: @escaping () -> Void = {}
 	) {
 		self.report = report
 		self.isPreparingExport = isPreparingExport
+		self.canExport = canExport
 		self.onExport = onExport
 	}
 
@@ -35,6 +39,7 @@ struct NativeModelConversionReportView: View {
 			NativeModelConversionReportContent(
 				report: report,
 				isPreparingExport: isPreparingExport,
+				canExport: canExport,
 				onExport: onExport
 			)
 			.toolbar {
@@ -238,6 +243,8 @@ enum NativeModelConversionReporting {
 struct NativeModelConversionReportContent: View {
 	let report: NativeModelConversionImportReport
 	let isPreparingExport: Bool
+	/// Whether a converted model is actually on disk to export right now.
+	let canExport: Bool
 	let onExport: () -> Void
 
 	/// The temporary file `ShareLink` hands to Files/AirDrop/Messages. `nil` until it is written,
@@ -247,10 +254,12 @@ struct NativeModelConversionReportContent: View {
 	init(
 		report: NativeModelConversionImportReport,
 		isPreparingExport: Bool = false,
+		canExport: Bool = false,
 		onExport: @escaping () -> Void = {}
 	) {
 		self.report = report
 		self.isPreparingExport = isPreparingExport
+		self.canExport = canExport
 		self.onExport = onExport
 	}
 
@@ -381,7 +390,10 @@ struct NativeModelConversionReportContent: View {
 						Text(L10n.Import.reportConversion)
 					}
 				}
-				if report.state == .registered {
+				// Passed in, not derived here: a memory refusal keeps its converted model precisely so
+				// it can leave the device (AIA-0889), but the model can also have been cleaned up
+				// already — and this view deliberately touches no model paths to find out.
+				if canExport {
 					ToolbarItem(placement: .topBarLeading) {
 						if isPreparingExport {
 							ProgressView()

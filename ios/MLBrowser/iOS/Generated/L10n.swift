@@ -903,6 +903,8 @@ internal enum L10n {
     internal static func inferredSemantics(_ p1: Any, _ p2: Any) -> String {
       return L10n.tr("Localizable", "import.inferredSemantics", String(describing: p1), String(describing: p2), fallback: "This file has no label metadata. AI Archeology used %1$@ and %2$@. Check a few known images before relying on its results.")
     }
+    /// The conversion itself succeeded, so you can export the converted model and use it on a device with more memory.
+    internal static let insufficientMemoryCanExport = L10n.tr("Localizable", "import.insufficientMemoryCanExport", fallback: "The conversion itself succeeded, so you can export the converted model and use it on a device with more memory.")
     /// Keep Original
     internal static let keepOriginal = L10n.tr("Localizable", "import.keepOriginal", fallback: "Keep Original")
     /// The converted Core ML model will be used by the app. Do you also want to keep a copy of the original model package for provenance or future conversion?
@@ -915,6 +917,8 @@ internal enum L10n {
     internal static let onnxConversion = L10n.tr("Localizable", "import.onnxConversion", fallback: "ONNX Conversion")
     /// Use this Python code to convert ONNX models:
     internal static let onnxConversionHint = L10n.tr("Localizable", "import.onnxConversionHint", fallback: "Use this Python code to convert ONNX models:")
+    /// Preparing the model for export…
+    internal static let preparingExport = L10n.tr("Localizable", "import.preparingExport", fallback: "Preparing the model for export…")
     /// Report Failing Conversion
     internal static let reportConversion = L10n.tr("Localizable", "import.reportConversion", fallback: "Report Failing Conversion")
     /// Resume Conversion
@@ -949,6 +953,12 @@ internal enum L10n {
     internal static let validating = L10n.tr("Localizable", "import.validating", fallback: "Validating model...")
     /// WWDC: Core ML Converters
     internal static let wwdcCoreML = L10n.tr("Localizable", "import.wwdcCoreML", fallback: "WWDC: Core ML Converters")
+    internal enum Error {
+      /// Not enough memory to load %1$@ on this device. It needs about %2$@ and about %3$@ is free. Close other apps and try again, or use this model on a device with more memory.
+      internal static func insufficientMemory(_ p1: Any, _ p2: Any, _ p3: Any) -> String {
+        return L10n.tr("Localizable", "import.error.insufficientMemory", String(describing: p1), String(describing: p2), String(describing: p3), fallback: "Not enough memory to load %1$@ on this device. It needs about %2$@ and about %3$@ is free. Close other apps and try again, or use this model on a device with more memory.")
+      }
+    }
   }
   internal enum Items {
     /// %lld items

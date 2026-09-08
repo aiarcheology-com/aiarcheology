@@ -46,7 +46,7 @@ final class NativeModelConversionExporterTests: XCTestCase {
 		XCTAssertFalse(FileManager.default.fileExists(atPath: archiveURL.path))
 	}
 
-	func testMakeZip_rejectsUnregisteredConversion() throws {
+	func testMakeZip_rejectsAConversionWithNoModelToExport() throws {
 		let configurationDirectory = try makeTemporaryDirectory()
 		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
 		let report = try NativeModelConversionImportReport(
@@ -59,8 +59,38 @@ final class NativeModelConversionExporterTests: XCTestCase {
 		XCTAssertThrowsError(
 			try NativeModelConversionExporter.makeZip(report: report, configurationDirectory: configurationDirectory)
 		) { error in
-			XCTAssertEqual(error as? NativeModelConversionExportError, .notRegistered)
+			XCTAssertEqual(error as? NativeModelConversionExportError, .notExportable)
 		}
+	}
+
+	/// AIA-0889. The UI offers this export on a *failed* import, so the exporter has to accept it.
+	/// Widening the buttons alone left this guard refusing the very case they were added for, and
+	/// no test reached the exporter for it — the export simply failed on the device.
+	func testMakeZip_exportsAModelRetainedAfterAMemoryRefusal() throws {
+		let configurationDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
+		var report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "original.aiagraph",
+			retainOriginalPackage: false,
+			wasRemoteImport: false
+		)
+		report.state = .failed
+		report.diagnostic = NativeModelConversionDiagnostic(
+			code: NativeModelConversionImportReport.AppDiagnosticCode.insufficientMemoryForModelLoad,
+			phase: .failed,
+			message: "not enough memory"
+		)
+		try Data("converted model".utf8).write(to: report.convertedModelURL(in: configurationDirectory))
+		try report.write(in: configurationDirectory)
+
+		let archiveURL = try NativeModelConversionExporter.makeZip(
+			report: report,
+			configurationDirectory: configurationDirectory
+		)
+		defer { NativeModelConversionExporter.removeExportArchive(at: archiveURL) }
+
+		XCTAssertTrue(FileManager.default.fileExists(atPath: archiveURL.path))
 	}
 
 	// MARK: - Model file export (droppable artifact)

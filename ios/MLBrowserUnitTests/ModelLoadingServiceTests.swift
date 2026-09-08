@@ -635,3 +635,416 @@ class CompiledCoreMLArtifactRoutingTests: XCTestCase {
         }
     }
 }
+
+// MARK: - Load-time memory admission (AIA-0889)
+
+/// The gate that turns "the process vanished inside `MLModel.load`" into a real error.
+///
+/// `decide` is pure precisely so these run without a device: the simulator reports no per-process
+/// limit, so the live path is `.unavailable` there and only the decision logic is observable.
+final class ModelLoadMemoryPreflightTests: XCTestCase {
+
+    private let factor = ModelLoadMemoryPreflight.loadFootprintFactor
+
+    // MARK: Fail open — an unknown input must never block a load that would have worked
+
+    func test_decide_withUnreadableModelSize_admits() {
+        let decision = ModelLoadMemoryPreflight.decide(modelByteCount: nil, headroom: .bytes(1))
+        XCTAssertEqual(decision, .admit, "An unreadable size is a measurement failure, not a refusal")
+    }
+
+    func test_decide_withUnavailableHeadroom_admits() {
+        let decision = ModelLoadMemoryPreflight.decide(modelByteCount: .max, headroom: .unavailable)
+        XCTAssertEqual(decision, .admit, "No applicable per-process limit must not refuse any model")
+    }
+
+    // MARK: Fail closed — only on numbers it can actually compare
+
+    func test_decide_withHeadroomBelowRequirement_refusesWithBothCounts() {
+        let modelByteCount: UInt64 = 200 * 1024 * 1024
+        let required = modelByteCount * factor
+        let available = required - 1
+
+        let decision = ModelLoadMemoryPreflight.decide(
+            modelByteCount: modelByteCount,
+            headroom: .bytes(available)
+        )
+
+        XCTAssertEqual(decision, .refuse(requiredByteCount: required, availableByteCount: available))
+    }
+
+    func test_decide_withHeadroomExactlyMeetingRequirement_admits() {
+        let modelByteCount: UInt64 = 64 * 1024 * 1024
+        let decision = ModelLoadMemoryPreflight.decide(
+            modelByteCount: modelByteCount,
+            headroom: .bytes(modelByteCount * factor)
+        )
+        XCTAssertEqual(decision, .admit, "Exactly enough is enough; the boundary must not refuse")
+    }
+
+    func test_decide_withHeadroomOneByteAboveRequirement_admits() {
+        let modelByteCount: UInt64 = 64 * 1024 * 1024
+        let decision = ModelLoadMemoryPreflight.decide(
+            modelByteCount: modelByteCount,
+            headroom: .bytes(modelByteCount * factor + 1)
+        )
+        XCTAssertEqual(decision, .admit)
+    }
+
+    /// On a real device a reported zero means the process has already exceeded its limit. Admitting
+    /// there would disable the gate at exactly the moment it is needed.
+    func test_decide_withZeroHeadroom_refuses() {
+        let decision = ModelLoadMemoryPreflight.decide(modelByteCount: 1, headroom: .bytes(0))
+        XCTAssertEqual(decision, .refuse(requiredByteCount: factor, availableByteCount: 0))
+    }
+
+    /// A zero-byte file says nothing about what loading it costs, and the budget is known spent.
+    /// The requirement is clamped above zero: a refusal that claims it needed nothing contradicts
+    /// itself, and would reach the user as "needed about 0 MB".
+    func test_decide_withZeroSizedModelAndZeroHeadroom_refusesWithANonZeroRequirement() {
+        let decision = ModelLoadMemoryPreflight.decide(modelByteCount: 0, headroom: .bytes(0))
+        XCTAssertEqual(decision, .refuse(requiredByteCount: 1, availableByteCount: 0))
+    }
+
+    /// No refusal may report a zero requirement, whatever the inputs.
+    func test_decide_neverRefusesWithAZeroRequirement() {
+        let cases: [(UInt64?, UInt64)] = [(0, 0), (nil, 0), (1, 0), (.max, 0), (.max, 1024)]
+        for (modelByteCount, availableByteCount) in cases {
+            let decision = ModelLoadMemoryPreflight.decide(
+                modelByteCount: modelByteCount,
+                headroom: .bytes(availableByteCount)
+            )
+            guard case .refuse(let requiredByteCount, _) = decision else {
+                XCTFail("Expected a refusal for size \(String(describing: modelByteCount)), headroom \(availableByteCount)")
+                continue
+            }
+            XCTAssertGreaterThan(requiredByteCount, 0, "A refusal must never claim it needed nothing")
+        }
+    }
+
+    /// Exhausted is not unknown. An unreadable size is no reason to disbelieve a budget the OS
+    /// has reported as spent, so this must refuse even though the size fallback normally admits.
+    func test_decide_withUnreadableSizeAndZeroHeadroom_refuses() {
+        let decision = ModelLoadMemoryPreflight.decide(modelByteCount: nil, headroom: .bytes(0))
+        XCTAssertEqual(decision, .refuse(requiredByteCount: 1, availableByteCount: 0))
+    }
+
+    func test_decide_withUnreadableSizeAndRealHeadroom_admits() {
+        let decision = ModelLoadMemoryPreflight.decide(modelByteCount: nil, headroom: .bytes(1_000_000))
+        XCTAssertEqual(decision, .admit, "With real headroom, an unknown size must fail open")
+    }
+
+    /// An unrepresentable requirement exceeds every possible headroom, so it must refuse rather
+    /// than wrap around into a small number and admit.
+    func test_decide_withOverflowingRequirement_refusesAtSaturation() {
+        let decision = ModelLoadMemoryPreflight.decide(
+            modelByteCount: UInt64.max,
+            headroom: .bytes(1024)
+        )
+        XCTAssertEqual(decision, .refuse(requiredByteCount: .max, availableByteCount: 1024))
+    }
+
+    /// Saturating to `.max` and then comparing would admit here, because `.max > .max` is false —
+    /// failing open on exactly the absurd input the saturation exists to catch.
+    func test_decide_withOverflowingRequirement_refusesEvenAgainstMaximumHeadroom() {
+        let decision = ModelLoadMemoryPreflight.decide(
+            modelByteCount: UInt64.max,
+            headroom: .bytes(.max)
+        )
+        XCTAssertEqual(decision, .refuse(requiredByteCount: .max, availableByteCount: .max))
+    }
+
+    /// The counterpart: a requirement that fits must still be admitted against huge headroom.
+    func test_decide_withRepresentableRequirement_admitsAgainstMaximumHeadroom() {
+        let decision = ModelLoadMemoryPreflight.decide(
+            modelByteCount: 200 * 1024 * 1024,
+            headroom: .bytes(.max)
+        )
+        XCTAssertEqual(decision, .admit)
+    }
+
+    // MARK: The false positive that would be unrecoverable
+
+    /// `DemoDataManager` skips *all* demo creation once any demo exists, so a demo refused on one
+    /// launch is never created again. Every bundled demo must clear the gate against a floor far
+    /// below any supported device's headroom.
+    func test_decide_admitsEveryBundledDemoModel_atAConservativeHeadroomFloor() throws {
+        let conservativeFloor: UInt64 = 512 * 1024 * 1024
+        let names = [
+            DemoDataManager.DemoModelResource.aiArcheology,
+            DemoDataManager.DemoModelResource.hroudaDetector,
+            DemoDataManager.DemoModelResource.fastViT
+        ]
+
+        for name in names {
+            // Required, not best-effort: a `continue` here would let this test pass while the very
+            // models it exists to protect went unchecked.
+            let url = try XCTUnwrap(
+                Bundle.main.url(forResource: name, withExtension: "mlmodelc"),
+                "Bundled demo \(name) is missing from the test bundle"
+            )
+            let byteCount = try XCTUnwrap(
+                ModelLoadingService.byteCount(at: url),
+                "Bundled demo \(name) has an unreadable size"
+            )
+            XCTAssertEqual(
+                ModelLoadMemoryPreflight.decide(modelByteCount: byteCount, headroom: .bytes(conservativeFloor)),
+                .admit,
+                "Demo \(name) (\(byteCount) bytes) must not be refused: a false positive drops it permanently"
+            )
+        }
+    }
+
+    // MARK: byteCount — the input the gate is only as good as
+
+    /// A compiled model is a *directory*. A plain `fileSizeKey` on one returns a few hundred bytes,
+    /// which would silently pass exactly the bundles the gate exists to weigh.
+    func test_byteCount_forADirectory_sumsItsContentsRatherThanTheDirectoryEntry() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("aia0889-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let nested = root.appendingPathComponent("nested", isDirectory: true)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        try Data(repeating: 0, count: 3_000).write(to: root.appendingPathComponent("a.bin"))
+        try Data(repeating: 0, count: 5_000).write(to: nested.appendingPathComponent("b.bin"))
+
+        XCTAssertEqual(ModelLoadingService.byteCount(at: root), 8_000)
+    }
+
+    func test_byteCount_forAMissingPath_isNil() {
+        let missing = URL(fileURLWithPath: "/nonexistent/aia0889/model.mlmodelc")
+        XCTAssertNil(ModelLoadingService.byteCount(at: missing))
+    }
+
+    // MARK: Instrumentation helpers
+
+    func test_footprintIncrease_returnsTheDelta() {
+        XCTAssertEqual(ModelLoadingService.footprintIncrease(from: 100, to: 350), 250)
+    }
+
+    func test_footprintIncrease_withAFallingFootprint_isNil() {
+        XCTAssertNil(
+            ModelLoadingService.footprintIncrease(from: 350, to: 100),
+            "A negative increase is a sampling artefact, not a measurement"
+        )
+    }
+
+    func test_footprintIncrease_withAMissingSample_isNil() {
+        XCTAssertNil(ModelLoadingService.footprintIncrease(from: nil, to: 100))
+        XCTAssertNil(ModelLoadingService.footprintIncrease(from: 100, to: nil))
+    }
+
+    func test_headroomDescription_distinguishesUnavailableFromZero() {
+        XCTAssertEqual(ModelLoadingService.headroomDescription(.unavailable), "unavailable")
+        XCTAssertEqual(ModelLoadingService.headroomDescription(.bytes(0)), "0")
+    }
+}
+
+// MARK: - Conversion diagnostic mapping and its privacy rail (AIA-0889)
+
+/// `NativeModelConversionDiagnostic.message` is rendered verbatim, written into the exported
+/// conversion log, and shared. `ModelLoadingError.errorDescription` embeds the file name and Core
+/// ML's own wording, so any mapping that reached for `localizedDescription` would publish both.
+///
+/// These assert **equality** against fixed literals rather than the absence of a slash: Core ML
+/// error strings routinely contain no path separator, so an absence check passes while leaking.
+final class NativeConversionDiagnosticMappingTests: XCTestCase {
+
+    private static let secretFilename = "aia0889-secret-model-name.mlmodel"
+    private static let secretURL = URL(fileURLWithPath: "/private/var/mobile/aia0889-secret-path/\(secretFilename)")
+    private static let secretUnderlying = NSError(
+        domain: "com.apple.CoreML",
+        code: -1,
+        userInfo: [NSLocalizedDescriptionKey: "aia0889-secret-coreml-wording"]
+    )
+
+    private func message(for error: Error) -> String {
+        ModelImportView.nativeConversionDiagnostic(for: error).message
+    }
+
+    private func code(for error: Error) -> String {
+        ModelImportView.nativeConversionDiagnostic(for: error).code
+    }
+
+    // MARK: Codes — the stage is now nameable instead of collapsing into one catch-all
+
+    func test_insufficientMemory_mapsToItsOwnCode() {
+        let error = ModelLoadingError.insufficientMemory(
+            Self.secretURL,
+            requiredByteCount: 600 * 1024 * 1024,
+            availableByteCount: 300 * 1024 * 1024
+        )
+        XCTAssertEqual(code(for: error), "app.insufficientMemoryForModelLoad")
+        XCTAssertEqual(
+            message(for: error),
+            "The device did not have enough free memory to load the converted model (needed about 600 MB, about 300 MB available)."
+        )
+    }
+
+    func test_compilationFailed_mapsToItsOwnCode() {
+        let error = ModelLoadingError.compilationFailed(Self.secretURL, Self.secretUnderlying)
+        XCTAssertEqual(code(for: error), "app.modelCompilationFailed")
+        XCTAssertEqual(message(for: error), "The emitted model could not be compiled by Core ML.")
+    }
+
+    func test_modelLoadFailed_mapsToItsOwnCode() {
+        let error = ModelLoadingError.modelLoadFailed(Self.secretURL)
+        XCTAssertEqual(code(for: error), "app.modelLoadFailed")
+        XCTAssertEqual(message(for: error), "The emitted model compiled but could not be loaded by Core ML.")
+    }
+
+    func test_compiledModelLoadFailed_mapsToItsOwnCode() {
+        let error = ModelLoadingError.compiledModelLoadFailed(Self.secretURL, Self.secretUnderlying)
+        XCTAssertEqual(code(for: error), "app.modelLoadFailed")
+        XCTAssertEqual(message(for: error), "The emitted model compiled but could not be loaded by Core ML.")
+    }
+
+    func test_unmappedModelLoadingError_keepsTheExistingCatchAll() {
+        let error = ModelLoadingError.modelTypeNotDetermined(Self.secretURL)
+        XCTAssertEqual(code(for: error), "app.modelValidationOrRegistrationFailed")
+    }
+
+    func test_unrelatedError_keepsTheExistingCatchAll() {
+        XCTAssertEqual(code(for: Self.secretUnderlying), "app.modelValidationOrRegistrationFailed")
+    }
+
+    func test_cancellation_isStillReportedAsCancellation() {
+        XCTAssertEqual(code(for: CancellationError()), "cancelled")
+    }
+
+    // MARK: The rail itself — no case may carry the file name, the path, or Core ML's wording
+
+    func test_noMappedDiagnosticMessageCarriesTheFilenamePathOrUnderlyingErrorText() {
+        let errors: [Error] = [
+            ModelLoadingError.insufficientMemory(Self.secretURL, requiredByteCount: 1, availableByteCount: 0),
+            ModelLoadingError.compilationFailed(Self.secretURL, Self.secretUnderlying),
+            ModelLoadingError.modelLoadFailed(Self.secretURL),
+            ModelLoadingError.compiledModelLoadFailed(Self.secretURL, Self.secretUnderlying),
+            ModelLoadingError.metadataExtractionFailed(Self.secretURL),
+            ModelLoadingError.modelTypeNotDetermined(Self.secretURL),
+            Self.secretUnderlying
+        ]
+
+        for error in errors {
+            let message = message(for: error)
+            XCTAssertFalse(message.contains("aia0889-secret-model-name"), "Leaked the file name: \(message)")
+            XCTAssertFalse(message.contains("aia0889-secret-path"), "Leaked the path: \(message)")
+            XCTAssertFalse(message.contains("aia0889-secret-coreml-wording"), "Leaked Core ML's wording: \(message)")
+            XCTAssertFalse(message.contains("/"), "Leaked a path separator: \(message)")
+        }
+    }
+
+    // MARK: The import alert is a different surface and may name the file, like its siblings
+
+    func test_insufficientMemory_errorDescription_namesTheFileForTheAlert() throws {
+        let error = ModelLoadingError.insufficientMemory(
+            Self.secretURL,
+            requiredByteCount: 600 * 1024 * 1024,
+            availableByteCount: 300 * 1024 * 1024
+        )
+        let description = try XCTUnwrap(error.errorDescription)
+        XCTAssertTrue(description.contains(Self.secretFilename))
+        XCTAssertTrue(description.contains("600 MB"))
+        XCTAssertTrue(description.contains("300 MB"))
+        XCTAssertFalse(description.contains("aia0889-secret-path"), "The alert names the file, never the path")
+    }
+
+    func test_megabytes_rendersWholeMegabytes() {
+        XCTAssertEqual(ModelLoadingError.megabytes(0), "0 MB")
+        XCTAssertEqual(ModelLoadingError.megabytes(1024 * 1024), "1 MB")
+        XCTAssertEqual(ModelLoadingError.megabytes(199_788_861), "190 MB")
+    }
+
+    /// Truncating a real amount to "0 MB" would make a refusal contradict the reason it gives.
+    func test_megabytes_neverRendersANonZeroAmountAsZero() {
+        XCTAssertEqual(ModelLoadingError.megabytes(1), "less than 1 MB")
+        XCTAssertEqual(ModelLoadingError.megabytes(1024 * 1024 - 1), "less than 1 MB")
+        XCTAssertEqual(ModelLoadingError.megabytes(0), "0 MB", "An actual zero reading stays zero")
+    }
+}
+
+// MARK: - The gate is actually wired in (AIA-0889)
+
+/// The pure `decide` tests prove the arithmetic; these prove the arithmetic is *reached*.
+/// Without them, deleting the call from `loadAndExtractMetadata` would leave the suite green —
+/// and on a simulator the live headroom reads `.unavailable`, so the seam is the only way in.
+final class ModelLoadAdmissionWiringTests: XCTestCase {
+
+    private func demoModelURL() throws -> URL {
+        try XCTUnwrap(
+            Bundle.main.url(forResource: DemoDataManager.DemoModelResource.aiArcheology, withExtension: "mlmodelc"),
+            "Bundled demo model is required to exercise the load path"
+        )
+    }
+
+    func test_enforcedPolicy_withExhaustedHeadroom_refusesBeforeLoading() async throws {
+        let url = try demoModelURL()
+        let sut = ModelLoadingService(headroom: { .bytes(0) })
+
+        do {
+            _ = try await sut.loadAndExtractMetadata(from: url, admission: .enforced)
+            XCTFail("A load with no headroom must be refused")
+        } catch let error as ModelLoadingError {
+            XCTAssertTrue(error.isInsufficientMemory, "Expected a memory refusal, got \(error)")
+        }
+    }
+
+    /// Bundled demos must load however tight memory is: their seeding is not retryable.
+    func test_exemptPolicy_withExhaustedHeadroom_stillLoads() async throws {
+        let url = try demoModelURL()
+        let sut = ModelLoadingService(headroom: { .bytes(0) })
+
+        let info = try await sut.loadAndExtractMetadata(from: url, admission: .exempt)
+
+        XCTAssertNotEqual(info.task, .invalid)
+    }
+
+    func test_enforcedPolicy_withAmpleHeadroom_loads() async throws {
+        let url = try demoModelURL()
+        let sut = ModelLoadingService(headroom: { .bytes(.max) })
+
+        let info = try await sut.loadAndExtractMetadata(from: url, admission: .enforced)
+
+        XCTAssertNotEqual(info.task, .invalid)
+    }
+
+    /// The default entry point — the one the protocol and every existing caller use — must enforce.
+    func test_defaultEntryPoint_enforcesTheGate() async throws {
+        let url = try demoModelURL()
+        let sut = ModelLoadingService(headroom: { .bytes(0) })
+
+        do {
+            _ = try await sut.loadAndExtractMetadata(from: url)
+            XCTFail("The default entry point must enforce the gate")
+        } catch let error as ModelLoadingError {
+            XCTAssertTrue(error.isInsufficientMemory)
+        }
+    }
+
+    /// A refusal must reach the user as its own diagnostic, not the pre-existing catch-all.
+    func test_aRefusalSurfacesAsItsOwnDiagnostic() async throws {
+        let url = try demoModelURL()
+        let sut = ModelLoadingService(headroom: { .bytes(0) })
+
+        do {
+            _ = try await sut.loadAndExtractMetadata(from: url)
+            XCTFail("Expected a refusal")
+        } catch {
+            XCTAssertEqual(
+                ModelImportView.nativeConversionDiagnostic(for: error).code,
+                "app.insufficientMemoryForModelLoad"
+            )
+        }
+    }
+
+    func test_isInsufficientMemory_isFalseForOtherCases() {
+        let url = URL(fileURLWithPath: "/tmp/model.mlmodel")
+        XCTAssertFalse(ModelLoadingError.modelLoadFailed(url).isInsufficientMemory)
+        XCTAssertFalse(ModelLoadingError.modelTypeNotDetermined(url).isInsufficientMemory)
+        XCTAssertTrue(
+            ModelLoadingError.insufficientMemory(url, requiredByteCount: 1, availableByteCount: 0).isInsufficientMemory
+        )
+    }
+}

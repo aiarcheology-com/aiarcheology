@@ -55,6 +55,171 @@ final class NativeModelConversionImportReportTests: XCTestCase {
 		XCTAssertFalse(interrupted.markInterruptedIfIncomplete(), "An already recovered report must not duplicate an interruption event.")
 	}
 
+	/// AIA-0889: a kill during `MLModel.load` leaves the report at `emitted` — conversion finished
+	/// and the model is on disk, only the load did not. That state was not treated as incomplete, so
+	/// the report kept `emitted` with no diagnostic and the user was left a half-finished import
+	/// that explained nothing.
+	func testReport_emittedButNeverRegistered_recoversAsInterruptedAndNamesTheLoad() async throws {
+		let configurationDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
+		let report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "source.aiagraph",
+			retainOriginalPackage: true,
+			wasRemoteImport: false
+		)
+		try report.write(in: configurationDirectory)
+		let store = NativeModelConversionImportReportStore(report: report, configurationDirectory: configurationDirectory)
+		try await store.transition(to: .converting)
+		try await store.transition(to: .emitted)
+
+		var loaded = try NativeModelConversionImportReport.load(in: configurationDirectory)
+		XCTAssertEqual(loaded.state, .emitted, "Precondition: the kill leaves the report here")
+
+		XCTAssertTrue(loaded.markInterruptedIfIncomplete(), "An emitted-but-unregistered report is incomplete")
+		try loaded.write(in: configurationDirectory)
+
+		let interrupted = try NativeModelConversionImportReport.load(in: configurationDirectory)
+		XCTAssertEqual(interrupted.state, .interrupted)
+		XCTAssertEqual(interrupted.diagnostic?.code, "app.interruptedAfterEmission")
+		let message = try XCTUnwrap(interrupted.diagnostic?.message)
+		XCTAssertTrue(message.contains("memory"), "The user needs the likely cause named: \(message)")
+		XCTAssertTrue(message.lowercased().contains("loaded"), "The failing stage must be named: \(message)")
+		// It must not overclaim: the report cannot prove why the process died.
+		XCTAssertTrue(message.contains("cannot confirm"), "Must not assert a termination cause it cannot prove")
+	}
+
+	/// The distinction is the point: a kill during conversion and a kill during the load are
+	/// different failures and must not collapse into one message.
+	func testReport_interruptedDuringConversion_keepsItsOwnDiagnostic() async throws {
+		let configurationDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
+		let report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "source.aiagraph",
+			retainOriginalPackage: true,
+			wasRemoteImport: false
+		)
+		try report.write(in: configurationDirectory)
+		let store = NativeModelConversionImportReportStore(report: report, configurationDirectory: configurationDirectory)
+		try await store.transition(to: .converting)
+
+		var loaded = try NativeModelConversionImportReport.load(in: configurationDirectory)
+		XCTAssertTrue(loaded.markInterruptedIfIncomplete())
+		XCTAssertEqual(loaded.diagnostic?.code, "app.interruptedBeforeCompletion")
+	}
+
+	/// A finished import must never be rewritten as interrupted.
+	func testReport_registered_isNeverMarkedInterrupted() async throws {
+		let configurationDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
+		let report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "source.aiagraph",
+			retainOriginalPackage: true,
+			wasRemoteImport: false
+		)
+		try report.write(in: configurationDirectory)
+		let store = NativeModelConversionImportReportStore(report: report, configurationDirectory: configurationDirectory)
+		try await store.transition(to: .converting)
+		try await store.transition(to: .emitted)
+		try await store.transition(to: .registered)
+
+		var loaded = try NativeModelConversionImportReport.load(in: configurationDirectory)
+		XCTAssertFalse(loaded.markInterruptedIfIncomplete())
+		XCTAssertEqual(loaded.state, .registered)
+	}
+
+	/// AIA-0889: a load refused for memory is the one failure whose artifact is good — the
+	/// conversion succeeded and only this device cannot load it. The model is kept so the user can
+	/// still export it and use it elsewhere.
+	func testReport_memoryRefusal_keepsItsConvertedModelForExport() async throws {
+		let configurationDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
+		var report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "source.aiagraph",
+			retainOriginalPackage: true,
+			wasRemoteImport: false
+		)
+		report.state = .failed
+		report.diagnostic = NativeModelConversionDiagnostic(
+			code: NativeModelConversionImportReport.AppDiagnosticCode.insufficientMemoryForModelLoad,
+			phase: .failed,
+			message: "not enough memory"
+		)
+		XCTAssertTrue(report.keepsConvertedModelForExport)
+	}
+
+	/// Every other failure keeps today's behaviour: the artifact is unproven, so it goes.
+	func testReport_otherFailures_doNotKeepTheirConvertedModel() async throws {
+		let configurationDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
+		var report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "source.aiagraph",
+			retainOriginalPackage: true,
+			wasRemoteImport: false
+		)
+		let codes = [
+			NativeModelConversionImportReport.AppDiagnosticCode.modelCompilationFailed,
+			NativeModelConversionImportReport.AppDiagnosticCode.modelLoadFailed,
+			NativeModelConversionImportReport.AppDiagnosticCode.modelValidationOrRegistrationFailed
+		]
+		for code in codes {
+			report.state = .failed
+			report.diagnostic = NativeModelConversionDiagnostic(code: code, phase: .failed, message: "x")
+			XCTAssertFalse(report.keepsConvertedModelForExport, "\(code) must not retain its model")
+		}
+		// A memory refusal that has not actually failed is not a retention case either.
+		report.state = .converting
+		report.diagnostic = NativeModelConversionDiagnostic(
+			code: NativeModelConversionImportReport.AppDiagnosticCode.insufficientMemoryForModelLoad,
+			phase: .failed,
+			message: "x"
+		)
+		XCTAssertFalse(report.keepsConvertedModelForExport)
+	}
+
+	/// The retention is only useful if the file actually survives the failure cleanup.
+	func testRemoveTransientArtifacts_canKeepTheConvertedModelWhileClearingPartials() throws {
+		let configurationDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
+		let report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "source.aiagraph",
+			retainOriginalPackage: true,
+			wasRemoteImport: false
+		)
+		let modelURL = report.convertedModelURL(in: configurationDirectory)
+		try Data("model".utf8).write(to: modelURL)
+		let sidecarURL = NativeModelMetadataSidecar.url(for: modelURL)
+		try Data("{}".utf8).write(to: sidecarURL)
+		let partialURL = configurationDirectory
+			.appendingPathComponent(".\(report.convertedModelFilename).partial-abc", isDirectory: false)
+		try Data("partial".utf8).write(to: partialURL)
+
+		NativeModelConversionImportReport.removeTransientArtifacts(
+			for: report,
+			in: configurationDirectory,
+			includingSourcePackage: false,
+			includingConvertedModel: false
+		)
+
+		XCTAssertTrue(FileManager.default.fileExists(atPath: modelURL.path), "The exportable model must survive")
+		XCTAssertTrue(FileManager.default.fileExists(atPath: sidecarURL.path), "Its sidecar travels with it")
+		XCTAssertFalse(FileManager.default.fileExists(atPath: partialURL.path), "Partials are still debris")
+
+		// And the default still removes it, so no other caller changed behaviour.
+		NativeModelConversionImportReport.removeTransientArtifacts(
+			for: report,
+			in: configurationDirectory,
+			includingSourcePackage: false
+		)
+		XCTAssertFalse(FileManager.default.fileExists(atPath: modelURL.path))
+		XCTAssertFalse(FileManager.default.fileExists(atPath: sidecarURL.path))
+	}
+
 	func testRemoveTransientArtifacts_preservesSourceUntilExplicitDiscard() throws {
 		let configurationDirectory = try makeTemporaryDirectory()
 		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
@@ -198,5 +363,100 @@ final class NativeModelConversionImportReportTests: XCTestCase {
 		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
 		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 		return directory
+	}
+}
+
+// MARK: - Export availability tracks the artifact, not the failure (AIA-0889)
+
+extension NativeModelConversionImportReportTests {
+
+	/// `keepsConvertedModelForExport` records how the import failed and stays true forever. Offering
+	/// an export from it alone means offering one after cleanup has removed the model, which can
+	/// only fail — the same widened-in-one-layer mistake as the exporter's own guard.
+	func testHasExportableConvertedModel_isFalseOnceTheModelIsGone() throws {
+		let configurationDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
+		var report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "source.aiagraph",
+			retainOriginalPackage: true,
+			wasRemoteImport: false
+		)
+		report.state = .failed
+		report.diagnostic = NativeModelConversionDiagnostic(
+			code: NativeModelConversionImportReport.AppDiagnosticCode.insufficientMemoryForModelLoad,
+			phase: .failed,
+			message: "not enough memory"
+		)
+		let modelURL = report.convertedModelURL(in: configurationDirectory)
+		try Data("model".utf8).write(to: modelURL)
+
+		XCTAssertTrue(report.hasExportableConvertedModel(in: configurationDirectory))
+
+		try FileManager.default.removeItem(at: modelURL)
+
+		XCTAssertTrue(report.keepsConvertedModelForExport, "The failure is still what it was")
+		XCTAssertFalse(
+			report.hasExportableConvertedModel(in: configurationDirectory),
+			"But there is nothing left to export, so no surface may offer one"
+		)
+	}
+
+	func testHasExportableConvertedModel_isFalseForAnUnrelatedFailure() throws {
+		let configurationDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
+		var report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "source.aiagraph",
+			retainOriginalPackage: true,
+			wasRemoteImport: false
+		)
+		report.state = .failed
+		report.diagnostic = NativeModelConversionDiagnostic(
+			code: NativeModelConversionImportReport.AppDiagnosticCode.modelCompilationFailed,
+			phase: .failed,
+			message: "compile failed"
+		)
+		try Data("model".utf8).write(to: report.convertedModelURL(in: configurationDirectory))
+
+		XCTAssertFalse(
+			report.hasExportableConvertedModel(in: configurationDirectory),
+			"A stray file on disk must not make an unrelated failure exportable"
+		)
+	}
+
+	/// A termination between the Core Data save and the report's `registered` write leaves a stale
+	/// `emitted` beside a live configuration. Treating that as interrupted deleted the model the
+	/// configuration points at.
+	func testRepairRegisteredStateAfterStaleEmission_promotesEmittedToRegistered() throws {
+		let configurationDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
+		var report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "source.aiagraph",
+			retainOriginalPackage: true,
+			wasRemoteImport: false
+		)
+		report.state = .emitted
+
+		report.repairRegisteredStateAfterStaleEmission()
+
+		XCTAssertEqual(report.state, .registered)
+	}
+
+	func testRepairRegisteredStateAfterStaleEmission_leavesEveryOtherStateAlone() throws {
+		let configurationDirectory = try makeTemporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: configurationDirectory) }
+		var report = try NativeModelConversionImportReport(
+			configurationID: UUID(),
+			sourcePackageFilename: "source.aiagraph",
+			retainOriginalPackage: true,
+			wasRemoteImport: false
+		)
+		for state in [NativeModelConversionImportState.staged, .converting, .failed, .cancelled, .interrupted] {
+			report.state = state
+			report.repairRegisteredStateAfterStaleEmission()
+			XCTAssertEqual(report.state, state, "\(state) must not be promoted to registered")
+		}
 	}
 }

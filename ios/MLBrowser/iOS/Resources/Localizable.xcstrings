@@ -37625,6 +37625,330 @@
         }
       }
     },
+    "import.insufficientMemoryCanExport" : {
+      "comment" : "Sentence appended to the not-enough-memory alert when the app converted the model itself and kept the result, so the user can export it to another device.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "نجح التحويل نفسه، لذا يمكنك تصدير النموذج المُحوَّل واستخدامه على جهاز بذاكرة أكبر."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "রূপান্তরটি সফল হয়েছে, তাই আপনি রূপান্তরিত মডেলটি রপ্তানি করে বেশি মেমরিযুক্ত ডিভাইসে ব্যবহার করতে পারেন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Samotný převod proběhl úspěšně, takže převedený model můžete exportovat a použít na zařízení s větší pamětí."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Die Konvertierung selbst war erfolgreich. Sie können das konvertierte Modell exportieren und auf einem Gerät mit mehr Speicher verwenden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The conversion itself succeeded, so you can export the converted model and use it on a device with more memory."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "La conversión en sí se completó correctamente, así que puedes exportar el modelo convertido y usarlo en un dispositivo con más memoria."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "خودِ تبدیل با موفقیت انجام شد، بنابراین می‌توانید مدل تبدیل‌شده را خروجی بگیرید و روی دستگاهی با حافظهٔ بیشتر استفاده کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "La conversion elle-même a réussi : vous pouvez exporter le modèle converti et l’utiliser sur un appareil disposant de plus de mémoire."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ההמרה עצמה הצליחה, כך שאפשר לייצא את המודל שהומר ולהשתמש בו במכשיר עם יותר זיכרון."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "रूपांतरण स्वयं सफल रहा, इसलिए आप रूपांतरित मॉडल निर्यात करके उसे अधिक मेमोरी वाले डिवाइस पर उपयोग कर सकते हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Maga az átalakítás sikerült, így az átalakított modellt exportálhatja, és több memóriával rendelkező eszközön használhatja."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sama konwersja się powiodła, więc możesz wyeksportować przekonwertowany model i użyć go na urządzeniu z większą ilością pamięci."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Само преобразование прошло успешно, поэтому вы можете экспортировать преобразованную модель и использовать её на устройстве с большим объёмом памяти."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Саме перетворення завершилося успішно, тож ви можете експортувати перетворену модель і використати її на пристрої з більшим обсягом пам’яті."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "转换本身已成功，因此你可以导出转换后的模型，并在内存更大的设备上使用。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "轉換本身已成功，因此你可以匯出轉換後的模型，並在記憶體較大的裝置上使用。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "轉換本身已成功，所以你可以匯出轉換後嘅模型，喺記憶體較大嘅裝置上使用。"
+          }
+        }
+      }
+    },
+    "import.preparingExport" : {
+      "comment" : "Progress label shown while the app packages a converted model into an archive for sharing. Can take several seconds for a large model.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "جارٍ تجهيز النموذج للتصدير…"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "রপ্তানির জন্য মডেল প্রস্তুত করা হচ্ছে…"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Připravuji model k exportu…"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Modell wird für den Export vorbereitet…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing the model for export…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Preparando el modelo para exportarlo…"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "در حال آماده‌سازی مدل برای برون‌سپاری…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Préparation du modèle pour l’exportation…"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מכין את המודל לייצוא…"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मॉडल को निर्यात के लिए तैयार किया जा रहा है…"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A modell előkészítése exportáláshoz…"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Przygotowywanie modelu do eksportu…"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Подготовка модели к экспорту…"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Підготовка моделі до експорту…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "正在准备导出模型…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "正在準備匯出模型…"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "正在準備匯出模型…"
+          }
+        }
+      }
+    },
+    "import.error.insufficientMemory" : {
+      "comment" : "Alert message when a converted model cannot be loaded because this device does not have enough free memory. Parameters: model file name, approximate memory needed, approximate memory available",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لا تتوفر ذاكرة كافية لتحميل %1$@ على هذا الجهاز. يحتاج إلى نحو %2$@ ويتوفر نحو %3$@. أغلق التطبيقات الأخرى وحاول مرة أخرى، أو استخدم هذا النموذج على جهاز بذاكرة أكبر."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই ডিভাইসে %1$@ লোড করার মতো যথেষ্ট মেমরি নেই। এটির প্রায় %2$@ প্রয়োজন এবং প্রায় %3$@ খালি আছে। অন্য অ্যাপ বন্ধ করে আবার চেষ্টা করুন, অথবা বেশি মেমরিযুক্ত ডিভাইসে এই মডেলটি ব্যবহার করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Na tomto zařízení není dost paměti pro načtení %1$@. Potřebuje přibližně %2$@ a volných je asi %3$@. Zavřete ostatní aplikace a zkuste to znovu, nebo tento model použijte na zařízení s větší pamětí."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nicht genügend Speicher, um %1$@ auf diesem Gerät zu laden. Benötigt werden etwa %2$@, frei sind etwa %3$@. Schließen Sie andere Apps und versuchen Sie es erneut, oder verwenden Sie dieses Modell auf einem Gerät mit mehr Speicher."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not enough memory to load %1$@ on this device. It needs about %2$@ and about %3$@ is free. Close other apps and try again, or use this model on a device with more memory."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No hay memoria suficiente para cargar %1$@ en este dispositivo. Necesita unos %2$@ y hay unos %3$@ libres. Cierra otras apps e inténtalo de nuevo, o usa este modelo en un dispositivo con más memoria."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "حافظهٔ کافی برای بارگذاری %1$@ روی این دستگاه وجود ندارد. حدود %2$@ نیاز دارد و حدود %3$@ آزاد است. برنامه‌های دیگر را ببندید و دوباره تلاش کنید، یا این مدل را روی دستگاهی با حافظهٔ بیشتر استفاده کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mémoire insuffisante pour charger %1$@ sur cet appareil. Il faut environ %2$@ et il reste environ %3$@. Fermez d’autres apps et réessayez, ou utilisez ce modèle sur un appareil disposant de plus de mémoire."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "אין מספיק זיכרון לטעינת %1$@ במכשיר הזה. נדרשים כ-%2$@ ופנויים כ-%3$@. סגור אפליקציות אחרות ונסה שוב, או השתמש במודל הזה במכשיר עם יותר זיכרון."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "इस डिवाइस पर %1$@ लोड करने के लिए पर्याप्त मेमोरी नहीं है। इसे लगभग %2$@ चाहिए और लगभग %3$@ खाली है। दूसरे ऐप बंद करके फिर कोशिश करें, या इस मॉडल को अधिक मेमोरी वाले डिवाइस पर उपयोग करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nincs elég memória a(z) %1$@ betöltéséhez ezen az eszközön. Körülbelül %2$@ szükséges, és körülbelül %3$@ szabad. Zárjon be más appokat és próbálja újra, vagy használja ezt a modellt több memóriával rendelkező eszközön."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Za mało pamięci, aby wczytać %1$@ na tym urządzeniu. Potrzeba około %2$@, a wolne jest około %3$@. Zamknij inne aplikacje i spróbuj ponownie lub użyj tego modelu na urządzeniu z większą ilością pamięci."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Недостаточно памяти для загрузки %1$@ на этом устройстве. Требуется около %2$@, свободно около %3$@. Закройте другие приложения и повторите попытку или используйте эту модель на устройстве с большим объёмом памяти."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Недостатньо пам’яті, щоб завантажити %1$@ на цьому пристрої. Потрібно близько %2$@, а вільно близько %3$@. Закрийте інші програми й повторіть спробу або скористайтеся цією моделлю на пристрої з більшим обсягом пам’яті."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此设备内存不足，无法载入 %1$@。大约需要 %2$@，当前可用约 %3$@。请关闭其他 App 后重试，或在内存更大的设备上使用此模型。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此裝置記憶體不足，無法載入 %1$@。大約需要 %2$@，目前可用約 %3$@。請關閉其他 App 後再試，或在記憶體較大的裝置上使用此模型。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此裝置記憶體不足，無法載入 %1$@。大約需要 %2$@，目前可用約 %3$@。請關閉其他 App 後再試，或喺記憶體較大嘅裝置上使用呢個模型。"
+          }
+        }
+      }
+    },
     "import.exportConvertedModel" : {
       "comment" : "Button that exports a registered converted model, its lossless metadata sidecar, and its path-free conversion report in one archive",
       "extractionState" : "manual",
