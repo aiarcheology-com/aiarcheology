@@ -3,9 +3,9 @@ name: ship-ticket
 description: >
   Autonomously drive a GitHub ticket (or an inline description) to a green, locally-verified PR
   for the ML Browser iOS app — plan, adversarial plan review, implement with frequent commits,
-  local verify (objective sweep, code review, advisory agentic check), open PR, address
-  Copilot/CodeRabbit comments, poll CI to green — pausing only at a short upfront Q&A and the two
-  irreversible/cost gates (every push, every merge). Use when the user says "ship this ticket",
+  local verify (objective sweep, code review, advisory agentic check), open PR, run the UI suite
+  against the pushed HEAD, address Copilot/CodeRabbit comments, poll CI to green — pausing only at
+  a short upfront Q&A and the two irreversible/cost gates (every push, every merge). Use when the user says "ship this ticket",
   "take AIA-0XXX to a PR", "/ship-ticket <issue#>", or hands you a ticket to implement end-to-end.
 allowed-tools: [Bash, Read, Edit, Write, Grep, Glob, Task, Agent, SendMessage, AskUserQuestion]
 ---
@@ -25,9 +25,10 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
 
 ## Flags
 - `--plan-gate` — force the plan-approval stop on (G1) regardless of risk tier.
-- `--no-ui-tests` — skip the UI suite for speed. **Forces a mandatory
-  "⚠️ UI-unverified (UI suite skipped)" banner** in the PR body and the G2 prompt. Never silently
-  weakens the gate.
+- `--no-ui-tests` — skip the post-PR UI suite (P5.5) for speed. **Forces a mandatory
+  "⚠️ UI-unverified (UI suite skipped)" banner** in the PR body and the P7 report, and **G3 stays
+  blocked**: the merge preconditions require the UI suite green on the PR HEAD, so a resumed run
+  without the flag must run P5.5 before a merge can be offered. Never silently weakens the gate.
 - (There is intentionally **no** `--auto-push`. Every push is always gated.)
 
 ## Project conventions (baked in — do not re-derive)
@@ -61,8 +62,9 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
   change type (ios/AGENTS.md §13), base `develop`. Title issues `AIA-0XXX: …`.
   Add to project board #1 (owner `aiarcheology-com`); Status field `PVTSSF_lADODw8uZM4BMCyNzg7cGQI`,
   options: In Review `ce9bc762`, Done `98236657`.
-- **Pre-push gate mirrors CI:** `./scripts/swiftlint.sh` + `./scripts/harmonize.sh` (both run
-  **from the repo root**, not `ios/`) + unit + UI tests.
+- **Pre-PR gate:** `build-for-testing` + `./scripts/swiftlint.sh` + `./scripts/harmonize.sh` (both
+  run **from the repo root**, not `ios/`) + unit tests — all green **before** the PR exists. The
+  **UI suite runs after the PR is open** (P5.5) and is a **merge** precondition, not a push one.
 - **Tool resolution:** before concluding a tool is missing from a bare `which <bin>`, check how the
   repo's wrapper resolves it. `scripts/swiftgen.sh` in particular probes **bundled** locations
   (SwiftGen at `~/.local/lib/swiftgen/bin`, also `/tmp/swiftgen/bin`, `/opt/homebrew/bin`, then PATH)
@@ -95,11 +97,11 @@ can prove you own it (matching commit lineage) or it exceeds the TTL (default 45
 
 ## The fix counter (cost control)
 One **per-ticket** counter (default cap **6**), incremented on **every** fix→re-verify cycle
-across P2 (inline escalations)/P3a/P4/P6 — **regardless of whether the orchestrator or an `opus`
+across P2 (inline escalations)/P3a/P4/P5.5/P6 — **regardless of whether the orchestrator or an `opus`
 executor writes the fix** (model-independent accounting). The only spend outside the counter is
 the P2 per-step *implementation* budget (see Model routing). The counter is persisted as two
 named buckets of **spent** cycles — `fix_buckets.implement_verify` (P2 escalations + P3a + P4,
-sub-cap **2**) and `fix_buckets.pr_loop` (P6, sub-cap **3**); remaining budget = sub-cap − spent,
+sub-cap **2**) and `fix_buckets.pr_loop` (P5.5 + P6, sub-cap **3**); remaining budget = sub-cap − spent,
 and `fix_count` always equals the sum of the buckets. The global cap 6 is a defensive backstop
 above them (buckets bind first; normal spend maxes at 5).
 **Write-before-act:** exactly **one increment per fix→re-verify cycle — never per commit**;
@@ -112,7 +114,7 @@ global cap halts instead of acting** — write the reason + killing step + last-
 state comment and hand off to the human. Re-planning never resets any counter. No "try harder."
 
 ## Model routing — capable orchestrator, cheap executors
-This skill assumes the session runs a top-tier model (e.g. Fable) as the **orchestrator**: it keeps
+This skill assumes the session runs **Fable 5.1** as the **orchestrator**: it keeps
 the whole-ticket context and owns every judgment call — plan, triage, diff review, gates, git, the
 state comment. Token-heavy mechanical work goes to **executor subagents on a cheaper model**:
 spawn via the Agent tool **with an explicit `model: opus` override** — an omitted `model` silently
@@ -130,15 +132,24 @@ writes it.
 | Work | Runs as | Model |
 |-|-|-|
 | P0/P1 intake, plan, assumptions | orchestrator | session |
-| P1 grill-master review | subagent | inherit session (adversarial review needs the capable model) |
+| P1 grill-master review | subagent | **`fable`** (explicit `model: fable`; prompt asks for high effort) |
+| P1 / P4 codex second opinion | orchestrator Bash | **`gpt-6-astra`**, `model_reasoning_effort="medium"` |
 | P2 write code (one executor per plan step) | executor | `opus` |
 | P2 diff review, banned-diff guard, commits | orchestrator | session |
 | P3a sweep | orchestrator Bash (background) | — |
 | P3a/P4/P6 **mechanical** fix attempts | executor | `opus` |
 | P4 security / subtle-correctness fixes | orchestrator | session |
-| P4 `/code-review` skill | orchestrator (a Skill invocation can't be model-overridden) | session |
+| P4 `/code-review high` skill | orchestrator (a Skill invocation can't be model-overridden) | session (Fable 5.1, **high** level) |
 | P3b sim-driving verifier | subagent | `opus` |
+| P5.5 UI suite | orchestrator Bash (background) | — |
 | P4 review triage, P5–P7 gates/PR/state | orchestrator | session |
+
+**Reviewer models are pinned (P1 plan review and P4 code review):** the codex second opinion
+always runs `codex exec -m gpt-6-astra -c model_reasoning_effort="medium" -s read-only …`
+(codex-cli ≥ 0.147 removed `--full-auto`; `-s read-only` is the sandbox flag). The Claude-side
+review runs on **Fable 5.1 at high effort**: `/code-review high` for the diff, and the grill-master
+spawned with `model: fable`. If the session model is not Fable 5.1, say so in the G1 prompt and
+the P4 report — the skill cannot change the session model (`/model` is the user's choice).
 
 **Mechanical** = lint/format autocorrect, deterministic test failures with an obvious local cause,
 renames/moves. Security findings and subtle-correctness fixes stay orchestrator-inline (the
@@ -218,11 +229,13 @@ are *not* executors and follow their own phase contracts:
 
 ### P1 — Plan  (Gate **G1**, risk-tiered)
 - Draft: steps → per-step verify check, assumptions, known risks.
-- Adversarial review: run the local `grill-yourself` skill (grill-master subagent, multi-round
-  to consensus; escalations land in the G1 prompt) and a codex second opinion
-  (`codex exec -m gpt-5.6-terra -c model_reasoning_effort="xhigh" -C <ios> --full-auto -o <out> "…" </dev/null`
-  — redirect stdin or it
-  hangs). Auto-apply **only mechanically-obvious** corrections; **surface scope/approach changes**
+- Adversarial review: run the local `grill-yourself` skill (grill-master subagent spawned with
+  `model: fable`, high effort requested in the prompt; multi-round to consensus; escalations land
+  in the G1 prompt) and a codex second opinion:
+  `codex exec -m gpt-6-astra -c model_reasoning_effort="medium" -s read-only -C <ios> -o <out> "…" </dev/null 2> <err>`
+  — redirect stdin or it hangs; capture stderr to a file (`2> <err>`): a missing or empty `<out>`
+  means codex failed and only `<err>` explains why.
+  Auto-apply **only mechanically-obvious** corrections; **surface scope/approach changes**
   for one-line confirmation before P2.
 - **Post the full hardened plan as its own `<!-- ship-ticket:plan -->` ticket comment** (plus the
   auto-applied diff) — **not** to scratchpad. Scratchpad is session-scoped; a fresh session resuming
@@ -254,12 +267,12 @@ are *not* executors and follow their own phase contracts:
   known auth-bypass tokens) **stops and asks**; **semantic** concerns (e.g. test-only behavior
   leaking to production) are raised as an **advisory P4 finding**, not on the hard rail.
 
-### P3a — Objective sweep  ← **THE ONLY GATE**
+### P3a — Objective sweep  ← **THE ONLY PRE-PR GATE**
 Deterministic pass/fail, with `DEVELOPER_DIR` set: `build-for-testing` (from `ios/`) →
-`./scripts/swiftlint.sh` → `./scripts/harmonize.sh` (both from the **repo root**) → unit tests →
-UI tests (from `ios/`, `-testPlan MLBrowserUITests`, non-disrupting sim). Fix→re-verify counts
-against the counter.
-`--no-ui-tests` drops the UI suite here and triggers the UI-unverified banner (below).
+`./scripts/swiftlint.sh` → `./scripts/harmonize.sh` (both from the **repo root**) → unit tests.
+**Every step must be green before the PR is opened.** Fix→re-verify counts against the counter.
+**The UI suite is not part of P3a** — it runs in P5.5 against the pushed HEAD and gates the merge
+(G3), not the push.
 - **Run the build/test steps SEQUENTIALLY — never two `xcodebuild` invocations against the same
   DerivedData at once.** Concurrent builds race the SPM `SourcePackages/artifacts` and corrupt
   them; the loser fails with `error: There is no XCFramework found at
@@ -274,13 +287,13 @@ against the counter.
   a reliable fix on its own.
 
 ### P4 — Code review (after the objective sweep; P3b and any repeat UI sweep come after)
-- Native `/code-review` skill (review the branch diff) + CodeRabbit CLI (if installed;
-  skip with a note in the PR body if not) + codex review (same model/effort as P1:
-  `-m gpt-5.6-terra -c model_reasoning_effort="xhigh"`).
+- Native `/code-review high` skill (review the branch diff; Fable 5.1 at the high level) +
+  CodeRabbit CLI (if installed; skip with a note in the PR body if not) + codex review (same
+  pinned model/effort as P1: `-m gpt-6-astra -c model_reasoning_effort="medium" -s read-only`).
 - **Triage, don't rubberstamp. Classify findings:** correctness / security / test-failure →
   auto-fix; architecture / product / API / scope-expanding → **surface for human approval**.
-- Then re-run the full P3a **only if P4 changed HEAD** — an unchanged HEAD keeps its green (the
-  UI suite is the most expensive local step; never repeat it for a no-op review).
+- Then re-run the full P3a **only if P4 changed HEAD** — an unchanged HEAD keeps its green
+  (never repeat a sweep for a no-op review).
 - Finally, write the tester-facing `ios/TestFlight/WhatToTest.en-US.txt` stanza — **mandatory**
   (ios/AGENTS.md §13: "no PR without it"); scoped to this change, concrete steps, no dev jargon —
   and **commit it as the final slice**. HEAD is now final: P3b evidence and the G2 OK both bind
@@ -307,15 +320,31 @@ at the PR HEAD. In P6, re-runs stay bounded to one per push round.
   before every push regardless; the record exists so a resumed run never pushes on a stale
   approval).
 - PR body: acceptance criteria + P3b evidence + P3a results + the exact local env
-  (Xcode/sim/OS), labeled **"locally verified"** — never presented as CI-green. Include the
-  UI-unverified banner if `--no-ui-tests`.
+  (Xcode/sim/OS), labeled **"locally verified"** — never presented as CI-green. Add a UI-suite
+  line: by default `UI suite: pending (runs after PR open, P5.5)`, which P5.5 replaces with the
+  result; under `--no-ui-tests` write `UI suite: skipped (--no-ui-tests)` **plus** the
+  UI-unverified banner instead — never "pending" for a suite that will not run.
+
+### P5.5 — UI suite (after the PR is open; gates the merge, not the push)
+- Start right after the P5 push, from `ios/` with `-testPlan MLBrowserUITests` on
+  `ship-ticket-runner`, in the background, **sequentially after any other `xcodebuild`** (P3a rule
+  on shared DerivedData) — it runs while P6 polls the bots and CI.
+- Bind the run to the pushed HEAD: green → `verification.last_ui_verified = <sha>` in the state
+  comment and `UI suite: green locally on <sha>` in the PR body. Like every verification record,
+  any later commit invalidates it.
+- Failure → fix→re-verify counts against `pr_loop`; the fix joins that round's P6 batch (G2-gated
+  push), and the UI suite re-runs on the new HEAD. Flake per project memory (`(0.000 seconds)`
+  failure, FBSOpenApplication error) → erase the sim and re-run once **without** spending a cycle.
+- At most **one UI-suite run per push round** (like P3b). `--no-ui-tests` skips this step, keeps
+  the banner, and leaves G3 blocked.
 
 ### P6 — PR feedback loop (every push re-gated)
 - Poll Copilot + CodeRabbit + CI checks (`gh pr checks`, `gh api …/comments`).
 - Address comments **classified as in P4**: fix real issues, reply with the resolution, update the
   PR description for stale claims, decline out-of-scope refactors.
 - At most **one P3b re-run per push round** (advisory evidence, not a gate — don't let cheap
-  re-runs become unbounded). Update WhatToTest in the same round when the materially changed PR
+  re-runs become unbounded); the UI suite (P5.5) re-runs once per push round on the new HEAD.
+  Update WhatToTest in the same round when the materially changed PR
   needs new tester instructions — commit it *before* that round's P3b re-run and G2 OK.
 - **Batch** all pending fixes (review + bot comments + CI failures) into **one push per round**;
   **each push is G2-gated** with the paid-build warning. The "push ready fixes rather than idle-poll
@@ -323,18 +352,28 @@ at the PR HEAD. In P6, re-runs stay bounded to one per push round.
   locally — otherwise batch. Poll CI to green; loop against the counter.
 
 ### P7 — Handoff (no autonomous merge)
-- Report: PR # state, CI green, P3b evidence, local env, board status → set **In Review**
+- Report: PR # state, CI green, P3b evidence, local env, UI suite line (match PR body; include the UI-unverified banner if skipped), board status → set **In Review**
   (`gh project item-edit … --single-select-option-id ce9bc762`).
-- **G3 merge is a separate hard gate — never autonomous.** The merge prompt warns: **"merge into
-  `develop` triggers the FULL CI test set — more expensive than a push."** After a human-approved
-  merge: close the issue if it didn't auto-close (merging to `develop` doesn't auto-close a
-  `Closes #` reference), and set board **Done** (`98236657`).
+- **G3 merge is a separate hard gate — never autonomous.** A merge may be *offered* only when
+  **all** of these hold on the current PR HEAD (SHA-match against `last_pushed`):
+  1. **local green:** P3a sweep (`last_verified`) **and** UI suite (`last_ui_verified`) both on
+     that SHA — `--no-ui-tests` therefore blocks G3;
+  2. **PR green:** every check in `gh pr checks` passed, every review thread resolved (the
+     `develop` ruleset blocks otherwise), no unanswered reviewer/bot comment;
+  3. **explicit consent from the skill user** to the merge prompt, which lists 1–2 with SHAs
+     and warns: **"merge into `develop` triggers the FULL CI test set — more expensive than a
+     push."**
+  Any unmet item → report it and wait; never ask for consent while an item is red, and never treat
+  an earlier OK (G2, a prior G3 on an older SHA) as consent. After a human-approved merge: close
+  the issue if it didn't auto-close (merging to `develop` doesn't auto-close a `Closes #`
+  reference), and set board **Done** (`98236657`).
 
 ## Human gates (the whole point)
 - **G0** intake questions — only if genuinely ambiguous.
 - **G1** plan approval — risk-tiered per P1.
 - **G2** every push / PR — **always** (paid CI).
-- **G3** merge — **always** (never autonomous).
+- **G3** merge — **always** (never autonomous); offered only with local (incl. UI suite) and PR
+  checks all green on the PR HEAD.
 
 ## Guardrails recap
 - Never weaken ATS; never commit secrets; surgical diffs only.
@@ -343,7 +382,7 @@ at the PR HEAD. In P6, re-runs stay bounded to one per push round.
   executor diff is orchestrator-reviewed before commit.
 - One per-ticket fix counter (cap 6), write-before-act, on-trip halt+handoff.
 - Structured resumable state in the ticket; SHA-scoped verification records
-  (`last_verified` / `last_pushed` / `last_ci_green` / `last_verifier_evidence`) invalidated by any
-  new commit; idempotency markers; lock with TTL reclaim.
+  (`last_verified` / `last_ui_verified` / `last_pushed` / `last_ci_green` /
+  `last_verifier_evidence`) invalidated by any new commit; idempotency markers; lock with TTL reclaim.
 - Prefer re-planning over grinding when a phase keeps failing — but a bucket/cap trip always
   halts + hands off, and re-planning never resets counters (mirrors the global CLAUDE.md).

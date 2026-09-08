@@ -41,6 +41,7 @@ On every run: `gh issue view <#> --json comments` → find the marker → parse 
   "lock": { "owner_sha": "e8e1ddb…", "ts": "2026-07-01T00:29:29Z", "ttl_min": 45 },
   "verification": {
     "last_verified":         "e8e1ddb…",
+    "last_ui_verified":      "e8e1ddb…",
     "last_pushed":           "e8e1ddb…",
     "last_ci_green":         "e8e1ddb…",
     "last_verifier_evidence":"95936bd…"
@@ -66,7 +67,7 @@ On every run: `gh issue view <#> --json comments` → find the marker → parse 
   dedicated home of the halt reason + killing step). A non-null `halt` on resume means the run is
   handed off: do **not** auto-fix; report and wait for the human.
 - **`fix_count` / `fix_buckets`** — every fix→re-verify cycle increments its bucket
-  (`implement_verify`: P2 escalations + P3a + P4, sub-cap 2; `pr_loop`: P6, sub-cap 3) **and** the
+  (`implement_verify`: P2 escalations + P3a + P4, sub-cap 2; `pr_loop`: P5.5 + P6, sub-cap 3) **and** the
   total, write-before-act, **whether the orchestrator or an executor writes the fix**. Buckets
   store **spent** cycles (remaining = sub-cap − value); invariant: `fix_count ==
   implement_verify + pr_loop`, maintained on every write and checked on resume. Only the P2
@@ -78,7 +79,9 @@ On every run: `gh issue view <#> --json comments` → find the marker → parse 
   run never pushes on a stale approval.
 - **`verification.*`** — commit SHAs. **Any new commit invalidates every record whose SHA is now an
   ancestor-not-tip**: re-verify before treating a downstream claim (CI-green, verifier evidence) as
-  current. Never present `last_ci_green` as valid for a newer HEAD.
+  current. Never present `last_ci_green` as valid for a newer HEAD. `last_verified` covers the
+  pre-PR sweep (P3a, no UI suite); `last_ui_verified` is the post-PR UI suite (P5.5) and is a G3
+  precondition. A missing or stale `last_ui_verified` means "UI-unverified" — never a pass.
 - **`lock`** — reclaim only if `owner_sha` is in your commit lineage or `ts` is older than
   `ttl_min`. Otherwise a second run must stop and ask.
 - **`g1_waived`** — true only when the human acknowledged both the acceptance criteria and the
