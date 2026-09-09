@@ -3153,6 +3153,114 @@
         }
       }
     },
+    "auth.account.delete.deviceNote" : {
+      "comment" : "What deletion does NOT touch, shown both under the button on DeleteAccountView and inside its confirmation dialog (AIA-0891). Its own key so the screen and the dialog cannot drift apart. Deliberately not auth.account.delete.findingsNote: that one ends \"and you can export them first\", a promise only the hard wall makes. Restricted copy: irreversible action, translate the scope exactly.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تبقى إعداداتك واكتشافاتك المحفوظة على هذا الجهاز."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার সেটিংস ও সংরক্ষিত সন্ধানগুলি এই ডিভাইসেই থাকবে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vaše nastavení a uložené nálezy zůstanou v tomto zařízení."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ihre Einstellungen und Ihre gespeicherten Funde bleiben auf diesem Gerät."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your settings and your saved findings stay on this device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tus ajustes y tus hallazgos guardados permanecen en este dispositivo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تنظیمات و یافته‌های ذخیره‌شدهٔ شما روی این دستگاه باقی می‌مانند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vos réglages et vos découvertes enregistrées restent sur cet appareil."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ההגדרות שלך והממצאים השמורים נשארים במכשיר הזה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपकी सेटिंग्स और सहेजी गई खोजें इस डिवाइस पर बनी रहती हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A beállításai és a mentett leletei ezen az eszközön maradnak."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Twoje ustawienia i zapisane znaleziska pozostaną na tym urządzeniu."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваши настройки и сохранённые находки останутся на этом устройстве."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваші налаштування та збережені знахідки залишаться на цьому пристрої."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的设置和已保存的发现记录仍会保留在本设备上。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的設定和已儲存的發現仍會保留在本裝置上。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的設定和已儲存的發現記錄仍會保留在本裝置上。"
+          }
+        }
+      }
+    },
     "auth.account.delete.failedDeletion" : {
       "comment" : "Shown when the cloud back-up was erased but deleting the account itself failed",
       "extractionState" : "manual",
@@ -3585,6 +3693,114 @@
         }
       }
     },
+    "auth.account.delete.footer" : {
+      "comment" : "Footer under the Delete Account button on DeleteAccountView (AIA-0891). Replaces auth.account.deleteFooter, whose \"all associated data\" was true of the account and its cloud back-up but read as covering the device copy too \u2014 which deletion does not touch. Restricted copy: it describes an irreversible action, so translate the scope exactly.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يحذف حسابك وكل ما تم نسخه احتياطيًا إليه نهائيًا. لا يمكن التراجع عن ذلك."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার অ্যাকাউন্ট ও তাতে ব্যাক-আপ করা সবকিছু স্থায়ীভাবে মুছে ফেলে। এটি আর ফেরানো যাবে না।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Trvale smaže váš účet a vše, co je do něj zálohováno. Tuto akci nelze vrátit zpět."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Löscht Ihr Konto und alles, was darin gesichert ist, dauerhaft. Dies kann nicht rückgängig gemacht werden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permanently deletes your account and anything backed up to it. This cannot be undone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Elimina permanentemente tu cuenta y todo lo que se haya respaldado en ella. Esta acción no se puede deshacer."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "حساب شما و هر چیزی که در آن پشتیبان‌گیری شده برای همیشه حذف می‌شود. این کار بازگشت‌پذیر نیست."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Supprime définitivement votre compte et tout ce qui y est sauvegardé. Cette action est irréversible."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מוחק לצמיתות את החשבון שלך ואת כל מה שגובה אליו. לא ניתן לבטל פעולה זו."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपका अकाउंट और उसमें बैकअप किया गया सारा डेटा हमेशा के लिए डिलीट कर देता है। इसे पहले जैसा नहीं किया जा सकता।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Véglegesen törli a fiókját és mindent, ami a felhőmentésben szerepel. Ez nem vonható vissza."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Trwale usuwa Twoje konto i wszystko, co zapisano w kopii zapasowej w chmurze. Tej operacji nie można cofnąć."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Безвозвратно удаляет вашу учётную запись и всё, что сохранено в облачной резервной копии. Это действие нельзя отменить."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Безповоротно видаляє ваш обліковий запис і все, що збережено в хмарній резервній копії. Цю дію не можна скасувати."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "永久删除你的账户及备份到其中的所有内容。此操作无法撤销。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "永久刪除你的帳號和備份到其中的所有內容。此動作無法還原。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "永久刪除你的帳戶及備份到其中的所有內容。此操作無法復原。"
+          }
+        }
+      }
+    },
     "auth.account.delete.messageBilling" : {
       "comment" : "Confirmation body for deleting the account. Must state that an Apple subscription keeps billing — hedged, because the app cannot know whether this reader has one.",
       "extractionState" : "manual",
@@ -3801,7 +4017,7 @@
       }
     },
     "auth.account.deleteBillingNote" : {
-      "comment" : "Caption under Settings > Account > Manage Account. Clerk owns the delete confirmation there, so this is the only place we can say that billing continues.",
+      "comment" : "Caption under Settings > Account > Manage Account. Warns that deleting the account does not stop Apple billing. Since AIA-0891 the app has its own delete confirmation (DeleteAccountView) carrying the same warning, but Clerk\u2019s delete under Security is still reachable and its copy is not ours to amend, so this caption still covers that path.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
@@ -3904,113 +4120,6 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "刪除帳戶不會取消訂閱。請在 App Store 取消。"
-          }
-        }
-      }
-    },
-    "auth.account.deleteFooter" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "احذف حسابك وجميع البيانات المرتبطة به نهائيًا. لا يمكن التراجع عن ذلك."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "আপনার অ্যাকাউন্ট ও সংশ্লিষ্ট সব ডেটা স্থায়ীভাবে মুছে ফেলুন। এটি আর ফেরানো যাবে না।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Trvale smaže váš účet a všechna související data. Tuto akci nelze vrátit zpět."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Löscht Ihren Account und alle zugehörigen Daten dauerhaft. Dies kann nicht rückgängig gemacht werden."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Permanently delete your account and all associated data. This cannot be undone."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Elimina permanentemente tu cuenta y todos los datos asociados. Esta acción no se puede deshacer."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "حساب شما و همهٔ داده‌های مرتبط برای همیشه حذف می‌شود. این کار بازگشت‌پذیر نیست."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Supprimez définitivement votre compte et toutes les données associées. Cette action est irréversible."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "מחק לצמיתות את החשבון שלך ואת כל הנתונים המשויכים אליו. לא ניתן לבטל פעולה זו."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "अपना अकाउंट और उससे जुड़ा सारा डेटा हमेशा के लिए डिलीट करें। इसे पहले जैसा नहीं किया जा सकता।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Véglegesen törli a fiókját és minden kapcsolódó adatot. Ez nem vonható vissza."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Trwale usuń swoje konto i wszystkie powiązane dane. Tej operacji nie można cofnąć."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Безвозвратно удалить ваш аккаунт и все связанные с ним данные. Это действие нельзя отменить."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Безповоротно видалити ваш обліковий запис і всі пов’язані дані. Цю дію не можна скасувати."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "永久删除你的账户及所有相关数据。此操作无法撤销。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "永久刪除你的帳號和所有相關資料。此動作無法還原。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "永久刪除你的帳戶及所有相關資料。此操作無法復原。"
           }
         }
       }

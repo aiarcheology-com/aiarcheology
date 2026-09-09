@@ -36,6 +36,12 @@ is still not enough it now says so instead of disappearing.
 - Check the app still starts normally and your existing models are all still listed after this
   update, including the two built-in detectors. Please say if anything is missing from the list.
 
+ALSO IN THIS BUILD: Delete Account is easier to find
+
+- Settings > Account > Manage account. A Delete Account row now sits directly under Sign out, and
+  opens a screen explaining what deletion removes. Check Cancel leaves the account untouched. Only
+  confirm on a throwaway account: it is permanent and erases your cloud back-up.
+
 STILL WORTH RETESTING FROM THE PREVIOUS BUILD
 
 - Pages that reload themselves: on a heavy GIS site (umweltdaten.hessen.de, zbgis.skgeodesy.sk,

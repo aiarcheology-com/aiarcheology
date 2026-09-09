@@ -156,6 +156,7 @@
 		8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */; };
 		8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */; };
 		8B15D3F02C69A47E1D53B8C0 /* SignInSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9C4A71B58D03F6C147A2E9 /* SignInSheet.swift */; };
+		AC089100000000000000B00A /* DeleteAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC089100000000000000A00A /* DeleteAccountView.swift */; };
 		917A15383011E3F093BF1F14 /* StoreKitSubscriptionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04CC35810A5A24A66927181A /* StoreKitSubscriptionProvider.swift */; };
 		91C2F16FE71C1C2C5A43C0A4 /* DetectionSessionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C8537D6BC5C025193305C8 /* DetectionSessionState.swift */; };
 		94048A5C2EE02D440064AC55 /* DetectableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A5B2EE02D440064AC55 /* DetectableView.swift */; };
@@ -456,6 +457,7 @@
 		2584DEF459E2929567E5582F /* ModelAssetStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModelAssetStore.swift; sourceTree = "<group>"; };
 		2E2660066341809F9F0996AB /* SubscriptionGateView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionGateView.swift; sourceTree = "<group>"; };
 		2E9C4A71B58D03F6C147A2E9 /* SignInSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignInSheet.swift; sourceTree = "<group>"; };
+		AC089100000000000000A00A /* DeleteAccountView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeleteAccountView.swift; sourceTree = "<group>"; };
 		3190EA75B1839A049188B3D7 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		347CED5074B64105979052CC /* FindingFlashTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingFlashTests.swift; sourceTree = "<group>"; };
 		37FF65EDA41F1D0083A25351 /* SubscriptionGateUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionGateUITests.swift; sourceTree = "<group>"; };
@@ -1636,6 +1638,7 @@
 				2E9C4A71B58D03F6C147A2E9 /* SignInSheet.swift */,
 				5D82B0F63A17C94E20D8F5B7 /* ClerkTheme+App.swift */,
 				1F4A7C3E9B2D06A85E31C7D4 /* AuthLifecycle.swift */,
+				AC089100000000000000A00A /* DeleteAccountView.swift */,
 			);
 			path = Auth;
 			sourceTree = "<group>";
@@ -2294,6 +2297,7 @@
 				8B15D3F02C69A47E1D53B8C0 /* SignInSheet.swift in Sources */,
 				7A31E96C4D82B05F9E63A1C8 /* ClerkTheme+App.swift in Sources */,
 				9C6B2E14A7F3508D2B94E6A1 /* AuthLifecycle.swift in Sources */,
+				AC089100000000000000B00A /* DeleteAccountView.swift in Sources */,
 				A99519915315C5955FDC6159 /* FeatureFlags.swift in Sources */,
 				A35000000000000000000101 /* ReviewPrompt.swift in Sources */,
 				ABAA0115000000000000B001 /* AppMessage.swift in Sources */,

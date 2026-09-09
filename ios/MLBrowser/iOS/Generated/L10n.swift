@@ -96,8 +96,6 @@ internal enum L10n {
     internal enum Account {
       /// Deleting your account does not cancel your subscription. Cancel it in the App Store.
       internal static let deleteBillingNote = L10n.tr("Localizable", "auth.account.deleteBillingNote", fallback: "Deleting your account does not cancel your subscription. Cancel it in the App Store.")
-      /// Permanently delete your account and all associated data. This cannot be undone.
-      internal static let deleteFooter = L10n.tr("Localizable", "auth.account.deleteFooter", fallback: "Permanently delete your account and all associated data. This cannot be undone.")
       /// Free Beta
       internal static let freeBeta = L10n.tr("Localizable", "auth.account.freeBeta", fallback: "Free Beta")
       /// Manage Account
@@ -109,6 +107,8 @@ internal enum L10n {
       internal enum Delete {
         /// Delete Account
         internal static let action = L10n.tr("Localizable", "auth.account.delete.action", fallback: "Delete Account")
+        /// Your settings and your saved findings stay on this device.
+        internal static let deviceNote = L10n.tr("Localizable", "auth.account.delete.deviceNote", fallback: "Your settings and your saved findings stay on this device.")
         /// Your cloud back-up was removed, but your account was not deleted. Please try again. The findings on this device are untouched.
         internal static let failedDeletion = L10n.tr("Localizable", "auth.account.delete.failedDeletion", fallback: "Your cloud back-up was removed, but your account was not deleted. Please try again. The findings on this device are untouched.")
         /// Your account was not deleted and nothing was removed. Please try again.
@@ -117,6 +117,8 @@ internal enum L10n {
         internal static let failedPurge = L10n.tr("Localizable", "auth.account.delete.failedPurge", fallback: "Your account was not deleted, so you can try again. Some of your cloud back-up may already have been removed. The findings on this device are untouched.")
         /// The findings saved on this device are not deleted, and you can export them first.
         internal static let findingsNote = L10n.tr("Localizable", "auth.account.delete.findingsNote", fallback: "The findings saved on this device are not deleted, and you can export them first.")
+        /// Permanently deletes your account and anything backed up to it. This cannot be undone.
+        internal static let footer = L10n.tr("Localizable", "auth.account.delete.footer", fallback: "Permanently deletes your account and anything backed up to it. This cannot be undone.")
         /// This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.
         internal static let messageBilling = L10n.tr("Localizable", "auth.account.delete.messageBilling", fallback: "This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.")
         /// Delete Account?

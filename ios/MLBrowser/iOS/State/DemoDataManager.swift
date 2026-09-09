@@ -25,10 +25,14 @@ final class DemoDataManager {
     // onboarding replay — gets the new page.
     //
     // Known-valid literal URL; the force-unwrap can't fail.
+    //
+    // On one line because `disable:next` covers exactly one line: wrapped across three, it landed on
+    // the `URL(` opener — which has no force-unwrap, so the rule reported the exception as
+    // superfluous — while the `)!` two lines down stayed unguarded and violated. Both warnings were
+    // that one misplacement. `line_length` is disabled for this repo (ios/.swiftlint.yml), so the
+    // single line costs nothing and the exception now sits on the statement it excuses.
     // swiftlint:disable:next force_unwrapping
-    static let onboardingDemoPage = URL(
-        string: "https://ags.cuzk.cz/av/?extent=-831002.3241535446,-1032569.7200186695,-826473.7490963945,-1029973.3903260101&zvd=dmr5g&rf=GrayscaleHillshade&o=1"
-    )!
+    static let onboardingDemoPage = URL(string: "https://ags.cuzk.cz/av/?extent=-831002.3241535446,-1032569.7200186695,-826473.7490963945,-1029973.3903260101&zvd=dmr5g&rf=GrayscaleHillshade&o=1")!
 
     let dataController: DataController
 

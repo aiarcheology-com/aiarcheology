@@ -43,14 +43,22 @@ enum AuthValidationError: Error {
 
 /// Which half of ``AuthState/deleteAccount()`` failed.
 ///
-/// The two halves mean opposite things to the person who pressed the button, and the copy shown to
-/// them differs accordingly (AIA-0816). A single "it failed" cannot be phrased truthfully for both:
-/// after ``purge`` nothing has been erased anywhere, while after ``accountDeletion`` the cloud copy
-/// is already gone and only the account itself survives.
+/// The two halves leave the cloud copy in different states, and the copy shown to the person who
+/// pressed the button differs accordingly (AIA-0816). A single "it failed" cannot be phrased
+/// truthfully for both: after ``purge`` the erase is *incomplete*, while after ``accountDeletion``
+/// it finished and only the account itself survives.
 enum AccountDeletionFailure: Error {
-    /// The cloud purge failed. Nothing was erased, and the account still exists -- the caller
-    /// deliberately does not delete it, because the session token is the only credential that can
-    /// reach the remaining data.
+    /// The cloud purge did not complete, and the account still exists -- the caller deliberately
+    /// does not delete it, because the session token is the only credential that can reach whatever
+    /// is left.
+    ///
+    /// **How much was erased is unknown**, which is why `auth.account.delete.failedPurge` says a
+    /// back-up "may already have been removed" rather than claiming nothing happened. Two very
+    /// different situations arrive here: the pre-flight refusal in ``AuthState/deleteAccount()``,
+    /// where no request was made at all, and a purge that deleted some objects and then threw. The
+    /// caller cannot tell them apart, so the copy must hold for both -- and the hedge is the only
+    /// sentence that does. This doc read "Nothing was erased" until AIA-0891; two call sites had
+    /// copied that claim into comments, while the shipped string had said otherwise since #818.
     case purge(Error)
     /// The purge succeeded and deleting the account itself did not. The account survives.
     ///
@@ -453,9 +461,14 @@ final class AuthState: ObservableObject {
             // a back-up was removed would be false there (review of #818).
             cloudDataErased = try await purgeCloudData?(operation) ?? false
         } catch {
+            // "did not complete", not "nothing was erased" (AIA-0891). The purge throws on an
+            // incomplete result *after* deleting some objects, so the older wording was false
+            // exactly when this line matters most: it is the one that reaches the support
+            // attachment and the Sentry event, where somebody is trying to work out what is left.
             LoggingPolicy.error(
-                "Account deletion \(operation) stopped: the cloud purge failed, so the account was "
-                    + "kept and nothing was erased. \(error.localizedDescription)",
+                "Account deletion \(operation) stopped: the cloud purge did not complete, so the "
+                    + "account was kept; an unknown amount may already have been erased. "
+                    + "\(error.localizedDescription)",
                 logger: .state
             )
             throw AccountDeletionFailure.purge(error)

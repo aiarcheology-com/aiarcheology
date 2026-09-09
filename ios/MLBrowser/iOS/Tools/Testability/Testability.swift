@@ -151,6 +151,23 @@ extension TestabilityIdentification {
 		/// holds saved findings (AIA-0779). Absent when there is nothing to export, so its absence
 		/// is itself the assertion that the action is conditional.
 		case paywallDeleteAccountExportFindings
+		/// The Settings-side delete path added for App Review 5.1.1(v) (AIA-0891): the destructive
+		/// button on ``DeleteAccountView``, the Manage Subscription escape beside its confirmation,
+		/// and the confirmation's own destructive action — which shares its label with the button
+		/// that opens it, so nothing could tell them apart by text alone.
+		///
+		/// **Unreferenced by the UI suite, and not an oversight.** The screen sits behind Clerk's
+		/// embedded profile, which Settings renders only when `usesRealAuth` — and the UI suite runs
+		/// on `MockAuthProvider` under `UI_TESTING`, where that is false by construction
+		/// (`DependencyContainer.usesMockAuth`). No launch argument reaches this screen, so these
+		/// exist for manual and future coverage rather than for a test that could be written today.
+		///
+		/// The Clerk row that *reaches* the screen could not carry one anyway: Clerk applies
+		/// `accessibilityIdentifier` to its built-in rows only, so a custom row's label is all
+		/// anything has to match on.
+		case settingsDeleteAccount
+		case settingsDeleteAccountManage
+		case settingsDeleteAccountConfirm
 		/// The findings escape hatch on the hard wall (AIA-0556) and the two choices inside its
 		/// confirmation. Present only where the paywall is a dead end, so its absence is itself the
 		/// assertion that an informational free-access paywall — not the wall — is showing.

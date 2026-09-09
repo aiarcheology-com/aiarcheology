@@ -158,6 +158,14 @@ enum PaywallPurchaseIntent: Equatable {
 /// no way from here to find out otherwise. The escape hatch to export already exists (AIA-0556);
 /// what was missing is that the delete dialog never mentioned it, which is what the reporter hit.
 ///
+/// Still `Paywall`-prefixed after AIA-0891 added a second delete screen, because that screen does
+/// not use this. `DeleteAccountView` sits inside Settings, one Back tap from the findings list, so
+/// the export this composes a promise about would be rescuing data that is not going anywhere. It
+/// composes its own message from ``L10n/Auth/Account/Delete/messageBilling`` and
+/// ``L10n/Auth/Account/Delete/deviceNote`` — the same reassurance without the "and you can export
+/// them first" clause, and unconditional, since it has no button to make conditional. The wall
+/// remains the only confirmation that owes ``findingsNote``, and the only one carrying Export First…
+///
 /// A value, not an `if` inside the dialog, for the reason ``PaywallPurchaseIntent`` is one: the
 /// confirmation cannot be driven by the UI suite in the state that matters — the UI-testing launch
 /// path wipes the Caches store, so `hasAnyFinding()` is false there and the interesting branch is
@@ -695,11 +703,13 @@ struct PaywallView: View {
 					do {
 						try await authState?.deleteAccount()
 					} catch let failure as AccountDeletionFailure {
-						// The stage decides the copy, because the two stages mean opposite things to
-						// the person reading it: after `.purge` nothing was erased anywhere, while
-						// after `.accountDeletion` the cloud copy is already gone and only the account
-						// survives (AIA-0816). `AuthState` has already reported the failure at
-						// `.error` with the stage named, so nothing is logged again here.
+						// The stage decides the copy, because the two stages leave the cloud copy in
+						// different states: after `.purge` the erase is incomplete and how much went
+						// is unknown, while after `.accountDeletion` it finished and only the account
+						// survives (AIA-0816). This said "after `.purge` nothing was erased anywhere"
+						// until AIA-0891, contradicting both the shipped string and the note four
+						// lines below. `AuthState` has already reported the failure at `.error` with
+						// the stage named, so nothing is logged again here.
 						let message = switch failure {
 						case .purge: L10n.Auth.Account.Delete.failedPurge
 						case .accountDeletion(_, cloudDataErased: true): L10n.Auth.Account.Delete.failedDeletion

@@ -14,6 +14,11 @@ import ClerkKitUI
 private enum AccountRoute: Hashable {
 	case profile
 	case subscription
+	/// The app's own delete-account screen, reached from the row this file injects into Clerk's
+	/// profile one place under Sign out (AIA-0891). It rides `AccountRoute` rather than a type of
+	/// its own because Clerk pushes a custom row's route onto the *host's* path, and a second route
+	/// type would need a second `navigationDestination` for a stack that already has one.
+	case deleteAccount
 }
 
 struct SettingsForm: View {
@@ -149,11 +154,40 @@ struct SettingsForm: View {
 				case .profile:
 					// Embedded on the Settings stack (shares `accountPath`), so the profile's
 					// own Manage-account / Security sub-screens resolve correctly.
+					//
+					// The injected Delete account row answers App Review 5.1.1(v) (AIA-0891).
+					// Clerk's own delete affordance is buried in Security, four levels from
+					// Settings, and 1.5.1 exposes no way to move, hide or relabel it — so this
+					// adds a shallower second path to the same outcome instead of relocating the
+					// first. `.after(.signOut)` is a supported placement, and because a custom
+					// row pushes its `route` onto *this* stack, `AccountRoute.deleteAccount`
+					// resolves in the same switch rather than needing `.userProfileDestination`.
+					//
+					// The row renders in Clerk's theme foreground, not destructive red:
+					// `UserProfileRowView` hardcodes the label colour. Only the icon and title
+					// are ours.
+					//
+					// The title is an already-resolved `L10n` string, which Clerk wraps in a
+					// `LocalizedStringKey` and draws with `Text(_:bundle: nil)`. That is a main-
+					// bundle lookup of the *translated* text as a key; it misses, and SwiftUI
+					// falls back to rendering the key — the translation itself. Safe only because
+					// this catalog's keys are dotted identifiers, so no locale's copy can collide
+					// with one and get translated a second time.
 					UserProfileView(isDismissible: false, navigationPath: $accountPath)
+						.userProfileRows([
+							UserProfileCustomRow(
+								route: AccountRoute.deleteAccount,
+								title: L10n.Auth.Account.Delete.action,
+								icon: .system(name: "trash.fill"),
+								placement: .after(.signOut)
+							)
+						])
 						.environment(Clerk.shared)
 						.environment(\.clerkTheme, .app)
 				case .subscription:
 					SubscriptionStatusView(subscriptionState: subscriptionState)
+				case .deleteAccount:
+					DeleteAccountView(authState: authState)
 				}
 			}
 			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
@@ -786,10 +820,17 @@ struct SettingsForm: View {
 					}
 					.testability(Testability.NavigationLink.settingsManageAccount)
 
-					// Deleting the account does not stop Apple billing (AIA-0528). Clerk owns the
-					// delete confirmation inside `UserProfileView`, so its copy is not ours to amend —
-					// and this is nonetheless the only delete path a *subscribed* user can walk, since
-					// the paywall's own account controls are unreachable once entitled.
+					// Deleting the account does not stop Apple billing (AIA-0528). This is the only
+					// delete path a *subscribed* user can walk, since the paywall's own account
+					// controls are unreachable once entitled.
+					//
+					// It used to be the only place the app could say so at all, because Clerk owned
+					// the sole delete confirmation and its copy is not ours to amend. AIA-0891 added
+					// one we do own — `DeleteAccountView`, reached from the row this section pushes
+					// to — and its confirmation carries the same warning. This note is kept rather
+					// than retired: Clerk's own delete under Security is still reachable, still
+					// unamendable, and a subscriber who walks that path would otherwise be told
+					// nothing about billing at all.
 					//
 					// Placed directly under the row it warns about rather than in the section footer:
 					// that footer already carries the free-access/trial line, sits two pushes from
