@@ -1,0 +1,101 @@
+name: Native Model Converter
+
+# The 267 tests in the root SwiftPM package. They already run inside the simulator test plan,
+# but the seven that matter most SKIP there and everywhere else: the ONNX→CoreML numerical
+# parity checks (YOLOv5/v8/11 trunks against the ONNX Runtime oracle, converted-model probe
+# labels, metadata provenance) are gated on `NATIVE_MODEL_ONNX_DIRECTORY`, which nothing in CI
+# ever set. A skipped test reports green, so nothing would have told us if conversion started
+# producing wrong numbers.
+#
+# This workflow supplies both fixture sets, so the suite runs with ZERO skips.
+#
+# Runs on macOS because the conversion path compiles real CoreML models.
+
+on:
+  pull_request:
+    branches-ignore:
+      - "copilot/**"
+    paths:
+      - "Sources/NativeModelConverter/**"
+      - "Sources/NativeModelConverterCLI/**"
+      - "Sources/NativeModelEvaluatorCLI/**"
+      - "Tests/NativeModelConverterTests/**"
+      - "Package.swift"
+      - "Package.resolved"
+      - "scripts/test_native_model_converter.sh"
+      - "scripts/fetch_native_test_models.sh"
+      - ".github/workflows/native-model-converter.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-model-converter:
+    name: Native Model Converter Tests
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      # The ONNX fixtures are ~407 MB and change only when a manifest does.
+      #
+      # The key hashes *every* JSON in Fixtures/, not just ONNXConversionModels.json:
+      # `fetch_native_test_models.sh` also reads YOLOv5/v8/11TrunkOracle.json. Keying on the one
+      # manifest would leave an oracle re-pin on the old key — cache hit, so `actions/cache` never
+      # saves, and that model re-downloads on every run forever. Correctness would survive (the
+      # fetch script re-verifies SHA-256 per file) but the cache would silently stop paying.
+      #
+      # `restore-keys` makes a manifest change a delta fetch rather than a full 407 MB re-fetch:
+      # already-valid files are reused, superseded ones re-download, stale extras are ignored.
+      - name: Cache ONNX fixtures
+        uses: actions/cache@v5
+        with:
+          path: .native-model-fixtures
+          key: ${{ runner.os }}-onnx-fixtures-${{ hashFiles('Tests/NativeModelConverterTests/Fixtures/*.json') }}
+          restore-keys: |
+            ${{ runner.os }}-onnx-fixtures-
+
+      - name: Fetch ONNX fixtures
+        run: ./scripts/fetch_native_test_models.sh
+
+      # `test_native_model_converter.sh` downloads Apple's MobileNetV2 reference artifacts to a
+      # temp dir, pins their SHA-256, and runs `swift test` with NATIVE_MODEL_REFERENCE_DIRECTORY
+      # set. It only prefixes that one variable, so exporting NATIVE_MODEL_ONNX_DIRECTORY here is
+      # inherited — which is what unlocks the remaining seven. Verified locally: 267 tests,
+      # 0 skipped, 0 failures.
+      #
+      # The skip check shares this single run rather than repeating the suite. It is the point of
+      # the workflow: a skipped test reports green, so "0 failures" alone would not distinguish
+      # "the parity tests passed" from "the parity tests never ran" — which is precisely the
+      # state this repository was already in.
+      - name: Run converter tests and require zero skips
+        run: |
+          # `-e` explicitly, not inherited: Actions' default shell is `bash -e {0}`, but a later
+          # `shell:` override would drop it silently — and then a FAILING `swift test` would flow
+          # through `tee` into a grep that finds no "skipped", print "No tests skipped" and exit 0.
+          # Green on failing tests is the exact defect this workflow exists to prevent.
+          set -euo pipefail
+          log="$(mktemp)"
+          ./scripts/test_native_model_converter.sh 2>&1 | tee "$log"
+          # XCTest omits the clause entirely at zero skips, so this cannot false-fail on
+          # "0 tests skipped". NOTE: this guard is XCTest-shaped. If the package ever adopts
+          # Swift Testing, its summary format differs and this would stop guarding *silently* —
+          # revisit here if `@Test` ever appears in Tests/NativeModelConverterTests/.
+          if grep -qE "[0-9]+ tests? skipped" "$log"; then
+            echo "::error::Tests were skipped — a fixture is missing or a skip gate changed."
+            grep -E "[0-9]+ tests? skipped" "$log"
+            exit 1
+          fi
+          echo "No tests skipped."
+        env:
+          NATIVE_MODEL_ONNX_DIRECTORY: ${{ github.workspace }}/.native-model-fixtures

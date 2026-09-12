@@ -1,0 +1,1289 @@
+//
+//  CatalogProviderTests.swift
+//  MLBrowserUnitTests
+//
+//  AIA-0413: catalog provider and package-staging coverage without live network traffic.
+//
+
+import XCTest
+import Combine
+@testable import ML_Browser
+
+@MainActor
+final class CatalogProviderTests: XCTestCase {
+
+	private final class RequestCounter: @unchecked Sendable {
+		private let lock = NSLock()
+		private var count = 0
+
+		func increment() {
+			lock.lock()
+			count += 1
+			lock.unlock()
+		}
+
+		var value: Int {
+			lock.lock()
+			defer { lock.unlock() }
+			return count
+		}
+	}
+
+	private final class ProgressRecorder: @unchecked Sendable {
+		private let lock = NSLock()
+		private var recordedProgress: [CatalogPackageDownloadProgress] = []
+
+		func append(_ progress: CatalogPackageDownloadProgress) {
+			lock.lock()
+			recordedProgress.append(progress)
+			lock.unlock()
+		}
+
+		var values: [CatalogPackageDownloadProgress] {
+			lock.lock()
+			defer { lock.unlock() }
+			return recordedProgress
+		}
+	}
+
+	private final class CatalogURLProtocol: URLProtocol, @unchecked Sendable {
+		nonisolated(unsafe) static var responseHandler: (@Sendable (URL) -> (Int, Data))?
+		nonisolated(unsafe) static var requestStarted: ((URL) -> Void)?
+		nonisolated(unsafe) static var requestStopped: ((URL) -> Void)?
+		nonisolated(unsafe) static var delayedPaths = Set<String>()
+		nonisolated(unsafe) static var inactivityStalledPaths = Set<String>()
+		private let lock = NSLock()
+		private var stopped = false
+
+		// swiftlint:disable:next static_over_final_class
+		override class func canInit(with request: URLRequest) -> Bool {
+			request.url?.host == "catalog.test"
+		}
+
+		// swiftlint:disable:next static_over_final_class
+		override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+			request
+		}
+
+		override func startLoading() {
+			guard let url = request.url,
+				  let handler = Self.responseHandler else {
+				client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+				return
+			}
+			Self.requestStarted?(url)
+			if Self.delayedPaths.contains(url.path) {
+				DispatchQueue.global().asyncAfter(deadline: .now() + 1) { [weak self] in
+					self?.deliver(url: url, handler: handler)
+				}
+				return
+			}
+			deliver(url: url, handler: handler, pauseAfterFirstByte: Self.inactivityStalledPaths.contains(url.path))
+		}
+
+		private func deliver(
+			url: URL,
+			handler: @Sendable (URL) -> (Int, Data),
+			pauseAfterFirstByte: Bool = false
+		) {
+			lock.lock()
+			let isStopped = stopped
+			lock.unlock()
+			guard isStopped == false else { return }
+
+			let (statusCode, data) = handler(url)
+			guard let response = HTTPURLResponse(
+				url: url,
+				statusCode: statusCode,
+				httpVersion: "HTTP/1.1",
+				headerFields: ["Content-Length": String(data.count)]
+			) else {
+				client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+				return
+			}
+			client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+			if pauseAfterFirstByte {
+				let initialChunk = Data(data.prefix(1))
+				client?.urlProtocol(self, didLoad: initialChunk)
+				let remainingData = Data(data.dropFirst())
+				DispatchQueue.global().asyncAfter(deadline: .now() + 1) { [weak self] in
+					self?.finishLoading(with: remainingData)
+				}
+				return
+			}
+			finishLoading(with: data)
+		}
+
+		private func finishLoading(with data: Data) {
+			lock.lock()
+			let isStopped = stopped
+			lock.unlock()
+			guard isStopped == false else { return }
+			client?.urlProtocol(self, didLoad: data)
+			client?.urlProtocolDidFinishLoading(self)
+		}
+
+		override func stopLoading() {
+			lock.lock()
+			stopped = true
+			lock.unlock()
+			if let url = request.url {
+				Self.requestStopped?(url)
+			}
+		}
+	}
+
+	override func tearDown() {
+		CatalogURLProtocol.responseHandler = nil
+		CatalogURLProtocol.requestStarted = nil
+		CatalogURLProtocol.requestStopped = nil
+		CatalogURLProtocol.delayedPaths = []
+		CatalogURLProtocol.inactivityStalledPaths = []
+		super.tearDown()
+	}
+
+	func testSearch_mergesVisionTasksAndCachesTheQuery() async throws {
+		let requestCounter = RequestCounter()
+		CatalogURLProtocol.responseHandler = { url in
+			requestCounter.increment()
+			let task = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+				.queryItems?
+				.first(where: { $0.name == "pipeline_tag" })?
+				.value
+			let payload: String
+			if task == CatalogTask.objectDetection.rawValue {
+				payload = "[{\"id\":\"acme/detector\",\"author\":\"acme\",\"downloads\":12,\"likes\":3,\"siblings\":[{\"rfilename\":\"Detector.mlmodel\"}]}]"
+			} else {
+				payload = "[{\"id\":\"acme/detector\",\"author\":\"acme\",\"downloads\":12,\"likes\":3,"
+					+ "\"siblings\":[{\"rfilename\":\"Detector.mlmodel\"}]},"
+					+ "{\"id\":\"acme/classifier\",\"downloads\":5,\"likes\":1,"
+					+ "\"siblings\":[{\"rfilename\":\"Classifier.mlmodel\"}]}]"
+			}
+			return (200, Data(payload.utf8))
+		}
+
+		let provider = makeProvider()
+		let first = try await provider.search(query: "animals")
+		let second = try await provider.search(query: "animals")
+
+		XCTAssertEqual(requestCounter.value, 4, "each vision task fans out to both the coreml and onnx library filters")
+		XCTAssertEqual(first.map(\.id), ["acme/detector", "acme/classifier"])
+		XCTAssertEqual(second, first)
+		XCTAssertEqual(first[0].task, .objectDetection)
+		XCTAssertEqual(first[1].task, .imageClassification)
+		XCTAssertEqual(first[0].artifactURL?.absoluteString, "https://catalog.test/acme/detector/resolve/main/Detector.mlmodel")
+	}
+
+	func testSearch_filtersNestedModelWithoutInstallableArtifact() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			let payload = "[{\"id\":\"acme/unsupported\",\"siblings\":[{\"rfilename\":\"compiled/model.mlmodel\"}]},"
+				+ "{\"id\":\"acme/package\",\"siblings\":[{\"rfilename\":\"Package.mlpackage/Data/model.mlmodel\"},"
+				+ "{\"rfilename\":\"Package.mlpackage/Manifest.json\"}]}]"
+			return (200, Data(payload.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "models")
+
+		XCTAssertEqual(models.map(\.id), ["acme/package"])
+		XCTAssertEqual(models.first?.format, .mlpackage)
+		XCTAssertEqual(models.first?.artifactURL?.lastPathComponent, "Manifest.json")
+	}
+
+	func testSearch_surfacesStandaloneOnnxAsConvertibleWithDerivedFamily() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			// The family token lives only in `tags`, so this also proves `tags` is decoded.
+			let payload = "[{\"id\":\"acme/onnx-export\",\"author\":\"acme\",\"downloads\":9,\"likes\":2,"
+				+ "\"tags\":[\"MobileNet\",\"image-classification\"],"
+				+ "\"siblings\":[{\"rfilename\":\"model.onnx\"}]}]"
+			return (200, Data(payload.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "onnx")
+		let model = try XCTUnwrap(models.first)
+
+		XCTAssertEqual(model.id, "acme/onnx-export")
+		XCTAssertEqual(model.format, .onnx)
+		XCTAssertEqual(model.support, .convertible)
+		XCTAssertEqual(model.family, .mobileNetV2)
+		XCTAssertEqual(model.artifactURL?.absoluteString, "https://catalog.test/acme/onnx-export/resolve/main/model.onnx")
+	}
+
+	func testSearch_keepsRootCoreMLModelAsNativeSupport() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			let payload = "[{\"id\":\"acme/detector\",\"author\":\"acme\","
+				+ "\"siblings\":[{\"rfilename\":\"Detector.mlmodel\"}]}]"
+			return (200, Data(payload.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "detector")
+		let model = try XCTUnwrap(models.first)
+
+		XCTAssertEqual(model.format, .mlmodel)
+		XCTAssertEqual(model.support, .coreMLNative)
+	}
+
+	func testResolveFiles_returnsStandaloneOnnxFileWithXetMetadata() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			if url.path.contains("/tree/") {
+				let payload = "[{\"path\":\"mobilenetv2-10.onnx\",\"size\":512,\"xetHash\":\"onnx-file-id\"}]"
+				return (200, Data(payload.utf8))
+			}
+			let payload = "{\"siblings\":[{\"rfilename\":\"README.md\"},{\"rfilename\":\"mobilenetv2-10.onnx\"}]}"
+			return (200, Data(payload.utf8))
+		}
+
+		let files = try await makeProvider().resolveFiles(for: catalogModel())
+		let file = try XCTUnwrap(files.first)
+
+		XCTAssertEqual(files.count, 1)
+		XCTAssertTrue(file.relativePath.hasSuffix(".onnx"))
+		XCTAssertEqual(file.relativePath, "mobilenetv2-10.onnx")
+		XCTAssertEqual(file.xetFile?.fileID, "onnx-file-id")
+		XCTAssertEqual(file.xetFile?.sizeBytes, 512)
+		XCTAssertEqual(
+			file.resolveURL.absoluteString,
+			"https://catalog.test/acme/detector/resolve/main/mobilenetv2-10.onnx"
+		)
+	}
+
+	func testSearch_skipsRepoWithoutInstallableArtifact() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			let payload = "[{\"id\":\"acme/pytorch-only\","
+				+ "\"siblings\":[{\"rfilename\":\"pytorch_model.bin\"},{\"rfilename\":\"config.json\"}]}]"
+			return (200, Data(payload.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "pytorch")
+
+		XCTAssertTrue(models.isEmpty)
+	}
+
+	func testResolveFiles_prefersSingleModelFile() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			let payload = "{\"siblings\":[{\"rfilename\":\"readme.md\"},{\"rfilename\":\"Detector.mlmodel\",\"size\":42}]}"
+			return (200, Data(payload.utf8))
+		}
+
+		let files = try await makeProvider().resolveFiles(for: catalogModel())
+
+		XCTAssertEqual(files.count, 1)
+		XCTAssertEqual(files[0].relativePath, "Detector.mlmodel")
+		XCTAssertEqual(files[0].sizeBytes, 42)
+		XCTAssertEqual(files[0].resolveURL.absoluteString, "https://catalog.test/acme/detector/resolve/main/Detector.mlmodel")
+	}
+
+	func testResolveFiles_attachesXetMetadataWhenTheHubProvidesIt() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			if url.path.contains("/tree/") {
+				let payload = "[{\"path\":\"Detector.mlmodel\",\"size\":248,\"xetHash\":\"file-id\"}]"
+				return (200, Data(payload.utf8))
+			}
+			let payload = "{\"siblings\":[{\"rfilename\":\"Detector.mlmodel\"}]}"
+			return (200, Data(payload.utf8))
+		}
+
+		let files = try await makeProvider().resolveFiles(for: catalogModel())
+		let file = try XCTUnwrap(files.first)
+
+		XCTAssertEqual(file.xetFile?.fileID, "file-id")
+		XCTAssertEqual(file.xetFile?.sizeBytes, 248)
+		XCTAssertEqual(file.xetFile?.repositoryID, "acme/detector")
+		XCTAssertEqual(file.xetFile?.hubURL, URL(string: "https://catalog.test"))
+		XCTAssertEqual(file.sizeBytes, 248)
+		XCTAssertEqual(
+			file.xetFile?.tokenURL.absoluteString,
+			"https://catalog.test/api/models/acme/detector/xet-read-token/main"
+		)
+		XCTAssertEqual(
+			file.sourceURL?.absoluteString,
+			"https://catalog.test/acme/detector/tree/main/Detector.mlmodel"
+		)
+	}
+
+	func testResolveFiles_collectsOnePackageTree() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			let payload = "{\"siblings\":[{\"rfilename\":\"One.mlpackage/Data/model.bin\",\"size\":10},"
+				+ "{\"rfilename\":\"One.mlpackage/Manifest.json\",\"size\":20},"
+				+ "{\"rfilename\":\"Other.mlpackage/data\",\"size\":30}]}"
+			return (200, Data(payload.utf8))
+		}
+
+		let files = try await makeProvider().resolveFiles(for: catalogModel())
+
+		XCTAssertEqual(files.map(\.relativePath), ["One.mlpackage/Manifest.json", "One.mlpackage/Data/model.bin"])
+	}
+
+	func testResolveFiles_usesPackageInsteadOfNestedModelFile() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			let payload = "{\"siblings\":[{\"rfilename\":\"One.mlpackage/Data/model.mlmodel\",\"size\":10},{\"rfilename\":\"One.mlpackage/Manifest.json\",\"size\":20}]}"
+			return (200, Data(payload.utf8))
+		}
+
+		let files = try await makeProvider().resolveFiles(for: catalogModel())
+
+		XCTAssertEqual(files.map(\.relativePath), ["One.mlpackage/Manifest.json", "One.mlpackage/Data/model.mlmodel"])
+	}
+
+	func testResolveFiles_usesTreeSizesForEveryPackageFile() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			if url.path.contains("/tree/") {
+				let payload = "[\n  {\"path\":\"One.mlpackage/Manifest.json\",\"size\":8},\n  {\"path\":\"One.mlpackage/Data/model.mlmodel\",\"size\":12,\"xetHash\":\"model-id\"}\n]"
+				return (200, Data(payload.utf8))
+			}
+			let payload = "{\"siblings\":[{\"rfilename\":\"One.mlpackage/Data/model.mlmodel\"},{\"rfilename\":\"One.mlpackage/Manifest.json\"}]}"
+			return (200, Data(payload.utf8))
+		}
+
+		let files = try await makeProvider().resolveFiles(for: catalogModel())
+
+		XCTAssertEqual(files.map(\.relativePath), ["One.mlpackage/Manifest.json", "One.mlpackage/Data/model.mlmodel"])
+		XCTAssertEqual(files.map(\.sizeBytes), [8, 12])
+		XCTAssertEqual(files.last?.xetFile?.fileID, "model-id")
+	}
+
+	func testPackageDownloader_assemblesPackageTree() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			switch url.lastPathComponent {
+			case "Manifest.json": return (200, Data("manifest".utf8))
+			case "model.bin": return (200, Data("weights".utf8))
+			default: return (404, Data())
+			}
+		}
+
+		let files = [
+			CatalogFile(relativePath: "Animal.mlpackage/Manifest.json", resolveURL: testURL("Manifest.json"), sizeBytes: 8),
+			CatalogFile(
+				relativePath: "Animal.mlpackage/Data/model.bin",
+				resolveURL: testURL("model.bin"),
+				sizeBytes: 7,
+				xetFile: HuggingFaceXetFile(fileID: "xet-backed-file", tokenURL: testURL("token"))
+			)
+		]
+		let downloader = CatalogPackageDownloader(session: makeSession())
+		let progress = ProgressRecorder()
+		let package = try await downloader.download(files: files, reportProgress: progress.append)
+		defer { try? FileManager.default.removeItem(at: package.deletingLastPathComponent()) }
+		XCTAssertEqual(try Data(contentsOf: package.appendingPathComponent("Manifest.json")), Data("manifest".utf8))
+		XCTAssertEqual(try Data(contentsOf: package.appendingPathComponent("Data/model.bin")), Data("weights".utf8))
+		XCTAssertTrue(progress.values.contains { $0.downloadedBytes > 0 })
+	}
+
+	func testPackageDownloader_rejectsNon2xxSibling() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			url.lastPathComponent == "Manifest.json"
+				? (200, Data("manifest".utf8))
+				: (404, Data("not found".utf8))
+		}
+		let files = [
+			CatalogFile(
+				relativePath: "Rejected.mlpackage/Manifest.json",
+				resolveURL: testURL("Manifest.json"),
+				sizeBytes: 8
+			),
+			CatalogFile(
+				relativePath: "Rejected.mlpackage/Data/model.mlmodel",
+				resolveURL: testURL("Rejected.mlpackage/Data/model.mlmodel"),
+				sizeBytes: 9
+			)
+		]
+		let initialStagingDirectories = catalogPackageStagingDirectories()
+
+		do {
+			_ = try await CatalogPackageDownloader(session: makeSession()).download(files: files) { _ in }
+			XCTFail("expected the non-success sibling response to fail")
+		} catch let error as CatalogError {
+			XCTAssertEqual(error, .network)
+		}
+		XCTAssertEqual(catalogPackageStagingDirectories(), initialStagingDirectories)
+	}
+
+	func testPackageDownloader_rejectsDeclaredSizeOverCap() async throws {
+		let files = [
+			CatalogFile(
+				relativePath: "Large.mlpackage/model.bin",
+				resolveURL: testURL("model.bin"),
+				sizeBytes: CatalogPackageDownloader.maximumTotalBytes + 1
+			)
+		]
+		do {
+			_ = try await CatalogPackageDownloader(session: makeSession()).download(files: files) { _ in }
+			XCTFail("expected the size cap to fail before a download starts")
+		} catch let error as CatalogError {
+			XCTAssertEqual(error, .tooLarge)
+		}
+	}
+
+	func testPackageDownloader_usesInjectedHTTPTransportForXetMarkedFiles() async throws {
+		let files = [
+			CatalogFile(
+				relativePath: "Detector.mlpackage/Manifest.json",
+				resolveURL: testURL("Manifest.json"),
+				sizeBytes: 8
+			),
+			CatalogFile(
+				relativePath: "Detector.mlpackage/Data/model.mlmodel",
+				resolveURL: testURL("model.mlmodel"),
+				sizeBytes: 4,
+				xetFile: HuggingFaceXetFile(fileID: "file-id", tokenURL: URL(string: "https://catalog.test/token")!)
+			),
+			CatalogFile(
+				relativePath: "Detector.mlpackage/Data/weights/weight.bin",
+				resolveURL: testURL("weight.bin"),
+				sizeBytes: 4,
+				xetFile: HuggingFaceXetFile(fileID: "file-id", tokenURL: URL(string: "https://catalog.test/token")!)
+			)
+		]
+		let fakeHTTPDownload: CatalogHTTPDownload = { file, _, onBytesWritten in
+			let byteCount = Int(file.sizeBytes ?? 0)
+			onBytesWritten(Int64(byteCount))
+			let temporaryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+			try Data(repeating: 0, count: byteCount).write(to: temporaryURL)
+			return temporaryURL
+		}
+		let downloader = CatalogPackageDownloader(
+			session: makeSession(),
+			httpDownload: fakeHTTPDownload
+		)
+		let progress = ProgressRecorder()
+		let downloadedPackage = try await downloader.download(files: files, reportProgress: progress.append)
+		defer { try? FileManager.default.removeItem(at: downloadedPackage.deletingLastPathComponent()) }
+		XCTAssertEqual(progress.values.first?.downloadedBytes, 0)
+		XCTAssertEqual(progress.values.last?.downloadedBytes, 16)
+		XCTAssertEqual(progress.values.last?.expectedBytes, 16)
+		XCTAssertEqual(progress.values.last?.completedFileCount, 3)
+		XCTAssertTrue(progress.values.contains { $0.downloadedBytes > 0 && $0.completedFileCount < 3 })
+	}
+
+	func testPackageDownloader_timesOutStalledHTTPTransfer() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			url.lastPathComponent == "Manifest.json" ? (200, Data("manifest".utf8)) : (200, Data("model".utf8))
+		}
+		CatalogURLProtocol.inactivityStalledPaths = ["/files/Stalled.mlpackage/Data/model.mlmodel"]
+		let files = [
+			CatalogFile(
+				relativePath: "Stalled.mlpackage/Manifest.json",
+				resolveURL: testURL("Manifest.json"),
+				sizeBytes: 8
+			),
+			CatalogFile(
+				relativePath: "Stalled.mlpackage/Data/model.mlmodel",
+				resolveURL: testURL("Stalled.mlpackage/Data/model.mlmodel"),
+				sizeBytes: 5,
+				xetFile: HuggingFaceXetFile(fileID: "xet-backed-file", tokenURL: testURL("token"))
+			)
+		]
+		let timeouts = CatalogHTTPDownloadTimeouts(firstByte: 1, inactivity: 0.05)
+		let httpDownload: CatalogHTTPDownload = { file, session, onBytesWritten in
+			try await CatalogHTTPFileDownloader.download(
+				file: file,
+				session: session,
+				timeouts: timeouts,
+				onBytesWritten: onBytesWritten
+			)
+		}
+		do {
+			_ = try await CatalogPackageDownloader(session: makeSession(), httpDownload: httpDownload).download(files: files) { _ in }
+			XCTFail("expected stalled HTTP transfer to time out")
+		} catch let error as CatalogError {
+			XCTAssertEqual(error, .timedOut)
+		}
+	}
+
+	func testPackageDownloader_cancellationStopsHTTPAndCleansStagingDirectory() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			url.lastPathComponent == "Manifest.json" ? (200, Data("manifest".utf8)) : (200, Data("model".utf8))
+		}
+		let stalledPath = "/files/Cancelled.mlpackage/Data/model.mlmodel"
+		CatalogURLProtocol.delayedPaths = [stalledPath]
+		let stalledRequestStarted = expectation(description: "stalled request started")
+		let stalledRequestStopped = expectation(description: "stalled request stopped")
+		CatalogURLProtocol.requestStarted = { url in
+			if url.path == stalledPath {
+				stalledRequestStarted.fulfill()
+			}
+		}
+		CatalogURLProtocol.requestStopped = { url in
+			if url.path == stalledPath {
+				stalledRequestStopped.fulfill()
+			}
+		}
+		let files = [
+			CatalogFile(
+				relativePath: "Cancelled.mlpackage/Manifest.json",
+				resolveURL: testURL("Manifest.json"),
+				sizeBytes: 8
+			),
+			CatalogFile(
+				relativePath: "Cancelled.mlpackage/Data/model.mlmodel",
+				resolveURL: testURL("Cancelled.mlpackage/Data/model.mlmodel"),
+				sizeBytes: 5,
+				xetFile: HuggingFaceXetFile(fileID: "xet-backed-file", tokenURL: testURL("token"))
+			)
+		]
+		let initialStagingDirectories = catalogPackageStagingDirectories()
+		let downloader = CatalogPackageDownloader(session: makeSession())
+		let consumer = Task { () -> Result<URL, Error> in
+			do {
+				return .success(try await downloader.download(files: files) { _ in })
+			} catch {
+				return .failure(error)
+			}
+		}
+
+		await fulfillment(of: [stalledRequestStarted], timeout: 1)
+		consumer.cancel()
+		await fulfillment(of: [stalledRequestStopped], timeout: 1)
+
+		switch await consumer.value {
+		case .success:
+			XCTFail("expected cancellation")
+		case .failure(let error):
+			XCTAssertTrue(error is CancellationError)
+		}
+		XCTAssertEqual(catalogPackageStagingDirectories(), initialStagingDirectories)
+	}
+
+	/// AIA-0603: staging compared a standardised staging root against a separately standardised
+	/// destination. `standardizedFileURL` strips a leading `/private` only when the resulting path
+	/// exists, so on device — where the temporary directory is `/private/var/mobile/…` — the root
+	/// (which exists) standardised to `/var/mobile/…` while the file about to be written kept its
+	/// `/private` prefix, and containment rejected every package download. The simulator's own
+	/// temporary directory carries no `/private`, so the failure is reachable only by injecting a
+	/// staging root that standardisation rewrites.
+	func testPackageDownloader_stagesPackageUnderPrivatePrefixedTemporaryDirectory() async throws {
+		let stagingRoot = try makePrivatePrefixedTemporaryDirectory()
+		CatalogURLProtocol.responseHandler = { url in
+			url.lastPathComponent == "Manifest.json" ? (200, Data("manifest".utf8)) : (200, Data("weights".utf8))
+		}
+		let files = [
+			CatalogFile(
+				relativePath: "yolo11l-int8.mlpackage/Manifest.json",
+				resolveURL: testURL("Manifest.json"),
+				sizeBytes: 8
+			),
+			CatalogFile(
+				relativePath: "yolo11l-int8.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+				resolveURL: testURL("model.mlmodel"),
+				sizeBytes: 7
+			),
+			CatalogFile(
+				relativePath: "yolo11l-int8.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+				resolveURL: testURL("weight.bin"),
+				sizeBytes: 7
+			)
+		]
+		let downloader = CatalogPackageDownloader(
+			session: makeSession(),
+			fileManager: PrivateTemporaryDirectoryFileManager(temporaryDirectory: stagingRoot)
+		)
+
+		let package = try await downloader.download(files: files) { _ in }
+
+		XCTAssertEqual(package.lastPathComponent, "yolo11l-int8.mlpackage")
+		XCTAssertEqual(try Data(contentsOf: package.appendingPathComponent("Manifest.json")), Data("manifest".utf8))
+		XCTAssertEqual(
+			try Data(contentsOf: package.appendingPathComponent("Data/com.apple.CoreML/weights/weight.bin")),
+			Data("weights".utf8)
+		)
+	}
+
+	/// The single-file branch resolves its artifact through the same containment guard, so it fails
+	/// the same way on device. `.onnx` is the shape that reaches it: `Downloader` treats only a lone
+	/// `.mlmodel` as an ordinary single-file download and routes everything else through staging.
+	func testPackageDownloader_stagesSingleONNXUnderPrivatePrefixedTemporaryDirectory() async throws {
+		let stagingRoot = try makePrivatePrefixedTemporaryDirectory()
+		CatalogURLProtocol.responseHandler = { _ in (200, Data("graph".utf8)) }
+		let files = [
+			CatalogFile(relativePath: "model.onnx", resolveURL: testURL("model.onnx"), sizeBytes: 5)
+		]
+		let downloader = CatalogPackageDownloader(
+			session: makeSession(),
+			fileManager: PrivateTemporaryDirectoryFileManager(temporaryDirectory: stagingRoot)
+		)
+
+		let artifact = try await downloader.download(files: files) { _ in }
+
+		XCTAssertEqual(artifact.lastPathComponent, "model.onnx")
+		XCTAssertEqual(try Data(contentsOf: artifact), Data("graph".utf8))
+	}
+
+	/// Traversal is rejected by the per-component validation in `destinationURL`, before that function
+	/// builds any URL — but note it runs during staging, once a file has already been fetched, not as
+	/// an upfront check on the manifest. Standardising the staging root once makes the containment
+	/// guard behind that validation unreachable for any relative path, so these cases pin the
+	/// validation and deliberately claim no coverage of the guard.
+	func testPackageDownloader_rejectsTraversalComponentsInAPackageTree() async throws {
+		CatalogURLProtocol.responseHandler = { _ in (200, Data("payload".utf8)) }
+		let rejectedPaths = [
+			"Traversal.mlpackage/../../escape.bin",
+			"Traversal.mlpackage/./Manifest.json",
+			"Traversal.mlpackage//Manifest.json"
+		]
+
+		for rejectedPath in rejectedPaths {
+			let files = [
+				CatalogFile(
+					relativePath: "Traversal.mlpackage/Manifest.json",
+					resolveURL: testURL("Manifest.json"),
+					sizeBytes: 7
+				),
+				CatalogFile(relativePath: rejectedPath, resolveURL: testURL("sibling.bin"), sizeBytes: 7)
+			]
+			do {
+				_ = try await CatalogPackageDownloader(session: makeSession()).download(files: files) { _ in }
+				XCTFail("expected \(rejectedPath) to be rejected")
+			} catch let error as CatalogError {
+				XCTAssertEqual(error, .invalidFilePath, "for \(rejectedPath)")
+			}
+		}
+	}
+
+	/// A tree spanning two package roots has no single installable artifact, so it is rejected before
+	/// anything is downloaded.
+	func testPackageDownloader_rejectsFilesSpanningTwoPackageRoots() async throws {
+		let files = [
+			CatalogFile(relativePath: "First.mlpackage/Manifest.json", resolveURL: testURL("Manifest.json"), sizeBytes: 7),
+			CatalogFile(relativePath: "Second.mlpackage/Manifest.json", resolveURL: testURL("Manifest2.json"), sizeBytes: 7)
+		]
+
+		do {
+			_ = try await CatalogPackageDownloader(session: makeSession()).download(files: files) { _ in }
+			XCTFail("expected a tree with two package roots to be rejected")
+		} catch let error as CatalogError {
+			XCTAssertEqual(error, .invalidFilePath)
+		}
+	}
+
+	func testXetProgressByteCount_doesNotTreatSparseLogicalLengthAsDownloadedBytes() throws {
+		let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		defer { try? FileManager.default.removeItem(at: url) }
+		XCTAssertTrue(FileManager.default.createFile(atPath: url.path, contents: nil))
+
+		let handle = try FileHandle(forWritingTo: url)
+		try handle.seek(toOffset: 16 * 1024 * 1024)
+		try handle.write(contentsOf: Data([0]))
+		try handle.close()
+
+		let logicalByteCount = HuggingFaceXetDownloader.logicalFileSize(at: url)
+		let progressByteCount = HuggingFaceXetDownloader.progressByteCount(at: url)
+
+		XCTAssertEqual(logicalByteCount, 16 * 1024 * 1024 + 1)
+		XCTAssertLessThan(progressByteCount, logicalByteCount)
+	}
+
+	func testAppleCatalog_searchesCuratedInstallableModels() async throws {
+		let provider = AppleCoreMLCatalogProvider()
+
+		let models = try await provider.search(query: "yolo tiny")
+		let model = try XCTUnwrap(models.first(where: { $0.id == "apple/yolov3-tiny-int8" }))
+		let files = try await provider.resolveFiles(for: model)
+
+		XCTAssertEqual(provider.descriptor.id, "apple-coreml")
+		XCTAssertEqual(model.providerId, "apple-coreml")
+		XCTAssertEqual(model.task, .objectDetection)
+		XCTAssertEqual(model.format, .mlmodel)
+		XCTAssertEqual(files.count, 1)
+		XCTAssertEqual(files[0].relativePath, "YOLOv3TinyInt8LUT.mlmodel")
+		XCTAssertEqual(model.artifactURL, files[0].resolveURL)
+		XCTAssertEqual(
+			files[0].resolveURL.absoluteString,
+			"https://ml-assets.apple.com/coreml/models/Image/ObjectDetection/YOLOv3Tiny/YOLOv3TinyInt8LUT.mlmodel"
+		)
+	}
+
+	func testAdditionalCuratedProviders_searchOfflineAndResolveDirectArtifacts() async throws {
+		let awesome = AwesomeCoreMLCatalogProvider()
+		let awesomeModels = try await awesome.search(query: "vehicle")
+		let awesomeModel = try XCTUnwrap(awesomeModels.first)
+		let awesomeFiles = try await awesome.resolveFiles(for: awesomeModel)
+
+		XCTAssertEqual(awesomeModel.id, "awesome/car-recognition")
+		XCTAssertEqual(awesomeModel.task, .imageClassification)
+		XCTAssertEqual(awesomeFiles.map(\.relativePath), ["CarRecognition.mlmodel"])
+		XCTAssertEqual(awesomeFiles.first?.resolveURL.host, "raw.githubusercontent.com")
+
+		let johnRocky = JohnRockyCoreMLCatalogProvider()
+		let johnRockyModels = try await johnRocky.search(query: "yolov5")
+		let johnRockyModel = try XCTUnwrap(johnRockyModels.first)
+		let johnRockyFiles = try await johnRocky.resolveFiles(for: johnRockyModel)
+
+		XCTAssertEqual(johnRockyModel.id, "john-rocky/yolov5s")
+		XCTAssertEqual(johnRockyModel.task, .objectDetection)
+		XCTAssertEqual(johnRockyFiles.first?.resolveURL.host, "drive.usercontent.google.com")
+		XCTAssertEqual(johnRockyFiles.first?.resolveURL.query?.contains("export=download"), true)
+		XCTAssertEqual(johnRockyFiles.first?.relativePath, "yolov5s.mlmodel")
+
+		let github = GitHubCuratedCatalogProvider()
+		let githubModels = try await github.search(query: "handwriting")
+		let githubModel = try XCTUnwrap(githubModels.first)
+		let githubFiles = try await github.resolveFiles(for: githubModel)
+
+		XCTAssertEqual(githubModel.id, "list-coreml/simple-mnist")
+		XCTAssertEqual(githubFiles.map(\.relativePath), ["SimpleMnist.mlmodel"])
+		XCTAssertEqual(githubFiles.first?.resolveURL.host, "raw.githubusercontent.com")
+	}
+
+	func testModelFamilyDerive_matchesClosedTokenSetCaseAndDiacriticInsensitively() {
+		XCTAssertEqual(ModelFamily.derive(fromID: "mobilenet-v2-int8", keywords: []), .mobileNetV2)
+		XCTAssertEqual(ModelFamily.derive(fromID: "yolov3-tiny", keywords: []), .yolo)
+		XCTAssertEqual(ModelFamily.derive(fromID: "squeezenet", keywords: []), .squeezeNet)
+		XCTAssertEqual(ModelFamily.derive(fromID: "resnet50", keywords: []), .resNet50)
+		XCTAssertNil(ModelFamily.derive(fromID: "bert-base", keywords: []))
+
+		// Folding is case-insensitive and applies to the keywords as well as the id.
+		XCTAssertEqual(ModelFamily.derive(fromID: "YOLOv8s", keywords: []), .yolo)
+		XCTAssertEqual(ModelFamily.derive(fromID: "some-export", keywords: ["MobileNet"]), .mobileNetV2)
+	}
+
+	func testCuratedProviders_tagKnownModelFamiliesForFilteringOnly() async throws {
+		let apple = AppleCoreMLCatalogProvider()
+		let appleMobileNet = try await apple.search(query: "mobilenet")
+		let appleResNet = try await apple.search(query: "resnet")
+		let appleYOLO = try await apple.search(query: "yolo")
+		XCTAssertEqual(try XCTUnwrap(appleMobileNet.first).family, .mobileNetV2)
+		XCTAssertEqual(try XCTUnwrap(appleResNet.first).family, .resNet50)
+		XCTAssertEqual(try XCTUnwrap(appleYOLO.first).family, .yolo)
+
+		let awesome = AwesomeCoreMLCatalogProvider()
+		let awesomeMobileNet = try await awesome.search(query: "mobilenet")
+		let awesomeYOLO = try await awesome.search(query: "tiny yolo")
+		let awesomeCar = try await awesome.search(query: "vehicle")
+		XCTAssertEqual(try XCTUnwrap(awesomeMobileNet.first).family, .mobileNetV2)
+		XCTAssertEqual(try XCTUnwrap(awesomeYOLO.first).family, .yolo)
+		// A non-family entry stays in the explicit "Other" bucket rather than being mislabelled.
+		XCTAssertNil(try XCTUnwrap(awesomeCar.first).family)
+
+		let github = GitHubCuratedCatalogProvider()
+		let githubResNet = try await github.search(query: "resnet")
+		XCTAssertEqual(try XCTUnwrap(githubResNet.first).family, .resNet50)
+	}
+
+	func testPintoCatalog_isVisibleButNotSearchableUntilItPublishesDirectArtifacts() async throws {
+		let provider = PintoModelZooCatalogProvider()
+
+		XCTAssertEqual(provider.descriptor.id, "pinto-model-zoo")
+		XCTAssertFalse(provider.descriptor.isSearchable)
+		let models = try await provider.search(query: "yolo")
+		XCTAssertTrue(models.isEmpty)
+	}
+
+	func testAppleCatalog_listsAllEntriesForEmptyQueryToSupportBrowse() async throws {
+		let provider = AppleCoreMLCatalogProvider()
+
+		let all = try await provider.search(query: "")
+		XCTAssertFalse(all.isEmpty, "an empty query must list the manifest so the filter chips can browse it")
+		XCTAssertTrue(all.contains { $0.family == .mobileNetV2 })
+		XCTAssertTrue(all.contains { $0.family == .resNet50 })
+		XCTAssertTrue(all.contains { $0.family == .yolo })
+
+		let mobilenet = try await provider.search(query: "mobilenet")
+		XCTAssertLessThan(mobilenet.count, all.count, "a term query still narrows the full browse list")
+		XCTAssertTrue(mobilenet.allSatisfy { $0.family == .mobileNetV2 })
+	}
+
+	func testSearch_onnxFanoutFailureDoesNotHideCoreMLResults() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			// The best-effort ONNX fan-out fails; the Core ML fan-out succeeds with one model.
+			if (url.query ?? "").contains("filter=onnx") {
+				return (500, Data())
+			}
+			let json = "[{\"id\":\"acme/coreml-model\",\"siblings\":[{\"rfilename\":\"model.mlmodel\"}]}]"
+			return (200, Data(json.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "resnet")
+		XCTAssertFalse(models.isEmpty, "a failed ONNX fan-out must not discard the Core ML results")
+		XCTAssertTrue(models.allSatisfy { $0.format == .mlmodel && $0.support == .coreMLNative })
+	}
+
+	func testVerifiedONNXCatalog_exposesOnnxEntriesWithFamilyAndSupport() async throws {
+		let provider = ONNXModelZooCatalogProvider()
+		XCTAssertEqual(provider.descriptor.id, "onnx-verified")
+
+		let squeezeNet = try await provider.search(query: "squeezenet")
+		let squeezeNetModel = try XCTUnwrap(squeezeNet.first)
+		XCTAssertEqual(squeezeNetModel.id, "onnx-squeezenet1.0-12")
+		XCTAssertEqual(squeezeNetModel.format, .onnx)
+		XCTAssertEqual(squeezeNetModel.family, .squeezeNet)
+		XCTAssertEqual(squeezeNetModel.support, .verifiedConvertible)
+		XCTAssertEqual(squeezeNetModel.task, .imageClassification)
+
+		let resnet = try await provider.search(query: "resnet")
+		let resnetModel = try XCTUnwrap(resnet.first)
+		XCTAssertEqual(resnetModel.id, "onnx-resnet50-v1-7")
+		XCTAssertEqual(resnetModel.family, .resNet50)
+		XCTAssertEqual(resnetModel.support, .verifiedConvertible)
+
+		let yolo = try await provider.search(query: "yolo")
+		XCTAssertTrue(yolo.contains { $0.id == "onnx-yolov8n-s1777" })
+		XCTAssertTrue(yolo.allSatisfy { $0.family == .yolo && $0.task == .objectDetection })
+	}
+
+	func testVerifiedONNXCatalog_resolvesPlainHTTPSOnnxFileWithoutXetMetadata() async throws {
+		let provider = ONNXModelZooCatalogProvider()
+		let models = try await provider.search(query: "mobilenet")
+		let model = try XCTUnwrap(models.first)
+		let files = try await provider.resolveFiles(for: model)
+		let file = try XCTUnwrap(files.first)
+
+		XCTAssertEqual(model.format, .onnx)
+		XCTAssertEqual(file.relativePath, "mobilenetv2-10.onnx")
+		XCTAssertEqual(file.resolveURL.scheme, "https")
+		XCTAssertEqual(file.resolveURL.lastPathComponent, "mobilenetv2-10.onnx")
+		XCTAssertNil(file.xetFile)
+		XCTAssertEqual(
+			file.resolveURL.absoluteString,
+			"https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-10.onnx"
+		)
+	}
+
+	func testVerifiedONNXCatalog_enumeratesSixOnnxEntriesWithHonestSupportLevels() {
+		let entries = ONNXModelZooCatalogProvider.verifiedEntries
+		XCTAssertEqual(entries.count, 6)
+		XCTAssertTrue(entries.allSatisfy { $0.format == .onnx })
+
+		let genericLabelIDs = Set(entries.filter { $0.support == .verifiedGeometryGenericLabels }.map(\.id))
+		XCTAssertEqual(genericLabelIDs, ["onnx-yolov8n-s1777", "onnx-yolo11n-aaurelions"])
+
+		let convertibleIDs = Set(entries.filter { $0.support == .verifiedConvertible }.map(\.id))
+		XCTAssertEqual(
+			convertibleIDs,
+			["onnx-mobilenetv2-10", "onnx-resnet50-v1-7", "onnx-squeezenet1.0-12", "onnx-tinyyolov2-8"]
+		)
+	}
+}
+
+@MainActor
+final class CatalogSearchManagerTests: XCTestCase {
+	func testSearch_queriesAllSelectedSourcesAndFiltersResultsLocally() async {
+		let huggingFace = TestCatalogProvider(
+			id: "huggingface",
+			models: [TestCatalogProvider.model(id: "acme/yolo", providerID: "huggingface")]
+		)
+		let apple = TestCatalogProvider(
+			id: "apple-coreml",
+			models: [TestCatalogProvider.model(id: "apple/yolo", providerID: "apple-coreml")]
+		)
+		let manager = CatalogSearchManager(providers: [huggingFace, apple], searchDebounce: .zero)
+		let completed = expectation(description: "search completes")
+		let cancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.sink { _ in completed.fulfill() }
+
+		manager.updateQuery("yolo")
+		await fulfillment(of: [completed], timeout: 1)
+		withExtendedLifetime(cancellable) { }
+
+		XCTAssertEqual(manager.selectedProviderIDs, Set(["huggingface", "apple-coreml"]))
+		XCTAssertEqual(Set(manager.results.map(\.providerId)), ["huggingface", "apple-coreml"])
+		let huggingFaceSearchCallCount = await huggingFace.searchCallCount
+		let appleSearchCallCount = await apple.searchCallCount
+		XCTAssertEqual(huggingFaceSearchCallCount, 1)
+		XCTAssertEqual(appleSearchCallCount, 1)
+
+		manager.filterResults(to: "apple-coreml")
+		XCTAssertEqual(manager.visibleResults.map(\.providerId), ["apple-coreml"])
+		let filteredHuggingFaceSearchCallCount = await huggingFace.searchCallCount
+		let filteredAppleSearchCallCount = await apple.searchCallCount
+		XCTAssertEqual(filteredHuggingFaceSearchCallCount, 1, "result filtering must not make another request")
+		XCTAssertEqual(filteredAppleSearchCallCount, 1, "result filtering must not make another request")
+
+		// CatalogBrowseView calls this while its download detail is on screen. The shared manager
+		// must retain the already-rendered catalog state when the user navigates back or reopens it.
+		cancellable.cancel()
+		manager.cancelSearch()
+		XCTAssertEqual(manager.query, "yolo")
+		XCTAssertEqual(manager.selectedProviderIDs, Set(["huggingface", "apple-coreml"]))
+		XCTAssertEqual(manager.resultProviderFilterID, "apple-coreml")
+		XCTAssertEqual(manager.visibleResults.map(\.providerId), ["apple-coreml"])
+	}
+
+	func testToggleTaskFilter_withActiveQueryFiltersClientSideWithoutRefetching() async {
+		let provider = TestCatalogProvider(
+			id: "huggingface",
+			models: [
+				TestCatalogProvider.model(id: "acme/yolo", providerID: "huggingface", task: .objectDetection),
+				TestCatalogProvider.model(id: "acme/mobilenet", providerID: "huggingface", task: .imageClassification)
+			]
+		)
+		let manager = CatalogSearchManager(providers: [provider], searchDebounce: .zero)
+		let completed = expectation(description: "search completes")
+		let cancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.sink { _ in completed.fulfill() }
+
+		manager.updateQuery("acme")
+		await fulfillment(of: [completed], timeout: 1)
+		withExtendedLifetime(cancellable) { }
+
+		let callsAfterSearch = await provider.searchCallCount
+		XCTAssertEqual(callsAfterSearch, 1)
+		XCTAssertEqual(Set(manager.visibleResults.map(\.id)), ["acme/yolo", "acme/mobilenet"])
+
+		// Toggling a task filter while a text query is active must narrow results client-side, not
+		// re-hit the providers for the same data.
+		manager.toggleTask(.objectDetection)
+		XCTAssertEqual(manager.visibleResults.map(\.id), ["acme/yolo"])
+		let callsAfterToggle = await provider.searchCallCount
+		XCTAssertEqual(callsAfterToggle, 1, "toggling a filter with an active text query must not refetch")
+	}
+
+	func testSearch_keepsSuccessfulResultsWhenAnotherSourceFails() async {
+		let successfulProvider = TestCatalogProvider(
+			id: "apple-coreml",
+			models: [TestCatalogProvider.model(id: "apple/mobilenet", providerID: "apple-coreml")]
+		)
+		let failingProvider = TestCatalogProvider(id: "unavailable", failure: .network)
+		let manager = CatalogSearchManager(providers: [successfulProvider, failingProvider], searchDebounce: .zero)
+		let completed = expectation(description: "search completes")
+		let cancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.sink { _ in completed.fulfill() }
+
+		manager.updateQuery("model")
+		await fulfillment(of: [completed], timeout: 1)
+		withExtendedLifetime(cancellable) { }
+
+		XCTAssertEqual(manager.results.map(\.id), ["apple/mobilenet"])
+		XCTAssertNil(manager.errorMessage)
+	}
+
+	func testSearch_excludesUnavailableSourcesFromTheInitialSelection() async {
+		let searchable = TestCatalogProvider(
+			id: "github-curated",
+			models: [TestCatalogProvider.model(id: "list-coreml/mnist", providerID: "github-curated")]
+		)
+		let unavailable = TestCatalogProvider(id: "pinto-model-zoo", isSearchable: false)
+		let manager = CatalogSearchManager(providers: [searchable, unavailable], searchDebounce: .zero)
+		let completed = expectation(description: "search completes")
+		let cancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.sink { _ in completed.fulfill() }
+
+		manager.updateQuery("mnist")
+		await fulfillment(of: [completed], timeout: 1)
+		withExtendedLifetime(cancellable) { }
+
+		XCTAssertEqual(manager.selectedProviderIDs, ["github-curated"])
+		XCTAssertEqual(manager.searchableProviderDescriptors.map(\.id), ["github-curated"])
+		XCTAssertEqual(manager.selectedProviderSummary, L10n.Catalog.Results.allSources)
+		let searchableSearchCallCount = await searchable.searchCallCount
+		let unavailableSearchCallCount = await unavailable.searchCallCount
+		XCTAssertEqual(searchableSearchCallCount, 1)
+		XCTAssertEqual(unavailableSearchCallCount, 0)
+	}
+
+	func testSearch_keepsTheLastSelectedSourceEnabled() {
+		let provider = TestCatalogProvider(id: "github-curated")
+		let manager = CatalogSearchManager(providers: [provider], searchDebounce: .zero)
+
+		manager.toggleProvider(id: "github-curated")
+
+		XCTAssertEqual(manager.selectedProviderIDs, ["github-curated"])
+		XCTAssertEqual(manager.selectedProviderSummary, L10n.Catalog.Results.allSources)
+	}
+
+	func testSearch_clearsResolvedFilesWhenStartingANewSearch() async throws {
+		let model = TestCatalogProvider.model(id: "acme/detector", providerID: "huggingface")
+		let file = CatalogFile(
+			relativePath: "Detector.mlmodel",
+			resolveURL: URL(string: "https://catalog.test/Detector.mlmodel") ?? URL(fileURLWithPath: "/"),
+			sizeBytes: 1
+		)
+		let provider = TestCatalogProvider(id: "huggingface", models: [model], resolvedFiles: [file])
+		let manager = CatalogSearchManager(providers: [provider], searchDebounce: .zero)
+
+		let firstSearch = expectation(description: "first search completes")
+		let cancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.sink { _ in firstSearch.fulfill() }
+		manager.updateQuery("model")
+		await fulfillment(of: [firstSearch], timeout: 1)
+		_ = await manager.resolveFiles(for: model)
+		_ = await manager.resolveFiles(for: model)
+		let firstResolveCallCount = await provider.resolveCallCount
+		XCTAssertEqual(firstResolveCallCount, 1)
+		cancellable.cancel()
+
+		let secondSearch = expectation(description: "second search completes")
+		let secondCancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.prefix(1)
+			.sink { _ in secondSearch.fulfill() }
+		manager.updateQuery("models")
+		await fulfillment(of: [secondSearch], timeout: 1)
+		_ = await manager.resolveFiles(for: model)
+
+		withExtendedLifetime(secondCancellable) { }
+		let secondResolveCallCount = await provider.resolveCallCount
+		XCTAssertEqual(secondResolveCallCount, 2)
+	}
+}
+
+private actor TestCatalogProvider: CatalogProvider {
+	nonisolated let descriptor: CatalogProviderDescriptor
+	private let models: [CatalogModel]
+	private let resolvedFiles: [CatalogFile]
+	private let failure: CatalogError?
+	private(set) var searchCallCount = 0
+	private(set) var resolveCallCount = 0
+
+	init(
+		id: String,
+		models: [CatalogModel] = [],
+		resolvedFiles: [CatalogFile] = [],
+		failure: CatalogError? = nil,
+		isSearchable: Bool = true
+	) {
+		descriptor = CatalogProviderDescriptor(id: id, displayName: id, isSearchable: isSearchable)
+		self.models = models
+		self.resolvedFiles = resolvedFiles
+		self.failure = failure
+	}
+
+	func search(query: String) async throws -> [CatalogModel] {
+		searchCallCount += 1
+		if let failure { throw failure }
+		return models
+	}
+
+	func resolveFiles(for model: CatalogModel) async throws -> [CatalogFile] {
+		resolveCallCount += 1
+		return resolvedFiles
+	}
+
+	nonisolated static func model(
+		id: String,
+		providerID: String,
+		task: CatalogTask = .objectDetection,
+		family: ModelFamily? = nil
+	) -> CatalogModel {
+		CatalogModel(
+			id: id,
+			providerId: providerID,
+			displayName: id,
+			author: providerID,
+			downloads: 0,
+			likes: 0,
+			task: task,
+			format: .mlmodel,
+			sizeBytes: 1,
+			family: family
+		)
+	}
+}
+
+private extension CatalogProviderTests {
+	func makeSession() -> URLSession {
+		let configuration = URLSessionConfiguration.ephemeral
+		configuration.protocolClasses = [CatalogURLProtocol.self]
+		return URLSession(configuration: configuration)
+	}
+
+	func makeProvider() -> HuggingFaceCatalogProvider {
+		HuggingFaceCatalogProvider(
+			client: JSONHTTPClient(session: makeSession()),
+			baseURL: URL(string: "https://catalog.test") ?? URL(fileURLWithPath: "/")
+		)
+	}
+
+	func catalogModel() -> CatalogModel {
+		CatalogModel(
+			id: "acme/detector",
+			providerId: "huggingface",
+			displayName: "detector",
+			author: "acme",
+			downloads: 0,
+			likes: 0,
+			task: .objectDetection,
+			format: nil,
+			sizeBytes: nil
+		)
+	}
+
+	func testURL(_ lastPathComponent: String) -> URL {
+		URL(string: "https://catalog.test/files/\(lastPathComponent)") ?? URL(fileURLWithPath: "/")
+	}
+
+	func catalogPackageStagingDirectories() -> Set<URL> {
+		let root = FileManager.default.temporaryDirectory.appendingPathComponent("CatalogPackages", isDirectory: true)
+		return Set((try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [])
+	}
+
+	/// A staging root whose path standardisation rewrites — the condition that broke staging on
+	/// device (AIA-0603).
+	///
+	/// On a device the app's own temporary directory already has that property, because it is
+	/// `/private/var/mobile/Containers/…`, so use it: it is both the authentic path and inside the
+	/// sandbox. A simulator's temporary directory sits under `/Users/…` and standardises to itself,
+	/// so there the root must come from `/private/tmp` — writable in the simulator, and denied by the
+	/// sandbox on a device, which is why it is the fallback and never the default. Hard-coding it
+	/// would have failed every real-device test run, including Xcode Cloud's.
+	///
+	/// The precondition is asserted rather than skipped: an environment where neither root rewrites
+	/// must fail loudly instead of passing a test that can no longer detect the defect.
+	func makePrivatePrefixedTemporaryDirectory() throws -> URL {
+		let applicationTemporary = FileManager.default.temporaryDirectory
+		let base = applicationTemporary.path == applicationTemporary.standardizedFileURL.path
+			? URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+			: applicationTemporary
+		let root = base.appendingPathComponent("aia0603-\(UUID().uuidString)", isDirectory: true)
+		try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+		addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+		XCTAssertNotEqual(
+			root.path,
+			root.standardizedFileURL.path,
+			"precondition: the staging root must be one standardisation rewrites, or this test cannot fail"
+		)
+		return root
+	}
+
+}
+
+/// Injects a staging root whose path standardisation rewrites, so a simulator test can reproduce the
+/// device-only `/private`-prefixed temporary directory (AIA-0603). Constructed inline at the call
+/// site because `CatalogPackageDownloader` is an actor: `FileManager` is not `Sendable`, so passing
+/// one in sends it into the actor's isolation region, which the compiler rejects while this
+/// `@MainActor` test still holds a reference of its own. Inline, the value is used nowhere else.
+private final class PrivateTemporaryDirectoryFileManager: FileManager, @unchecked Sendable {
+	private let injectedTemporaryDirectory: URL
+
+	init(temporaryDirectory: URL) {
+		self.injectedTemporaryDirectory = temporaryDirectory
+		super.init()
+	}
+
+	override var temporaryDirectory: URL { injectedTemporaryDirectory }
+}
+
+// MARK: - Package failure logging (AIA-0602)
+
+/// The acceptance criterion for AIA-0602 is that a **release** support log identifies which file
+/// failed and why. Restoring the 87 debug call sites does not achieve that on its own —
+/// `CatalogPackageDownloader` had no logging at all, and `CatalogError` carries no associated
+/// values, so a failed package download produced one line naming neither.
+///
+/// These tests guard the half that is easy to break without noticing: the log line has to survive
+/// `LogRedactor`. Two of its patterns would eat exactly the useful part, and both are sensitive to
+/// how the message is phrased rather than to what it contains.
+final class CatalogPackageDownloaderLogTests: XCTestCase {
+	private func file(_ relativePath: String) -> CatalogFile {
+		CatalogFile(
+			relativePath: relativePath,
+			// swiftlint:disable:next force_unwrapping
+			resolveURL: URL(string: "https://models.example.com/\(relativePath)")!,
+			sizeBytes: 1_024
+		)
+	}
+
+	func testTransferFailureLine_NamesTheFileAndTheReason() {
+		let line = CatalogPackageDownloader.transferFailureLogLine(
+			file: file("onnx/data/model.onnx"),
+			index: 2,
+			totalCount: 7,
+			error: CatalogError.network
+		)
+
+		XCTAssertEqual(line, "Package file 3 of 7 failed — model.onnx — network")
+	}
+
+	/// The one that actually protects the acceptance criterion. `absolutePathPattern` eats any run
+	/// of two or more slash-separated components, so logging the package-relative path would leave
+	/// `onnx[redacted path]` in the default attachment — the redacted export is the one nearly every
+	/// user sends.
+	func testTransferFailureLine_SurvivesRedaction() {
+		let line = CatalogPackageDownloader.transferFailureLogLine(
+			file: file("onnx/data/model.onnx"),
+			index: 2,
+			totalCount: 7,
+			error: CatalogError.network
+		)
+
+		let redacted = LogRedactor.redactingSensitiveData(line)
+
+		XCTAssertEqual(redacted, line, "The whole line must survive the default support export")
+		XCTAssertTrue(redacted.contains("model.onnx"), "Support cannot act on a redacted filename")
+		XCTAssertFalse(redacted.contains("redacted"))
+	}
+
+	func testStagingFailureLine_SurvivesRedaction() {
+		let line = CatalogPackageDownloader.stagingFailureLogLine(
+			file: file("weights/model.safetensors"),
+			error: CatalogError.invalidFilePath
+		)
+
+		let redacted = LogRedactor.redactingSensitiveData(line)
+
+		XCTAssertEqual(redacted, line)
+		XCTAssertTrue(redacted.contains("model.safetensors"))
+		XCTAssertTrue(redacted.contains("invalidFilePath"))
+	}
+
+	/// A non-`CatalogError` keeps its domain and code, which is the only thing distinguishing a
+	/// timeout from a DNS failure once everything has been flattened to `.network`.
+	func testFailureReason_KeepsTheUnderlyingDomainAndCode() {
+		let reason = CatalogPackageDownloader.failureReason(
+			for: NSError(domain: NSURLErrorDomain, code: -1009)
+		)
+
+		XCTAssertEqual(reason, "\(NSURLErrorDomain) -1009")
+		XCTAssertEqual(LogRedactor.redactingSensitiveData(reason), reason)
+	}
+
+	/// The filename can defeat the criterion by itself. `identifierValuePattern` fires on a bare
+	/// `download` followed by `=`, and a catalog file may legitimately be named that way — stripping
+	/// path components is not enough, the basename's own content has to be neutralised.
+	func testTransferFailureLine_SurvivesAFilenameThatLooksLikeAnIdentifierAssignment() {
+		let line = CatalogPackageDownloader.transferFailureLogLine(
+			file: file("weights/download=model.onnx"),
+			index: 0,
+			totalCount: 3,
+			error: CatalogError.timedOut
+		)
+
+		let redacted = LogRedactor.redactingSensitiveData(line)
+
+		XCTAssertEqual(redacted, line)
+		XCTAssertTrue(redacted.contains("model.onnx"), "The file must still be identifiable")
+		XCTAssertFalse(redacted.contains("[redacted]"))
+	}
+
+	/// The HTTP line is built in the session delegate, far from the other two. Routing it through a
+	/// shared formatter is what keeps it inside these assertions instead of quietly drifting out.
+	func testHTTPFailureLine_SurvivesRedaction() {
+		let line = CatalogPackageDownloader.httpFailureLogLine(fileName: "download=model.onnx", statusCode: 403)
+
+		let redacted = LogRedactor.redactingSensitiveData(line)
+
+		XCTAssertEqual(redacted, line)
+		XCTAssertTrue(redacted.contains("model.onnx"))
+		XCTAssertTrue(redacted.contains("403"))
+	}
+
+	func testHTTPFailureLine_NamesTheFileAsUnknownWhenTheURLHasNone() {
+		let line = CatalogPackageDownloader.httpFailureLogLine(fileName: nil, statusCode: 500)
+
+		XCTAssertTrue(line.contains("unknown"))
+		XCTAssertTrue(line.contains("500"))
+	}
+
+	/// Phrasing is load-bearing: `identifierValuePattern` matches a bare `download`/`entity`/
+	/// `session`/`user` before `:` or `=` and redacts what follows. This pins the trap so nobody
+	/// "tidies" the message into `download: model.onnx` and silently loses the filename.
+	func testAWordLikeDownloadBeforeAColonWouldHaveDestroyedTheFilename() {
+		let tempting = "Package download: model.onnx failed"
+
+		let redacted = LogRedactor.redactingSensitiveData(tempting)
+
+		XCTAssertFalse(
+			redacted.contains("model.onnx"),
+			"If this ever passes, the redactor changed and the phrasing rule can be relaxed"
+		)
+	}
+}

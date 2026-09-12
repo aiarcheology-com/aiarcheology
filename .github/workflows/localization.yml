@@ -1,0 +1,51 @@
+name: Localization
+
+# Guards the String Catalog against the drift that took coverage to 26% (AIA-0572): keys land in
+# English, nothing complains, and the gap compounds one pull request at a time.
+#
+# Deliberately NOT part of Harmonize. That job needs macOS and a full Xcode build (~3 min) and is
+# skipped for many paths; this check is pure Python, runs on Ubuntu in seconds, and fires on every
+# change that can introduce an untranslated string — including a .swift change, since a new
+# `Text("…")` literal is exactly how an untranslated string gets in.
+on:
+  # Deliberately NOT path-filtered, because this check is REQUIRED to merge into develop.
+  #
+  # A required check that is path-filtered deadlocks: GitHub waits for a status that a skipped
+  # workflow never reports, so any pull request not touching the filtered paths sits at
+  # "Expected — waiting for status" and can never merge. The alternative is a companion job that
+  # reports the same check name when paths do not match, which is machinery to save nine seconds.
+  #
+  # A run on an unrelated pull request re-verifies an unchanged catalog and is therefore a no-op,
+  # but it costs about nine seconds of Ubuntu — no Xcode, no simulator, no network beyond checkout
+  # — and buys real enforcement. That trade is why the filter is gone.
+  pull_request:
+    branches-ignore:
+      - "copilot/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Every string translated in every locale
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Runs the exact script a developer runs locally, so "the same gate" is literal rather than
+      # two implementations that drift. It prints the per-locale slot table (English count vs each
+      # locale), fails on any missing or orphaned string, and ends with the catalog's own
+      # round-trip invariants.
+      - name: ./scripts/localization.sh
+        run: |
+          if ! ./scripts/localization.sh; then
+            echo "::error::Some strings are not present in every locale — see the table above."
+            echo "Reproduce and fix locally with: ./scripts/localization.sh"
+            exit 1
+          fi

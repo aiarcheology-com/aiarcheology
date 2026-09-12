@@ -1,0 +1,308 @@
+//
+//  SupportRequestTests.swift
+//  MLBrowserUnitTests
+//
+//  Structured support requests (AIA-0440 Stage 1, AIA-0454).
+//
+
+import XCTest
+@testable import ML_Browser
+
+/// `SupportRequest` decides what leaves the device, so these tests read the actual output rather
+/// than trusting the doc comment. The lesson is AIA-0441's: the analytics claims were verifiable
+/// only because the payload was built from named fields, and a comment asserting an invariant the
+/// code does not hold is worse than no comment.
+final class SupportRequestTests: XCTestCase {
+	private func makeRequest(
+		category: SupportCategory = .bug,
+		contextURL: String? = nil,
+		accountID: String? = nil
+	) -> SupportRequest {
+		SupportRequest(
+			category: category,
+			contextURL: contextURL,
+			accountID: accountID,
+			appLanguage: "en",
+			appVersion: "1.0.7",
+			deviceInformation: "Device Model: iPhone16,1\niOS Version: 26.0\nApp Build Number: 123"
+		)
+	}
+
+	// MARK: - Subject
+
+	func testSubject_CarriesCategoryRawValue_NotDisplayName() {
+		let subject = makeRequest(category: .featureRequest).subject
+		XCTAssertTrue(
+			subject.contains("[featureRequest]"),
+			"the subject must carry the stable rawValue tag so inbox filters key off something that "
+				+ "survives a rename and does not vary by the sender's language"
+		)
+		XCTAssertFalse(subject.contains("Feature request"), "the localized name belongs in the body, not the tag")
+	}
+
+	func testSubject_CarriesAppVersion_ForTriage() {
+		XCTAssertTrue(makeRequest().subject.contains("1.0.7"))
+	}
+
+	// MARK: - Body: the named fields
+
+	func testBody_IncludesNamedDiagnosticFields() {
+		let body = makeRequest().body
+		XCTAssertTrue(body.contains("iPhone16,1"), "device model")
+		XCTAssertTrue(body.contains("26.0"), "iOS version")
+		XCTAssertTrue(body.contains("123"), "build number")
+		XCTAssertTrue(body.contains("en"), "app language")
+		XCTAssertTrue(body.contains(L10n.Support.Category.bug), "the human-readable category")
+	}
+
+	func testBody_PutsTheUsersTypingSpaceFirst() {
+		let body = makeRequest().body
+		let promptIndex = body.range(of: L10n.Support.Body.describePrompt)?.lowerBound
+		let detailsIndex = body.range(of: L10n.Support.Body.detailsHeader)?.lowerBound
+		let prompt = try? XCTUnwrap(promptIndex)
+		let details = try? XCTUnwrap(detailsIndex)
+		XCTAssertNotNil(prompt)
+		XCTAssertNotNil(details)
+		if let prompt, let details {
+			XCTAssertLessThan(
+				prompt, details,
+				"a composer puts the cursor at the top; burying the prompt under diagnostics is how "
+					+ "you get empty reports"
+			)
+		}
+	}
+
+	// MARK: - Body: the context URL
+
+	func testBody_IncludesContextURL_WhenProvided() {
+		let body = makeRequest(contextURL: "https://example.com/thing?id=7").body
+		XCTAssertTrue(
+			body.contains("https://example.com/thing?id=7"),
+			"the URL is the single most useful clue for a browser/download bug and the user reviews "
+				+ "the body before sending — do not 'fix' this by stripping it (AIA-0454)"
+		)
+		XCTAssertTrue(body.contains(L10n.Support.Body.webAddress), "and it must be labelled, not smuggled in")
+	}
+
+	func testBody_OmitsWebAddressSection_WhenNoContextURL() {
+		XCTAssertFalse(makeRequest(contextURL: nil).body.contains(L10n.Support.Body.webAddress))
+	}
+
+	func testBody_OmitsWebAddressSection_WhenContextURLIsEmpty() {
+		XCTAssertFalse(
+			makeRequest(contextURL: "").body.contains(L10n.Support.Body.webAddress),
+			"an empty string must not render a dangling label"
+		)
+	}
+
+	// MARK: - Body: the account identifier
+
+	func testBody_OmitsAccount_WhenSignedOut() {
+		XCTAssertFalse(makeRequest(accountID: nil).body.contains(L10n.Support.Body.account))
+	}
+
+	func testBody_IncludesAccount_WhenSignedIn() {
+		let body = makeRequest(accountID: "user_2abc").body
+		XCTAssertTrue(body.contains("user_2abc"))
+		XCTAssertTrue(body.contains(L10n.Support.Body.account))
+	}
+
+	// MARK: - Categories
+
+	func testCategories_AreTheSixSpecified() {
+		XCTAssertEqual(
+			Set(SupportCategory.allCases.map(\.rawValue)),
+			["bug", "purchase", "account", "featureRequest", "privacy", "other"],
+			"AIA-0440 specifies exactly these; the rawValues are the support inbox's filter contract"
+		)
+	}
+
+	func testCategories_HaveDistinctDisplayNames() {
+		let names = SupportCategory.allCases.map(\.displayName)
+		XCTAssertEqual(Set(names).count, names.count, "a duplicated label makes the picker unusable")
+	}
+}
+
+/// The screenshot-offer decision (AIA-0454). `nil` keeps asking until the user chooses; `true`
+/// keeps offers enabled and `false` silences them. It lives in a pure function so the three
+/// persisted states are pinned down rather than smoke-tested.
+final class ScreenshotReportGateTests: XCTestCase {
+	func testShouldOffer_WhenNoDecisionHasBeenStored() {
+		XCTAssertTrue(ScreenshotReportGate.shouldOffer(flagEnabled: true, screenshotDetectionEnabled: nil))
+	}
+
+	func testShouldOffer_RequiresTheFlag() {
+		XCTAssertFalse(
+			ScreenshotReportGate.shouldOffer(flagEnabled: false, screenshotDetectionEnabled: nil),
+			"turning the ConfigCat value off must silence the offer remotely, even on a fresh install"
+		)
+	}
+
+	func testShouldOffer_AfterTheUserEnablesScreenshotDetection() {
+		XCTAssertTrue(
+			ScreenshotReportGate.shouldOffer(flagEnabled: true, screenshotDetectionEnabled: true),
+			"an affirmative answer keeps offers enabled for later screenshots"
+		)
+	}
+
+	func testShouldOffer_NeverAfterTheUserDisablesScreenshotDetection() {
+		XCTAssertFalse(
+			ScreenshotReportGate.shouldOffer(flagEnabled: true, screenshotDetectionEnabled: false),
+			"an explicit 'don't ask again' disables screenshot detection until the user re-enables it"
+		)
+	}
+}
+
+final class ScreenshotAttachmentValidatorTests: XCTestCase {
+	func testIsLargeEnough_AcceptsAnImageAtTheMinimumShortestSide() {
+		XCTAssertTrue(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 720, pixelHeight: 1_280))
+		XCTAssertTrue(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 1_280, pixelHeight: 720))
+	}
+
+	func testIsLargeEnough_RejectsAnImageBelowTheMinimumShortestSide() {
+		XCTAssertFalse(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 719, pixelHeight: 1_280))
+		XCTAssertFalse(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 1_280, pixelHeight: 719))
+	}
+
+	func testValidationResult_ReportsUnreadableImageDataSeparately() {
+		XCTAssertEqual(
+			ScreenshotAttachmentValidator.validationResult(imageData: Data("not an image".utf8)),
+			.unreadable
+		)
+	}
+}
+
+final class SupportLogAttachmentTests: XCTestCase {
+	/// Previously this asserted `nil` for empty data. Dropping the attachment silently is what made
+	/// "quiet session" and "the log was lost" look identical to whoever reads the report, so an
+	/// empty log now ships one line saying so (AIA-0602).
+	func testApplicationLogAttachment_ExplainsItselfWhenTheLogIsEmpty() throws {
+		let attachment = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(data: Data(), sendUnredactedData: false)
+		)
+
+		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log-unavailable.txt")
+		let text = try XCTUnwrap(String(bytes: attachment.data, encoding: .utf8))
+		XCTAssertTrue(
+			text.contains("empty or unavailable"),
+			"The placeholder has to say which, or it is no better than no attachment"
+		)
+	}
+
+	func testApplicationLogAttachment_UsesTheProvidedLogData() throws {
+		let data = Data("latest log entry\n".utf8)
+		let attachment = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: true)
+		)
+
+		XCTAssertEqual(attachment.data, data)
+		XCTAssertEqual(attachment.mimeType, "text/plain")
+		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log-unredacted.txt")
+	}
+
+	// MARK: - Compression (AIA-0602)
+
+	/// Log-shaped bytes of an exact size. Repetitive like a real log, so the zip assertions measure
+	/// the compression a log actually gets rather than the incompressible worst case.
+	private func makeLogData(byteCount: Int) -> Data {
+		let line = Data("[info] [ui] opened https://example.com/models/resnet50 — cache hit\n".utf8)
+		var data = Data()
+		data.reserveCapacity(byteCount + line.count)
+		while data.count < byteCount {
+			data.append(line)
+		}
+		return Data(data.prefix(byteCount))
+	}
+
+	func testApplicationLogAttachment_KeepsPlainTextAtTheThreshold() throws {
+		// Exactly at the limit, not over it: a mail client shows text inline, and support reads a
+		// modest log faster than it unzips one.
+		let data = makeLogData(byteCount: SupportRequestView.applicationLogCompressionThresholdBytes)
+		let attachment = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: false)
+		)
+
+		XCTAssertEqual(attachment.mimeType, "text/plain")
+		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log.txt")
+		XCTAssertEqual(attachment.data, data, "below the threshold the bytes must pass through untouched")
+	}
+
+	func testApplicationLogAttachment_ZipsAPayloadOverTheThreshold() throws {
+		let data = makeLogData(byteCount: SupportRequestView.applicationLogCompressionThresholdBytes + 1)
+		let attachment = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: false)
+		)
+
+		XCTAssertEqual(attachment.mimeType, "application/zip")
+		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log.txt.zip")
+		XCTAssertFalse(attachment.data.isEmpty, "an empty archive would mail the user's log into a void")
+		XCTAssertLessThan(
+			attachment.data.count, data.count,
+			"the whole point is a smaller attachment; a pass-through of the original would still be "
+				+ "labelled application/zip and fail to open"
+		)
+		XCTAssertEqual(
+			Data(attachment.data.prefix(4)), Data([0x50, 0x4B, 0x03, 0x04]),
+			"the bytes must start with the zip local-file-header signature, or the mimeType lies"
+		)
+	}
+
+	func testApplicationLogAttachment_KeepsTheUnredactedNameWhenCompressed() throws {
+		let data = makeLogData(byteCount: SupportRequestView.applicationLogCompressionThresholdBytes + 1)
+		let attachment = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: true)
+		)
+
+		XCTAssertEqual(
+			attachment.fileName, "mlbrowser-application-log-unredacted.txt.zip",
+			"compression must not hide which form the bytes are in — nobody can tell by reading them"
+		)
+		XCTAssertEqual(attachment.mimeType, "application/zip")
+	}
+
+	// MARK: - Share/export (AIA-0602)
+
+	func testExportedApplicationLogFile_WritesTheLogUnderTheRedactedName() throws {
+		defer { SupportRequestView.removeApplicationLogExports() }
+		let data = Data("latest log entry\n".utf8)
+
+		let url = try XCTUnwrap(
+			SupportRequestView.exportedApplicationLogFile(data: data, sendUnredactedData: false)
+		)
+
+		XCTAssertEqual(url.lastPathComponent, "mlbrowser-application-log.txt")
+		XCTAssertEqual(try Data(contentsOf: url), data)
+	}
+
+	func testExportedApplicationLogFile_NamesTheUnredactedExportForWhatItHolds() throws {
+		defer { SupportRequestView.removeApplicationLogExports() }
+
+		let url = try XCTUnwrap(
+			SupportRequestView.exportedApplicationLogFile(
+				data: Data("latest log entry\n".utf8),
+				sendUnredactedData: true
+			)
+		)
+
+		XCTAssertEqual(
+			url.lastPathComponent, "mlbrowser-application-log-unredacted.txt",
+			"a file AirDropped to someone else must say what it contains"
+		)
+	}
+
+	func testRemoveApplicationLogExports_LeavesNoUnredactedFileBehind() throws {
+		let url = try XCTUnwrap(
+			SupportRequestView.exportedApplicationLogFile(
+				data: Data("latest log entry\n".utf8),
+				sendUnredactedData: true
+			)
+		)
+
+		SupportRequestView.removeApplicationLogExports()
+
+		XCTAssertFalse(
+			FileManager.default.fileExists(atPath: url.path),
+			"an unredacted export must not outlive the toggle that produced it"
+		)
+	}
+}

@@ -1,0 +1,29 @@
+# SwiftLint Configuration (Root)
+# https://realm.github.io/SwiftLint/rule-directory.html
+#
+# This is the root configuration that delegates to ios/.swiftlint.yml
+# for actual linting rules. It ensures consistency across all execution
+# contexts (pre-commit hooks, GitHub Actions, Xcode build phases).
+#
+# The delegation must be declared, not merely intended: without this
+# child_config, a lint run rooted here silently falls back to SwiftLint's
+# stock rules, which report hundreds of violations the project has
+# deliberately disabled (line_length, file_length, short identifiers).
+child_config: ios/.swiftlint.yml
+
+# Paths to include (relative to this config file)
+included:
+  - ios
+
+# Paths to exclude
+excluded:
+  - ios/**/Generated
+  - ios/**/DerivedData
+  - ios/**/.build
+  - ios/**/Pods
+  - ios/**/Carthage
+  - ios/**/*.generated.swift
+  - Tools
+
+# Reporter type (xcode, json, csv, checkstyle, codeclimate, junit, html, emoji, sonarqube, markdown, github-actions-logging)
+reporter: "xcode"

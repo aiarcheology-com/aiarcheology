@@ -1,0 +1,438 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "AI Archeology native model graph" : {
+      "comment" : "Description of the native AI Archeology model file type, shown by Files and Open With.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "مخطط النموذج الأصلي لـ AI Archeology"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AI Archeology-এর নেটিভ মডেল গ্রাফ"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nativní graf modelu AI Archeology"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nativer Modellgraph von AI Archeology"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Archeology native model graph"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gráfico de modelo nativo de AI Archeology"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "گراف مدل بومی AI Archeology"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Graphe de modèle natif AI Archeology"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "גרף המודל המקורי של AI Archeology"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AI Archeology का नेटिव मॉडल ग्राफ"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az AI Archeology natív modellgráfja"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Natywny graf modelu AI Archeology"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Нативный граф модели AI Archeology"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Нативний граф моделі AI Archeology"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AI Archeology 原生模型图"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AI Archeology 原生模型圖"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AI Archeology 原生模型圖"
+          }
+        }
+      }
+    },
+    "CFBundleName" : {
+      "comment" : "The app name shown by the system. Keep the product name unchanged in every locale.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ML Browser"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        }
+      }
+    },
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "Why the app asks for local-network access. Shown inside the iOS permission alert.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يلزم إذنك للاتصال بالأجهزة الموجودة على الشبكة المحلية، حتى يتمكن التطبيق من اكتشاف الأجهزة المتوافقة والتفاعل معها تلقائيًا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "স্থানীয় নেটওয়ার্কের ডিভাইসগুলির সঙ্গে সংযোগ করতে আপনার অনুমতি প্রয়োজন, যাতে অ্যাপটি সামঞ্জস্যপূর্ণ ডিভাইস স্বয়ংক্রিয়ভাবে শনাক্ত করে সেগুলির সঙ্গে কাজ করতে পারে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "K připojení k zařízením v místní síti je potřeba vaše svolení. Aplikace tak může automaticky najít kompatibilní zařízení a komunikovat s nimi."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Für die Verbindung mit Geräten in Ihrem lokalen Netzwerk wird Ihre Erlaubnis benötigt. So kann die App kompatible Geräte automatisch finden und mit ihnen kommunizieren."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your permission is needed to connect with devices on your local network. This allows the app to automatically detect and interact with compatible devices for streamlined data sharing and enhanced functionality."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Se necesita tu permiso para conectar con los dispositivos de tu red local. Así, la app puede detectar dispositivos compatibles e interactuar con ellos automáticamente."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "برای ارتباط با دستگاه‌های موجود در شبکه محلی به اجازه شما نیاز است تا برنامه بتواند دستگاه‌های سازگار را به صورت خودکار شناسایی کند و با آنها کار کند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Votre autorisation est nécessaire pour communiquer avec les appareils de votre réseau local. L’app peut ainsi détecter automatiquement les appareils compatibles et interagir avec eux."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "נדרש אישורך כדי להתחבר למכשירים ברשת המקומית, כדי שהאפליקציה תוכל לזהות מכשירים תואמים ולתקשר איתם באופן אוטומטי."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपके लोकल नेटवर्क पर मौजूद डिवाइस से कनेक्ट करने के लिए आपकी अनुमति ज़रूरी है, ताकि ऐप संगत डिवाइस अपने आप ढूँढ़ सके और उनके साथ काम कर सके।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az Ön engedélye szükséges a helyi hálózaton lévő eszközökhöz való csatlakozáshoz. Így az alkalmazás automatikusan észlelheti a kompatibilis eszközöket, és kommunikálhat velük."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wymagana jest Twoja zgoda na łączenie się z urządzeniami w sieci lokalnej. Dzięki temu aplikacja może automatycznie wykrywać zgodne urządzenia i komunikować się z nimi."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Требуется ваше разрешение на подключение к устройствам в локальной сети, чтобы приложение могло автоматически находить совместимые устройства и взаимодействовать с ними."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Потрібен ваш дозвіл на підключення до пристроїв у локальній мережі, щоб застосунок міг автоматично знаходити сумісні пристрої та взаємодіяти з ними."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "需要你的许可才能连接局域网中的设备，以便 App 自动检测兼容设备并与之交互。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "需要你的允許才能連接區域網路上的裝置，以便 App 自動偵測相容裝置並與其互動。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "需要你的許可才能連接本地網絡上的裝置，讓 App 自動偵測兼容裝置並與其互動。"
+          }
+        }
+      }
+    },
+    "ONNX model" : {
+      "comment" : "Description of an ONNX model file, shown by Files and Open With.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "نموذج ONNX"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ONNX মডেল"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Model ONNX"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ONNX-Modell"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ONNX model"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Modelo ONNX"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "مدل ONNX"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Modèle ONNX"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מודל ONNX"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ONNX मॉडल"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ONNX-modell"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Model ONNX"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Модель ONNX"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Модель ONNX"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ONNX 模型"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ONNX 模型"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ONNX 模型"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

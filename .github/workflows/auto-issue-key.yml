@@ -28,7 +28,7 @@ jobs:
       COMMENT_MARKER: "<!-- AIA_SHARE_BLOCK -->"  # used to find/update existing comment
     steps:
       - name: Normalize title (AIA-####)
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const prefix = process.env.KEY_PREFIX;
@@ -68,7 +68,7 @@ jobs:
             core.info(`Updated title: ${newTitle}`);
 
       - name: Comment share link + branch suggestion (dedup/update)
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const keyPrefix = process.env.KEY_PREFIX;

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Reminder: Please review ios/AGENTS.md for agent usage and guidelines before submitting.'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

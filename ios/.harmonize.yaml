@@ -1,0 +1,14 @@
+# Harmonize Configuration
+# https://github.com/perrystreetsoftware/Harmonize
+#
+# Matcher semantics (Sources/Harmonize/Core/Finder/GetFiles.swift, identical in 0.8.0/0.9.0):
+#   - entry ending in ".swift"  -> exact equality against the bare filename
+#   - entry ending in "*"       -> regex ("*" = ".*") against the bare filename only
+#   - anything else             -> excludes files whose parent folder name ends with the entry
+# "**/..." globs are NOT supported and match nothing.
+
+# Exclude paths from architectural linting
+excludes:
+  - "Generated"                  # folder: generated sources (L10n etc.)
+  - "Preview Content"            # folder: SwiftUI preview assets
+  - "*+CoreDataProperties*"      # filename glob: Core Data codegen property files

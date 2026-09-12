@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "BD940E8D-6E68-4946-997B-63F8468F279A",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:MLBrowser.xcodeproj",
+        "identifier" : "8AE0BC1F2A97B0B40086DDF9",
+        "name" : "MLBrowserUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

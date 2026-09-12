@@ -1,0 +1,28 @@
+{
+  "configurations" : [
+    {
+      "id" : "23565313-2832-48EE-8B0B-CDDE0C55D2F3",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:MLBrowser.xcodeproj",
+      "identifier" : "8AE0BBFF2A97B0B30086DDF9",
+      "name" : "MLBrowser"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:MLBrowser.xcodeproj",
+        "identifier" : "94D567D02F0C0AEE00514E08",
+        "name" : "MLBrowserArchitectureTests"
+      }
+    }
+  ],
+  "version" : 1
+}

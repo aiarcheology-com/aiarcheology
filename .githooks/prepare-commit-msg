@@ -1,0 +1,22 @@
+#!/bin/bash
+
+COMMIT_MSG_FILE=$1
+COMMIT_SOURCE=$2
+
+# Skip for merge, squash, or amend commits
+if [ "$COMMIT_SOURCE" = "merge" ] || [ "$COMMIT_SOURCE" = "squash" ] || [ "$COMMIT_SOURCE" = "commit" ]; then
+    exit 0
+fi
+
+BRANCH_NAME=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+# Extract ticket number (e.g., AIA-0038) from branch name
+TICKET=$(echo "$BRANCH_NAME" | grep -oE '[A-Z]+-[0-9]+' | head -1)
+
+if [ -n "$TICKET" ]; then
+    # Prepend ticket number if not already present
+    if ! grep -q "\[$TICKET\]" "$COMMIT_MSG_FILE"; then
+        sed -i.bak "1s/^/[$TICKET] /" "$COMMIT_MSG_FILE"
+        rm -f "$COMMIT_MSG_FILE.bak"
+    fi
+fi

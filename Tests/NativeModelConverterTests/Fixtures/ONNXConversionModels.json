@@ -1,0 +1,248 @@
+{
+  "formatVersion": 1,
+  "comment": "Integration fixtures for the ONNX -> Core ML conversion path. Point NATIVE_MODEL_ONNX_DIRECTORY at a directory holding these .onnx files (see scripts/fetch_native_test_models.sh) and run `swift test --filter ONNXConversionIntegrationTests`. Expected labels are the top-1 produced by onnxruntime on the given solid-color probe (the independent oracle); a converted model must reproduce them.",
+  "models": [
+    {
+      "id": "onnx-model-zoo.mobilenet-v2-10",
+      "fileName": "mobilenetv2-10.onnx",
+      "url": "https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-10.onnx",
+      "sha256": "0e7c0aa4bc74650386fa1d2c84705753de7c2bdb21909ada5c59154bb429e092",
+      "convertedInput": {
+        "name": "image",
+        "width": 224,
+        "height": 224
+      },
+      "solidColorProbes": [
+        {
+          "red": 255,
+          "green": 0,
+          "blue": 0,
+          "expectedClassLabel": "matchstick"
+        },
+        {
+          "red": 0,
+          "green": 255,
+          "blue": 0,
+          "expectedClassLabel": "whistle"
+        },
+        {
+          "red": 0,
+          "green": 0,
+          "blue": 255,
+          "expectedClassLabel": "jellyfish"
+        },
+        {
+          "red": 128,
+          "green": 128,
+          "blue": 128,
+          "expectedClassLabel": "nematode"
+        }
+      ]
+    },
+    {
+      "id": "onnx-model-zoo.resnet50-v1-7",
+      "fileName": "resnet50-v1-7.onnx",
+      "url": "https://github.com/onnx/models/raw/main/validated/vision/classification/resnet/model/resnet50-v1-7.onnx",
+      "sha256": "af16a04a6ec48ac494065d4439fe9dea590d337b9ca6dc328160ccf04a217b9c",
+      "convertedInput": {
+        "name": "image",
+        "width": 224,
+        "height": 224
+      },
+      "solidColorProbes": [
+        {
+          "red": 255,
+          "green": 0,
+          "blue": 0,
+          "expectedClassLabel": "theater curtain"
+        },
+        {
+          "red": 0,
+          "green": 255,
+          "blue": 0,
+          "expectedClassLabel": "nematode"
+        },
+        {
+          "red": 0,
+          "green": 0,
+          "blue": 255,
+          "expectedClassLabel": "jellyfish"
+        },
+        {
+          "red": 255,
+          "green": 255,
+          "blue": 0,
+          "expectedClassLabel": "rapeseed"
+        }
+      ]
+    },
+    {
+      "id": "onnx-model-zoo.squeezenet1.0-12",
+      "fileName": "squeezenet1.0-12.onnx",
+      "url": "https://github.com/onnx/models/raw/main/validated/vision/classification/squeezenet/model/squeezenet1.0-12.onnx",
+      "sha256": "dec81a8684617770b3cf13fadc1d92565d1d453d23935fc6388b792d99c992bd",
+      "comment": "SqueezeNet maps every solid color to 'nematode', so label equality alone cannot distinguish the probes; the per-probe top-1 probability (from the in-graph softmax, measured with onnxruntime) is asserted too.",
+      "convertedInput": {
+        "name": "image",
+        "width": 224,
+        "height": 224
+      },
+      "solidColorProbes": [
+        {
+          "red": 255,
+          "green": 0,
+          "blue": 0,
+          "expectedClassLabel": "nematode",
+          "expectedTopProbability": 0.148185
+        },
+        {
+          "red": 0,
+          "green": 255,
+          "blue": 0,
+          "expectedClassLabel": "nematode",
+          "expectedTopProbability": 0.204573
+        },
+        {
+          "red": 0,
+          "green": 0,
+          "blue": 255,
+          "expectedClassLabel": "nematode",
+          "expectedTopProbability": 0.148141
+        },
+        {
+          "red": 128,
+          "green": 128,
+          "blue": 128,
+          "expectedClassLabel": "nematode",
+          "expectedTopProbability": 0.117168
+        }
+      ]
+    },
+    {
+      "id": "onnx-model-zoo.tinyyolov2-8",
+      "comment": "Object detector (raw YOLOv2 grid; the converter synthesizes the decode and wraps it with Core ML NMS). Probes are deterministic LCG noise images \u2014 solid colors excite no detections \u2014 and expectations are onnxruntime's raw grid decoded and suppressed with the same anchors/thresholds by scripts' oracle. Thresholds sit in wide gaps of the survivor confidences so float drift cannot change the box count.",
+      "fileName": "tinyyolov2-8.onnx",
+      "url": "https://github.com/onnx/models/raw/main/validated/vision/object_detection_segmentation/tiny-yolov2/model/tinyyolov2-8.onnx",
+      "sha256": "583fb7fdc948435ceac9fa82efc7708701efe8382a859a3dd46526b155f5f2ae",
+      "convertedInput": {
+        "name": "image_input",
+        "width": 416,
+        "height": 416
+      },
+      "detectionProbes": [
+        {
+          "noiseSeed": "0x853c49e6748fea9b",
+          "confidenceThreshold": 0.1,
+          "expectedBoxes": [
+            {
+              "label": "diningtable",
+              "confidence": 0.15902,
+              "x": 0.570678,
+              "y": 0.42489,
+              "width": 0.92664,
+              "height": 0.94809
+            }
+          ]
+        },
+        {
+          "noiseSeed": "0x2545f4914f6cdd1d",
+          "confidenceThreshold": 0.07,
+          "expectedBoxes": [
+            {
+              "label": "sofa",
+              "confidence": 0.182161,
+              "x": 0.569498,
+              "y": 0.580299,
+              "width": 0.911257,
+              "height": 0.924626
+            },
+            {
+              "label": "diningtable",
+              "confidence": 0.115853,
+              "x": 0.338723,
+              "y": 0.346636,
+              "width": 0.932807,
+              "height": 0.935374
+            }
+          ]
+        },
+        {
+          "solidColor": {
+            "red": 128,
+            "green": 128,
+            "blue": 128
+          },
+          "confidenceThreshold": 0.1,
+          "expectedBoxes": []
+        }
+      ]
+    },
+    {
+      "id": "hf.s1777-yolov8n",
+      "comment": "Object detector (YOLOv8n raw output; the graph bakes the decode, the converter recognizes the anchor-free head and wraps it with Core ML NMS). This export carries no metadata_props, so labels fall back to generic class_<i> and the probe asserts the class INDEX (not a label name). The confidence threshold sits far below the single survivor, and NMS collapses the mutually-overlapping near-full-image noise boxes, so the box count is stable under float drift. Expectations are onnxruntime's output0 decoded and cross-class-suppressed by scripts/generate_onnx_detection_oracle.py.",
+      "fileName": "yolov8n-s1777.onnx",
+      "url": "https://huggingface.co/s1777/yolo-v8n-onnx/resolve/main/yolov8n.onnx",
+      "sha256": "dd48a79dd7fec8ca25fde4eca742ff7bca23b27e2e903eb23bc1d9f83a459bd2",
+      "convertedInput": {
+        "name": "image",
+        "width": 640,
+        "height": 640
+      },
+      "expectedClassCount": 80,
+      "detectionProbes": [
+        {
+          "noiseSeed": "0xACE",
+          "confidenceThreshold": 0.03,
+          "expectedBoxes": [
+            {
+              "classIndex": 60,
+              "confidence": 0.0639,
+              "x": 0.5002,
+              "y": 0.4947,
+              "width": 0.9923,
+              "height": 0.993
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hf.aaurelions-yolo11n",
+      "comment": "Object detector (YOLO11n raw output; the V2 exact-ND backend preserves its attention split/matmuls, and the anchor-free recognizer builds the Core ML NMS pipeline). The solid-gray probe asserts no detection clears 0.008 (onnxruntime max class score on it is 0.00405), and the noise probe asserts the single survivor in the wide gap between 0.0006 and 0.0131, so decode numerics are exercised and float drift cannot change either box count. Expectations from scripts/generate_onnx_detection_oracle.py; the raw-output oracle is in YOLO11TrunkOracle.json.",
+      "fileName": "yolo11n-aaurelions.onnx",
+      "url": "https://huggingface.co/aaurelions/yolo11n.onnx/resolve/f46d9b72aa9a0f02bc00484446e2310b1a549bce/yolo11n.onnx",
+      "sha256": "5ad2aa77f7f678c06880f024444cb02f5eb53f991b4a64c819805c6c701fc9b8",
+      "convertedInput": {
+        "name": "image",
+        "width": 640,
+        "height": 640
+      },
+      "expectedClassCount": 80,
+      "detectionProbes": [
+        {
+          "solidColor": {
+            "red": 128,
+            "green": 128,
+            "blue": 128
+          },
+          "confidenceThreshold": 0.008,
+          "expectedBoxes": []
+        },
+        {
+          "noiseSeed": "0xACE",
+          "confidenceThreshold": 0.003,
+          "expectedBoxes": [
+            {
+              "classIndex": 59,
+              "confidence": 0.0131,
+              "x": 0.499,
+              "y": 0.497,
+              "width": 0.9806,
+              "height": 0.9672
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

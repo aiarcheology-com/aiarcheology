@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "models": [
+    {
+      "id": "apple.mobilenet-v2.int8-lut",
+      "fileName": "MobileNetV2Int8LUT.mlmodel",
+      "url": "https://ml-assets.apple.com/coreml/models/Image/ImageClassification/MobileNetV2/MobileNetV2Int8LUT.mlmodel",
+      "sha256": "ee53bca4c5042d77aed5c093cba31c2ef229d1cc4c027300af9cc8bf9e240409",
+      "input": { "name": "image", "width": 224, "height": 224 },
+      "expectedClassLabelForSolidRedProbe": "theater curtain, theatre curtain"
+    },
+    {
+      "id": "apple.mobilenet-v2.fp16",
+      "fileName": "MobileNetV2FP16.mlmodel",
+      "url": "https://ml-assets.apple.com/coreml/models/Image/ImageClassification/MobileNetV2/MobileNetV2FP16.mlmodel",
+      "sha256": "c76832208ff4c936365f0f2609f7b77f7f1a6caf62b0b429056d5ad7e48635ad",
+      "input": { "name": "image", "width": 224, "height": 224 },
+      "expectedClassLabelForSolidRedProbe": "theater curtain, theatre curtain"
+    }
+  ]
+}

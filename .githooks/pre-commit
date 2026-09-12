@@ -1,0 +1,31 @@
+#!/bin/bash
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# Require SwiftLint to be installed
+if ! command -v swiftlint &>/dev/null; then
+  echo "Error: SwiftLint is not installed." >&2
+  echo "Install it with: brew install swiftlint" >&2
+  exit 1
+fi
+
+# Only run when Swift files are staged (excluding Generated directories)
+STAGED_SWIFT_FILES="$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.swift$' | grep -v '/Generated/' || true)"
+if [[ -z "${STAGED_SWIFT_FILES}" ]]; then
+  exit 0
+fi
+
+echo "Running SwiftLint on staged Swift files…"
+
+cd "${REPO_ROOT}/ios"
+
+# Lint staged files (read-only, no modifications)
+if ! echo "${STAGED_SWIFT_FILES}" | tr '\n' '\0' | xargs -0 -I {} swiftlint lint --force-exclude "${REPO_ROOT}/{}"; then
+  echo ""
+  echo "SwiftLint failed. Fix the issues above and try committing again." >&2
+  echo "Tip: Run 'swiftlint lint --fix' manually to auto-fix some issues." >&2
+  exit 1
+fi
+
+echo "SwiftLint OK"

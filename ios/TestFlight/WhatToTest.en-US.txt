@@ -1,0 +1,15 @@
+Build: TBD
+
+Test Focus 1: What the model-import sheet promises.
+
+It used to say you could import "an object-detection or image-classification model in ONNX format". ONNX is a container, not a model type — the app converts image classifiers and YOLO-family detectors, and nothing else. Someone with an SSD or RetinaFace export would have been told it was supported, imported it, and hit a failure.
+
+1. Open the model list, tap + to import a model, and read the "Supported Models" paragraph. It should now say image classifiers and YOLO-family detectors are supported — not object detection in general.
+
+2. Check it in your own language too. All 17 languages were rewritten; the terms Core ML, ONNX, YOLO, .mlmodel, .mlpackage and .onnx must appear untranslated.
+
+3. Import something that should work — a Core ML model, or a YOLO-family ONNX detector — and confirm the import path itself is unchanged.
+
+4. If you have a non-YOLO ONNX detector to hand, import it. It should fail, and the failure should name the operation it could not convert rather than failing vaguely. Tell us the wording if it is unhelpful.
+
+Please report your device model, iOS version and the language you tested in.

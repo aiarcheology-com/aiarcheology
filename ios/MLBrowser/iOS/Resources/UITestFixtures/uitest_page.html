@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<!--
+  AIA-0316 UI-test fixture. A minimal, fully self-contained local page (no external resources) so
+  navigation / detection UI tests can load deterministic content offline via
+  WKWebView.loadFileURL(_:allowingReadAccessTo:). Loaded only under the UI-test launch config
+  (pageScenario == .localFixture); never referenced in shipping flows.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIA UITEST PAGE</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; margin: 24px; background: #f2f2f7; color: #1c1c1e; }
+    h1 { font-size: 22px; }
+  </style>
+</head>
+<body>
+  <h1 id="aia-uitest-marker" role="heading" aria-label="AIA UITEST PAGE">AIA UITEST PAGE</h1>
+  <p id="aia-uitest-body">Deterministic local fixture for UI tests.</p>
+  <!-- AIA-0587: tapping a link publishes interaction-start in the app's injected script, then
+       replaces the document before that script's delayed interaction-end can fire. -->
+  <a id="aia-navigation-link" href="about:blank" aria-label="AIA NAVIGATE">Navigate</a>
+</body>
+</html>

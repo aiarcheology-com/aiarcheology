@@ -1,0 +1,41 @@
+{
+  "configurations" : [
+    {
+      "id" : "4CDB369C-1203-4C68-849B-31448D2128F9",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:MLBrowser.xcodeproj",
+      "identifier" : "8AE0BBFF2A97B0B30086DDF9",
+      "name" : "MLBrowser"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "skippedTests" : [
+        "ArchitectureTests"
+      ],
+      "target" : {
+        "containerPath" : "container:MLBrowser.xcodeproj",
+        "identifier" : "8AE0BC152A97B0B40086DDF9",
+        "name" : "MLBrowserUnitTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:..",
+        "identifier" : "NativeModelConverterTests",
+        "name" : "NativeModelConverterTests"
+      }
+    }
+  ],
+  "version" : 1
+}

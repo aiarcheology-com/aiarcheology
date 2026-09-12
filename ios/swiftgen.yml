@@ -1,0 +1,15 @@
+# SwiftGen configuration for MLBrowser
+# https://github.com/SwiftGen/SwiftGen
+
+# Localization strings
+# Note: Uses .strings file generated from .xcstrings by xcstrings-to-strings.swift
+# Run: ../scripts/xcstrings-to-strings.swift MLBrowser/iOS/Resources/Localizable.xcstrings MLBrowser/iOS/Resources/Localizable.strings
+strings:
+  inputs:
+    - MLBrowser/iOS/Resources/Localizable.strings
+  outputs:
+    - templateName: structured-swift5
+      output: MLBrowser/iOS/Generated/L10n.swift
+      params:
+        publicAccess: false
+        enumName: L10n
