@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 12
+	var version = 14
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -48,6 +48,13 @@ struct LaunchConfig: Encodable {
 	/// i.e. a genuine first install. Every UI-test launch wipes its own storage, so this is the
 	/// only way to reach the expired wall.
 	var freeAccessAnchorAgeDays: Int?
+	/// A shared-finding link delivered at launch, as if tapped (AIA-0835).
+	var sharedLinkURL: String?
+
+	/// How many times ``sharedLinkURL`` is delivered on this launch; `nil` means once (AIA-0836).
+	/// Two deliveries in one session is the only way to exercise duplicate import, because every
+	/// launch starts from an empty store.
+	var sharedLinkDeliveries: Int?
 }
 
 // MARK: - Accessibility identifiers
@@ -92,10 +99,31 @@ enum AID {
 	// Drawer
 	static let drawerSettings = "_AIA:Button.DrawerSettings"
 	static let drawerFindings = "_AIA:Button.DrawerFindings"
+
+	// Findings toolbar (AIA-0748)
+	static let findingsTab = "_AIA:Picker.FindingsTab"
+	static let sharedFindingDone = "_AIA:Button.SharedFindingDone"
+	static let findingDetailSave = "_AIA:Button.FindingDetailSave"
+	static let findingDetailShare = "_AIA:Button.FindingDetailShare"
+	static let findingDetailTitle = "_AIA:TextField.FindingDetailTitle"
+	static let findingsDataMenu = "_AIA:Button.FindingsDataMenu"
+	static let findingsExport = "_AIA:Button.FindingsExport"
+	static let findingsImport = "_AIA:Button.FindingsImport"
+	static let findingsSortOrder = "_AIA:Button.FindingsSortOrder"
+	static let findingsSortReverse = "_AIA:Button.FindingsSortReverse"
+	static let findingsSortByDate = "_AIA:Button.FindingsSortByDate"
+	static let findingsSortByTitle = "_AIA:Button.FindingsSortByTitle"
+	static let findingsSortByHost = "_AIA:Button.FindingsSortByHost"
+	static let findingsDismiss = "_AIA:Button.FindingsDismiss"
 	static let configEnabledToggle = "_AIA:Toggle.SideMenuCellEnabled"
 	static let configDelete = "_AIA:Button.SideMenuDeleteConfiguration"
 	static let configModelTypePicker = "_AIA:Picker.ConfigurationFormModelType"
 	static let configFormDismiss = "_AIA:Button.ConfigurationFormDismiss"
+	static let configDetectionConfidence = "_AIA:Slider.ConfigurationFormDetectionConfidence"
+	static let configSound = "_AIA:NavigationLink.ConfigurationFormSound"
+	static let configSoundEnabled = "_AIA:Toggle.ConfigurationFormSoundEnabled"
+	static let configSoundVolume = "_AIA:Slider.ConfigurationFormSoundVolume"
+	static let configSoundChime = "_AIA:Button.#chimeConfigurationFormSoundChoice"
 	static let newConfigurationOpenCatalog = "_AIA:Button.NewConfigurationOpenCatalog"
 
 	// Settings
@@ -144,6 +172,9 @@ enum AID {
 	// Save-finding sheet (AIA-0333 capture step)
 	static let saveFindingTitle = "_AIA:TextField.SaveFindingTitle"
 	static let saveFindingSave = "_AIA:Button.SaveFindingSave"
+	static let findPickCancel = "_AIA:Button.FindPickCancel"
+	static let findingAlignmentCrosshair = "_AIA:View.FindingAlignmentCrosshair"
+	static let saveFindingCancel = "_AIA:Button.SaveFindingCancel"
 
 	// Auth gate (AIA-0340)
 	static let authSignIn = "_AIA:Button.AuthSignIn"
@@ -166,6 +197,7 @@ enum AID {
 	static let paywallDeleteAccount = "_AIA:Button.PaywallDeleteAccount"
 	static let paywallDeleteAccountConfirm = "_AIA:Button.PaywallDeleteAccountConfirm"
 	static let paywallDeleteAccountManage = "_AIA:Button.PaywallDeleteAccountManage"
+	static let paywallDeleteAccountExportFindings = "_AIA:Button.PaywallDeleteAccountExportFindings"
 
 	// Free-access window (AIA-0556). Since AIA-0567 split the screens, the only informational
 	// presentation is the Welcome screen below — the paywall is the hard wall and the Settings sheet.
@@ -312,6 +344,27 @@ class UITestCase: XCTestCase {
 			return frame.width > frame.height
 		}
 		let expectation = XCTNSPredicateExpectation(predicate: isLandscape, object: app.windows.firstMatch)
+		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+	}
+
+	/// Waits until the app window reports portrait dimensions again.
+	///
+	/// The counterpart to ``waitForLandscape(timeout:)``, and the reason it exists: assigning
+	/// `XCUIDevice.shared.orientation` only *requests* a rotation. A test that rotates and then
+	/// returns leaves the device mid-transition, and the next test can launch into it — relaunching
+	/// the app does not reset simulator orientation, which is process-global (raised in review).
+	/// Strictly taller than wide, mirroring ``waitForLandscape(timeout:)``'s strict `>`. A square
+	/// window satisfies neither, which is the intent: `>=` here would accept the moment a rotation
+	/// passes through square and report a settled portrait layout that has not settled at all
+	/// (raised in review).
+	@discardableResult
+	func waitForPortrait(timeout: TimeInterval = 10) -> Bool {
+		let isPortrait = NSPredicate { object, _ in
+			guard let window = object as? XCUIElement else { return false }
+			let frame = window.frame
+			return frame.height > frame.width
+		}
+		let expectation = XCTNSPredicateExpectation(predicate: isPortrait, object: app.windows.firstMatch)
 		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
 	}
 

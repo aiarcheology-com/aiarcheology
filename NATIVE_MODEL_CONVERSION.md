@@ -105,6 +105,23 @@ it retains `converted.mlmodel`, asks `MLModel.compileModel(at:)` to create the `
 artifact, and loads that compiled model. Before conversion, the app asks whether to retain the
 app-sandbox copy of the original `.aiagraph`; the external user-selected source is never altered.
 
+One emission can now write more than one file in that single output format. The emitter's
+`emit(graph:weights:to:roiBoxHeadChunk:)` overload writes a second standalone `.mlmodel` beside the
+primary — `converted.mlmodel` yields `converted.roi-box-head-chunk.mlmodel` — and records it in a
+manifest inside the primary model's Core ML metadata, carrying the companion's role, plain basename,
+SHA-256, fixed batch size, proposal count, and derived invocation count. The companion is written
+first and the primary last, because the primary is the discovery anchor: publishing it earlier would
+leave a model advertising a file that does not exist.
+
+That companion is deliberately **not** a Core ML pipeline stage. A stage is embedded in the outer
+model and runs inside the same `prediction` call, which is precisely the in-graph chunking AIA-0670
+measured as saving nothing; a separate model is what lets the host drive the loop itself and invoke
+the chunk the manifest's invocation count times. It is also **not yet production-managed**: the app's
+cleanup path removes exactly the converted model and its metadata sidecar, and the CLI reports a
+single output model size, so until those paths learn about companions in M3c the caller owns the
+companion's lifetime. Neither the high-level `NativeModelConverter.convert` API nor the CLI reaches
+this overload today.
+
 The app writes `native-conversion-report.json` as a journal before starting emission. The journal
 contains only relative artifact names, phases, metrics, and path-free diagnostics. When a user
 cancels or a normal error completes an attempt, the app removes generated `.mlmodel`/sidecar output
@@ -126,13 +143,15 @@ temporary archive as well.
 
 Metadata must not be copied blindly. A source model can describe image normalization, labels, or a
 classifier wrapper that the generated Core ML model does not expose. The contract therefore keeps
-three separate kinds of facts:
+each kind of fact separate:
 
 | Layer | Durable location | Meaning |
 | --- | --- | --- |
 | Source metadata | `Model.aiagraph/metadata.json`, then byte-for-byte `converted.metadata.json` | The original exporter/model facts, including arbitrary nested JSON. |
 | Conversion provenance | Namespaced Core ML user-defined keys | Graph/weights/metadata SHA-256, exporter name/version, target format, and the derived target interface. |
 | Target metadata | Standard Core ML metadata plus target namespaced keys | Facts true of the generated NeuralNetwork `.mlmodel`, never unverified source claims. |
+| Artifact manifest | `com.aiarcheology.native.target.artifact-manifest.json` | The companion files the primary model cannot run without: role, plain basename, SHA-256, fixed batch size, proposal count, invocation count. |
+| Parity provenance | `com.aiarcheology.native.target.parity-provenance.json` | What this emission is entitled to claim about its numerics: `verified` or `structurally-matched`. |
 
 `metadata.json` is optional for legacy v1 packages and required by current exporters. When present,
 the manifest names it explicitly and pins its SHA-256. It has this extensible envelope:
@@ -177,6 +196,36 @@ input/output names/shapes/types, source producer, and graph/weight/metadata hash
 preprocessing adapter, classifier wrapper, or detector decoder must add the corresponding target
 metadata only when that behavior has been emitted and is parity-tested.
 
+The last two rows are canonical JSON documents rather than flat strings, each carrying its own
+`format` and `formatVersion`, and both are written to the model's *outer* description — the only
+description `MLModelDescription` publishes for a pipeline. The artifact manifest appears only when an
+emission wrote a companion, and its digest is what lets a future consumer detect an older companion
+left beside a newer primary before loading it — nothing in this converter enforces that yet: no
+manifest reader and no hash-checking loader exists, so today the digest records the binding rather
+than checking it, and a stale companion still compiles and predicts with silently mismatched shapes.
+It deliberately records interface facts only; batch size and invocation count are numbers a runtime
+must obey, whereas how fast a chunk ran on some device is a measurement that would age into a lie
+inside a shipped model.
+
+Parity provenance is written by every emission path that writes target metadata at all, and never
+conditionally within one, because a model missing the fact is indistinguishable from one whose
+numbers were checked. Those paths are the package overload, the ONNX/classifier overload, the
+detector overload, and the ROI-box-head-chunk overload, which stamps both files it writes. The bare
+`emit(graph:weights:to:)` and `emit(graph:to:)` overloads pass no metadata, so a model written
+through them carries no metadata block at all — no parity provenance, no conversion revision, no
+target interface. They exist for conformance fixtures and tests; a caller emitting a model to ship
+uses one of the four stamped paths.
+
+The default claim is the honest one: `structurally-matched` says the graph validated, every
+operation lowered, and the model serialized successfully — the emitter never compiles or loads its
+own output, so it cannot say more. It is a statement about the conversion, not about the numbers it
+produces. `verified` means the emitted outputs were compared against a reference oracle and agreed
+within that check's tolerance, and only a
+caller that ran such a check may ask for it. A caller who says nothing gets the conservative claim
+rather than no claim at all, so silence can never ship a model asserting a parity run that did not
+happen. The value carries the claim and nothing else — no oracle name, no error bound, no date; those
+describe a run, and which of the two claims an emission is entitled to make does not age.
+
 The high-level converter additionally records the input package filename in the generated Core ML
 model as `com.aiarcheology.native.conversion.source-package-filename`. A host may supply an original
 model filename and an authoritative remote URL through `NativeModelConversionSourceProvenance`; ML
@@ -191,8 +240,8 @@ content hashes rather than a URL or filename.
 
 ## Versioned converter identity
 
-Every converted `.mlmodel` carries four separate, non-substitutable identities in Core ML
-user-defined metadata:
+Every `.mlmodel` emitted through a metadata-writing path — the four listed above — carries these
+separate, non-substitutable identities in Core ML user-defined metadata:
 
 | Identity | Metadata | Purpose |
 | --- | --- | --- |
@@ -210,6 +259,25 @@ Release rule: change the SemVer package version for public API or package compat
 increment `conversionRevision` for every output-affecting emitter, validation, or target-metadata
 change; keep the source producer version owned by the exporter. The package test checks all four
 embedded identities against the compiled Core ML model.
+
+Under that rule `conversionRevision` moves from 7 to 9 in this change, because the emitted artifact
+contents changed again. Revision 3 was anchor-free detector emission — a Core ML network plus
+non-maximum-suppression pipeline for YOLO v8/v11 raw heads, with its task, class count, label
+provenance, and coordinate-space metadata. Revision 4 adds the two-stage detector operations
+(ROI crop/resize, top-K, gather, the in-graph non-maximum-suppression layer, and the elementwise
+primitives the box arithmetic composes from), the standalone ROI box head chunk named by an artifact
+manifest in the primary model's metadata, and the parity provenance every metadata-writing emission
+path now records. Revision 5 adds the closed ADAF Faster R-CNN registry and its fixed-canvas,
+ImageNet-normalized detector graph. Revision 6 adds the two measured terminal suppression layers and
+makes the mandatory Vision NMS model an explicit no-policy interface adapter, so it cannot silently
+turn two ADAF passes into three. Revision 7 masks Core ML's false zero-survivor NMS slot before the
+adapter sees it, so an empty tile produces no phantom recognized object. A revision-7 model is
+therefore distinguishable from its earlier forms by its metadata alone, which is what the revision
+exists to make possible. Revision 8 records the initial parity finding for the ADAF Faster R-CNN
+graph. Revision 9 recorded a `.cpuAndGPU` runtime policy derived from that finding; revision 10
+corrected it to `.cpuOnly` after the device closeout measured the GPU path as the least accurate of
+the three. Revision 11 removes compute-unit metadata entirely: CPU-only is retained only as the
+explicit strict-parity test placement, while product runtime placement is chosen by the app.
 
 The torchvision reference exporter writes this metadata by default and accepts
 `--metadata-json SOURCE.json` to preserve a supplied metadata document byte-for-byte. A package
@@ -260,26 +328,57 @@ Rules enforced today:
 - A single little-endian `weights.bin`; every weight has an exact byte range derived from its type
   and shape.
 - No overlapping ranges, duplicate tensor names, forward tensor references, or duplicate outputs.
-- Operations are already topologically ordered and declare one typed output each.
+- Operations are already topologically ordered. Each declares one typed output, except `splitND`
+  (one per split size), `topK` (values, then indices), and `nms` (kept boxes, kept scores, kept
+  source indices, and the valid count) — the arities the Core ML layers themselves require.
 - Only JSON scalar/vector attributes are allowed; tensors may not be constructed dynamically.
 
 ## Starter operation set
 
-Version 1's validator recognizes 21 operations: `conv2d` (including grouped/depthwise), `linear`,
-`relu`, `relu6`, `maxPool2d`, `averagePool2d`, `globalAveragePool2d`, `reshape`, `transpose`,
-`concat`, `softmax`, `matmul`, `add`, `subtract`, `multiply`, `divide`, `batchNorm`, `sigmoid`,
-`tanh`, `flatten`, and `identity`.
+The validator recognizes 43 operation names, and which of them a graph may use depends on its format
+version. Nineteen are shared by both families: `conv2d` (including grouped/depthwise), `linear`,
+`relu`, `relu6`, `maxPool2d`, `averagePool2d`, `upsample2d`, `globalAveragePool2d`, `softmax`, `add`,
+`multiply`, `divide`, `batchNorm`, `sigmoid`, `tanh`, `leakyRelu`, `exp`, `flatten`, and `identity`.
+Version 1, the classic rank-5 layout family, adds six of its own — `reshape`, `transpose`, `concat`,
+`sliceChannels`, `softmaxChannel`, and `constant` — for 25 in total. Version 2, the exact-ND family,
+adds seventeen — `reshapeND`, `transposeND`, `concatND`, `sliceND`, `splitND`, `batchedMatmulND`,
+`constantND`, `subtract`, `minND`, `maxND`, `floor`, `log`, `greaterEqual`, `cropResize`, `topK`,
+`gather`, and `nms` — for 36. `matmul` is a recognized name but valid under neither version.
 
-This is enough for a fixed-shape MobileNetV2 classifier when exported in inference mode. It is not
-yet enough to import an arbitrary detector: YOLO-style heads need more shape, slice, resize, decode,
-and non-maximum-suppression coverage, and their output must be adapted to the app's Vision detector
-contract (`confidence` and `coordinates`).
+Several of those are exact-ND only for a stronger reason than layout preference. `floor`, `log`,
+`greaterEqual`, `minND`, `maxND`, and `subtract` have no equivalent in the classic layer set at all —
+there is no floor, no comparison, and no subtract there — so their only Core ML form is an exact-rank
+layer, and admitting one into a version 1 graph would mix layers that read the same blob differently.
+`cropResize` adds a second reason: its blobs are rank 5 *as data*, the box input being
+`[K, 1, 4, 1, 1]` and the output batching over K, which the legacy mapping's fixed four-axis reading
+cannot name. `gather` adds a third, its output rank being `data.rank - 1 + indices.rank` rather than
+the data input's, a rank that varies with the indices blob. And `nms` adds a fourth: its kernel
+refuses inputs that are not rank 3 exactly, and rank 3 is a shape the legacy mapping reads as
+`[C, H, W]` rather than the `[batch, boxes, 4]` the layer means.
 
-The emitter is intentionally narrower than the validator. It now emits and numerically tests the
-MobileNetV2 classifier spine: grouped/depthwise `conv2d`, `batchNorm`, `relu`, `relu6`, residual
-`add`, `globalAveragePool2d`, `flatten` (axis 1), and `linear`. It stores Float32 or Float16
-weights inside a Core ML neural-network model. The remaining validated operations are rejected at
-emission time until they receive the same compiler-backed coverage.
+This is enough for a fixed-shape MobileNetV2 classifier exported in inference mode, and — since
+revision 3 — for an anchor-free YOLO v8/v11 raw head emitted as a Core ML network plus
+non-maximum-suppression pipeline against the app's Vision detector contract (`confidence` and
+`coordinates`). It is not yet enough to import an arbitrary detector. What the operations above give
+a two-stage architecture is layer vocabulary, not an assembled detector: no Faster R-CNN proposal
+generator or box head is built, exported, or parity-tested here.
+
+The emitter is no longer much narrower than the validator. It emits every recognized operation except
+`divide`, `tanh`, `identity`, and the universally rejected `matmul`; those still fail at emission time
+with their graph node name and kind rather than falling back silently. Alongside the MobileNetV2
+classifier spine — grouped/depthwise `conv2d`, `batchNorm`, `relu`, `relu6`, residual `add`,
+`globalAveragePool2d`, `flatten` (axis 1), `linear` — and the YOLO trunk and decode operations, it
+now emits `floor`, `log`, `greaterEqual`, `minND`, `maxND`, `subtract`, `cropResize`, `topK`,
+`gather`, and `nms`. `averagePool2d`, which the validator already accepted, gained an emitter path in
+the same change. Weights remain Float32 or Float16 stored inside the Core ML neural-network model.
+
+Two of the new operations need care at the call site. `cropResize` is deliberately only the crop:
+torchvision's `roi_align(sampling_ratio=2)` is reproduced as a graph-level composition — crop at twice
+the target size, then a 2x2 `averagePool2d` — so neither operation is welded to one sampling ratio.
+And the in-graph `nms` layer is not the standalone NMS *model* the detector pipeline emits as its
+terminal stage: the layer has fixed padded outputs, sits mid-graph where its survivors feed everything
+after it, and mandates `[center-x, center-y, width, height]` box coordinates, where every other box
+operation in this IR works in corners.
 
 ## Model priority
 
@@ -340,6 +439,15 @@ The rules that keep these tests meaningful are:
 Golden suites start with tiny Conv/ReLU/Linear tests, then MobileNetV2, then SSD-MobileNet and a
 detector head. Unsupported operations must receive compiler-backed coverage before being enabled.
 
+Every operation added for two-stage detection follows that rule. `NativeModelDetectionLayerTests`
+compiles a single-operation model per behavior and compares its Core ML output against an
+independently computed expectation, including the crop-then-average-pool composition checked against
+`torchvision.ops.roi_align` on interior boxes; `NativeModelEmissionRegressionTests` decodes a
+representative conversion to prove the previous revision's structure survived the change. One
+divergence is pinned rather than hidden: for a box overhanging the feature map, `cropResize`
+contributes exactly zero past the last interpolable row and column where `roi_align` replicates the
+edge, so the two disagree there by construction. Closing that gap is M3c.
+
 ## Required tools and commands
 
 The native package needs Xcode's command-line tools (Swift, Core ML compiler/runtime) and macOS 14
@@ -355,6 +463,66 @@ or newer. It intentionally uses terminal tests rather than a simulator.
 | Pretrained checkpoint | `$PARITY_PYTHON scripts/test_torchvision_mobilenet_v2_parity.py --pretrained --intermediates` | A real torchvision ImageNet-1K MobileNetV2 checkpoint, not only a seeded random model. |
 | Independent Python oracle | `$REFERENCE_PYTHON scripts/test_torchvision_mobilenet_v2_parity.py --pretrained --coremltools-reference` | A diagnostic comparison with a separately converted coremltools model, only after that model agrees with PyTorch. |
 | Release conversion report | `swift run -c release native-model-converter INPUT.aiagraph OUTPUT.mlmodel --report conversion-report.json` | Native package read/emission wall time and exact input/output artifact sizes, serialized as JSON. |
+
+### Fixture-gated suites: feeding `NATIVE_MODEL_ONNX_DIRECTORY`, `NATIVE_MODEL_REFERENCE_DIRECTORY` and `ADAF_CHECKPOINT_DIRECTORY`
+
+A bare `swift test` does not exercise the external-fixture parity gates when their environment
+variables are unset: those tests skip while the command can still succeed. It covers always-on
+structural and other available tests, not the missing oracles. The ONNX/Apple reference lane and
+the published ADAF checkpoint lane have separate fixture requirements. Use the applicable lanes
+and inspect executed tests/skips; see [TESTING.md](TESTING.md#converter-fixtures-and-parity).
+
+| Variable | Unlocks | How to populate |
+| --- | --- | --- |
+| `NATIVE_MODEL_ONNX_DIRECTORY` | `ONNXConversionIntegrationTests` and `YOLOv5/​v8/​11TrunkConversionTests` — top-1 and elementwise comparison against an ONNX Runtime oracle | `scripts/fetch_native_test_models.sh [TARGET_DIR]` |
+| `NATIVE_MODEL_REFERENCE_DIRECTORY` | The Apple MobileNetV2 FP16 / INT8-LUT artifact contract and its red-image probes | `scripts/test_native_model_converter.sh` sets it for you |
+| `ADAF_CHECKPOINT_DIRECTORY` | `ADAFCheckpointDirectoryTests` — every published ADAF PyTorch checkpoint is read and identified, and a detector graph is emitted, compiled, and opened | `scripts/fetch_adaf_checkpoints.sh`, then run via `scripts/test_adaf_checkpoints.sh` |
+
+```bash
+# 1. ONNX + YOLO oracles. Downloads SHA-256-verified fixtures to the gitignored
+#    .native-model-fixtures/ directory; repeated fetches reuse valid cached files.
+./scripts/fetch_native_test_models.sh
+NATIVE_MODEL_ONNX_DIRECTORY="$PWD/.native-model-fixtures" swift test \
+  --filter "ONNXConversionIntegrationTests|YOLOv5TrunkConversionTests|YOLOv8TrunkConversionTests|YOLO11TrunkConversionTests"
+
+# 2. Combined ONNX + Apple reference lane. The wrapper supplies Apple reference artifacts
+#    in a temporary directory and excludes the separately gated ADAF checkpoint suite.
+NATIVE_MODEL_ONNX_DIRECTORY="$PWD/.native-model-fixtures" ./scripts/test_native_model_converter.sh
+```
+
+```bash
+# 3. ADAF PyTorch checkpoints (AIA-0666). The default fetch reconstructs the metadata ranges the
+#    reader needs and creates sparse, zero-filled bodies. This gate proves structural loadability:
+#    extract, emit, compile and open. Numerical gates such as test_adaf_fasterrcnn_parity.sh
+#    require --full and the configured Python environment; full downloads verify whole-file md5.
+./scripts/fetch_adaf_checkpoints.sh
+./scripts/test_adaf_checkpoints.sh
+```
+
+**Use the checkpoint wrapper to establish checkpoint coverage.** It fails when required fixtures
+are missing, required named tests did not execute, or any test skips. A direct
+`swift test --filter ADAFCheckpointDirectoryTests` can exit successfully after skipping its gated
+tests, so its exit status alone does not establish coverage.
+
+Unlike the other two, the checkpoint reader also has an **always-on** real-bytes suite. The head and
+tail ranges of two published checkpoints are committed under
+`Tests/NativeModelConverterTests/Fixtures/ADAF/` (CC-BY-SA-4.0 — see its `NOTICE.md` for
+attribution), and the reader's entire read set — the archive's end records, its central directory,
+`data.pkl` and `version` — lies inside them, so a plain `swift test` genuinely exercises it against
+real bytes. Their test double also *fails* on any read outside those ranges, which is what keeps the
+read set narrow: a regression that starts walking the 932 scattered local headers would work fine
+against the real file and fails loudly here. The gated suite is the redundant check over freshly
+fetched and optionally complete files, not the only one.
+
+Step 2 includes the tests selected in step 1 when the ONNX directory is supplied; step 1 is useful
+for focused iteration and need not be repeated for the same inputs. The native-converter CI lane
+supplies ONNX plus Apple references and rejects unexpected skips. The ADAF checkpoint wrapper is
+separate and does not establish dense numerical parity. Select every lane affected by the change;
+use test identifiers and fixture provenance instead of historical fixed test/skip counts.
+
+Run builds **sequentially when they share artifact directories**, including `xcodebuild` invocations
+sharing SPM `SourcePackages/artifacts`. Concurrent writers can cause missing-XCFramework failures
+before any tests execute; that is a build failure, not evidence about the tests.
 
 `PARITY_PYTHON` denotes any environment containing PyTorch, torchvision, and NumPy; the primary
 route invokes the Swift `native-model-evaluator` CLI and imports no coremltools code. The present
@@ -529,6 +697,275 @@ on each supported iPhone/iPad class under the same OS/build configuration, recor
 and JSON evidence, and then use that baseline to choose package limits or a streaming emitter. A
 streaming serialization path is the likely memory optimization if the measured peak is too high;
 compiler flags alone cannot remove an algorithmic duplicate of model-weight bytes.
+
+## App-side image sizing, and why normalisation stays in the graph
+
+AIA-0680. M3a measured that no NN-spec resize mode reproduces `GeneralizedRCNNTransform`'s bilinear
+(`align_corners=False`) — the closest leaves 0.1296 absolute on `[0, 1]` data — and that pinning
+`min_size` to the tile size is not a cheaper way to get the same model but a **different** model,
+moving boxes 19.43 px and dropping a detection. So the resize cannot live in the emitted graph. It
+lives in `NativeModelImageSizing`, and the boxes come back out through its inverse.
+
+### Two decisions, and the evidence for each
+
+**Vision's `.scaleFit` is an identity at matched sizes.** Measured, not assumed, by
+`VisionScaleFitProbeTests` driving a committed identity model through the exact layer `Detector`
+uses — `VNCoreMLModel` → `VNCoreMLRequest(.scaleFit)` → `VNImageRequestHandler(ciImage:)`. Three
+figures, because one number would conflate pixel-format conversion with resampling:
+
+| | measured (raw 0…255 code units) |
+|-|-|
+| (a) conversion floor: `CIContext.render` into the model's own pixel format, then `MLModel.prediction` | 0.0 |
+| (b) Vision `.scaleFit` at matched 64×64 | 0.0 |
+| (c) Vision `.scaleFit` at mismatched 65×65 — the blindness control | 250.0 |
+| **Vision against the direct prediction, elementwise** | **0.0** |
+
+(c) is not decoration: without it, a probe that reported "identity" because it was reading nothing at
+all would be indistinguishable from a real result. Taken on the iOS 26.5 simulator with an sRGB
+source and a BGRA pixel format; no physical device is currently attachable (`xcrun devicectl list
+devices` reports the only physical entry as unavailable, and AIA-0675 records Xcode 26.6 failing to
+personalise an iOS 27-generation developer disk image for a device on iOS 26.5.2). **So the app can
+pre-size and Vision will pass the buffer through untouched**, and the alternative — bypassing
+`VNCoreMLRequest`'s scaling — is not needed, which matters because it would have collided with
+AIA-0675 criterion 9. Nothing is wired yet: `Detector` is deliberately untouched by this slice and
+the component has no non-test call site, so this records a settled design question, not a shipped
+behaviour.
+
+**Normalisation stays in the graph.** `NativeModelImagePreprocessing.imageNetRGB` already performs
+exactly torchvision's arithmetic and the emitter already exercises it. The reason is not preference
+but constraint: AIA-0675 criterion 9 requires a Vision detector interface, a Vision detector
+interface requires an image input, and Core ML image inputs are 8-bit — `ColorSpace` offers
+grayscale, RGB and BGR and nothing float. There is no float buffer an app-side normalisation could
+be handed. **The app will size; the graph normalises.** ("Will": the sizing component exists and is tested,
+but nothing calls it yet — see the note above.)
+
+The elementwise row is the one the conclusion rests on. Subtracting (a) from (b) would not
+establish it: those are two independent maxima that can fall on different pixels with errors in
+opposite directions, so they could cancel a real divergence.
+
+That choice fixes the padding fill. `batch_images` pads the **normalised** tensor with zeros, and
+bilinear interpolation is a convex combination while the per-channel affine is linear, so the two
+commute exactly: filling with the ImageNet mean **in pixel space** reproduces torchvision's zero
+padding. In real arithmetic it is exact; through an 8-bit buffer it is not, because
+`255 · 0.485 = 123.675` is not a representable code value. The residual is stated rather than rounded
+away — per channel, `[+0.00127, −0.00110, +0.00184]` in `[0, 1]` units (`[+0.00557, −0.00490,
++0.00819]` normalised), blue worst.
+
+### What the rules actually are
+
+Read out of torchvision 0.23.0 rather than recalled, because the shorthand is wrong in three places:
+
+| Rule | Source | What it says |
+|-|-|-|
+| Sizing | `transform.py:60` | `min(minSize/short, maxSize/long)`. The short side reaches `minSize` only when the long side has not hit `maxSize` first — and for a page-aspect tile (≈1.87, above `1333/800 = 1.66625`) it is `maxSize` that binds |
+| Rounding | `functional.py:4717` | `_sym_int(size · scale)` — float64, truncated. The float32 branch at `:4698` is guarded by the tracing state and never runs in inference |
+| Per-axis | `recompute_scale_factor=True` | output is `floor(in·s)` per axis, then the ratios are re-derived from those integers, so the two axes differ: 769×512 → 1201×800 is 1.561769 across and 1.5625 down |
+| Padding | `transform.py:243-253` | canvas `ceil(dim/32)·32`, content copied to `[..., :H, :W]` — top-left origin, padding right and bottom. Not a centred letterbox |
+| Inverse | `transform.py:306-319` | `x·(sourceW/resizedW)`, `y·(sourceH/resizedH)`, per axis, from the integer sizes |
+
+`Geometry` therefore has no scalar `scale` field — the bug is not representable — and 646×1077 lands
+on 799×1332, one pixel short on **both** axes even though `maxSize` binds.
+
+### Evidence, and its limits
+
+Reference figures come from **calling** `GeneralizedRCNNTransform`
+(`scripts/generate_torchvision_resize_oracle.py`), not from re-deriving it. Note that
+`scripts/m3a_parity_spike/criterion_transform.py:49` derives its scale from `image.shape[-1]`, the
+width, which matches `_resize_image_and_masks` only for square inputs; it is correct for that file's
+square probe and is deliberately not reused here.
+
+Measured against that oracle over 825 samples: the resampler is within **9.34e-05** of torchvision in
+`[0, 1]` units; the whole forward pass against torchvision's padded tensor within **4.08e-04**
+normalised. Through an 8-bit buffer, which is what production can deliver, **0.00197** in `[0, 1]` —
+**65.8×** better than the 0.1296 an in-graph resize leaves. Read that ratio as conservative rather
+than exact: 0.00197 is the worst sampled value on a pattern chosen for maximal high-frequency content
+and sits within 0.5 % of the 8-bit half-step (`0.5/255 = 0.00196`), which is a rounding *upper bound*
+and suggests the resample contributes almost nothing on top of quantisation — while the 0.1296 was
+measured on a real figure at an integer scale, i.e. not worst-cased the same way. Both figures come
+from sampled comparisons, not exhaustive ones.
+
+The oracle carries cases chosen to discriminate rather than to pass, including a **trap** (768×512
+scales both axes by exactly 1.5625, so a single-scalar implementation passes it) and an
+`align_corners=True` counter-reference the implementation must **fail** — necessary because the two
+conventions agree at exactly the corners and edge midpoints a naive oracle would sample.
+
+Tolerances are set from measurement: the residual is float32 rounding in torch's own
+sampling-coordinate arithmetic, amplified by the pattern's mod-256 discontinuities. It grows with
+coordinate magnitude, so the committed tolerance is **validated for canvases up to 1344** and a larger
+canvas requires re-measurement.
+
+### What this hands to the graph work (AIA-0685 through AIA-0688)
+
+- **The pinned canvas is 1344×1344, and it is not free.** The host still applies torchvision's
+  `800/1333` content transform; this is its fixed, right/bottom-padded model canvas. The page-aspect
+  boundary remains `1333/800 = 1.66625`: above it, the long-side rule binds; below it, the short-side
+  rule does. A tempting 1333-square canvas is not graph-valid for this FPN: its `334 → 167 → 84 → 42`
+  levels cannot make the required exact ×2 top-down join at width 167. 1344 produces
+  `336 → 168 → 84 → 42 → 21`, so all joins are exact and every application tile aspect fits. Its
+  square anchor grid still differs from torchvision's variable `1344×N` grid; the AIA-0688 gate below
+  treats that fixed-canvas difference as a numerical claim, not a structural equivalence claim.
+- **Terminal suppression is a pair, not a tunable pipeline default.** The graph keeps its candidate
+  boxes as `[x0, y0, x1, y1]` corners and converts to Core ML NMS's mandatory
+  `[center-x, center-y, width, height]` only immediately before its first terminal layer. The complete
+  path applies the strict torchvision `score > 0.05` floor to **ROI-head foreground scores** before
+  the `0.5` / top-100 pass. Core ML's NMS threshold is inclusive, so it receives the smallest Float32
+  value above `0.05`; the final score/box mask uses that same threshold. The second pass applies ADAF's
+  class-agnostic IoU `0.2`. M3a measured
+  the difference in every one of 200 trials: **73.89** boxes for the pair versus **153.07** for one
+  `0.2` pass. Core ML reports a real sub-threshold slot when its first pass has zero survivors, so the
+  final graph masks both the score and box with that eligibility predicate before the Vision adapter.
+  The standalone NMS model remains solely because Vision requires that model type for recognized-object
+  observations. Its fixed `IoU = 1` / `score = 1e-12` adapter settings and absent threshold inputs make
+  that ownership explicit: the positive score floor removes only fixed-NMS zero padding, not a third
+  policy pass.
+- **ROI edges use a replicated feature ring, not a zero ring.** `CropResize` zeroes outside a feature
+  map where torchvision `roi_align` clamps. The parity primary materialises every one of its fixed
+  1,000 proposals through each ROI-pooling FPN level (`P2` through `P5`), masks those pools with
+  torchvision's level mapper, and feeds their sum through the checkpoint's box head and foreground
+  predictor. It slices and concatenates one copy of every edge, then adds one **feature-map pixel**
+  (`1 / spatialScale` image pixels) to each `[y0, x0, y1, x1]` ROI coordinate before CropResize. A
+  later host-side chunk loop may reduce that working set only by preserving this sequence exactly. The
+  pinned Core ML/torchvision
+  edge probe puts the **P2 synthetic edge-touching** replicate-ring residual at `7.25e-07` relative;
+  its P2 interior control is `8.26e-07`, and both are below the probe's `1e-04` decision ceiling. The
+  unpadded and zero-ring worst boundary variants remain at `3.35e-01` and `1.67e-01` respectively.
+- **Pre-sizing means ADAF cannot use `VNCoreMLRequest.regionOfInterest` at all.** The request must run
+  full-frame on an already-cropped buffer, so a pass goes from one reused `VNImageRequestHandler`
+  across 15 regions to 15 handlers.
+- **Cost is compute, not allocation — and measured Release, it is not a problem.** Sizing one
+  393×852 region onto a 640×1344 canvas takes **4.8 ms** built with `-O`, so a 15-region pass costs
+  about **0.07 s** against the detect path's roughly 3-second cadence. The scalar Swift loop is
+  therefore sufficient and neither Accelerate nor a separable two-pass is needed. The Debug figure is
+  **506 ms** per region (≈7.6 s per pass), a 105× difference, which is exactly why this file insists
+  on measuring Release: quoting the Debug number would have argued for a rewrite that the evidence
+  does not support. `testResample_reportsItsCostForTheWiringSlice` prints the Debug figure on every
+  run; the Release figure comes from compiling the same call with `swiftc -O`, because
+  `swift test -c release` currently fails on an unrelated DEBUG-only test helper
+  (`queuedJobCountForTesting`).
+
+### Converted-detector parity gate (AIA-0688)
+
+Run `bash scripts/test_adaf_fasterrcnn_parity.sh` after fetching a **dense** `OD_ringfort.tar` with
+`scripts/fetch_adaf_checkpoints.sh --full`. The gate emits and compiles the detector, drives it through
+`VNCoreMLRequest` on the committed Ringfort figure, and compares its source-space detection set with
+torchvision's own transform, backbone, RPN, RoI heads, postprocess, and ADAF's final NMS. The runner
+dumps the exact post-ImageIO, 8-bit fixed canvas sent to Core ML; torchvision receives those same
+bytes after the emitted ImageNet affine. It still calls `GeneralizedRCNNTransform` to establish the
+source/content geometry and records any reconstructed-canvas byte mismatch, so an almost-identical
+resizer cannot silently become the reference input. Its JSON records matched pairs,
+appeared/disappeared detections, maximum box motion, and maximum score delta.
+It also runs a deterministic blank tile through both engines, so the real terminal NMS mask must keep
+the zero-survivor result empty. An out-of-class archaeological figure is not substituted for this
+case because it can have real false positives in the torchvision oracle.
+
+The report is entitled to say `verified` only when no source figure has a mismatch and each checkpoint
+has enough *aggregate* matched detections to exercise the score and box budgets. `--all-checkpoints`
+expands the diagnostic to every detector; the all-archaeology model runs every committed figure
+because a single Ringfort result exercises only one detection. A one-detection AO figure remains
+explicitly `UNDERPOWERED` in the per-figure report, while the checkpoint-level coverage verdict pools
+its required, disjoint figures. A failure, an unmeasured figure, or underpowered checkpoint coverage
+leaves the artifact `structurally-matched` and is evidence to investigate, not a way to certify it.
+
+The ADAF extractor still deliberately rounds checkpoint values to Float16 for its bounded on-disk
+blob, but the detector graph widens those exact binary16 values into Float32 tensors before Core ML
+emission. On `.cpuOnly`, that preserves Float32 accumulation through the RPN and ROI head, where a
+sub-millipoint score reversal could otherwise change a greedy-NMS survivor. This is a CPU-oracle
+choice, not an ANE claim: the Neural Engine may still execute those values in its documented
+half-precision path and must be assessed with the device-level detection-set run above.
+
+The Mac M3a `.all` trunk measurement was **2.66e-02** and had collapsed the score-margin concern to
+**3.8×**. The real iPhone 16 Pro Max (iOS 26.5.2) result is materially better: over 16 deterministic
+runs, `.cpuOnly` versus `.all` measured **1.644224e-03** on scores and **2.341270e-03** on boxes;
+`.cpuAndGPU` was bit-identical to CPU while `.cpuAndNeuralEngine` equalled `.all`, placing the
+remaining difference on the ANE fp16 path and about 16× tighter than the Mac result. **That probe
+ran on random weights, and its `.cpuAndGPU` bit-identity did not generalise to the real converted
+detector** — see the closeout below, where the GPU path is the worst of the three. Treat the probe
+as evidence about elementwise magnitudes only, never about which placements are parity-safe. This local gate
+runs `cpuOnly`, so it proves conversion semantics but not device/ANE parity. Before a device claim,
+rerun the emitted detector and this same detection-set comparison on that iPhone across the committed
+figures; the elementwise device values alone cannot say whether a box moves or a detection appears.
+
+The device detection-set closeout (AIA-0688) ran the emitted detector against the torchvision oracle
+on that iPhone — OD_AO / barrows.jpg, exact 1344×1344 canvas, three `-test-iterations` runs with
+relaunch, tool versions recorded by the gate report and the device OS version printed by the test.
+`.cpuOnly` held every decision-rule budget in all three runs (the macOS runner baseline for the same
+fixture is 0.00033 px max box shift and 3e-06 max score delta). The original shipping-default `.all`
+path kept the detection set identical — nothing appeared or disappeared — stayed inside the 0.01
+score budget, and left the blank tile empty, but moved one box by **3.913543701171875 px**, identically
+in every run, breaching the 1 px box budget that the vectoriser's raster quantisation justifies. The
+3.8× question was therefore answered on device numbers: **the score margin survives the device; the
+box budget does not.**
+
+The device closeout then measured the **GPU** path on the same fixture and phone, and it is the
+least accurate of the three:
+
+| Placement | Max box shift vs torchvision | Max score delta | 1 px budget |
+|-|-|-|-|
+| `.cpuOnly` | 0.00033092498779296875 px | 2.563e-06 | passes |
+| `.cpuAndNeuralEngine` / `.all` | 3.913543701171875 px | within 0.01 | fails |
+| `.cpuAndGPU` | 9.662333488464355 px | 0.006595253944396973 | fails |
+
+Deterministic across six physical executions in two independently launched samples, with `.cpuOnly`
+reproducing its earlier figures exactly as an internal control.
+
+The converter does **not** emit `com.aiarcheology.native.runtime.compute-units`, including for the
+ADAF detector. Compute-unit placement is a loading choice, not converted-model metadata.
+
+### Separate parity and product-runtime contracts (AIA-0695)
+
+| Contract | Placement | Purpose and budget |
+|-|-|-|
+| Converter parity | Explicit `.cpuOnly` | `ADAFDetectorDeviceParityTests` selects CPU-only explicitly and compares the production loader with torchvision under the strict 1 px box budget. That test-only placement is never written into the converted model. |
+| Product runtime | Per-model user setting | `DeepConfiguration.computeUnitString` defaults to `nil`, which resolves to Core ML `.all`. The picker may request Neural Engine, Graphics Processor, or Processor Only; `DeepDriver.loadModel` makes one load using that resolved setting. Non-default accelerator runs have a separate product budget (10 px boxes, 0.01 scores), because they are expected to be close rather than parity-identical. |
+
+Unavailable accelerators remain visible but disabled in the picker. A selection saved on a more
+capable device is retained, while the loader safely resolves it to Automatic on hardware where that
+accelerator is unavailable.
+
+There is no feature flag: Automatic (`.all`) is the default for every model, including converted
+ADAF models, so the default product behavior is unchanged. The feature is inert until a user makes
+a non-default selection for an individual model.
+
+CPU is the **strict parity reference placement, not an anti-ANE product requirement**, and the
+distinction matters. The GPU executes
+this graph in Float32 (`allowLowPrecisionAccumulationOnGPU` defaults to false), so its divergence
+from the CPU is reassociation alone: different reduction and tiling order inside conv/matmul, and
+different `exp`/`log` implementations, on the order of 1e-06. There is no arithmetic path from
+1e-06 to 9.66 px. Any backend whose rounding differs from the CPU's can flip a near-tie, and both
+measured accelerators do.
+
+This supersedes the earlier artifact policies (`.cpuAndGPU`, then `.cpuOnly`), which rested on
+#676's probe-model bit-identity and the subsequent detector closeout.
+
+The *mechanism* of the 3.9135 px shift is a discrete selection flip, not smooth arithmetic
+amplification. An earlier note here claimed the decoder's `exp(dw/dh)` expansion amplified the
+elementwise delta into the observed shift; that does not survive arithmetic. `decodeBoxes` divides
+the ROI deltas by the BoxCoder weights `[10, 10, 5, 5]`, so the measured `2.341270e-03` becomes
+`dw' <= 4.7e-04` and `exp(4.7e-04) ~= 1.00047` — a 0.047% size change, worth roughly **0.1 px** on a
+box of this scale, not 3.9 px. Smooth amplification cannot reach the observed number without a box
+thousands of pixels wide.
+
+What fits every measured fact instead is a **near-tie flip in a greedy operation downstream of the
+ROI head** — most plausibly the terminal NMS (`terminalSuppressions`), which selects a different
+overlapping proposal from the same cluster. Two candidate triggers: a score-order swap between
+candidates whose CPU gap is below the measured `1.644224e-03` score noise, or an IoU comparison
+landing on the other side of the 0.5 threshold. Both explain the exact signature observed: an
+unchanged detection count, a score delta inside the 0.01 budget, one box displaced by the offset
+between two real candidates, and bit-stable repetition across runs (fp16 rounding is deterministic).
+An RPN-stage flip is *probably* excluded, because a changed top-1000 proposal set would make the
+row-aligned ROI-head deltas O(1) rather than 2e-03 — this rests on #676's probe having compared
+index-aligned tensors and has not been separately proven.
+
+This distinction is recorded because it changes what a fix must do: no rewrite of the decoder helps,
+and the effective remedy is to keep the *decision* operations (topK, decode, terminal NMS) in
+Float32 on CPU/GPU while any reduced-precision path is confined to the convolutional trunk. Naming
+the first flipping operation requires comparing the graph's `.indices` tensors across compute units
+on device; that probe is follow-up work, not part of this slice's evidence.
+
+`ADAFDetectorDeviceParityTests` keeps the strict CPU-only torchvision contract separate from
+`ADAFDetectorDeviceRuntimePlacementTests`, which exercises the available non-default accelerators
+under the wider product budget. The original `.all` measurement remains recorded as evidence for
+why exact parity is not a suitable accelerator promise.
 
 ## Sources
 

@@ -10,6 +10,12 @@ on:
       # Without this entry a translation-only PR skips Harmonize entirely and the guard never
       # fires on exactly the changes it exists to police (AIA-0572).
       - "ios/**/*.xcstrings"
+      # Same reasoning for the entitlements, guarded by
+      # testEntitlementsKeepWebCredentialsForBothClerkInstances (AIA-0760). Deleting a Clerk host
+      # from the associated domains is a one-line change to a single non-Swift file, so without
+      # this entry that PR skips Harmonize and the guard never fires on the only change it exists
+      # to catch -- passkey sign-in silently breaking on one instance.
+      - "ios/**/*.entitlements"
       - "ios/**/*.c"
       - "ios/**/*.cc"
       - "ios/**/*.cpp"

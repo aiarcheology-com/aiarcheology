@@ -1,0 +1,36 @@
+{
+  "real_proposals": {
+    "count": 997,
+    "mismatches": 0,
+    "agrees": true,
+    "first_mismatch_area": null
+  },
+  "adversarial": {
+    "count": 40,
+    "mismatches": 0,
+    "agrees": true,
+    "first_mismatch_area": null,
+    "includes_degenerate": [
+      0.0,
+      1e-12,
+      1.0,
+      4.0,
+      1000000000000.0
+    ],
+    "note": "zero area comes from the boxes NMS pads with, so log2(sqrt(0)) = -inf is a real input on every tile, not a hypothetical"
+  },
+  "fp16_margin": {
+    "samples": 200000,
+    "min_distance_to_boundary": 2.384185791015625e-06,
+    "median_distance_to_boundary": 0.24505376815795898,
+    "within_1e_3_of_boundary": 430,
+    "fp16_coordinates_only_flip_rate": 0.00022,
+    "fp16_throughout_flip_rate": 0.223295,
+    "fp16_with_float32_area_flip_rate": 0.00122,
+    "fp16_area_overflow_rate": 0.22191,
+    "fp16_max_representable": 65504.0,
+    "square_box_side_that_overflows_fp16_area": 255.875,
+    "source": "box widths and heights resampled from this image's real RPN proposals",
+    "note": "the fp16-throughout rate is dominated by OVERFLOW, not rounding: w*h exceeds float16's 65504 for any box wider than about 256 px, which real proposals routinely are. Computing the area in float32 and leaving only the logarithm in fp16 collapses the rate, so this is a design instruction for M3b rather than a precision limit."
+  }
+}

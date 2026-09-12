@@ -29,6 +29,18 @@ protocol CrashReportingService: Sendable {
 	///   - message: Error description
 	///   - error: Optional underlying error
 	func captureError(message: String, error: Error?)
+
+	/// Capture an error event with structured context alongside the message.
+	///
+	/// `context` exists because the message cannot carry an address. `LogRedactor` strips URLs from
+	/// message text at three separate points on the way out — `LoggingPolicy`, the service, and
+	/// Sentry's `beforeSend` — and every one of those is correct for message text, which is written
+	/// by hand all over the app. Context is a deliberate, named channel instead: what goes in is
+	/// decided at the call site rather than being whatever happened to be interpolated into a string.
+	///
+	/// It also keeps the message stable, so events still group by *what happened* rather than
+	/// fragmenting into one issue per address.
+	func captureError(message: String, error: Error?, context: [String: String])
 	
 	/// Capture and send a fault/critical event (typically counts toward quota)
 	/// - Parameter message: Fault description
@@ -39,6 +51,15 @@ protocol CrashReportingService: Sendable {
 	///   - key: Attribute key
 	///   - value: Attribute value (must be privacy-safe)
 	func setCustomValue(_ value: String, forKey key: String)
+}
+
+extension CrashReportingService {
+
+	/// Default: a service that has no notion of structured context still reports the error.
+	/// Present so adding this to the protocol cannot break a conformer that does not need it.
+	func captureError(message: String, error: Error?, context: [String: String]) {
+		captureError(message: message, error: error)
+	}
 }
 
 // MARK: - Observability
@@ -129,9 +150,13 @@ enum Observability {
 	/// - Parameters:
 	///   - message: Error description
 	///   - error: Optional underlying error
-	static func captureError(_ message: String, error: Error? = nil) {
+	static func captureError(_ message: String, error: Error? = nil, context: [String: String] = [:]) {
 		guard let service = _service else { return }
-		service.captureError(message: message, error: error)
+		if context.isEmpty {
+			service.captureError(message: message, error: error)
+		} else {
+			service.captureError(message: message, error: error, context: context)
+		}
 	}
 	
 	/// Capture and send a fault/critical event to the crash reporting service.

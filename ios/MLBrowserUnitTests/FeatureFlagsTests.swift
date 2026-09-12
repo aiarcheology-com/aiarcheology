@@ -18,8 +18,26 @@ final class FeatureFlagsTests: XCTestCase {
 	/// Rollout is the ConfigCat value's job, not the compiled default's. Only a flag that *must*
 	/// fail closed — one whose failure mode is worse than a mild annoyance — earns a `false` here.
 	func test_defaults_matchShippedBehaviour() {
-		for key in FeatureFlagKey.allCases {
+		for key in FeatureFlagKey.allCases where Self.failClosedKeys.contains(key).not {
 			XCTAssertTrue(key.defaultValue, "\(key.rawValue): defaults fail open unless it must fail closed")
+		}
+	}
+
+	/// The flags that earn a `false` compiled default, named one at a time.
+	///
+	/// Deliberately an allowlist rather than a relaxed assertion above: a *new* flag that defaults
+	/// to `false` by accident still fails `test_defaults_matchShippedBehaviour`, because the only
+	/// way out is to be listed here on purpose. The pairing below then asserts the exception
+	/// positively, so a listed flag that quietly flips back to `true` fails too.
+	private static let failClosedKeys: Set<FeatureFlagKey> = [.isFindingShareLinkEnabled]
+
+	/// A share link is worthless until `link.aiarcheology.com` serves an association file, which is
+	/// infrastructure outside this repository. Failing open would let a ConfigCat outage — or a
+	/// first launch, before any sync — hand a user a link that opens Safari on a host that is not
+	/// answering, and a dead link already posted to social media cannot be recalled.
+	func test_failClosedFlags_defaultOff() {
+		for key in Self.failClosedKeys {
+			XCTAssertFalse(key.defaultValue, "\(key.rawValue) must fail closed")
 		}
 	}
 
@@ -40,6 +58,7 @@ final class FeatureFlagsTests: XCTestCase {
 			"isCrossDeviceAnalyticsIdentityEnabled"
 		)
 		XCTAssertEqual(FeatureFlagKey.isFreeAccessPeriodEnabled.rawValue, "isFreeAccessPeriodEnabled")
+		XCTAssertEqual(FeatureFlagKey.isFindingShareLinkEnabled.rawValue, "isFindingShareLinkEnabled")
 		XCTAssertEqual(
 			FeatureFlagKey.isDetailedApplicationLogEnabled.rawValue,
 			"isDetailedApplicationLogEnabled"

@@ -1,0 +1,10 @@
+# Cloudflare Pages redirects.
+#
+# /f is the canonical form and the one FindingShareLink emits. This rule exists only for a
+# hand-typed or rewritten trailing slash arriving in a browser; it is NOT what makes universal
+# links work, because iOS matches the association against the URL as tapped, before any
+# redirect. The association file lists both forms for the same reason.
+/f/  /f  301
+
+# Anything else on this host is a mistyped share link, not a website.
+/  /f  302

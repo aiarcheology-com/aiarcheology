@@ -9,6 +9,7 @@ import UIKit
 import SwiftUI
 import Vision
 import OSLog
+import CoreML
 
 public enum DeepDriverType: String, Sendable {
 	case detector = "detect"
@@ -26,8 +27,76 @@ public enum DeepDriverType: String, Sendable {
 	}
 }
 
+/// A per-model request for Core ML placement. It deliberately describes the product choice rather
+/// than a converted artifact's numerical-parity metadata: all models default to Core ML's `.all`.
+enum ModelComputeUnit: String, CaseIterable, Identifiable, Sendable {
+	case automatic
+	case neuralEngine
+	case graphicsProcessor
+	case processorOnly
+
+	enum Accelerator: Hashable, Sendable {
+		case graphicsProcessor
+		case neuralEngine
+	}
+
+	var id: String { rawValue }
+
+	var requestedComputeUnits: MLComputeUnits {
+		switch self {
+		case .automatic: .all
+		case .neuralEngine: .cpuAndNeuralEngine
+		case .graphicsProcessor: .cpuAndGPU
+		case .processorOnly: .cpuOnly
+		}
+	}
+
+	var requiredAccelerator: Accelerator? {
+		switch self {
+		case .automatic, .processorOnly: nil
+		case .neuralEngine: .neuralEngine
+		case .graphicsProcessor: .graphicsProcessor
+		}
+	}
+
+	static var availableAccelerators: Set<Accelerator> {
+		Set(MLModel.availableComputeDevices.compactMap { device in
+			switch device {
+			case .gpu: .graphicsProcessor
+			case .neuralEngine: .neuralEngine
+			case .cpu: nil
+			@unknown default: nil
+			}
+		})
+	}
+
+	func isAvailable(in availableAccelerators: Set<Accelerator> = Self.availableAccelerators) -> Bool {
+		guard let requiredAccelerator else { return true }
+		return availableAccelerators.contains(requiredAccelerator)
+	}
+
+	/// A request for unavailable hardware falls back only for this load. The stored choice remains
+	/// intact so a configuration moved back to a capable device regains the user's intent.
+	func resolvedComputeUnits(in availableAccelerators: Set<Accelerator> = Self.availableAccelerators) -> MLComputeUnits {
+		isAvailable(in: availableAccelerators) ? requestedComputeUnits : .all
+	}
+}
+
+private extension MLComputeUnits {
+	var traceLabel: String {
+		switch self {
+		case .all: "all"
+		case .cpuOnly: "cpuOnly"
+		case .cpuAndGPU: "cpuAndGPU"
+		case .cpuAndNeuralEngine: "cpuAndNeuralEngine"
+		@unknown default: "unknown"
+		}
+	}
+}
+
 struct DeepDriverParams: Sendable {
 	var annotationColor: Color = .yellow
+	var computeUnit: ModelComputeUnit = .automatic
 	var entityId: UUID
 	/// The model's display name, for per-model attribution in the classification label bubble
 	/// (AIA-0472). Deliberately NO default: every construction site must decide what to call the
@@ -36,7 +105,8 @@ struct DeepDriverParams: Sendable {
 	var file: URL?
 	var phaseOutTime: Double = 1.0
 	var selectedSymbol: AnnotationSymbol = .circle
-	var demo: Bool = false
+	/// Per-model app-provided annotation sound (AIA-0716).
+	var annotationSound: AnnotationSoundConfiguration = .init()
 	/// Per-model finding-flash style (AIA-0374; classify models).
 	var flashEnabled: Bool = true
 	var flashSize: Double = 8.0
@@ -66,21 +136,41 @@ protocol DeepDriver: Driver, Sendable {
 
 extension DeepDriver {
 	@discardableResult
-	static func loadModel(from path: URL, demo: Bool = false) async throws -> MLModel? {
-		let modelConfiguration = MLModelConfiguration()
-		// the file is already handled by copying resources in Xcode: -> mlmodelc (compiled)
-		let compiledModelURL = demo ? path : try await MLModel.compileModel(at: path)
+	/// Loads a Core ML model for a driver. A source `.mlmodel` / `.mlpackage` is compiled first (a
+	/// compile failure propagates); an already-compiled `.mlmodelc` — a bundled demo or an imported
+	/// compiled bundle — is loaded as-is, since Core ML will not compile it twice (AIA-0844). A load
+	/// failure is logged, recorded, and answered with `nil`.
+	static func loadModel(
+		from path: URL,
+		computeUnit: ModelComputeUnit = .automatic
+	) async throws -> MLModel? {
+		let compiledModelURL = path.isCompiledCoreMLModel ? path : try await MLModel.compileModel(at: path)
 
 		do {
 			LoggingPolicy.debug("Loading MLModel from \(compiledModelURL.lastPathComponent)", logger: .drivers)
-			return try await MLModel.load(contentsOf: compiledModelURL, configuration: modelConfiguration)
+			let availableAccelerators = ModelComputeUnit.availableAccelerators
+			let requestedComputeUnits = computeUnit.requestedComputeUnits
+			let requestedHardwareIsAvailable = computeUnit.isAvailable(in: availableAccelerators)
+			let resolvedComputeUnits = computeUnit.resolvedComputeUnits(in: availableAccelerators)
+			let configured = MLModelConfiguration()
+			configured.computeUnits = resolvedComputeUnits
+			LoggingPolicy.debug(
+				"[AIA-0695 TRACE] Core ML placement: requested=\(computeUnit.rawValue) (\(requestedComputeUnits.traceLabel)), resolved=\(resolvedComputeUnits.traceLabel), requestedHardwareAvailable=\(requestedHardwareIsAvailable)",
+				logger: .drivers
+			)
+			if requestedHardwareIsAvailable.not {
+				LoggingPolicy.info(
+					"Requested model hardware is unavailable; loading with Automatic placement instead.",
+					logger: .drivers
+				)
+			}
+			return try await MLModel.load(contentsOf: compiledModelURL, configuration: configured)
 		} catch {
 			LoggingPolicy.error("Error loading MLModel", error: error, logger: .drivers)
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "loadMLModel", "path": compiledModelURL.lastPathComponent])
 			return nil
 		}
 	}
-
 }
 
 // Drivers factory
@@ -88,6 +178,9 @@ extension DeepDriver {
 class DeepDrivers: ObservableObject {
 	@Published var detectors: [DeepDriver] = []
 	@Published var classificators: [DeepDriver] = []
+	/// Bumped when a display-only detection preference changes. Observing views re-filter their
+	/// retained frames; no driver is reloaded and no inference is restarted.
+	@Published private(set) var detectionPresentationRevision = 0
 
 	/// Runs the detect/classify orchestration loops off the main actor (AIA-0387).
 	private let engine = DetectionEngine()
@@ -115,11 +208,15 @@ class DeepDrivers: ObservableObject {
 		if drivers.count >= 2 {
 			LoggingPolicy.warning("Multiple drivers found with same configuration.entityId: \(entityId.uuidString)", logger: .drivers)
 		}
-		// toDriverParams() preserves ALL fields (including `demo`, which the previous
-		// manual construction silently reset). Awaiting keeps rapid successive updates
+		// toDriverParams() preserves ALL fields (the previous manual construction silently
+		// reset some). Awaiting keeps rapid successive updates
 		// ordered — the old fire-and-forget Task could apply an older config last.
 		let params = configuration.toDriverParams()
 		await drivers.first?.updateConfiguration(params)
+	}
+
+	func detectionPresentationDidChange() {
+		detectionPresentationRevision &+= 1
 	}
 
     func unregister(driverId: UUID) async {
@@ -181,10 +278,26 @@ class DeepDrivers: ObservableObject {
 	// For that functionality, the driver should be already registered and loaded. That is
 	// controlled by the driver's related DeepConfiguation instance in CoreData.
 	func detect(on image: UIImage, tiling: TilingScheme) async -> [DetectionResult] {
+		await detect(on: image, tiling: tiling, onPartialResults: { _ in })
+	}
+
+	/// Runs detection and forwards each production detector's deduplicated per-tile aggregate.
+	/// The final return remains the complete pass so non-progressive drivers and one-shot callers
+	/// retain their existing semantics.
+	func detect(
+		on image: UIImage,
+		tiling: TilingScheme,
+		onPartialResults: @escaping @MainActor @Sendable ([DetectionResult]) -> Void
+	) async -> [DetectionResult] {
 		// Snapshot the driver list on the main actor, then run the serial loop off it in
 		// the engine actor (AIA-0387).
 		let snapshot = detectors
-		return await engine.detect(on: image, in: snapshot, tiling: tiling)
+		return await engine.detect(
+			on: image,
+			in: snapshot,
+			tiling: tiling,
+			onPartialResults: onPartialResults
+		)
 	}
 
 	// Classification counterpart of detect(): each registered classificator runs one
@@ -205,16 +318,37 @@ class DeepDrivers: ObservableObject {
 actor DetectionEngine {
 	// The image is detected over the regions of the enabled tiling scheme(s) (AIA-0217, AIA-0426):
 	// pyramid = 6, 3x3 = 10, both = their 15-region union; empty = full frame only.
-	func detect(on image: UIImage, in detectors: [DeepDriver], tiling: TilingScheme) async -> [DetectionResult] {
+	func detect(
+		on image: UIImage,
+		in detectors: [DeepDriver],
+		tiling: TilingScheme,
+		onPartialResults: @escaping @MainActor @Sendable ([DetectionResult]) -> Void = { _ in }
+	) async -> [DetectionResult] {
 		let regions = TileLayout.regions(for: tiling)
 		// The loop is serial — a plain array suffices.
 		var results: [DetectionResult] = []
 		for detector in detectors {
 			if Task.isCancelled { break }
 			guard let detector = detector as? Detecting else { continue }
-			let observations = await detector.detect(image: image, regions: regions)
-			guard observations.isEmpty.not else { continue }
 			let params = await detector.params
+			let completedResults = results
+			let observations: [DetectedObject]
+			if let incrementalDetector = detector as? IncrementalDetecting {
+				observations = await incrementalDetector.detect(
+					image: image,
+					regions: regions,
+					onPartialResult: { partialObservations in
+						var partialResults = completedResults
+						if partialObservations.isEmpty.not {
+							partialResults.append((observations: partialObservations, params: params))
+						}
+						onPartialResults(partialResults)
+					}
+				)
+			} else {
+				observations = await detector.detect(image: image, regions: regions)
+			}
+			guard observations.isEmpty.not else { continue }
 			results.append((observations: observations, params: params))
 		}
 		return results

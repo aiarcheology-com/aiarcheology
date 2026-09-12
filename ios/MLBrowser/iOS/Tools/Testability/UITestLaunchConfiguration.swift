@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 12
+	static let currentVersion = 14
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -109,6 +109,22 @@ struct UITestLaunchConfiguration: Codable {
 	/// repairs the mirror on the way past.
 	var freeAccessAnchorAgeDays: Int?
 
+	/// A shared-finding link to deliver at launch, as if `onOpenURL` had handed it over (AIA-0835).
+	///
+	/// The deeplink is the whole feature and a UI test cannot otherwise reach it: there is no way to
+	/// hand the app a URL from XCUITest without driving Safari, which is slow and flaky. Applied
+	/// only under `isRunningUITests`, like everything else in this type.
+	var sharedLinkURL: String?
+
+	/// How many times ``sharedLinkURL`` is delivered on this launch. `nil` means once (AIA-0836).
+	///
+	/// Exists because the duplicate-import guarantee cannot be tested across two launches: every
+	/// UI-test launch is a fresh install — `Settings.init()` wipes the ephemeral suite and
+	/// `DataController` destroys the UI-test store — so relaunching with the same link stores it into
+	/// an empty database and proves nothing. Delivering twice inside one session is also the honest
+	/// shape of the real case: a user re-scanning a printed card while the app is open.
+	var sharedLinkDeliveries: Int?
+
 	/// Decoded from the launch environment, or `nil` if absent. Traps on malformed input
 	/// or version mismatch — a UI test must never proceed on a misread configuration.
 	static var fromEnvironment: UITestLaunchConfiguration? {
@@ -129,12 +145,23 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Applies a full deterministic baseline, then scenario deltas, to the live `Settings`.
 	/// No-op outside UI tests. `@MainActor` because `Settings` is main-actor isolated.
+	///
+	/// The three steps below were one function until it crossed the cyclomatic-complexity limit. They
+	/// are split along the seams the original already marked in comments, and they run in the same
+	/// order they always did — baseline first, because both delta steps overwrite parts of it.
 	@MainActor
 	static func applyIfNeeded(to settings: Settings) {
 		guard AppEnvironment.isRunningUITests else { return }
 		let config = fromEnvironment ?? UITestLaunchConfiguration()
+		applyBaseline(to: settings)
+		applyPageScenario(config, to: settings)
+		applyDetectionAndAnalyticsDeltas(config, to: settings)
+	}
 
-		// 1) Full baseline — every setting the tests depend on, re-applied every launch.
+	/// Every setting the tests depend on, re-applied every launch, so no scenario can inherit state
+	/// from the one before it.
+	@MainActor
+	private static func applyBaseline(to settings: Settings) {
 		settings.snapAfterAppStart = false
 		settings.snapFrequency = 3.0
 		settings.isDetectionPaused = false
@@ -155,8 +182,12 @@ struct UITestLaunchConfiguration: Codable {
 		// launch, and a seeded window bleeding into the next scenario would silently turn a
 		// first-install test into a day-N one (AIA-0556).
 		settings.persistenceStore.removeObject(forKey: FreeAccessAnchorService.defaultsKey)
+	}
 
-		// 2) Scenario deltas.
+	/// Which page the app opens on. Every branch that cannot be satisfied traps rather than falling
+	/// back, so a misconfigured scenario fails loudly instead of asserting the wrong behaviour.
+	@MainActor
+	private static func applyPageScenario(_ config: UITestLaunchConfiguration, to settings: Settings) {
 		switch config.pageScenario {
 		case .blank:
 			settings.defaultPage = nil
@@ -183,7 +214,12 @@ struct UITestLaunchConfiguration: Codable {
 			}
 			settings.launchFixtureURL = url
 		}
+	}
 
+	/// The remaining deltas: detection toggles, snapshot cadence, the analytics scenario, and the
+	/// seeded free-access window.
+	@MainActor
+	private static func applyDetectionAndAnalyticsDeltas(_ config: UITestLaunchConfiguration, to settings: Settings) {
 		if let fullscreen = config.fullscreenDetection {
 			settings.fullscreenDetection = fullscreen
 		}

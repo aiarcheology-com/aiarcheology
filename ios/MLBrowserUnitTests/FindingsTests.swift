@@ -323,6 +323,115 @@ final class FindingCropMathTests: XCTestCase {
         XCTAssertEqual(crop.minY, 0.375, accuracy: 0.001)
     }
 
+    // MARK: - Opening framing (AIA-0757)
+
+    private static let zoomRange: ClosedRange<CGFloat> = 1...8
+    private static let contextScale: CGFloat = 3
+
+    /// The point of the change: a small detection on a big page opens zoomed in on it, not on the
+    /// whole page, and the window that results actually contains the box.
+    func testInitialFraming_SmallBox_ZoomsInAndContainsIt() {
+        // Vision coords, bottom-left origin: a 10% box just left of and above centre.
+        let visionBox = CGRect(x: 0.4, y: 0.5, width: 0.1, height: 0.1)
+        let framing = FindingCapture.initialFraming(
+            box: visionBox, cover: fitted, fitted: fitted,
+            contextScale: Self.contextScale, zoomRange: Self.zoomRange
+        )
+        XCTAssertGreaterThan(framing.scale, 1, "a 10% detection should not open at full-page zoom")
+
+        let crop = FindingCapture.cropRect(
+            scale: framing.scale, offset: framing.offset, fitted: fitted, cover: fitted
+        )
+        // The box in top-left coords, which is the space `cropRect` works in.
+        let topLeftBox = CGRect(x: visionBox.minX, y: 1 - visionBox.maxY, width: visionBox.width, height: visionBox.height)
+        XCTAssertTrue(crop.contains(topLeftBox), "framed window \(crop) does not contain the detection \(topLeftBox)")
+    }
+
+    /// "Generous context", not a tight crop: the window keeps roughly `contextScale` boxes of
+    /// surroundings, which is what lets a share card still show where the finding is.
+    func testInitialFraming_KeepsContextAroundTheBox() {
+        let visionBox = CGRect(x: 0.45, y: 0.45, width: 0.1, height: 0.1)
+        let framing = FindingCapture.initialFraming(
+            box: visionBox, cover: fitted, fitted: fitted,
+            contextScale: Self.contextScale, zoomRange: Self.zoomRange
+        )
+        let crop = FindingCapture.cropRect(
+            scale: framing.scale, offset: framing.offset, fitted: fitted, cover: fitted
+        )
+        XCTAssertEqual(crop.width, visionBox.width * Self.contextScale, accuracy: 0.02)
+        XCTAssertEqual(crop.height, visionBox.height * Self.contextScale, accuracy: 0.02)
+    }
+
+    /// A detection filling the page has nothing to zoom into; opening at full view is correct, and
+    /// the clamp must not invent an offset that would reveal an edge.
+    func testInitialFraming_BoxLargerThanTheWindow_StaysAtFullView() {
+        let framing = FindingCapture.initialFraming(
+            box: CGRect(x: 0, y: 0, width: 1, height: 1), cover: fitted, fitted: fitted,
+            contextScale: Self.contextScale, zoomRange: Self.zoomRange
+        )
+        XCTAssertEqual(framing.scale, 1, accuracy: 0.001)
+        XCTAssertEqual(framing.offset.width, 0, accuracy: 0.001)
+        XCTAssertEqual(framing.offset.height, 0, accuracy: 0.001)
+    }
+
+    /// A box in the corner must not pan past the image edge — the crop stays inside the unit rect.
+    func testInitialFraming_CornerBox_ClampsInsideTheImage() {
+        let framing = FindingCapture.initialFraming(
+            box: CGRect(x: 0, y: 0, width: 0.08, height: 0.08), cover: fitted, fitted: fitted,
+            contextScale: Self.contextScale, zoomRange: Self.zoomRange
+        )
+        let crop = FindingCapture.cropRect(
+            scale: framing.scale, offset: framing.offset, fitted: fitted, cover: fitted
+        )
+        XCTAssertGreaterThanOrEqual(crop.minX, -0.001)
+        XCTAssertGreaterThanOrEqual(crop.minY, -0.001)
+        XCTAssertLessThanOrEqual(crop.maxX, 1.001)
+        XCTAssertLessThanOrEqual(crop.maxY, 1.001)
+    }
+
+    /// The normal case, and the one every other framing test misses: a page snapshot is taller than
+    /// the viewport, so the covered image overflows one axis and `cover != fitted`.
+    func testInitialFraming_AspectMismatch_StillContainsTheBox() {
+        // Viewport 400x200; a page snapshot covered to 400x800 overflows the height fourfold.
+        let cover = CGSize(width: 400, height: 800)
+        let visionBox = CGRect(x: 0.4, y: 0.45, width: 0.08, height: 0.05)
+        let framing = FindingCapture.initialFraming(
+            box: visionBox, cover: cover, fitted: fitted,
+            contextScale: Self.contextScale, zoomRange: Self.zoomRange
+        )
+        let crop = FindingCapture.cropRect(
+            scale: framing.scale, offset: framing.offset, fitted: fitted, cover: cover
+        )
+        let topLeftBox = CGRect(
+            x: visionBox.minX, y: 1 - visionBox.maxY,
+            width: visionBox.width, height: visionBox.height
+        )
+        XCTAssertTrue(crop.contains(topLeftBox), "framed window \(crop) missed the detection \(topLeftBox)")
+        XCTAssertGreaterThanOrEqual(crop.minX, -0.001)
+        XCTAssertGreaterThanOrEqual(crop.minY, -0.001)
+        XCTAssertLessThanOrEqual(crop.maxX, 1.001)
+        XCTAssertLessThanOrEqual(crop.maxY, 1.001)
+    }
+
+    /// Degenerate inputs must fall back to the whole image rather than produce an invalid crop —
+    /// an empty stored box fails persistence validation, and a fabricated one would lie.
+    func testInitialFraming_DegenerateInputs_FallBackToWholeImage() {
+        let cases: [(String, CGRect, CGSize, CGSize)] = [
+            ("zero-size box", CGRect(x: 0.5, y: 0.5, width: 0, height: 0), fitted, fitted),
+            ("zero viewport", CGRect(x: 0.4, y: 0.4, width: 0.1, height: 0.1), fitted, .zero),
+            ("zero cover", CGRect(x: 0.4, y: 0.4, width: 0.1, height: 0.1), .zero, fitted)
+        ]
+        for (name, box, cover, viewport) in cases {
+            let framing = FindingCapture.initialFraming(
+                box: box, cover: cover, fitted: viewport,
+                contextScale: Self.contextScale, zoomRange: Self.zoomRange
+            )
+            XCTAssertEqual(framing.scale, 1, accuracy: 0.001, "\(name) should not zoom")
+            XCTAssertEqual(framing.offset.width, 0, accuracy: 0.001, "\(name) should not pan")
+            XCTAssertEqual(framing.offset.height, 0, accuracy: 0.001, "\(name) should not pan")
+        }
+    }
+
     func testRemappedBox_InsideCrop_RenormalizesWithYFlip() {
         // Crop = top-left quadrant (top-left coords). A Vision box in the image's
         // upper-left area: vision y 0.5...0.75 → top-left y 0.25...0.5.
@@ -425,6 +534,39 @@ final class FindingPickHitTestTests: XCTestCase {
     func testTapOutsideAllBoxes_ReturnsNil() {
         let box = CGRect(x: 0.2, y: 0.2, width: 0.2, height: 0.2)
         XCTAssertNil(FindingCapture.detection(at: CGPoint(x: 950, y: 50), in: size, results: results([box])))
+    }
+
+    func testCentreAlignment_RequiresTheExactDetectionRectangle() {
+        // A 10×10pt target can be selected via the normal 44pt finger expansion, but cannot turn
+        // the crosshair green until its real rectangle reaches the screen centre.
+        let nearCentre = CGRect(x: 0.49, y: 0.49, width: 0.005, height: 0.005)
+        XCTAssertNil(FindingCapture.detectionAlignedWithCentre(in: results([nearCentre])))
+
+        let centred = CGRect(x: 0.49, y: 0.49, width: 0.02, height: 0.02)
+        XCTAssertEqual(
+            FindingCapture.detectionAlignedWithCentre(in: results([centred]))?.observation.boundingBox,
+            centred
+        )
+    }
+
+    func testCentreManualBox_SurroundsTheCrosshairInVisionSpace() {
+        // The red crosshair stores the centre as a manual observation. Its box has to contain the
+        // centre in Vision's inverted space too, or the saved finding would highlight a different
+        // part of the image than the one the crosshair was over.
+        let size = CGSize(width: 402, height: 874)
+        let box = FindingCapture.manualBox(at: CGPoint(x: size.width / 2, y: size.height / 2), in: size)
+        XCTAssertTrue(box.contains(CGPoint(x: 0.5, y: 0.5)), "Centre manual box misses the crosshair")
+        XCTAssertEqual(box.midX, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(box.midY, 0.5, accuracy: 0.0001)
+    }
+
+    func testCentreAlignment_NestedRectanglesChooseTheSmallest() {
+        let outer = CGRect(x: 0.1, y: 0.1, width: 0.8, height: 0.8)
+        let inner = CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2)
+        XCTAssertEqual(
+            FindingCapture.detectionAlignedWithCentre(in: results([outer, inner]))?.observation.boundingBox,
+            inner
+        )
     }
 }
 
@@ -535,11 +677,17 @@ final class FindingCaptureDetectionTests: XCTestCase {
 
 // MARK: - Migration gate (plan §1)
 
-/// Opens a store created with the RELEASED model (0.0.0) using the current model
-/// under production-equivalent options: automatic migration ON, mapping-model
-/// inference OFF (DataController disables inference for App Store and Debug
-/// builds, so the bundled explicit mapping carries the release path). Every row
-/// must survive and `FillEntityIdIfNilPolicy` must fill missing entityIds.
+/// Opens a store created with an OLDER model version using the current model
+/// (0.0.2) under production-equivalent options: automatic migration ON,
+/// mapping-model inference OFF (DataController disables inference for App Store
+/// and Debug builds, so the bundled explicit mapping carries the release path).
+/// Every row must survive and `FillEntityIdIfNilPolicy` must fill missing entityIds.
+///
+/// Core Data migration is SINGLE-HOP: it looks for one mapping model straight
+/// from the store's own source model to the current one, never chaining through
+/// the intermediate versions. So every model version still in the field needs its
+/// own mapping to 0.0.2, and both now exist — `0.0.0→0.0.2` (an install that never
+/// upgraded) and `0.0.1→0.0.2` (one that did). One test per live source model.
 ///
 /// Deliberately NOT DataController(storeURL:): that initializer forces inference
 /// ON, and the app's recovery path destroys failing stores — both would turn a
@@ -630,8 +778,10 @@ final class FindingMigrationTests: XCTestCase {
             loadError,
             """
             Migration from the released 0.0.0 store failed: \(String(describing: loadError)). \
-            If the 0.0.1 model changed, the 0.0.0→0.0.1 mapping model must be \
-            recreated in Xcode (its xcmapping embeds both models).
+            Migration is single-hop, so the operative mapping here is 0.0.0→0.0.2 — \
+            not 0.0.0→0.0.1. If either the 0.0.0 or the current 0.0.2 model changed, \
+            the 0.0.0→0.0.2 mapping model must be recreated in Xcode (its xcmapping \
+            embeds the version hashes of both models).
             """
         )
         guard loadError == nil else { return }
@@ -676,8 +826,761 @@ final class FindingMigrationTests: XCTestCase {
             Set((0..<3).map { "Legacy model \($0)" })
         )
         XCTAssertTrue(configurations.allSatisfy { $0.value(forKey: "license") == nil })
+		XCTAssertTrue(
+			configurations.allSatisfy { ($0.value(forKey: "annotationSoundEnabled") as? Bool) == false },
+			"Migrated models must remain silent until the user explicitly enables sound."
+		)
+		XCTAssertTrue(
+			configurations.allSatisfy { ($0.value(forKey: "annotationSoundIdentifier") as? String) == AnnotationSound.chime.rawValue },
+			"Chime is the persisted migration default."
+		)
+		XCTAssertTrue(
+			configurations.allSatisfy { abs((($0.value(forKey: "annotationSoundVolume") as? Double) ?? -1) - 0.2) < 0.0001 },
+			"The persisted migration default must preserve the 20% annotation-only volume."
+		)
 
         // 5. The new Finding entity is usable in the migrated store.
         XCTAssertNotNil(container.managedObjectModel.entitiesByName["Finding"])
+
+        // 6. AIA-0761's capture-space box must arrive on the destination schema. 0.0.0 has no
+        // Finding entity at all, so there is no row to seed and nothing to carry over — the
+        // attribute check is what stops this from passing vacuously, and the row loop covers the
+        // migrated store the moment it ever does hold one.
+        let findingEntity = try XCTUnwrap(container.managedObjectModel.entitiesByName["Finding"])
+        let captureAttributes = ["captureBoxX", "captureBoxY", "captureBoxWidth", "captureBoxHeight"]
+        for attribute in captureAttributes {
+            XCTAssertNotNil(
+                findingEntity.attributesByName[attribute],
+                "the 0.0.0→0.0.2 mapping must produce a schema carrying \(attribute)"
+            )
+        }
+        for row in try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "Finding")) {
+            for attribute in captureAttributes {
+                XCTAssertEqual(
+                    row.value(forKey: attribute) as? Double, 0,
+                    "\(attribute) must arrive at the zero rect that means 'never recorded'"
+                )
+            }
+        }
     }
+
+    /// The other live upgrade source (AIA-0651): 0.0.1 shipped `Finding` without `author`, so an
+    /// installation already on 0.0.1 migrates 0.0.1→0.0.2 directly — a path the 0.0.0 test above
+    /// cannot cover, because Core Data never chains hops. Findings written before the field existed
+    /// must survive with their content intact and simply have no author.
+    func testMigrationFromReleased_0_0_1_Store_PreservesFindingsAndLeavesAuthorNil() throws {
+        // 1. Seed a store with the released 0.0.1 model (version file "MLBrowser_0.0.1.mom").
+        let sourceModelURL = try momdURL().appendingPathComponent("MLBrowser_0.0.1.mom")
+        let sourceModel = try XCTUnwrap(NSManagedObjectModel(contentsOf: sourceModelURL))
+        // Same reason as above: the app's NSManagedObject subclasses match the CURRENT
+        // schema, and their awakeFromInsert would touch attributes 0.0.1 does not have.
+        for entity in sourceModel.entities {
+            entity.managedObjectClassName = "NSManagedObject"
+        }
+
+        let seedCoordinator = NSPersistentStoreCoordinator(managedObjectModel: sourceModel)
+        try seedCoordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil, at: storeURL)
+        let seedContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        seedContext.persistentStoreCoordinator = seedCoordinator
+
+        let seededTitles = ["Legacy hillfort", "Legacy burial mound"]
+        // Captured so the assertions can demand the SAME identity back, not merely a non-nil one.
+        var seededIdentity: [String: (id: UUID, screenshot: String)] = [:]
+        try seedContext.performAndWait {
+            let findingEntity = sourceModel.entitiesByName["Finding"]!
+            for title in seededTitles {
+                let row = NSManagedObject(entity: findingEntity, insertInto: seedContext)
+                // entityId and lifeCycleString are non-optional with no default in 0.0.1:
+                // omitting either fails validation on save, before any migration happens.
+                let entityId = UUID()
+                // FindingScreenshotStore names every file "<entityId>.png", which is why the
+                // identity below is load-bearing rather than cosmetic.
+                let screenshot = "\(entityId.uuidString).png"
+                seededIdentity[title] = (entityId, screenshot)
+                row.setValue(entityId, forKey: "entityId")
+                row.setValue(screenshot, forKey: "screenshotFilename")
+                row.setValue(CoreDataManageableState.ready.rawValue, forKey: "lifeCycleString")
+                row.setValue(title, forKey: "title")
+                row.setValue(Date(), forKey: "creationDate_")
+            }
+            // A second entity, so the assertions below cannot pass on an empty/partial store.
+        let historyEntity = sourceModel.entitiesByName["WebHistoryEntry"]!
+            let historyRow = NSManagedObject(entity: historyEntity, insertInto: seedContext)
+            historyRow.setValue(UUID(), forKey: "entityId")
+            historyRow.setValue(CoreDataManageableState.ready.rawValue, forKey: "lifeCycleString")
+            historyRow.setValue(URL(string: "https://example.com/legacy"), forKey: "page")
+        historyRow.setValue(Date(), forKey: "creationDate_")
+
+		// Exercise the other direct mapping's new DeepConfiguration defaults too. The model row is
+		// intentionally plain NSManagedObject, as above, because its source schema predates the
+		// current generated subclass properties.
+		let configurationEntity = sourceModel.entitiesByName["DeepConfiguration"]!
+		let configuration = NSManagedObject(entity: configurationEntity, insertInto: seedContext)
+		configuration.setValue(UUID(), forKey: "entityId")
+		configuration.setValue(CoreDataManageableState.ready.rawValue, forKey: "lifeCycleString")
+		configuration.setValue(URL(string: "file:///legacy-0.0.1.mlmodel"), forKey: "file_")
+		configuration.setValue("Legacy 0.0.1 model", forKey: "modelDescription")
+            try seedContext.save()
+        }
+        for store in seedCoordinator.persistentStores {
+            try seedCoordinator.remove(store)
+        }
+
+        // 2. Reopen with the CURRENT model under production-equivalent options.
+        let currentModel = try XCTUnwrap(NSManagedObjectModel(contentsOf: momdURL()))
+        let container = NSPersistentContainer(name: "MigrationTest", managedObjectModel: currentModel)
+        let description = NSPersistentStoreDescription(url: storeURL)
+        description.shouldMigrateStoreAutomatically = true
+        description.shouldInferMappingModelAutomatically = false // production behavior
+        description.shouldAddStoreAsynchronously = false
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        XCTAssertNil(
+            loadError,
+            """
+            Migration from the released 0.0.1 store failed: \(String(describing: loadError)). \
+            Adding Finding.author to 0.0.2 requires an explicit 0.0.1→0.0.2 mapping model \
+            recreated in Xcode; inference is off in release builds, so a missing or stale \
+            mapping strands every user who is already on 0.0.1.
+            """
+        )
+        guard loadError == nil else { return }
+
+        // 3. The pre-author findings survived intact, and the new column is simply empty.
+        let context = container.viewContext
+        let migrated = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "Finding"))
+        XCTAssertEqual(migrated.count, seededTitles.count, "Finding rows did not survive the migration")
+        XCTAssertEqual(
+            Set(migrated.compactMap { $0.value(forKey: "title") as? String }),
+            Set(seededTitles),
+            "migrated findings lost their titles"
+        )
+        for row in migrated {
+            XCTAssertNil(row.value(forKey: "author"), "a finding written before AIA-0651 has no author")
+            let title = try XCTUnwrap(row.value(forKey: "title") as? String)
+            let seeded = try XCTUnwrap(seededIdentity[title], "migration invented a finding titled \(title)")
+            // Asserting merely non-nil would pass a migration that REGENERATED every id. That is not
+            // a cosmetic difference: the screenshot on disk is named "<entityId>.png", so a new id
+            // silently orphans the picture and the finding renders as a grey placeholder for ever.
+            XCTAssertEqual(
+                row.value(forKey: "entityId") as? UUID,
+                seeded.id,
+                "migration must preserve the existing entityId, not mint a new one"
+            )
+            XCTAssertEqual(
+                row.value(forKey: "screenshotFilename") as? String,
+                seeded.screenshot,
+                "a migrated finding must still point at the screenshot it was saved with"
+            )
+        }
+
+        // AIA-0761: 0.0.1 predates the capture-space box, so an upgraded finding has no honest
+        // value for it — the crop that produced its stored image discarded the original rectangle.
+        // The zero rect is how that absence is spelled, and `FindingShareLink.Box` refuses a
+        // zero-area box, so these rows share no box rather than their crop-relative one.
+        for row in migrated {
+            for attribute in ["captureBoxX", "captureBoxY", "captureBoxWidth", "captureBoxHeight"] {
+                XCTAssertEqual(
+                    row.value(forKey: attribute) as? Double, 0,
+                    "\(attribute) must arrive at the zero rect that means 'never recorded'"
+                )
+            }
+        }
+
+        // AIA-0835: a finding that predates provenance is the user's own work, and must land in the
+        // My tab rather than among findings a stranger sent. The mapping deliberately gives
+        // `source_` no value expression, so the column arrives nil — and `Finding.source` reads nil
+        // as `.local`.
+        //
+        // Asserted on the RAW attribute rather than through `Finding.source`: these rows are plain
+        // `NSManagedObject`s, and reading the typed accessor here would test the accessor's default
+        // instead of what migration actually wrote. A mapping that populated `source_` with anything
+        // would pass a `source == .local` check via the accessor's fallback while having silently
+        // written a value.
+        for row in migrated {
+            XCTAssertNil(
+                row.value(forKey: "source_"),
+                "migration must leave source_ unset; nil is what makes a legacy finding read as .local"
+            )
+            XCTAssertNil(
+                row.value(forKey: "receivedAt"),
+                "a finding captured on this device was never received from a link"
+            )
+        }
+
+        // AIA-713: what migration does to the new modifiedAt column was OBSERVED here rather than
+        // assumed — the first guess (that Core Data instantiates destination rows as the real
+        // `Finding` subclass, so `willSave()` stamps them) is WRONG, and this assertion is what
+        // caught it. A mapping-model migration does not run the subclass hook, so every upgraded
+        // row arrives nil.
+        //
+        // That makes the documented nil → `creationDate_` fallback live and load-bearing rather
+        // than dead code, and it is the outcome we want: had migration stamped instead, every
+        // finding on an upgrading device would share one identical timestamp and the first cloud
+        // merge would order a whole season of fieldwork by nothing at all.
+        for row in migrated {
+            XCTAssertNil(
+                row.value(forKey: "modifiedAt"),
+                "a mapping-model migration does not run willSave, so modifiedAt arrives nil and the creationDate_ fallback applies"
+            )
+        }
+
+        let history = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "WebHistoryEntry"))
+        XCTAssertEqual(history.count, 1, "unrelated entities must survive the 0.0.1→0.0.2 hop too")
+		let configurations = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "DeepConfiguration"))
+		XCTAssertEqual(configurations.count, 1)
+		let configuration = try XCTUnwrap(configurations.first)
+		XCTAssertEqual(configuration.value(forKey: "annotationSoundEnabled") as? Bool, false)
+		XCTAssertEqual(configuration.value(forKey: "annotationSoundIdentifier") as? String, AnnotationSound.chime.rawValue)
+		let volume = try XCTUnwrap(configuration.value(forKey: "annotationSoundVolume") as? Double)
+		XCTAssertEqual(volume, 0.2, accuracy: 0.0001)
+    }
+}
+
+// MARK: - modifiedAt write-path choke point (AIA-713)
+
+/// `Finding.willSave()` is the ONE place `modifiedAt` is stamped, so that no writer — present or
+/// future, sync-aware or not — can persist a change without advancing the last-write-wins key.
+/// These tests pin the two halves that are easy to get wrong: the automatic stamp must fire on
+/// every ordinary mutation, and it must NOT fire for a writer carrying an authoritative timestamp.
+@MainActor
+final class FindingModifiedAtTests: XCTestCase {
+    var stack: TestCoreDataStack!
+    var moc: NSManagedObjectContext { stack.viewContext }
+
+    override func setUp() async throws {
+        try await super.setUp()
+        stack = TestCoreDataStack()
+    }
+
+    override func tearDown() async throws {
+        stack = nil
+        try await super.tearDown()
+    }
+
+    private func makeReadyFinding() throws -> Finding {
+        let finding = Finding.create(in: moc)
+        finding.creationDate_ = .now
+        finding.title = "Choke point"
+        finding.page = URL(string: "https://zbgis.skgeodesy.sk/mkzbgis/sk/teren")
+        finding.screenshotFilename = Finding.screenshotFilename(for: finding.entityId)
+        finding.boxX = 0.25
+        finding.boxY = 0.25
+        finding.boxWidth = 0.5
+        finding.boxHeight = 0.5
+        finding.detectionConfidence = 0.9
+        finding.transition(to: .draft)
+        finding.transition(to: .ready)
+        try Finding.save(in: moc)
+        return finding
+    }
+
+    func testSave_StampsModifiedAt() throws {
+        let finding = try makeReadyFinding()
+        XCTAssertNotNil(finding.modifiedAt, "willSave must stamp modifiedAt on the first save")
+    }
+
+    func testMutation_AdvancesModifiedAt() throws {
+        let finding = try makeReadyFinding()
+        let first = try XCTUnwrap(finding.modifiedAt)
+
+        finding.note_ = "revised in the field"
+        try Finding.save(in: moc)
+
+        let second = try XCTUnwrap(finding.modifiedAt)
+        XCTAssertGreaterThan(
+            second, first,
+            "an ordinary mutation must advance modifiedAt, or last-write-wins cannot order two edits"
+        )
+    }
+
+    /// The case an equality-based guard silently gets wrong: an authoritative writer sets
+    /// `modifiedAt` AND another attribute. Assigning a value equal to the committed one leaves
+    /// `changedValues()` empty, so only the explicit flag can stop the automatic stamp.
+    func testPreservesModifiedAt_KeepsTheAuthoritativeTimestamp() throws {
+        let finding = try makeReadyFinding()
+        let authoritative = Date(timeIntervalSince1970: 1_000_000)
+
+        finding.preservesModifiedAt = true
+        finding.modifiedAt = authoritative
+        finding.note_ = "restored from an archive"
+        try Finding.save(in: moc)
+
+        XCTAssertEqual(
+            finding.modifiedAt, authoritative,
+            "an import/sync writer's timestamp must survive; stamping now would hand this device a false LWW win"
+        )
+    }
+
+    /// The case that actually requires the flag, and the reason an equality guard alone is not
+    /// enough: the authoritative timestamp EQUALS the committed one, so assigning it leaves
+    /// `changedValues()` empty and `changedValues()["modifiedAt"] == nil` is true. Without
+    /// `preservesModifiedAt` the stamp fires and silently overwrites the value the caller supplied.
+    /// (Verified by mutation: deleting the flag check from `willSave()` fails THIS test and no other.)
+    func testPreservesModifiedAt_WhenTheTimestampEqualsTheCommittedValue() throws {
+        let finding = try makeReadyFinding()
+        let committed = try XCTUnwrap(finding.modifiedAt)
+
+        finding.preservesModifiedAt = true
+        finding.modifiedAt = committed // equal — contributes nothing to changedValues()
+        finding.note_ = "restored from an archive whose timestamp matches"
+        try Finding.save(in: moc)
+
+        XCTAssertEqual(
+            finding.modifiedAt, committed,
+            "the flag, not changedValues(), is what suppresses the stamp when the timestamp is unchanged"
+        )
+    }
+
+    /// Same object, flag cleared: the very next ordinary save must resume stamping, so the
+    /// suppression cannot leak past the one write it was meant for.
+    func testClearingTheFlag_ResumesStamping() throws {
+        let finding = try makeReadyFinding()
+        let authoritative = Date(timeIntervalSince1970: 1_000_000)
+        finding.preservesModifiedAt = true
+        finding.modifiedAt = authoritative
+        try Finding.save(in: moc)
+
+        finding.preservesModifiedAt = false
+        finding.note_ = "edited by the user afterwards"
+        try Finding.save(in: moc)
+
+        XCTAssertGreaterThan(
+            try XCTUnwrap(finding.modifiedAt), authoritative,
+            "clearing preservesModifiedAt must restore the automatic stamp"
+        )
+    }
+
+    /// A deleted object must not be re-dirtied by the stamp — that would push a pending delete
+    /// back into the context and can fail the save outright.
+    func testDelete_DoesNotThrow() throws {
+        let finding = try makeReadyFinding()
+        moc.delete(finding)
+        XCTAssertNoThrow(try moc.save(), "stamping must skip deleted objects")
+        XCTAssertEqual(Finding.count(in: moc, predicate: nil), 0)
+    }
+}
+
+// MARK: - List ordering (AIA-0748)
+
+/// Covers `FindingsListView.ordered(_:by:reversed:)` — the sort behind the findings list's sort
+/// control. The rule under test: partition into keyed and key-less, reverse the keyed slice only,
+/// and leave the key-less group last in **both** directions.
+@MainActor
+final class FindingsListOrderingTests: XCTestCase {
+    var stack: TestCoreDataStack!
+    var moc: NSManagedObjectContext { stack.viewContext }
+
+    override func setUp() async throws {
+        try await super.setUp()
+        stack = TestCoreDataStack()
+    }
+
+    override func tearDown() async throws {
+        stack = nil
+        try await super.tearDown()
+    }
+
+    // MARK: Fixtures
+
+    /// A deterministic generator, so a failing shuffle is reproducible rather than a once-a-week
+    /// flake. xorshift64 — the seed must be non-zero.
+    private struct SeededGenerator: RandomNumberGenerator {
+        private var state: UInt64
+        init(seed: UInt64) { state = seed == 0 ? 0x2545_F491_4F6C_DD1D : seed }
+        mutating func next() -> UInt64 {
+            state ^= state << 13
+            state ^= state >> 7
+            state ^= state << 17
+            return state
+        }
+    }
+
+    private static let epoch = Date(timeIntervalSince1970: 1_700_000_000)
+
+    private func date(_ offset: TimeInterval) -> Date { Self.epoch.addingTimeInterval(offset) }
+
+    @discardableResult
+    private func make(title: String, host: String?, date: Date?, label: String? = nil) -> Finding {
+        let finding = Finding.create(in: moc)
+        finding.title = title
+        finding.label_ = label
+        finding.page = host.map { URL(string: "https://\($0)/page")! }
+        finding.creationDate_ = date
+        return finding
+    }
+
+    private func titles(_ findings: [Finding]) -> [String] {
+        findings.map(\.displayTitle)
+    }
+
+    // MARK: Date
+
+    func testDateOrder_IsNewestFirst_AndNilDatesSortLast() {
+        let old = make(title: "Old", host: "a.example", date: date(0))
+        let new = make(title: "New", host: "b.example", date: date(100))
+        let undated = make(title: "Undated", host: "c.example", date: nil)
+
+        let result = FindingsListView.ordered([old, undated, new], by: .date, reversed: false)
+
+        XCTAssertEqual(titles(result), ["New", "Old", "Undated"])
+    }
+
+    func testDateOrder_Reversed_IsOldestFirst_AndNilDatesStillSortLast() {
+        let old = make(title: "Old", host: "a.example", date: date(0))
+        let new = make(title: "New", host: "b.example", date: date(100))
+        let undated = make(title: "Undated", host: "c.example", date: nil)
+
+        let result = FindingsListView.ordered([new, undated, old], by: .date, reversed: true)
+
+        // The undated row does NOT lead the reversed list: reversing must not promote the least
+        // informative rows to the top.
+        XCTAssertEqual(titles(result), ["Old", "New", "Undated"])
+    }
+
+    // MARK: Alphabetical
+
+    func testAlphabeticalOrder_CollatesNumbersNaturally() {
+        let ten = make(title: "Item 10", host: "a.example", date: date(0))
+        let nine = make(title: "Item 9", host: "a.example", date: date(1))
+
+        let result = FindingsListView.ordered([ten, nine], by: .alphabetical, reversed: false)
+
+        // localizedStandardCompare, not a plain `<`: "Item 9" precedes "Item 10".
+        XCTAssertEqual(titles(result), ["Item 9", "Item 10"])
+    }
+
+    func testAlphabeticalOrder_EmptyDisplayTitleIsKeyless_InBothDirections() {
+        // Reachable from the import path, which assigns `label_` raw while only the save path
+        // normalises empty to nil — so `displayTitle` can resolve to "".
+        let blank = make(title: "   ", host: "a.example", date: date(50), label: "")
+        let alpha = make(title: "Alpha", host: "b.example", date: date(0))
+        let zulu = make(title: "Zulu", host: "c.example", date: date(1))
+        XCTAssertEqual(blank.displayTitle, "", "fixture no longer reproduces an empty displayTitle")
+
+        let forward = FindingsListView.ordered([blank, zulu, alpha], by: .alphabetical, reversed: false)
+        let reversed = FindingsListView.ordered([blank, alpha, zulu], by: .alphabetical, reversed: true)
+
+        XCTAssertEqual(titles(forward), ["Alpha", "Zulu", ""])
+        XCTAssertEqual(titles(reversed), ["Zulu", "Alpha", ""])
+    }
+
+    // MARK: Host
+
+    func testHostOrder_IsAscending_AndHostlessSortsLast_InBothDirections() {
+        let zebra = make(title: "Z", host: "zebra.example", date: date(0))
+        let apple = make(title: "A", host: "apple.example", date: date(1))
+        let hostless = make(title: "None", host: nil, date: date(2))
+
+        let forward = FindingsListView.ordered([hostless, zebra, apple], by: .host, reversed: false)
+        let reversed = FindingsListView.ordered([hostless, apple, zebra], by: .host, reversed: true)
+
+        XCTAssertEqual(titles(forward), ["A", "Z", "None"])
+        XCTAssertEqual(titles(reversed), ["Z", "A", "None"])
+    }
+
+    func testHostOrder_HostlessGroupIsNewestFirst() {
+        let older = make(title: "Older", host: nil, date: date(0))
+        let newer = make(title: "Newer", host: nil, date: date(100))
+        let hosted = make(title: "Hosted", host: "a.example", date: date(50))
+
+        let result = FindingsListView.ordered([older, hosted, newer], by: .host, reversed: false)
+
+        XCTAssertEqual(titles(result), ["Hosted", "Newer", "Older"])
+    }
+
+    // MARK: Determinism
+
+    /// The load-bearing test: the output must not depend on the input order, for any order or
+    /// direction, over a fixture engineered so every tiebreak level is exercised — equal titles
+    /// with equal timestamps, two nil dates, two nil hosts, and an empty title.
+    ///
+    /// This is what proves the comparator is a strict total order. Swift's `sort(by:)` is not
+    /// documented as stable, so without the `entityId` terminator these rows would be free to swap.
+    func testOrdering_DoesNotDependOnInputOrder() {
+        let fixture = [
+            // Same displayTitle AND same timestamp — only entityId can separate these.
+            make(title: "Twin", host: "a.example", date: date(10)),
+            make(title: "Twin", host: "a.example", date: date(10)),
+            // Two undated rows.
+            make(title: "NoDateOne", host: "b.example", date: nil),
+            make(title: "NoDateTwo", host: "c.example", date: nil),
+            // Two hostless rows.
+            make(title: "NoHostOne", host: nil, date: date(20)),
+            make(title: "NoHostTwo", host: nil, date: date(30)),
+            // Empty displayTitle.
+            make(title: " ", host: "d.example", date: date(40), label: ""),
+            make(title: "Ordinary", host: "e.example", date: date(50))
+        ]
+
+        for order in [FindingsListView.SortOrder.date, .alphabetical, .host] {
+            for reversed in [false, true] {
+                let expected = FindingsListView.ordered(fixture, by: order, reversed: reversed)
+                    .map(\.entityId)
+                var rng = SeededGenerator(seed: 0x5EED)
+                for attempt in 0..<25 {
+                    let shuffled = fixture.shuffled(using: &rng)
+                    let actual = FindingsListView.ordered(shuffled, by: order, reversed: reversed)
+                        .map(\.entityId)
+                    XCTAssertEqual(
+                        actual, expected,
+                        "\(order) reversed=\(reversed) attempt \(attempt): output depends on input order"
+                    )
+                }
+            }
+        }
+    }
+
+    /// Documentation, not determinism coverage: with reverse implemented as `.reversed()` of the
+    /// keyed slice this holds by construction. It is kept to pin that construction, and it would
+    /// NOT have caught a non-total comparator — `testOrdering_DoesNotDependOnInputOrder` is the
+    /// test that does.
+    func testReversingTwice_RestoresTheForwardOrder() {
+        let fixture = [
+            make(title: "B", host: "b.example", date: date(0)),
+            make(title: "A", host: "a.example", date: date(10)),
+            make(title: "Hostless", host: nil, date: date(20))
+        ]
+
+        for order in [FindingsListView.SortOrder.date, .alphabetical, .host] {
+            let forward = FindingsListView.ordered(fixture, by: order, reversed: false).map(\.entityId)
+            let once = FindingsListView.ordered(fixture, by: order, reversed: true)
+            let twice = FindingsListView.ordered(once, by: order, reversed: false).map(\.entityId)
+            XCTAssertEqual(twice, forward, "\(order): reversing twice did not restore the order")
+        }
+    }
+}
+
+// MARK: - Storage band (AIA-0732)
+
+/// Covers `FindingsListView.storageBand(fraction:isQuotaBlocked:)` — which line the findings header
+/// shows about cloud storage.
+///
+/// The case that matters is the first one: production showed "Cloud storage 97% full" while the
+/// server was refusing every upload, because 24,594 free bytes will not fit a finding.
+final class FindingsStorageBandTests: XCTestCase {
+
+    func testRefusedUploadsSayFull_evenWellBelowOneHundredPercent() {
+        // The production state: 1,023,982 of 1,048,576 bytes used, and eight findings refused.
+        let fraction = 1_023_982.0 / 1_048_576.0
+        XCTAssertLessThan(fraction, 1, "fixture no longer reproduces a sub-100% blocked account")
+
+        XCTAssertEqual(
+            FindingsListView.storageBand(fraction: fraction, isQuotaBlocked: true),
+            .full,
+            "an account the server is refusing must say full, not a percentage"
+        )
+    }
+
+    func testTheSameFractionSaysWarningWhenNothingHasBeenRefused() {
+        // Same number, opposite meaning: near the cap but still accepting writes.
+        let fraction = 1_023_982.0 / 1_048_576.0
+
+        XCTAssertEqual(
+            FindingsListView.storageBand(fraction: fraction, isQuotaBlocked: false),
+            .warning(percent: 97)
+        )
+    }
+
+    func testAFullFractionSaysFullWithoutWaitingForARefusal() {
+        // The usage figure can reach the cap before any upload has been attempted against it.
+        XCTAssertEqual(FindingsListView.storageBand(fraction: 1, isQuotaBlocked: false), .full)
+        XCTAssertEqual(FindingsListView.storageBand(fraction: 1.2, isQuotaBlocked: false), .full)
+    }
+
+    func testQuotaBlockedOutranksTheFractionEntirely() {
+        // Defensive: a refusal is authoritative even if usage has not been read yet, or reads zero.
+        XCTAssertEqual(FindingsListView.storageBand(fraction: 0, isQuotaBlocked: true), .full)
+    }
+
+    func testTheBandIsQuietUntilTheAccountIsMostOfTheWayFull() {
+        XCTAssertEqual(FindingsListView.storageBand(fraction: 0, isQuotaBlocked: false), .none)
+        XCTAssertEqual(FindingsListView.storageBand(fraction: 0.5, isQuotaBlocked: false), .none)
+        // Just under the threshold: still nothing to say.
+        XCTAssertEqual(FindingsListView.storageBand(fraction: 0.799, isQuotaBlocked: false), .none)
+    }
+
+    func testTheWarningStartsExactlyAtEightyPercent() {
+        XCTAssertEqual(
+            FindingsListView.storageBand(fraction: 0.8, isQuotaBlocked: false),
+            .warning(percent: 80),
+            "the boundary is inclusive; 0.8 is the first fraction that says anything"
+        )
+    }
+
+    func testThePercentageIsTruncated_soItNeverClaimsMoreRoomIsGoneThanIs() {
+        // 0.899 must not round up to 90: the band should never overstate how full the account is.
+        XCTAssertEqual(
+            FindingsListView.storageBand(fraction: 0.899, isQuotaBlocked: false),
+            .warning(percent: 89)
+        )
+    }
+}
+
+// MARK: - Find/Store control (AIA-0880)
+
+/// The Find/Store control both opens pick mode and cancels it. The rule lives in `AppChromeState`
+/// rather than the view precisely so it can be tested: nothing automated reaches a SwiftUI
+/// `onReceive`, so the state machine is the only part of this flow a test can hold to account.
+@MainActor
+final class FindControlTests: XCTestCase {
+	var settings: Settings!
+	var snapState: SnapState!
+	var deepState: DeepState!
+	// `DetectionSessionState.snapAdjustment` is `unowned`; hold it strong for the whole test.
+	var snapAdjustment: SnapAdjustment!
+	var dataController: DataController!
+	var demoDataManager: DemoDataManager!
+	var detectionState: DetectionSessionState!
+	var sut: AppChromeState!
+
+	override func setUp() async throws {
+		try await super.setUp()
+		settings = Settings()
+		dataController = DataController(inMemory: true)
+		snapState = SnapState(settings: settings)
+		deepState = DeepState(dataController: dataController)
+		snapAdjustment = SnapAdjustment()
+		demoDataManager = DemoDataManager(dataController: dataController)
+		detectionState = DetectionSessionState(
+			snap: snapState,
+			settings: settings,
+			snapAdjustment: snapAdjustment
+		)
+		sut = AppChromeState(
+			detectionState: detectionState,
+			deep: deepState,
+			settings: settings,
+			demoDataManager: demoDataManager
+		)
+	}
+
+	override func tearDown() async throws {
+		snapState.stopTimer()
+		sut = nil
+		detectionState = nil
+		demoDataManager = nil
+		dataController = nil
+		snapAdjustment = nil
+		deepState = nil
+		snapState = nil
+		settings = nil
+		try await super.tearDown()
+	}
+
+	func testTheControlStartsIdle() {
+		XCTAssertFalse(sut.findPickActive, "nothing has asked for pick mode yet")
+	}
+
+	func testATapOpensPickMode() {
+		sut.findTapped()
+		XCTAssertTrue(sut.findPickActive)
+	}
+
+	/// The ticket: a user who opened this by accident can back out with the control they opened it
+	/// with. Before AIA-0880 the second tap was dropped by a guard.
+	func testASecondTapCancelsThePickItStarted() {
+		sut.findTapped()
+		sut.findTapped()
+		XCTAssertFalse(sut.findPickActive, "the same control did not cancel the pick it started")
+	}
+
+	func testTheControlKeepsToggling() {
+		sut.findTapped()
+		sut.findTapped()
+		sut.findTapped()
+		XCTAssertTrue(sut.findPickActive, "a third tap should open pick mode again")
+	}
+
+	/// The guided tour taps this control itself, and its pick-mode step does not re-arm once
+	/// fulfilled — a tour-driven tap that cancelled would strand the tour on a step it can no
+	/// longer satisfy. Mutating `allowsCancel` to `true` here must fail the test.
+	func testATourDrivenTapNeverCancels() {
+		sut.findTapped(allowsCancel: false)
+		XCTAssertTrue(sut.findPickActive)
+		sut.findTapped(allowsCancel: false)
+		XCTAssertTrue(sut.findPickActive, "a non-cancelling tap turned pick mode off")
+	}
+
+	/// `allowsCancel: false` must still be able to *open* pick mode — it suppresses the cancel, not
+	/// the control.
+	func testANonCancellingTapStillOpensPickMode() {
+		sut.findTapped(allowsCancel: false)
+		XCTAssertTrue(sut.findPickActive)
+	}
+
+	/// WebScreen reports the exits it drives itself (the capture was presented, or the screen went
+	/// away). Without this the control would keep offering to cancel a pick that is over.
+	func testWebScreenReportingItsOwnExitClearsTheControl() {
+		sut.findTapped()
+		sut.findPickEnded()
+		XCTAssertFalse(sut.findPickActive)
+		sut.findTapped()
+		XCTAssertTrue(sut.findPickActive, "after its own exit the next tap must open, not cancel")
+	}
+
+	func testEndingAPickThatNeverStartedIsHarmless() {
+		sut.findPickEnded()
+		XCTAssertFalse(sut.findPickActive)
+	}
+
+	// MARK: Appearance
+
+	func testTheControlNamesItsTwoFaces() {
+		XCTAssertEqual(FindControlAppearance.symbol(cancels: false), FindControlAppearance.startSymbol)
+		XCTAssertEqual(FindControlAppearance.symbol(cancels: true), FindControlAppearance.cancelSymbol)
+		XCTAssertEqual(FindControlAppearance.label(cancels: true), L10n.Common.cancel)
+		XCTAssertEqual(FindControlAppearance.label(cancels: false), L10n.Finding.Save.title)
+	}
+
+	/// An SF Symbol name that does not exist renders *nothing* and still compiles, so the cancel
+	/// face could ship as an invisible button with no build or lint failure. `xmark.viewfinder` —
+	/// the obvious name for it — is exactly such a name. This resolves the constants the views
+	/// actually render, not copies of them, so a typo cannot pass here and fail on screen.
+	func testBothFacesResolveToRealSymbolsOnThisPlatform() {
+		for name in [FindControlAppearance.startSymbol, FindControlAppearance.cancelSymbol] {
+			XCTAssertNotNil(UIImage(systemName: name), "\(name) is not an SF Symbol on this platform")
+		}
+	}
+}
+
+/// The alignment crosshair's colour rule (AIA-0880): the contour is the opposite luminance to the
+/// fill, so a page that defeats one cannot defeat both.
+@MainActor
+final class FindingCrosshairPaletteTests: XCTestCase {
+	func testAlignedIsGreenAndNotAlignedIsRed() {
+		XCTAssertEqual(FindingCrosshairPalette.fill(isAligned: true), .green)
+		XCTAssertEqual(FindingCrosshairPalette.fill(isAligned: false), .red)
+	}
+
+	/// The pairing, not the exact colours: dark behind the green, light behind the red. Asserted by
+	/// luminance so the test states the rule the ticket asked for rather than restating a constant —
+	/// swapping the two contours must fail this.
+	func testTheContourOpposesItsFill() {
+		let dark = UIColor(FindingCrosshairPalette.contour(isAligned: true))
+		let light = UIColor(FindingCrosshairPalette.contour(isAligned: false))
+
+		var darkWhite: CGFloat = 0, darkAlpha: CGFloat = 0
+		var lightWhite: CGFloat = 0, lightAlpha: CGFloat = 0
+		XCTAssertTrue(dark.getWhite(&darkWhite, alpha: &darkAlpha))
+		XCTAssertTrue(light.getWhite(&lightWhite, alpha: &lightAlpha))
+
+		XCTAssertLessThan(darkWhite, 0.5, "the contour behind the green crosshair must be the dark one")
+		XCTAssertGreaterThan(lightWhite, 0.5, "the contour behind the red crosshair must be the light one")
+	}
+
+	/// A fully opaque contour would read as a second glyph rather than an edge, and a transparent
+	/// one would not survive a busy page.
+	func testTheContourIsVisibleButNotOpaque() {
+		for isAligned in [true, false] {
+			var white: CGFloat = 0, alpha: CGFloat = 0
+			XCTAssertTrue(UIColor(FindingCrosshairPalette.contour(isAligned: isAligned)).getWhite(&white, alpha: &alpha))
+			XCTAssertGreaterThan(alpha, 0.5, "the contour is too faint to hold the shape")
+			XCTAssertLessThan(alpha, 1.0, "an opaque contour reads as a second glyph, not an edge")
+		}
+	}
 }

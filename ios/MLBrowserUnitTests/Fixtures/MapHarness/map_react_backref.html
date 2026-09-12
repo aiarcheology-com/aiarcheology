@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>React back-reference harness</title>
+<style>html,body,#map{margin:0;height:320px;width:480px}</style>
+<div id="map" class="leaflet-container"></div>
+<script>
+  // The bundled majority: the map lives in module scope with no global anywhere, so every
+  // constructor trap misses it. React's own expando on the container is the only route to it.
+  // Pinned here because these property names are framework internals and therefore
+  // version-unstable -- a rename must fail this test rather than silently cost ~19% of coverage.
+  (function () {
+    var map = {
+      getCenter: function () { return { lat: 47.941230, lng: 18.709545 }; },
+      getZoom: function () { return 15; },
+      getContainer: function () { return document.getElementById('map'); }
+    };
+    var element = document.getElementById('map');
+    element['__reactFiber$abc123'] = {
+      memoizedProps: { children: null },
+      stateNode: { leafletElement: map }
+    };
+    window.__harnessReady = true;
+  }());
+</script>

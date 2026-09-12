@@ -1,0 +1,82 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ArcGIS JS 3.x through the Dojo loader</title>
+<style>
+  html,body{margin:0}
+  /* The main map, and an overview inset — the shape measured on mapy.geoportal.gov.pl. */
+  #map{display:block;width:480px;height:320px}
+  #overview{display:block;width:120px;height:96px}
+</style>
+<div id="map"></div>
+<div id="overview"></div>
+<script>
+  // Reproduces what makes 3.x unreachable, not merely what makes it ArcGIS.
+  //
+  //  1. `window.esri` is created by the API bootstrap and `esri.Map` arrives LATER, when the AMD
+  //     loader resolves `esri/map`. A hook that reads the namespace once sees no class.
+  //  2. The app constructs through a reference it captured from the loader, never through
+  //     `window.esri.Map`. Replacing the global would therefore intercept nothing — which is
+  //     precisely why the constructor traps miss this whole family.
+  //  3. Nothing is left behind: no global instance, no DOM back-reference, no widget registry.
+  //     Discovery after the fact is impossible, so construction-time capture is the only route.
+  (function () {
+    function Extent(xmin, ymin, xmax, ymax, wkid) {
+      this.xmin = xmin; this.ymin = ymin; this.xmax = xmax; this.ymax = ymax;
+      this.spatialReference = { wkid: wkid, latestWkid: wkid };
+    }
+    // The real `esri/geometry/Extent` has this, and it is the library's own arithmetic — which is
+    // the whole reason the probe asks for it instead of averaging the corners itself. Leaving it out
+    // made the first version of this fixture describe a map that cannot exist.
+    Extent.prototype.getCenter = function () {
+      return {
+        x: (this.xmin + this.xmax) / 2,
+        y: (this.ymin + this.ymax) / 2,
+        spatialReference: this.spatialReference
+      };
+    };
+
+    function Map(divId, options) {
+      this.container = document.getElementById(divId);
+      this.extent = options.extent;
+      this.level = options.level;
+      // A national-grid 3.x map has NO geographic extent — measured on both the Polish and the
+      // Czech portals. The coordinate must therefore be recorded in its own system, not converted.
+      this.geographicExtent = null;
+      this.handlers = [];
+    }
+    Map.prototype.getLevel = function () { return this.level; };
+    Map.prototype.on = function (name, handler) { this.handlers.push(name); return { remove: function () {} }; };
+    Map.prototype.setExtent = function (extent) { this.extent = extent; return { then: function () {} }; };
+    Map.prototype.centerAt = function () { return { then: function () {} }; };
+    Map.prototype.centerAndZoom = function () { return { then: function () {} }; };
+    Map.prototype.resize = function () {};
+
+    // The bootstrap: the namespace first, empty of the class.
+    window.esri = { version: '3.28' };
+
+    setTimeout(function () {
+      // The loader resolves `esri/map`. In 3.x the module value IS `esri.Map` — the same object —
+      // which is what makes swapping the global useless.
+      window.esri.Map = Map;
+      var LoadedMap = window.esri.Map;
+
+      setTimeout(function () {
+        // Constructed from the captured reference, as an AMD callback does.
+        var main = new LoadedMap('map', {
+          extent: new Extent(514000, 457000, 519559, 463000, 2180),
+          level: 8
+        });
+        // The inset covers somewhere else entirely, so a test that picks the wrong map cannot pass
+        // by coincidence.
+        var inset = new LoadedMap('overview', {
+          extent: new Extent(200000, 300000, 260000, 360000, 2180),
+          level: 2
+        });
+        // Every 3.x app subscribes to its own map. This is the call the hook rides on.
+        main.on('load', function () {});
+        inset.on('load', function () {});
+        window.__harnessReady = true;
+      }, 120);
+    }, 200);
+  }());
+</script>

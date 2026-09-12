@@ -40,6 +40,16 @@ final class DeepConfigurationTests: XCTestCase {
         config.lifeCycle = .draft
         return config
     }
+
+	private func detectedObject(confidence: Float) -> DetectedObject {
+		DetectedObject(
+			uuid: UUID(),
+			labels: [DetectedObject.Label(identifier: "artifact", confidence: confidence)],
+			confidence: confidence,
+			boundingBox: CGRect(x: 0.1, y: 0.1, width: 0.2, height: 0.2),
+			regionIndex: 0
+		)
+	}
     
     // MARK: - Initialization Tests
     
@@ -62,6 +72,10 @@ final class DeepConfigurationTests: XCTestCase {
         config.demo = false
         config.enabled = true
         config.phaseOutTime = 1.5
+        config.computeUnit = .processorOnly
+		config.annotationSoundEnabled = true
+		config.annotationSound = .croak
+		config.annotationSoundVolume = 0.73
 
         try DeepConfiguration.save(in: context)
         context.refresh(config, mergeChanges: false)
@@ -74,7 +88,65 @@ final class DeepConfigurationTests: XCTestCase {
         XCTAssertFalse(config.demo)
         XCTAssertTrue(config.enabled)
         XCTAssertEqual(config.phaseOutTime, 1.5)
+        XCTAssertEqual(config.computeUnit, .processorOnly)
+		XCTAssertTrue(config.annotationSoundEnabled)
+		XCTAssertEqual(config.annotationSound, .croak)
+		XCTAssertEqual(config.annotationSoundConfiguration.volume, 0.73, accuracy: 0.0001)
     }
+
+	func testAnnotationSound_DefaultsOffAtTwentyPercentAndClampsInvalidVolume() {
+		let config = createValidConfiguration()
+
+		XCTAssertFalse(config.annotationSoundConfiguration.isEnabled)
+		XCTAssertEqual(config.annotationSound, .chime)
+		XCTAssertEqual(config.annotationSoundConfiguration.volume, 0.2, accuracy: 0.0001)
+
+		config.annotationSoundVolume = 9
+		XCTAssertEqual(config.annotationSoundConfiguration.volume, 1, accuracy: 0.0001)
+		config.annotationSoundVolume = -1
+		XCTAssertEqual(config.annotationSoundConfiguration.volume, 0, accuracy: 0.0001)
+	}
+
+	func testAnnotationSound_PersistsAfterContextResetAndRefetch() throws {
+		let config = createValidConfiguration()
+		let id = config.entityId
+		config.annotationSoundEnabled = true
+		config.annotationSound = .pulse
+		config.annotationSoundVolume = 0.61
+		try DeepConfiguration.save(in: context)
+
+		// A reset drops the managed object cache. The fetched values must come from the persistent
+		// Core Data store, not from ConfigurationForm's in-memory object.
+		context.reset()
+		let fetched = try XCTUnwrap(DeepConfiguration.select(id, in: context))
+		XCTAssertTrue(fetched.annotationSoundEnabled)
+		XCTAssertEqual(fetched.annotationSound, .pulse)
+		XCTAssertEqual(fetched.annotationSoundConfiguration.volume, 0.61, accuracy: 0.0001)
+	}
+
+	func testAnnotationSoundCatalog_ProducesDistinctValidWAVData() {
+		let files = AnnotationSound.allCases.map(AnnotationSoundCatalog.audioData(for:))
+
+		XCTAssertEqual(files.count, 11)
+		XCTAssertEqual(files.count, Set(files).count)
+		for data in files {
+			XCTAssertGreaterThan(data.count, 44)
+			XCTAssertEqual(String(data: data.prefix(4), encoding: .ascii), "RIFF")
+			XCTAssertEqual(String(data: data.dropFirst(8).prefix(4), encoding: .ascii), "WAVE")
+		}
+	}
+
+	func testAnnotationSoundPlayerRetention_TracksPlaybackDuration() {
+		let catalogRetention = AnnotationSoundPlayer.playerRetentionNanoseconds(
+			for: AnnotationSoundCatalog.duration
+		)
+		let longerToneRetention = AnnotationSoundPlayer.playerRetentionNanoseconds(
+			for: AnnotationSoundCatalog.duration + 1
+		)
+
+		XCTAssertGreaterThan(catalogRetention, UInt64(AnnotationSoundCatalog.duration * 1_000_000_000))
+		XCTAssertGreaterThan(longerToneRetention, catalogRetention)
+	}
 
     func testDeepConfiguration_EqualityTreatsLicenseAsConfigurationState() {
         let entityID = UUID()
@@ -99,6 +171,112 @@ final class DeepConfigurationTests: XCTestCase {
 
         XCTAssertFalse(first == second)
     }
+
+    func testComputeUnit_DefaultsToAutomaticWithoutPersistingANewValue() {
+        let configuration = DeepConfiguration(context: context)
+        configuration.entityId = UUID()
+
+        XCTAssertNil(configuration.computeUnitString)
+        XCTAssertEqual(configuration.computeUnit, .automatic)
+
+        configuration.computeUnit = .automatic
+        XCTAssertNil(configuration.computeUnitString)
+
+        configuration.computeUnit = .graphicsProcessor
+        XCTAssertEqual(configuration.computeUnitString, ModelComputeUnit.graphicsProcessor.rawValue)
+        XCTAssertEqual(configuration.computeUnit, .graphicsProcessor)
+    }
+
+	func testDetectionConfidenceThreshold_DefaultsToZeroAndClampsItsStoredValue() {
+		let configuration = createValidConfiguration()
+		defer { configuration.removePresentationDefaults() }
+
+		XCTAssertEqual(configuration.detectionConfidenceThreshold, 0)
+
+		configuration.detectionConfidenceThreshold = 0.57
+		XCTAssertEqual(configuration.detectionConfidenceThreshold, 0.57, accuracy: 0.0001)
+
+		configuration.detectionConfidenceThreshold = 2
+		XCTAssertEqual(configuration.detectionConfidenceThreshold, 1)
+	}
+
+	func testDetectionConfidenceThreshold_IsIsolatedPerConfiguration() {
+		let first = createValidConfiguration()
+		let second = createValidConfiguration()
+		defer {
+			first.removePresentationDefaults()
+			second.removePresentationDefaults()
+		}
+
+		first.detectionConfidenceThreshold = 0.6
+
+		XCTAssertEqual(first.detectionConfidenceThreshold, 0.6, accuracy: 0.0001)
+		XCTAssertEqual(second.detectionConfidenceThreshold, 0)
+	}
+
+	func testDetectionPresentation_DefaultShowsEveryObservation() {
+		let configuration = createValidConfiguration()
+		defer { configuration.removePresentationDefaults() }
+		let low = detectedObject(confidence: 0.01)
+		let high = detectedObject(confidence: 0.99)
+
+		let displayed = DetectionPresentation.filteredResults([
+			(observations: [low, high], params: configuration.toDriverParams())
+		])
+
+		XCTAssertEqual(displayed.flatMap(\.observations).map(\.uuid), [low.uuid, high.uuid])
+	}
+
+	func testDetectionPresentation_BelowThresholdIsAbsentAndCannotBePicked() {
+		let configuration = createValidConfiguration()
+		defer { configuration.removePresentationDefaults() }
+		configuration.detectionConfidenceThreshold = 0.6
+		let low = detectedObject(confidence: 0.59)
+		let raw: [DetectionResult] = [(observations: [low], params: configuration.toDriverParams())]
+
+		let displayed = DetectionPresentation.filteredResults(raw)
+
+		XCTAssertTrue(displayed.isEmpty, "The shared pre-presentation filter covers every annotation symbol.")
+		XCTAssertNil(FindingCapture.detection(at: CGPoint(x: 20, y: 80), in: CGSize(width: 100, height: 100), results: displayed))
+	}
+
+	func testDetectionPresentation_ConfidenceAtThresholdRemainsVisible() {
+		let configuration = createValidConfiguration()
+		defer { configuration.removePresentationDefaults() }
+		configuration.detectionConfidenceThreshold = 0.6
+		let exact = detectedObject(confidence: 0.6)
+
+		let displayed = DetectionPresentation.filteredResults([
+			(observations: [exact], params: configuration.toDriverParams())
+		])
+
+		XCTAssertEqual(displayed.flatMap(\.observations).map(\.uuid), [exact.uuid])
+	}
+
+	func testDetectionPresentation_ExistingFrameReevaluatesPerModelThresholdsImmediately() {
+		let first = createValidConfiguration()
+		let second = createValidConfiguration()
+		defer {
+			first.removePresentationDefaults()
+			second.removePresentationDefaults()
+		}
+		let firstObject = detectedObject(confidence: 0.5)
+		let secondObject = detectedObject(confidence: 0.5)
+		let raw: [DetectionResult] = [
+			(observations: [firstObject], params: first.toDriverParams()),
+			(observations: [secondObject], params: second.toDriverParams())
+		]
+		first.detectionConfidenceThreshold = 0.6
+
+		XCTAssertEqual(DetectionPresentation.filteredResults(raw).flatMap(\.observations).map(\.uuid), [secondObject.uuid])
+
+		first.detectionConfidenceThreshold = 0.4
+		XCTAssertEqual(
+			DetectionPresentation.filteredResults(raw).flatMap(\.observations).map(\.uuid),
+			[firstObject.uuid, secondObject.uuid],
+			"The same retained frame must be re-filtered; a model reload would lose the hidden observation."
+		)
+	}
 
     func testCatalogSource_IsSharedWithCatalogDownloadByConfigurationID() {
         let id = UUID()
@@ -653,14 +831,13 @@ final class DeepConfigurationTests: XCTestCase {
         config.annotationColor = .green
         config.phaseOutTime = 1.0
         config.selectedSymbol = .square
-        config.demo = true
         
         let params = config.toDriverParams()
 
         XCTAssertEqual(params.entityId, config.entityId)
         XCTAssertEqual(params.phaseOutTime, 1.0)
         XCTAssertEqual(params.selectedSymbol, .square)
-        XCTAssertTrue(params.demo)
+        XCTAssertEqual(params.computeUnit, .automatic)
     }
 
     func testToDriverParams_CarriesTheModelName() {

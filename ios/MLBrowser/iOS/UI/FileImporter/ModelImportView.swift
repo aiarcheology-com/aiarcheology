@@ -35,6 +35,8 @@ struct ModelImportView: View {
 	let catalogProviders: [any CatalogProvider]
 	/// Shared for the running app session so closing and reopening the catalog keeps its search.
 	private let catalogSearchManager: CatalogSearchManager
+	/// App-owned, serialized cleanup after Core Data registration and again at launch.
+	private let nativeConversionSourceCleanupService: NativeModelSourceCleanupService
 
 	@StateObject private var acquisitionCoordinator = ModelAcquisitionCoordinator(
 		allowedTypes: [
@@ -46,12 +48,22 @@ struct ModelImportView: View {
 			UTType("com.apple.coreml.mlpackage"),
 			UTType(filenameExtension: "mlmodel"),
 			UTType(filenameExtension: "mlpackage"),
+			// A compiled bundle is a directory; the package UTI is what lets the Files picker offer it as
+			// one item, and the loader then uses it as-is (AIA-0844). The identifier is Xcode's: on a
+			// Mac with Xcode installed LaunchServices types the folder with Xcode's exported declaration
+			// (the extension lookup below then yields an unrelated dynamic type and the item is greyed
+			// out), and on iOS the app's own imported declaration of the same identifier applies.
+			UTType("com.apple.coreml.mlmodelc"),
 			UTType(filenameExtension: "mlmodelc"),
 			// Self-contained ONNX models the app converts to Core ML on-device. The imported UTI
 			// (declared in Info.plist) makes the Files picker surface `.onnx` reliably; the
 			// extension-derived type is a fallback if the declaration is unavailable.
 			UTType("com.aiarcheology.onnx-model"),
-			UTType(filenameExtension: "onnx")
+			UTType(filenameExtension: "onnx"),
+			// Published ADAF checkpoints use a `.tar` filename despite being PyTorch zip archives.
+			// Content sniffing routes those checkpoints to conversion and rejects a real tar before it
+			// can be copied into a configuration directory.
+			UTType(filenameExtension: "tar")
 		].compactMap { $0 }
 	)
 	
@@ -60,7 +72,7 @@ struct ModelImportView: View {
 	
 	/// Loading state during model validation
 	@State private var isLoading = false
-	/// Phase-local progress from a native `.aiagraph` conversion, if this import needs one.
+	/// Phase-local progress from a native source conversion, if this import needs one.
 	@State private var nativeConversionProgress: NativeModelConversionProgress?
 	/// The app-owned report is retained beside a converted or staged native package.
 	@State private var nativeConversionReport: NativeModelConversionImportReport?
@@ -81,6 +93,8 @@ struct ModelImportView: View {
 	/// The archive is deleted when the system share sheet completes or is dismissed.
 	@State private var nativeModelSharePayload: ActivitySharePayload?
 	@State private var isPreparingNativeModelExport = false
+	/// A converted model kept after a memory refusal, awaiting a safe moment to delete.
+	@State private var retainedModelPendingCleanup: NativeModelConversionImportReport?
 	
 	/// Error to display in alert
 	@State private var errorMessage: String?
@@ -92,11 +106,13 @@ struct ModelImportView: View {
 	init(
 		onImported: @escaping (_ id: UUID, _ needsReview: Bool) -> Void = { _, _ in },
 		catalogProviders: [any CatalogProvider],
-		catalogSearchManager: CatalogSearchManager? = nil
+		catalogSearchManager: CatalogSearchManager? = nil,
+		nativeConversionSourceCleanupService: NativeModelSourceCleanupService = NativeModelSourceCleanupService()
 	) {
 		self.onImported = onImported
 		self.catalogProviders = catalogProviders
 		self.catalogSearchManager = catalogSearchManager ?? CatalogSearchManager(providers: catalogProviders)
+		self.nativeConversionSourceCleanupService = nativeConversionSourceCleanupService
 	}
 	
 	var body: some View {
@@ -130,6 +146,11 @@ struct ModelImportView: View {
 		.overlay {
 			if isLoading {
 				loadingOverlay
+			} else if isPreparingNativeModelExport {
+				// Zipping a ~190 MB model takes seconds with no other visible sign (AIA-0889). The
+				// alert that offers the export dismisses on tap, so without this the app simply looks
+				// frozen until the share sheet appears.
+				exportPreparationOverlay
 			}
 		}
 		.fileImporter(
@@ -150,14 +171,44 @@ struct ModelImportView: View {
 	private func importAlerts(_ content: some View) -> some View {
 		content
 		.alert(L10n.Alert.Error.title, isPresented: $showErrorAlert) {
-			if nativeConversionReport != nil {
+			if let report = nativeConversionReport {
+				// Reporting offered where the failure is announced, not only after the user has
+				// opened the log and found a toolbar menu (AIA-0778). A conversion that produced no
+				// Core ML model is the only way the app learns which models it does not yet support,
+				// so the path to sending one must be visible at the moment it fails.
+				//
+				// Gated on the state and not merely on a report existing: this alert also carries
+				// errors raised *after* a conversion succeeded, and inviting someone to report a
+				// registered model as a failing conversion would corrupt the signal.
+				if report.state.isReportableConversionFailure {
+					Button(L10n.Import.reportConversion) {
+						Task {
+							// No mail account and no mail app reaches neither tier. Falling through
+							// to the log is not a consolation prize: that screen carries the same
+							// report behind a Share item, so the path stays open instead of ending.
+							if await NativeModelConversionReporting.email(report).not {
+								presentedNativeConversionReport = report
+							}
+						}
+					}
+				}
+				// Offered where the failure is announced (AIA-0889). A load refused for memory is the
+				// one failure whose artifact is good — the conversion succeeded and only this device
+				// cannot load it — so the model is still here and can leave for a device that can.
+				// Burying that behind the log sheet would lose it: the model is deleted the moment
+				// this failure stops being on screen.
+				if canExportConvertedModel(for: report) {
+					Button(L10n.Import.exportConvertedModel) {
+						exportConvertedModel(report)
+					}
+				}
 				Button(L10n.Import.showConversionLog) {
-					presentedNativeConversionReport = nativeConversionReport
+					presentedNativeConversionReport = report
 				}
 			}
 			Button(L10n.Common.ok, role: .cancel) { }
 		} message: {
-			Text(errorMessage ?? L10n.Alert.Error.unexpected)
+			Text(errorAlertMessage)
 		}
 		.alert(importedModelInfo?.needsReview == true ? L10n.Import.confirmTypeTitle : L10n.Import.successTitle,
 			   isPresented: .init(
@@ -186,8 +237,22 @@ struct ModelImportView: View {
 
 	private func importSuccessMessage(for info: ImportedModelInfo?) -> String {
 		let base = info?.needsReview == true ? L10n.Import.typeConfirmation : L10n.Import.success
-		guard let assumption = info?.nativeModelImportAssumption else { return base }
-		return "\(base)\n\n\(inferredSemanticsMessage(for: assumption))"
+		var messages = [base]
+		if let checkpointConversion = info?.checkpointConversion {
+			messages.append(checkpointConversionMessage(for: checkpointConversion))
+		}
+		if let assumption = info?.nativeModelImportAssumption {
+			messages.append(inferredSemanticsMessage(for: assumption))
+		}
+		return messages.joined(separator: "\n\n")
+	}
+
+	private func checkpointConversionMessage(for conversion: ImportedCheckpointConversion) -> String {
+		switch conversion {
+		case .adafDetector(let className):
+			guard let className else { return L10n.Import.checkpointDetectorConvertedUnlabelled }
+			return L10n.Import.checkpointDetectorConverted(className)
+		}
 	}
 
 	private func inferredSemanticsMessage(for assumption: NativeModelImportAssumption) -> String {
@@ -274,10 +339,54 @@ struct ModelImportView: View {
 			NativeModelConversionReportView(
 				report: report,
 				isPreparingExport: isPreparingNativeModelExport,
+				canExport: canExportConvertedModel(for: report),
 				onExport: { exportConvertedModel(report) }
 			)
 		}
 		.activityShareSheet($nativeModelSharePayload)
+		// The retained model has exactly two ends (AIA-0889): the failure dialog closes, or an export
+		// of it succeeds. A *failed* export deliberately keeps it — deleting there would destroy the
+		// only copy at the moment the user asked to save it and would have nothing to retry with.
+		.onChange(of: showErrorAlert) { _, isShowing in
+			guard isShowing.not else { return }
+			removeRetainedConvertedModelIfIdle()
+		}
+		.onChange(of: presentedNativeConversionReport) { previous, current in
+			guard current == nil, previous != nil else { return }
+			removeRetainedConvertedModelIfIdle()
+		}
+		.onChange(of: interruptedNativeConversion) { previous, current in
+			guard current == nil, previous != nil else { return }
+			removeRetainedConvertedModelIfIdle()
+		}
+	}
+
+	/// Removes the model kept after a memory refusal, once nothing on screen still offers it.
+	///
+	/// Held back while an export is in flight: tapping Export dismisses the alert immediately, and
+	/// the exporter has to copy the model into its archive before the original can go. The export's
+	/// own success path calls back here once that copy exists.
+	private func removeRetainedConvertedModelIfIdle() {
+		guard let report = retainedModelPendingCleanup,
+			isPreparingNativeModelExport.not,
+			showErrorAlert.not,
+			presentedNativeConversionReport == nil,
+			interruptedNativeConversion == nil,
+			let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID)
+		else {
+			return
+		}
+		retainedModelPendingCleanup = nil
+		// Off the main actor: this runs the instant a dialog closes, which is exactly when the user
+		// touches the screen again, and it removes a ~190 MB file plus a directory scan for partials.
+		// State is already cleared above, so nothing waits on the result.
+		Task.detached(priority: .utility) {
+			NativeModelConversionImportReport.removeTransientArtifacts(
+				for: report,
+				in: configurationDirectory,
+				includingSourcePackage: false
+			)
+		}
 	}
 
 	// MARK: - Content
@@ -405,6 +514,38 @@ struct ModelImportView: View {
 	
 	// MARK: - Loading Overlay
 	
+	/// Whether this report can be exported *now* — the model has to still be on disk.
+	private func canExportConvertedModel(for report: NativeModelConversionImportReport) -> Bool {
+		guard let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) else {
+			return false
+		}
+		return report.hasExportableConvertedModel(in: configurationDirectory)
+	}
+
+	/// The failure alert's text, plus the export offer only when there is genuinely something to
+	/// export. The loader's own message stays generic because it also serves direct `.mlmodel`
+	/// imports, which never had a conversion to keep (AIA-0889).
+	private var errorAlertMessage: String {
+		let base = errorMessage ?? L10n.Alert.Error.unexpected
+		guard let report = nativeConversionReport, canExportConvertedModel(for: report) else {
+			return base
+		}
+		return "\(base)\n\n\(L10n.Import.insufficientMemoryCanExport)"
+	}
+
+	private var exportPreparationOverlay: some View {
+		ZStack {
+			Color.black.opacity(0.3)
+				.ignoresSafeArea()
+
+			ProgressView {
+				Text(L10n.Import.preparingExport)
+			}
+			.padding()
+			.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+		}
+	}
+
 	private var loadingOverlay: some View {
 		ZStack {
 			Color.black.opacity(0.3)
@@ -540,9 +681,30 @@ struct ModelImportView: View {
 		else {
 			return
 		}
+		// An `emitted` report whose configuration row exists actually finished: Core Data is saved
+		// before the report reaches `registered`, so a termination in that window leaves a durable
+		// registration described by a stale report. Treating that as interrupted would delete the
+		// model a live configuration points at (AIA-0889). Repair the report instead.
+		if report.state == .emitted, DeepConfiguration.select(report.configurationID, in: moc) != nil {
+			report.repairRegisteredStateAfterStaleEmission()
+			if let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) {
+				try? report.write(in: configurationDirectory)
+			}
+			return
+		}
 		if report.markInterruptedIfIncomplete(),
 			let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) {
+			NativeModelConversionImportReport.removeTransientArtifacts(
+				for: report,
+				in: configurationDirectory,
+				includingSourcePackage: false
+			)
 			try? report.write(in: configurationDirectory)
+		}
+		// Without this the retained model leaks: only `recordNativeImportFailure` armed the cleanup,
+		// so a refusal survived by relaunching the app owned nothing and was never removed.
+		if report.keepsConvertedModelForExport {
+			retainedModelPendingCleanup = report
 		}
 		interruptedNativeConversion = report
 	}
@@ -584,7 +746,8 @@ struct ModelImportView: View {
 	}
 
 	private func exportConvertedModel(_ report: NativeModelConversionImportReport) {
-		guard report.state == .registered, !isPreparingNativeModelExport else { return }
+		guard report.state == .registered || report.keepsConvertedModelForExport,
+			!isPreparingNativeModelExport else { return }
 		guard let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) else {
 			errorMessage = NativeModelConversionImportReportError.invalidReport.localizedDescription
 			showErrorAlert = true
@@ -592,6 +755,7 @@ struct ModelImportView: View {
 		}
 		isPreparingNativeModelExport = true
 		Task {
+			var exportSucceeded = false
 			do {
 				let archiveURL = try await Task.detached(priority: .userInitiated) {
 					try NativeModelConversionExporter.makeZip(
@@ -603,12 +767,18 @@ struct ModelImportView: View {
 					items: [archiveURL],
 					completion: { NativeModelConversionExporter.removeExportArchive(at: archiveURL) }
 				)
+				exportSucceeded = true
 			} catch {
 				LoggingPolicy.error("Failed to export converted model", error: error, logger: .storage)
 				errorMessage = error.localizedDescription
 				showErrorAlert = true
 			}
 			isPreparingNativeModelExport = false
+			// The archive holds its own copy of the model, so the retained original has served its
+			// purpose. Success only: a failed export must leave the model there to retry with.
+			if exportSucceeded {
+				removeRetainedConvertedModelIfIdle()
+			}
 		}
 	}
 
@@ -620,6 +790,12 @@ struct ModelImportView: View {
 		guard activeImportTask == nil else { return }
 		let importSessionID = UUID()
 		activeImportSessionID = importSessionID
+		// Resolved here, on the main actor: deriving it needs a Core Data read, and the work that
+		// consumes it runs detached (AIA-0654).
+		let origin = ModelAcquisitionSource.resolve(
+			downloadURL: request.downloadUrl,
+			catalogSource: DownloadItem.select(request.configurationId, in: moc)?.catalogSource
+		)
 		isLoading = true
 		nativeConversionReport = existingNativeReport
 		nativeConversionProgress = existingNativeReport?.lastProgress
@@ -641,7 +817,8 @@ struct ModelImportView: View {
 						provider: request.provider,
 						retainingOriginalNativePackage: retainingOriginalNativePackage,
 						existingNativeReport: existingNativeReport,
-						reportObserver: reportObserver
+						reportObserver: reportObserver,
+						origin: origin
 					)
 				)
 				await MainActor.run {
@@ -692,25 +869,26 @@ struct ModelImportView: View {
 		do {
 			try Task.checkCancellation()
 			let info = try await MainActor.run {
-				try createAndSaveConfiguration(
-					modelURL: work.modelURL,
-					preferredModelName: work.preferredModelName,
-					downloadUrl: request.downloadURL,
-					id: request.configurationID,
-					extractedInfo: work.extractedInfo,
-					provider: request.provider
-				)
+				try createAndSaveConfiguration(work: work, request: request)
 			}
 			if let reportStore = work.reportStore {
 				// The Core Data row is already committed and points at the converted model. Persisting
 				// the final `.registered` checkpoint must not be able to throw into the catch below,
 				// which would delete that model as a "transient" artifact and surface a spurious import
 				// failure. A report left at `.emitted` is finalized by interruption recovery instead.
-				try? await reportStore.transition(to: .registered)
-				let report = await reportStore.snapshot()
-				if !report.retainOriginalPackage {
-					try? FileManager.default.removeItem(at: report.sourcePackageURL(in: work.configurationDirectory))
+				do {
+					try await reportStore.transition(to: .registered)
+				} catch {
+					// A source is never removed without the durable registration checkpoint. Retaining it
+					// leaves the transaction recoverable; launch reconciliation will only act once a
+					// later report write succeeds.
+					request.reportObserver(await reportStore.snapshot())
+					return info
 				}
+				let report = await nativeConversionSourceCleanupService.reconcile(
+					reportStore: reportStore,
+					in: work.configurationDirectory
+				)
 				request.reportObserver(report)
 			}
 			return info
@@ -743,13 +921,25 @@ struct ModelImportView: View {
 		let sourceURL = request.sourceURL
 		let configurationID = request.configurationID
 		let downloadURL = request.downloadURL
-		let storedURL = try await Task.detached(priority: .userInitiated) {
-			let stored = try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationID)
-			return Self.restoringNativeConvertibleExtension(of: stored, from: downloadURL)
+		// Staging, naming and the container guard are one operation, and it runs detached: it does
+		// file I/O, and this function resumes on the main actor, so doing any of it out here would
+		// put disk work on the main thread (AGENTS.md §9). `ImportedModelStaging` owns the order
+		// these steps run in and is tested through this same entry point (AIA-0654).
+		let origin = request.origin
+		let stagingResult = try await Task.detached(priority: .userInitiated) {
+			try ImportedModelStaging.stage(
+				sourceURL: sourceURL,
+				configurationID: configurationID,
+				downloadURL: downloadURL,
+				origin: origin
+			)
 		}.value
+		let storedURL = stagingResult.storedURL
 		let configurationDirectory = storedURL.deletingLastPathComponent()
+		let conversionInput = nativeConversionInput(for: stagingResult)
+
 		let reportStore: NativeModelConversionImportReportStore?
-		if Self.nativeConvertibleExtensions.contains(storedURL.pathExtension.lowercased()) {
+		if conversionInput != nil {
 			let report: NativeModelConversionImportReport
 			if let existingNativeReport = request.existingNativeReport {
 				guard existingNativeReport.configurationID == configurationID,
@@ -790,18 +980,19 @@ struct ModelImportView: View {
 		}
 
 		let modelURL: URL
-		if let reportStore {
-				modelURL = try await convertNativeGraphPackageIfNeeded(
-					NativeGraphConversionRequest(
-						storedURL: storedURL,
-						importSessionID: request.importSessionID,
-						originalModelFilename: sourceURL.lastPathComponent,
-						originalModelURL: request.downloadURL?.absoluteString,
-						reportStore: reportStore,
-						configurationDirectory: configurationDirectory,
-						reportObserver: request.reportObserver
-					)
+		if let reportStore, let conversionInput {
+			modelURL = try await convertNativeModelIfNeeded(
+				NativeModelConversionRequest(
+					storedURL: storedURL,
+					conversionInput: conversionInput,
+					importSessionID: request.importSessionID,
+					originalModelFilename: sourceURL.lastPathComponent,
+					originalModelURL: request.downloadURL?.absoluteString,
+					reportStore: reportStore,
+					configurationDirectory: configurationDirectory,
+					reportObserver: request.reportObserver
 				)
+			)
 		} else {
 			modelURL = storedURL
 		}
@@ -810,7 +1001,7 @@ struct ModelImportView: View {
 		let service = ModelLoadingService()
 		let extractedInfo: ExtractedModelInfo
 		do {
-			extractedInfo = try await service.loadAndExtractMetadata(from: modelURL, demo: false)
+			extractedInfo = try await service.loadAndExtractMetadata(from: modelURL)
 			try Task.checkCancellation()
 		} catch {
 			if let reportStore {
@@ -833,62 +1024,36 @@ struct ModelImportView: View {
 			modelURL: modelURL,
 			preferredModelName: preferredModelName,
 			extractedInfo: extractedInfo,
+			checkpointConversion: stagingResult.checkpointConversion,
 			configurationDirectory: configurationDirectory,
 			reportStore: reportStore
 		)
 	}
 
-	/// Source extensions the app converts to Core ML on-device before the normal loader runs: the
-	/// auditable native package (`.aiagraph`) and self-contained ONNX (`.onnx`). Both share the same
-	/// conversion report machinery (progress, cancellation, log sheet, export).
-	///
-	/// `nonisolated` because the only reader is `restoringNativeConvertibleExtension`, which is
-	/// itself `nonisolated` — without it the property inherits this view's main-actor isolation and
-	/// the reads warn (errors under Swift 6 language mode). Safe by construction rather than by
-	/// assertion: an immutable `let` of a `Set<String>`, which is `Sendable` (AIA-0634).
-	nonisolated private static let nativeConvertibleExtensions: Set<String> = ["aiagraph", "onnx"]
-
-	/// A model downloaded from a URL is stored under the URLSession temporary name, which drops the
-	/// original extension. When the download URL names a native-convertible format but the stored file
-	/// no longer carries that extension, restore the original filename so the on-device converter is
-	/// selected. Core ML files (`.mlmodel`/`.mlpackage`) and files that already carry a convertible
-	/// extension (Files/catalog imports) are returned untouched.
-	nonisolated private static func restoringNativeConvertibleExtension(of storedURL: URL, from downloadURL: URL?) -> URL {
-		let storedExtension = storedURL.pathExtension.lowercased()
-		guard !nativeConvertibleExtensions.contains(storedExtension),
-			let downloadURL,
-			nativeConvertibleExtensions.contains(downloadURL.pathExtension.lowercased())
-		else {
-			return storedURL
+	/// Chooses a converter from the staged file's verified route rather than from a checkpoint's
+	/// filename. ADAF archives are named `.tar`, but are content-sniffed as PyTorch zip checkpoints.
+	private func nativeConversionInput(
+		for stagingResult: ImportedModelStagingResult
+	) -> NativeModelConversionInput? {
+		if case .adafDetector(let className) = stagingResult.checkpointConversion {
+			return .adafDetector(className: className)
 		}
-		let restoredURL = storedURL.deletingLastPathComponent().appendingPathComponent(downloadURL.lastPathComponent)
-		guard restoredURL != storedURL else { return storedURL }
-		do {
-			if FileManager.default.fileExists(atPath: restoredURL.path) {
-				try FileManager.default.removeItem(at: restoredURL)
-			}
-			try FileManager.default.moveItem(at: storedURL, to: restoredURL)
-			return restoredURL
-		} catch {
-			LoggingPolicy.warning("Could not restore native model extension for downloaded file", logger: .storage)
-			return storedURL
+		switch stagingResult.storedURL.pathExtension.lowercased() {
+		case "onnx": return .onnx
+		case "aiagraph": return .nativeGraphPackage
+		default: return nil
 		}
 	}
 
-	/// Converts a verified native source (`.aiagraph` package or `.onnx` file) to a Core ML model
-	/// beside the copied original.
+	/// Converts a verified native source to a Core ML model beside the copied original.
 	///
 	/// The source and report are never removed while conversion is active. A process interruption
 	/// therefore leaves a recoverable report and the source in the app sandbox. After Core Data
 	/// registration succeeds, the original is removed only when the user chose Convert Only.
-	private func convertNativeGraphPackageIfNeeded(
-		_ request: NativeGraphConversionRequest
+	private func convertNativeModelIfNeeded(
+		_ request: NativeModelConversionRequest
 	) async throws -> URL {
 		let storedURL = request.storedURL
-		let sourceExtension = storedURL.pathExtension.lowercased()
-		guard Self.nativeConvertibleExtensions.contains(sourceExtension) else {
-			return storedURL
-		}
 
 		let report = await request.reportStore.snapshot()
 		let generatedModelURL = report.convertedModelURL(in: request.configurationDirectory)
@@ -896,6 +1061,22 @@ struct ModelImportView: View {
 			return generatedModelURL
 		}
 		do {
+			// Recorded before the conversion, not after it. The metrics the converter returns need
+			// an `emission`, which only a success produces — so a failed report used to carry no
+			// size at all, and that is the report a user is asked to send us (AIA-0778).
+			// Off the main actor: a package can be a deep directory, and walking it synchronously
+			// here would freeze the UI before conversion even starts. `nonisolated` alone does not
+			// move the work — it still runs on the caller's executor.
+			let sourceByteCount = await Task.detached(priority: .utility) {
+				ModelLoadingService.byteCount(at: storedURL)
+			}.value
+			// The URL is sanitised inside `record` — see `loggableSourceURL`. It is passed raw
+			// here on purpose, so the one place that decides what is safe to log is the one place
+			// that has to be got right.
+			try? await request.reportStore.record(
+				sourceByteCount: sourceByteCount,
+				sourceURL: request.originalModelURL
+			)
 			try await request.reportStore.transition(to: .converting)
 			request.reportObserver(await request.reportStore.snapshot())
 			let converter = NativeModelConverter()
@@ -910,22 +1091,30 @@ struct ModelImportView: View {
 				}
 			}
 			let conversionTask = Task.detached(priority: .userInitiated) {
-				if sourceExtension == "onnx" {
+				switch request.conversionInput {
+				case .onnx:
 					return try await converter.convert(
 						onnx: storedURL,
 						to: generatedModelURL,
 						reporting: reportProgress
 					)
+				case .nativeGraphPackage:
+					return try await converter.convert(
+						from: storedURL,
+						to: generatedModelURL,
+						sourceProvenance: NativeModelConversionSourceProvenance(
+							originalModelFilename: request.originalModelFilename,
+							originalModelURL: request.originalModelURL
+						),
+						reporting: reportProgress
+					)
+				case .adafDetector:
+					return try await converter.convert(
+						adafDetector: storedURL,
+						to: generatedModelURL,
+						reporting: reportProgress
+					)
 				}
-				return try await converter.convert(
-					from: storedURL,
-					to: generatedModelURL,
-					sourceProvenance: NativeModelConversionSourceProvenance(
-						originalModelFilename: request.originalModelFilename,
-						originalModelURL: request.originalModelURL
-					),
-					reporting: reportProgress
-				)
 			}
 			let metrics = try await withTaskCancellationHandler(
 				operation: { try await conversionTask.value },
@@ -952,23 +1141,36 @@ struct ModelImportView: View {
 		configurationDirectory: URL,
 		reportObserver: @escaping @Sendable (NativeModelConversionImportReport) -> Void
 	) async {
-		let diagnostic = nativeConversionDiagnostic(for: error)
+		let diagnostic = Self.nativeConversionDiagnostic(for: error)
 		let isCancelled = isNativeConversionCancellation(error)
 		let terminalState: NativeModelConversionImportState = isCancelled ? .cancelled : .failed
 		try? await reportStore.transition(to: terminalState, diagnostic: diagnostic)
 		let report = await reportStore.snapshot()
+		// Armed here rather than at a surface's dismissal: both the alert and the log sheet can be
+		// the last thing to close, and whichever it is must find something to clean up.
+		if report.keepsConvertedModelForExport {
+			retainedModelPendingCleanup = report
+		}
 		// Cancellation and a normal error both finish this *attempt*. Never retain generated output
 		// from an unregistered attempt: the source and report are the durable retry/support records.
 		// A process termination is different—the process cannot run this cleanup, so recovery owns it.
+		//
+		// AIA-0889 carves out one exception: a load refused for memory is the only failure whose
+		// artifact is good. The conversion succeeded and merely this device cannot load it, so the
+		// model is kept for export and removed when the failure report is dismissed instead.
 		NativeModelConversionImportReport.removeTransientArtifacts(
 			for: report,
 			in: configurationDirectory,
-			includingSourcePackage: false
+			includingSourcePackage: false,
+			includingConvertedModel: !report.keepsConvertedModelForExport
 		)
 		reportObserver(report)
 	}
 
-	private func nativeConversionDiagnostic(for error: Error) -> NativeModelConversionDiagnostic {
+	/// Pure and `nonisolated static` so the privacy rail below is asserted by tests rather than
+	/// merely stated: this message is exported and shared, so it is the one string in the import
+	/// path that must be proven not to carry a file name, a path, or Core ML's own wording.
+	nonisolated static func nativeConversionDiagnostic(for error: Error) -> NativeModelConversionDiagnostic {
 		if let error = error as? NativeModelConversionError {
 			return error.diagnostic
 		}
@@ -979,8 +1181,41 @@ struct ModelImportView: View {
 				message: "Conversion was cancelled before the next safe checkpoint."
 			)
 		}
+		// AIA-0889: the load-stage failures used to collapse into the catch-all below, so the one
+		// artefact a user exports for support named neither the stage nor the reason. These carry a
+		// stable code and fixed wording.
+		//
+		// Nothing derived from the error's own text may appear here. `diagnostic.message` is
+		// rendered verbatim, written into the exported log, and shared, while
+		// `ModelLoadingError.errorDescription` embeds the file name and Core ML's raw message — so
+		// forwarding `localizedDescription` would publish both. Fixed strings plus byte counts only.
+		if let error = error as? ModelLoadingError {
+			switch error {
+			case .insufficientMemory(_, let requiredByteCount, let availableByteCount):
+				return NativeModelConversionDiagnostic(
+					code: NativeModelConversionImportReport.AppDiagnosticCode.insufficientMemoryForModelLoad,
+					phase: .failed,
+					message: "The device did not have enough free memory to load the converted model (needed about \(ModelLoadingError.megabytes(requiredByteCount)), about \(ModelLoadingError.megabytes(availableByteCount)) available)."
+				)
+			case .compilationFailed:
+				return NativeModelConversionDiagnostic(
+					code: NativeModelConversionImportReport.AppDiagnosticCode.modelCompilationFailed,
+					phase: .failed,
+					message: "The emitted model could not be compiled by Core ML."
+				)
+			case .modelLoadFailed, .compiledModelLoadFailed:
+				return NativeModelConversionDiagnostic(
+					code: NativeModelConversionImportReport.AppDiagnosticCode.modelLoadFailed,
+					phase: .failed,
+					message: "The emitted model compiled but could not be loaded by Core ML."
+				)
+			case .metadataExtractionFailed, .modelTypeNotDetermined:
+				break
+			}
+		}
+
 		return NativeModelConversionDiagnostic(
-			code: "app.modelValidationOrRegistrationFailed",
+			code: NativeModelConversionImportReport.AppDiagnosticCode.modelValidationOrRegistrationFailed,
 			phase: .failed,
 			message: "The emitted model could not be loaded, validated, or registered."
 		)
@@ -1003,13 +1238,16 @@ struct ModelImportView: View {
 	/// Must be called on MainActor.
 	@MainActor
 	private func createAndSaveConfiguration(
-		modelURL: URL,
-		preferredModelName: String? = nil,
-		downloadUrl: URL?,
-		id: UUID,
-		extractedInfo: ExtractedModelInfo,
-		provider: ModelProvider
+		work: NativeModelImportWork,
+		request: NativeModelImportRequest
 	) throws -> ImportedModelInfo {
+		let modelURL = work.modelURL
+		let preferredModelName = work.preferredModelName
+		let checkpointConversion = work.checkpointConversion
+		let downloadURL = request.downloadURL
+		let id = request.configurationID
+		let extractedInfo = work.extractedInfo
+		let provider = request.provider
 		// A process can terminate after Core Data saves but before the report's final `registered`
 		// checkpoint is written. Recovery must recognize the durable row and finalize the report,
 		// rather than creating a second configuration with the same UUID.
@@ -1018,7 +1256,8 @@ struct ModelImportView: View {
 			return ImportedModelInfo(
 				id: id,
 				needsReview: !existing.modelTypeParsed,
-				nativeModelImportAssumption: extractedInfo.nativeModelImportAssumption
+				nativeModelImportAssumption: extractedInfo.nativeModelImportAssumption,
+				checkpointConversion: checkpointConversion
 			)
 		}
 
@@ -1049,7 +1288,7 @@ struct ModelImportView: View {
 		}
 
 		configuration.file_ = relativePath
-		configuration.downloadURL = downloadUrl
+		configuration.downloadURL = downloadURL
 		configuration.catalogSource = DownloadItem.select(id, in: moc)?.catalogSource
 		configuration.enabled = false
 		configuration.transition(to: .draft)
@@ -1066,20 +1305,17 @@ struct ModelImportView: View {
 		if configuration.lifeCycle == .ready {
 			deep.saveConfigurations()
 			provider.result(.importSucceeded, id: id)
-			let source: ModelAcquisitionSource
-			if downloadUrl == nil {
-				source = .fileImport
-			} else if configuration.catalogSource != nil {
-				source = .catalog
-			} else {
-				source = .directDownload
-			}
+			let source = ModelAcquisitionSource.resolve(
+				downloadURL: downloadURL,
+				catalogSource: configuration.catalogSource
+			)
 			analytics.track(.modelImported(source: source))
 
 			return ImportedModelInfo(
 				id: id,
 				needsReview: !extractedInfo.typeWasParsed,
-				nativeModelImportAssumption: extractedInfo.nativeModelImportAssumption
+				nativeModelImportAssumption: extractedInfo.nativeModelImportAssumption,
+				checkpointConversion: checkpointConversion
 			)
 		} else {
 			moc.delete(configuration)
@@ -1100,6 +1336,9 @@ private struct NativeModelImportWork {
 	/// native package, `nil` for a direct model import whose own filename is already meaningful).
 	let preferredModelName: String?
 	let extractedInfo: ExtractedModelInfo
+	/// Retained only through the success alert, where the user is told that a recognised checkpoint
+	/// was converted rather than rejected.
+	let checkpointConversion: ImportedCheckpointConversion?
 	let configurationDirectory: URL
 	let reportStore: NativeModelConversionImportReportStore?
 }
@@ -1115,11 +1354,15 @@ private struct NativeModelImportRequest {
 	let retainingOriginalNativePackage: Bool
 	let existingNativeReport: NativeModelConversionImportReport?
 	let reportObserver: @Sendable (NativeModelConversionImportReport) -> Void
+	/// Where this import came from. Resolved on the main actor at the start of the import, because
+	/// deriving it needs a Core Data read and the work below runs detached (AIA-0654).
+	let origin: ModelAcquisitionSource
 }
 
 /// The native-only portion of an import after the source has been staged into app-owned storage.
-private struct NativeGraphConversionRequest {
+private struct NativeModelConversionRequest {
 	let storedURL: URL
+	let conversionInput: NativeModelConversionInput
 	let importSessionID: UUID
 	let originalModelFilename: String
 	let originalModelURL: String?
@@ -1128,12 +1371,20 @@ private struct NativeGraphConversionRequest {
 	let reportObserver: @Sendable (NativeModelConversionImportReport) -> Void
 }
 
+/// The supported source families after staging has proved what the input contains.
+private enum NativeModelConversionInput: Sendable {
+	case nativeGraphPackage
+	case onnx
+	case adafDetector(className: String?)
+}
+
 /// Identifies a just-imported model. `needsReview` is `true` when the parser couldn't determine the
 /// type, so the presenter opens the model's settings for the user to pick one (AIA-0402).
 private struct ImportedModelInfo {
 	let id: UUID
 	let needsReview: Bool
 	let nativeModelImportAssumption: NativeModelImportAssumption?
+	let checkpointConversion: ImportedCheckpointConversion?
 }
 
 // MARK: - Supporting Types

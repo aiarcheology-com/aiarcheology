@@ -57,6 +57,100 @@ final class NativeModelDetectorPipelineTests: XCTestCase {
 		)
 	}
 
+	/// A detector whose two in-graph NMS layers already own terminal policy. Their deliberately
+	/// permissive threshold lets the test prove that the Vision-facing NMS model is an adapter — the
+	/// legacy pipeline threshold would otherwise remove one of the overlapping boxes below.
+	private func graphOwnedSuppressionGraph(maskEmptyTile: Bool = false) -> NativeModelGraph {
+		let boxes = NativeModelTensor(name: "boxes_in", dataType: .float32, shape: [1, 2, 4])
+		let scores = NativeModelTensor(name: "scores_in", dataType: .float32, shape: [1, 2, 1])
+		let nmsOutput = { (prefix: String) in
+			[
+				NativeModelTensor(name: "\(prefix).boxes", dataType: .float32, shape: [1, 2, 4]),
+				NativeModelTensor(name: "\(prefix).scores", dataType: .float32, shape: [1, 2, 1]),
+				NativeModelTensor(name: "\(prefix).indices", dataType: .float32, shape: [1, 2]),
+				NativeModelTensor(name: "\(prefix).valid_count", dataType: .float32, shape: [1])
+			]
+		}
+		let firstSuppressionAttributes: [String: NativeModelAttribute] = [
+			"iouThreshold": .floatingPoint(0.99),
+			"scoreThreshold": .floatingPoint(maskEmptyTile ? 0.5 : 0),
+			"maxBoxes": .integer(2),
+			"perClassSuppression": .boolean(false)
+		]
+		var secondSuppressionAttributes = firstSuppressionAttributes
+		secondSuppressionAttributes["scoreThreshold"] = .floatingPoint(0)
+		let maskOperations: [NativeModelOperation]
+		let finalBoxes: String
+		let finalScores: String
+		if maskEmptyTile {
+			maskOperations = [
+				NativeModelOperation(
+					name: "survivors", kind: .greaterOrEqual, inputs: ["second_nms.scores"],
+					outputs: [NativeModelTensor(name: "survivors", dataType: .float32, shape: [1, 2, 1])],
+					attributes: ["threshold": .floatingPoint(0.5)]
+				),
+				NativeModelOperation(
+					name: "masked_scores", kind: .multiply, inputs: ["second_nms.scores", "survivors"],
+					outputs: [NativeModelTensor(name: "masked_scores", dataType: .float32, shape: [1, 2, 1])], attributes: [:]
+				),
+				NativeModelOperation(
+					name: "box_mask", kind: .concatenateND, inputs: ["survivors", "survivors", "survivors", "survivors"],
+					outputs: [NativeModelTensor(name: "box_mask", dataType: .float32, shape: [1, 2, 4])],
+					attributes: ["axis": .integer(2)]
+				),
+				NativeModelOperation(
+					name: "masked_boxes", kind: .multiply, inputs: ["second_nms.boxes", "box_mask"],
+					outputs: [NativeModelTensor(name: "masked_boxes", dataType: .float32, shape: [1, 2, 4])], attributes: [:]
+				)
+			]
+			finalBoxes = "masked_boxes"
+			finalScores = "masked_scores"
+		} else {
+			maskOperations = []
+			finalBoxes = "second_nms.boxes"
+			finalScores = "second_nms.scores"
+		}
+		let suppressionOperations = [
+			NativeModelOperation(
+				name: "first_nms", kind: .nonMaximumSuppression, inputs: [boxes.name, scores.name],
+				outputs: nmsOutput("first_nms"), attributes: firstSuppressionAttributes
+			),
+			NativeModelOperation(
+				name: "second_nms", kind: .nonMaximumSuppression,
+				inputs: ["first_nms.boxes", "first_nms.scores"],
+				outputs: nmsOutput("second_nms"), attributes: secondSuppressionAttributes
+			)
+		]
+		let outputOperations = [
+			NativeModelOperation(
+				name: "raw_coordinates", kind: .reshapeND, inputs: [finalBoxes],
+				outputs: [NativeModelTensor(name: "raw_coordinates", dataType: .float32, shape: [2, 4])],
+				attributes: ["shape": .integers([2, 4])]
+			),
+			NativeModelOperation(
+				name: "raw_confidence", kind: .reshapeND, inputs: [finalScores],
+				outputs: [NativeModelTensor(name: "raw_confidence", dataType: .float32, shape: [2, 1])],
+				attributes: ["shape": .integers([2, 1])]
+			)
+		]
+		return NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "test", version: "1"),
+			inputs: [boxes, scores],
+			weights: [],
+			operations: suppressionOperations + maskOperations + outputOperations,
+			outputs: ["raw_coordinates", "raw_confidence"]
+		)
+	}
+
+	private func graphOwnedInterface() -> NativeModelDetectionInterface {
+		NativeModelDetectionInterface(
+			labels: ["thing"], boxCount: 2,
+			coordinatesBlobName: "raw_coordinates", confidenceBlobName: "raw_confidence",
+			suppressionOwnership: .graph
+		)
+	}
+
 	private func compile(_ graph: NativeModelGraph, _ detection: NativeModelDetectionInterface) async throws -> MLModel {
 		let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
 		addTeardownBlock { try? FileManager.default.removeItem(at: url) }
@@ -102,6 +196,29 @@ final class NativeModelDetectorPipelineTests: XCTestCase {
 		)
 	}
 
+	private func predictGraphOwnedPipeline(
+		_ model: MLModel, boxes: [[Double]], scores: [[Double]]
+	) throws -> (coordinates: [[Double]], confidence: [[Double]]) {
+		let coordinates = try MLMultiArray(shape: [1, NSNumber(value: boxes.count), 4], dataType: .double)
+		for (row, box) in boxes.enumerated() {
+			for (column, value) in box.enumerated() {
+				coordinates[row * 4 + column] = NSNumber(value: value)
+			}
+		}
+		let confidence = try MLMultiArray(shape: [1, NSNumber(value: scores.count), 1], dataType: .double)
+		for (row, score) in scores.enumerated() {
+			confidence[row] = NSNumber(value: score[0])
+		}
+		let prediction = try model.prediction(from: MLDictionaryFeatureProvider(dictionary: [
+			"boxes_in": MLFeatureValue(multiArray: coordinates),
+			"scores_in": MLFeatureValue(multiArray: confidence)
+		]))
+		return (
+			try rows(of: XCTUnwrap(prediction.featureValue(for: "coordinates")?.multiArrayValue), columns: 4),
+			try rows(of: XCTUnwrap(prediction.featureValue(for: "confidence")?.multiArrayValue), columns: 1)
+		)
+	}
+
 	private func rows(of array: MLMultiArray, columns: Int) -> [[Double]] {
 		let rowCount = array.count / columns
 		return (0 ..< rowCount).map { row in
@@ -131,6 +248,40 @@ final class NativeModelDetectorPipelineTests: XCTestCase {
 		// Vision predicts without supplying these; a non-optional threshold would fail every request.
 		XCTAssertTrue(try XCTUnwrap(inputs["iouThreshold"]).isOptional)
 		XCTAssertTrue(try XCTUnwrap(inputs["confidenceThreshold"]).isOptional)
+	}
+
+	func testGraphOwnedSuppression_keepsTheVisionAdapterFromApplyingAThirdPolicyPass() async throws {
+		let model = try await compile(graphOwnedSuppressionGraph(), graphOwnedInterface())
+
+		let inputs = model.modelDescription.inputDescriptionsByName
+		XCTAssertNil(inputs["iouThreshold"])
+		XCTAssertNil(inputs["confidenceThreshold"])
+
+		// These boxes overlap at roughly 0.877: the two graph NMS layers use 0.99 and retain both.
+		// The old pipeline-owned default of 0.45 would have reduced the result to one, making this a
+		// direct behaviour check that the Vision-required terminal model is only an adapter.
+		let (coordinates, confidence) = try predictGraphOwnedPipeline(
+			model,
+			boxes: [[0.50, 0.50, 0.60, 0.60], [0.52, 0.52, 0.60, 0.60]],
+			scores: [[0.9], [0.8]]
+		)
+		XCTAssertEqual(coordinates.count, 2)
+		XCTAssertEqual(confidence.count, 2)
+	}
+
+	func testGraphOwnedSuppression_masksTheCoreMLZeroSurvivorPhantomBeforeVision() async throws {
+		let model = try await compile(graphOwnedSuppressionGraph(maskEmptyTile: true), graphOwnedInterface())
+
+		// Both scores miss the graph's 0.5 first-pass floor. Core ML's NMS nevertheless reports its
+		// top-scoring 0.4 input in slot zero, so removing the four mask nodes makes Vision receive one
+		// recognized object. With the mask, zero scores fall below the adapter's positive padding floor.
+		let (coordinates, confidence) = try predictGraphOwnedPipeline(
+			model,
+			boxes: [[0.50, 0.50, 0.20, 0.20], [0.20, 0.20, 0.10, 0.10]],
+			scores: [[0.10], [0.40]]
+		)
+		XCTAssertTrue(coordinates.isEmpty)
+		XCTAssertTrue(confidence.isEmpty)
 	}
 
 	// MARK: - Suppression behaviour

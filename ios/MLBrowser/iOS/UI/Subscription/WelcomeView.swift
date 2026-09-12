@@ -30,6 +30,7 @@ import StoreKit
 /// would provide.
 struct WelcomeView: View {
 	@ObservedObject var subscriptionState: SubscriptionState
+	@Environment(\.colorScheme) private var colorScheme
 
 	/// The whole length of the free-access window being granted, in days.
 	///
@@ -72,7 +73,7 @@ struct WelcomeView: View {
 
 						Text(L10n.Welcome.body)
 							.font(.body)
-							.foregroundStyle(.secondary)
+							.foregroundStyle(secondaryTextColor)
 							.multilineTextAlignment(.center)
 							.fixedSize(horizontal: false, vertical: true)
 					}
@@ -93,6 +94,7 @@ struct WelcomeView: View {
 			}
 			.testability(Testability.View.welcomeContent)
 		}
+		.background(WelcomeBackground())
 		.task {
 			// Kept off the launch path exactly as the paywall keeps it: a slow App Store fetch may
 			// delay the price note, never app readiness. Until it answers, the generic sentence
@@ -140,7 +142,7 @@ struct WelcomeView: View {
 		if let product = subscriptionState.products.first {
 			Text(L10n.Welcome.priceNote(product.localizedPriceWithTerm))
 				.font(.footnote)
-				.foregroundStyle(.secondary)
+				.foregroundStyle(secondaryTextColor)
 				.multilineTextAlignment(.center)
 				.fixedSize(horizontal: false, vertical: true)
 				// Any sentence embedding the price needs the spoken variant, or VoiceOver reads
@@ -150,7 +152,7 @@ struct WelcomeView: View {
 		} else {
 			Text(L10n.Welcome.priceNoteGeneric)
 				.font(.footnote)
-				.foregroundStyle(.secondary)
+				.foregroundStyle(secondaryTextColor)
 				.multilineTextAlignment(.center)
 				.fixedSize(horizontal: false, vertical: true)
 		}
@@ -159,7 +161,7 @@ struct WelcomeView: View {
 	private func footerBullet(_ text: String) -> some View {
 		Text(text)
 			.font(.caption)
-			.foregroundStyle(.secondary)
+			.foregroundStyle(secondaryTextColor)
 			.multilineTextAlignment(.center)
 			.fixedSize(horizontal: false, vertical: true)
 	}
@@ -167,6 +169,69 @@ struct WelcomeView: View {
 	/// The `Assets.xcassets` colorset backing Continue — the same one ``PaywallView`` names, so the
 	/// action keeps one identity across both screens of the split.
 	private static let continueButtonColorName = "ContinueButton"
+
+	/// The Light backdrop needs stronger contrast for explanatory copy, while Dark keeps the prior
+	/// secondary style.
+	private var secondaryTextColor: Color {
+		colorScheme == .light ? Color(uiColor: .label).opacity(0.72) : .secondary
+	}
+}
+
+/// The decorative layer behind the day-0 Welcome screen.
+///
+/// The collage is deliberately one pre-composed image: the factory and traffic scenes overlap in
+/// the asset itself, so every aspect-fill crop reads as labeling rather than two adjacent photos.
+/// It stays out of VoiceOver and never handles touches. The foreground `ScrollView` above remains
+/// safe-area-aware while this layer alone reaches the display edges.
+private struct WelcomeBackground: View {
+	@Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+	@Environment(\.colorScheme) private var colorScheme
+
+	var body: some View {
+		GeometryReader { geometry in
+			ZStack {
+				Color(uiColor: .systemBackground)
+
+				if !reduceTransparency {
+					Image(Self.imageName)
+						.resizable()
+						.interpolation(.high)
+						.scaledToFill()
+						.frame(width: geometry.size.width, height: geometry.size.height)
+						// Preserve the collage's aspect ratio while shifting the rendered image upper-left.
+						.scaleEffect(1.13, anchor: .bottomTrailing)
+						.clipped()
+						.opacity(imageOpacity)
+
+					// Use fixed unit points, not semantic leading/trailing points: the visual requirement
+					// is always top-left (0.0) to bottom-right (0.7), including right-to-left layouts.
+					LinearGradient(
+						colors: [
+							Color(uiColor: .systemBackground).opacity(0),
+							Color(uiColor: .systemBackground).opacity(0.7)
+						],
+						startPoint: UnitPoint(x: 0, y: 0),
+						endPoint: UnitPoint(x: 1, y: 1)
+					)
+					.frame(width: geometry.size.width, height: geometry.size.height)
+				}
+			}
+			.frame(width: geometry.size.width, height: geometry.size.height)
+			.clipped()
+		}
+		.ignoresSafeArea()
+		.allowsHitTesting(false)
+		.accessibilityHidden(true)
+	}
+
+	/// Light appearance keeps the photo quieter against its light adaptive base; dark gets a
+	/// slightly stronger image so the collage remains present. The required diagonal gradient is
+	/// fixed independently at 0.0 to 0.7 in both appearances.
+	private var imageOpacity: Double {
+		colorScheme == .dark ? 0.34 : 0.30
+	}
+
+	private static let imageName = "WelcomeBackground"
 }
 
 #if DEBUG

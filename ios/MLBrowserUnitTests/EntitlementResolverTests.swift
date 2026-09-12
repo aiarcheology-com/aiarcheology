@@ -11,6 +11,7 @@
 //  the Xcode IDE, and from a UI test creating the session before app launch).
 //
 
+import StoreKit
 import XCTest
 @testable import ML_Browser
 
@@ -162,5 +163,115 @@ final class EntitlementResolverTests: XCTestCase {
 	func testResolve_ExplicitProductIDs_OverrideTheDefault() {
 		XCTAssertNil(EntitlementResolver.resolve([candidate()], productIDs: [foreignID]))
 		XCTAssertNotNil(EntitlementResolver.resolve([candidate(productID: foreignID)], productIDs: [foreignID]))
+	}
+}
+
+/// What the App Store's subscription-group status is allowed to prove (AIA-0782).
+///
+/// The rule these cover is the one standing between "the customer is told to tap Restore" and
+/// "the customer who simply changed their mind is told they already subscribed".
+final class SubscriptionStatusResolverTests: XCTestCase {
+
+	private func status(
+		productID: String = SubscriptionProduct.monthly,
+		state: SubscriptionStatusState = .subscribed,
+		isVerified: Bool = true
+	) -> SubscriptionStatusCandidate {
+		SubscriptionStatusCandidate(productID: productID, state: state, isVerified: isVerified)
+	}
+
+	/// The case the whole feature exists for.
+	func testActiveVerifiedSubscription_IsRestorable() {
+		XCTAssertTrue(SubscriptionStatusResolver.reportsRestorableSubscription([status()]))
+	}
+
+	/// Apple keeps serving a grace-period customer while it retries the payment, so they still
+	/// have something to restore.
+	func testGracePeriod_IsRestorable() {
+		XCTAssertTrue(SubscriptionStatusResolver.reportsRestorableSubscription([status(state: .inGracePeriod)]))
+	}
+
+	/// Nothing to restore, and the difference matters: a lapsed customer must be sold a
+	/// subscription, not sent to Restore to find nothing.
+	func testInactiveStates_AreNotRestorable() {
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([status(state: .other)]))
+	}
+
+	/// An unverified status is unsigned data. It gets the same answer an unverified entitlement
+	/// gets — dropped — and this is the only place that rule is visible.
+	func testUnverifiedStatus_IsNotRestorable() {
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([status(isVerified: false)]))
+	}
+
+	/// A status for a product this app does not sell says nothing about access to this app.
+	func testForeignProduct_IsNotRestorable() {
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([status(productID: foreignID)]))
+	}
+
+	/// Empty is the answer a failed or unavailable query produces, and it must read as "no".
+	func testNoStatuses_AreNotRestorable() {
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([]))
+	}
+
+	/// The array holds a group's whole history — expired and revoked entries sit beside live ones.
+	/// A live entry behind two dead ones must still be found, and a dead one must not mask it.
+	func testALiveStatusBehindDeadOnes_IsStillFound() {
+		XCTAssertTrue(SubscriptionStatusResolver.reportsRestorableSubscription([
+			status(state: .other),
+			status(productID: foreignID),
+			status(state: .subscribed)
+		]))
+	}
+
+	/// Every clause must hold *together*. A candidate that is active but unverified, or verified
+	/// but foreign, must not be rescued by a sibling that satisfies the other half.
+	func testTheClausesApplyPerCandidate_NotAcrossTheArray() {
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([
+			status(isVerified: false),
+			status(productID: foreignID, state: .subscribed)
+		]))
+	}
+
+	// MARK: - The StoreKit renewal-state mapping
+
+	/// The mapping is where the rule can be broken silently. `RenewalState` *is* constructible —
+	/// it is a struct of static values, not an enum — so there is no excuse for leaving it to a
+	/// sandbox run: flipping `.expired` to `.subscribed` here would send every lapsed customer to
+	/// a Restore that finds nothing, with every other test in this file still green.
+	func testRenewalStates_MapToTheStatesThisAppDistinguishes() {
+		XCTAssertEqual(SubscriptionStatusState(.subscribed), .subscribed)
+		XCTAssertEqual(SubscriptionStatusState(.inGracePeriod), .inGracePeriod)
+		XCTAssertEqual(SubscriptionStatusState(.expired), .other)
+		XCTAssertEqual(SubscriptionStatusState(.revoked), .other)
+	}
+
+	/// Billing retry is the one that reads like access and is not. Apple has stopped serving the
+	/// subscription by then, so a customer here must be sold one rather than sent to Restore.
+	func testBillingRetry_IsNotAnActiveState() {
+		XCTAssertEqual(SubscriptionStatusState(.inBillingRetryPeriod), .other)
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([
+			SubscriptionStatusCandidate(
+				productID: SubscriptionProduct.monthly,
+				state: SubscriptionStatusState(.inBillingRetryPeriod),
+				isVerified: true
+			)
+		]))
+	}
+
+	/// A renewal state this build has never heard of is not an entitlement. `RenewalState` is a
+	/// struct, so StoreKit can add values without a compiler error anywhere — this pins that the
+	/// `default` arm stays closed rather than opening the gate on an unknown value.
+	func testAnUnrecognisedRenewalState_IsNotActive() {
+		XCTAssertEqual(SubscriptionStatusState(Product.SubscriptionInfo.RenewalState(rawValue: 9_999)), .other)
+	}
+
+	/// The shipping product set governs by default, mirroring `EntitlementResolver`: a resolver
+	/// that stopped consulting it would fail open in production with every test above still green.
+	func testExplicitProductIDs_OverrideTheDefault() {
+		XCTAssertFalse(SubscriptionStatusResolver.reportsRestorableSubscription([status()], productIDs: [foreignID]))
+		XCTAssertTrue(SubscriptionStatusResolver.reportsRestorableSubscription(
+			[status(productID: foreignID)],
+			productIDs: [foreignID]
+		))
 	}
 }

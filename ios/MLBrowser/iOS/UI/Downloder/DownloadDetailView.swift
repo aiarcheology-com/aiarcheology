@@ -50,6 +50,7 @@ struct DownloadDetailView: View {
 			Form {
 				urlInputSection
 				statusSection
+				importSection
 				helpSection
 			}
 		}
@@ -362,7 +363,7 @@ private extension DownloadDetailView {
 	}
 
 	var packageProgressDescription: String? {
-		guard let packageFileCount else { return L10n.Download.urlHint }
+		guard let packageFileCount else { return L10n.Download.urlHintFormats }
 		switch item.state {
 		case .complete, .imported:
 			return L10n.Catalog.Download.progress(packageFileCount, packageFileCount)
@@ -389,10 +390,11 @@ private extension DownloadDetailView {
 private extension DownloadDetailView {
 	@ToolbarContentBuilder
 	var toolbarContent: some ToolbarContent {
-		if sizeClass == .compact {
-			ToolbarItem(placement: .topBarTrailing) { importButton }
-		} else {
-			ToolbarItem(placement: .topBarLeading) { importButton }
+		// Import is NOT here any more (AIA-0757). It sat in the navigation bar while the large
+		// in-body Download/Restart button did not, so once a download finished the prominent control
+		// was the wrong one — testers pressed Restart. It now lives in the form, between the progress
+		// rows and the action bar.
+		if sizeClass != .compact {
 			ToolbarItem(placement: .topBarTrailing) {
 				Button(L10n.Common.dismiss) { dismiss() }
 					.bold()
@@ -417,21 +419,47 @@ private extension DownloadDetailView {
 		}
 	}
 	
+	/// Import's own row in the form, directly under the progress and byte counts and directly above
+	/// the Download/Cancel bar — the place the eye lands once a download completes (AIA-0757).
+	///
+	/// Deliberately in the `Form` rather than in the pinned `safeAreaInset` alongside Download and
+	/// Cancel: that inset is chrome and stays put, so Import would hover there while the very rows
+	/// that say the download is finished scrolled away behind it.
+	var importSection: some View {
+		Section {
+			HStack {
+				Spacer()
+				importButton
+				Spacer()
+			}
+		}
+		.listRowBackground(Color.clear)
+	}
+
 	var importButton: some View {
 		// "Imported" means a deep configuration exists for this item — the same condition that
 		// disables the button below. The download state alone is not enough: import paths that
 		// bypass the downloader's state machine leave it at .complete, and conversely a deleted
 		// configuration re-enables import while the state stays .imported (AIA-0459).
-		return Button(isImported ? L10n.Common.imported : L10n.Common.import) {
+		return Button {
 			let entityId = item.entityId
 			guard let file = item.file,
 				  let url = item.url
 			else { return }
 			
 			onImport.call(file, entityId, url, downloader)
+		} label: {
+			Text(isImported ? L10n.Common.imported : L10n.Common.import)
+				.fontWeight(.semibold)
 		}
-		.bold()
-		.foregroundColor(canImport ? .green : .gray)
+		// The same prominent style the drawer's Add Model uses, in green: this is the form's primary
+		// action once a download completes, and it should look like the platform's idea of one
+		// rather than like a bespoke control. Unlike `PressableButtonStyle` — which paints white on
+		// whatever colour it is handed and never inspects `isEnabled` — this style dims itself while
+		// the download is still running, so the inactive state needs no colour of its own.
+		.buttonStyle(.borderedProminent)
+		.controlSize(.large)
+		.tint(.green)
 		.disabled(!canImport)
 		.testability(Testability.Button.downloadDetailImport)
 	}

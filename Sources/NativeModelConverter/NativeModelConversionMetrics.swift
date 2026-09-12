@@ -180,6 +180,39 @@ public struct NativeModelConverter: Sendable {
 		}
 	}
 
+	/// Converts one of the pinned ADAF Faster R-CNN checkpoints to Core ML on-device.
+	///
+	/// This is deliberately a separate high-level entry point rather than treating the checkpoint
+	/// as a graph package: a PyTorch checkpoint carries tensor storage, not an `.aiagraph` manifest
+	/// and graph. The exact registry and emitter contract matches `adaf-detector-parity-runner`, so
+	/// an app-imported artifact carries the same detector interface and parity provenance as the CLI
+	/// artifact. Compute-unit selection belongs to the loading app, not the converted artifact.
+	public func convert(
+		adafDetector checkpointURL: URL,
+		to outputURL: URL,
+		reporting progress: NativeModelConversionProgressHandler? = nil
+	) async throws -> NativeModelConversionMetrics {
+		progress?(NativeModelConversionProgress(phase: .waitingForExclusiveAccess))
+		do {
+			try await Self.executionGate.acquire()
+		} catch is CancellationError {
+			progress?(NativeModelConversionProgress(phase: .cancelled))
+			throw NativeModelConversionError.cancelled(phase: .waitingForExclusiveAccess)
+		}
+		do {
+			let metrics = try convertADAFDetectorReserved(
+				from: checkpointURL,
+				to: outputURL,
+				reporting: progress
+			)
+			await Self.executionGate.release()
+			return metrics
+		} catch {
+			await Self.executionGate.release()
+			throw error
+		}
+	}
+
 	private func convertONNXReserved(
 		from onnxURL: URL,
 		to outputURL: URL,
@@ -188,7 +221,8 @@ public struct NativeModelConverter: Sendable {
 		let memoryTracker = NativeModelConversionMemoryTracker()
 		let report: NativeModelConversionProgressHandler = { update in
 			NativeModelConversionInstrumentation.event(update.phase)
-			progress?(update.withProcessMemoryUsage(memoryTracker.sample()))
+			let observedUpdate = update.withProcessMemoryUsage(memoryTracker.sample())
+			progress?(observedUpdate)
 		}
 		do {
 			report(NativeModelConversionProgress(phase: .preparing))
@@ -289,6 +323,116 @@ public struct NativeModelConverter: Sendable {
 		}
 	}
 
+	private func convertADAFDetectorReserved(
+		from checkpointURL: URL,
+		to outputURL: URL,
+		reporting progress: NativeModelConversionProgressHandler?
+	) throws -> NativeModelConversionMetrics {
+		let memoryTracker = NativeModelConversionMemoryTracker()
+		let report: NativeModelConversionProgressHandler = { update in
+			NativeModelConversionInstrumentation.event(update.phase)
+			let observedUpdate = update.withProcessMemoryUsage(memoryTracker.sample())
+			progress?(observedUpdate)
+		}
+		let cancellationCheck: NativeModelConversionCancellationHandler = {
+			try Task.checkCancellation()
+		}
+		var phase = NativeModelConversionPhase.preparing
+		report(NativeModelConversionProgress(phase: phase))
+
+		do {
+			try cancellationCheck()
+			phase = .readingGraph
+			report(NativeModelConversionProgress(phase: phase, completedUnitCount: 0, totalUnitCount: 1))
+			let readingStartedAt = DispatchTime.now().uptimeNanoseconds
+			let checkpoint = try PyTorchCheckpointReader.read(contentsOf: checkpointURL)
+			report(NativeModelConversionProgress(phase: phase, completedUnitCount: 1, totalUnitCount: 1))
+
+			phase = .validatingGraph
+			report(NativeModelConversionProgress(phase: phase, completedUnitCount: 0, totalUnitCount: 1))
+			try cancellationCheck()
+			report(NativeModelConversionProgress(phase: phase, completedUnitCount: 1, totalUnitCount: 1))
+
+			// A process termination cannot run this method's defer. Keep the extractor's disposable
+			// scratch file out of the app-owned configuration directory, whose recovery protocol knows
+			// only the durable source, report and emitted model artifacts.
+			let weightsURL = FileManager.default.temporaryDirectory
+				.appendingPathComponent(".adaf-weights-\(UUID().uuidString).bin", isDirectory: false)
+			defer { try? FileManager.default.removeItem(at: weightsURL) }
+
+			phase = .readingWeights
+			let extraction = try PyTorchWeightExtractor.extract(
+				checkpoint,
+				from: checkpointURL,
+				to: weightsURL,
+				reporting: report,
+				checkingCancellation: cancellationCheck
+			)
+			phase = .validatingWeights
+			report(NativeModelConversionProgress(phase: phase, completedUnitCount: 0, totalUnitCount: 1))
+			try cancellationCheck()
+			let conversion = try NativeModelFasterRCNNRegistry.streamingConversion(
+				checkpoint: checkpoint,
+				extraction: extraction,
+				weightURL: weightsURL,
+				checkingCancellation: cancellationCheck
+			)
+			report(NativeModelConversionProgress(phase: phase, completedUnitCount: 1, totalUnitCount: 1))
+
+			let readDuration = elapsedNanoseconds(since: readingStartedAt)
+			let sourceFootprint = NativeModelPackageFootprint(
+				manifestByteCount: 0,
+				graphByteCount: 0,
+				weightsByteCount: extraction.sourceByteCount,
+				metadataByteCount: 0
+			)
+			let emissionStartedAt = DispatchTime.now().uptimeNanoseconds
+			try emitter.emit(
+				adaf: NativeModelADAFEmissionRequest(
+					graph: conversion.graph,
+					promotedWeights: conversion.weights,
+					detection: conversion.interface,
+					detectionTarget: conversion.targetInfo,
+					imagePreprocessing: .imageNetRGB,
+					imageSizingContract: .adafFasterRCNN,
+					targetSemanticsIntent: conversion.targetSemanticsIntent,
+					parityEvidence: .structurallyMatched
+				),
+				to: outputURL,
+				reporting: report,
+				checkingCancellation: cancellationCheck
+			)
+			let emission = NativeModelEmissionMetrics(
+				sourceFootprint: sourceFootprint,
+				operationCount: conversion.graph.operations.count,
+				outputModelByteCount: try outputFileByteCount(at: outputURL),
+				outputMetadataSidecarByteCount: 0,
+				emissionDurationNanoseconds: elapsedNanoseconds(since: emissionStartedAt)
+			)
+			report(NativeModelConversionProgress(phase: .completed, completedUnitCount: 1, totalUnitCount: 1))
+			return NativeModelConversionMetrics(
+				sourceFootprint: sourceFootprint,
+				packageReadDurationNanoseconds: readDuration,
+				emission: emission,
+				processMemoryUsage: memoryTracker.sample()
+			)
+		} catch is CancellationError {
+			report(NativeModelConversionProgress(phase: .cancelled))
+			throw NativeModelConversionError.cancelled(phase: phase)
+		} catch {
+			let conversionError = conversionError(from: error, defaultPhase: phase)
+			report(NativeModelConversionProgress(phase: .failed))
+			throw conversionError
+		}
+	}
+
+	private func outputFileByteCount(at url: URL) throws -> UInt64 {
+		guard let byteCount = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber else {
+			throw NativeModelCoreMLEmissionError.outputFileSizeUnavailable(url.lastPathComponent)
+		}
+		return byteCount.uint64Value
+	}
+
 	private func convertReserved(
 		from packageURL: URL,
 		to outputURL: URL,
@@ -300,7 +444,8 @@ public struct NativeModelConverter: Sendable {
 		let processMemoryTracker = NativeModelConversionMemoryTracker()
 		let report: NativeModelConversionProgressHandler = { update in
 			NativeModelConversionInstrumentation.event(update.phase)
-			progress?(update.withProcessMemoryUsage(processMemoryTracker.sample()))
+			let observedUpdate = update.withProcessMemoryUsage(processMemoryTracker.sample())
+			progress?(observedUpdate)
 		}
 		report(NativeModelConversionProgress(phase: .preparing))
 		let cancellationCheck: NativeModelConversionCancellationHandler = {

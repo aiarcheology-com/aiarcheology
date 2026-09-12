@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.wrangler/
+# Local credentials for the staging E2E suite. Never committed: it holds a test-user password.
+.dev.vars

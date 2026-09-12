@@ -2,7 +2,8 @@
 
 This document covers first-time project setup, the `ProjectTool` CLI, pinned
 developer tools, helper scripts, and secrets management. For what the app is
-and an overview of the repository, see the [root README](../../README.md).
+and an overview of the repository, see the [root README](../../README.md). For suite selection,
+commands, fixtures, and test-result interpretation, see [TESTING.md](../../TESTING.md).
 
 ## 🛠️ Initial project setup (required)
 
@@ -98,6 +99,27 @@ swift run --package-path Tools ProjectTool cleanup
 
 What it does:
 - Removes `./.build` (relative to your current working directory). Run it from the repository root.
+
+## Build caches
+
+Preserve compatible incremental products between tasks. `scripts/unittest.sh` defaults to the
+repository's `.deriveddata` and accepts `DERIVED_DATA_PATH`; the catalog-stability script defaults
+to `.deriveddata-localization` and also accepts `DERIVED_DATA_PATH`. The unit and Harmonize wrappers
+accept `SPM_CACHE_PATH` for cloned packages. Serialize builds using the same artifact directories.
+
+If a build reports a stale/missing module or XCFramework, first check the selected Xcode, SDK,
+dependency resolution, destination, and whether another build shares its artifacts. Retry with a
+separate DerivedData path to isolate the fault. A fresh path must complete a successful build before
+its test products can be used; `test-without-building` cannot repair a failed build.
+
+Invalidate the affected cache only for incompatible inputs or demonstrated corruption. Prune known
+unused caches by age/size or under storage pressure, after checking that no active build uses them.
+Do not automatically delete `.deriveddata*`, `ios/.deriveddata*`, or `.build` when finishing a ticket.
+The explicit `ProjectTool cleanup` command above remains available when its scope is appropriate.
+
+The root and iOS SwiftLint configurations exclude ordinary `.deriveddata` paths, but do not assume
+every custom cache suffix is excluded. If generated/vendor files enter lint scope, diagnose the
+configuration/path and propose a focused exclusion; cache deletion is not a durable lint fix.
 
 ## 📜 Scripts
 
@@ -201,6 +223,11 @@ swift run --package-path Tools ProjectTool secrets clean
 
 In Xcode Cloud, secrets are injected via environment variables in:
 - `ios/ci_scripts/ci_pre_xcodebuild.sh`
+
+For release preparation, follow the [delivery reference](../../README.md#-emergency-delivery-lane-xcode-cloud-fallback).
+Preserve the existing `ITSAppUsesNonExemptEncryption` metadata in `MLBrowser-Info.plist`; omitting
+it can leave a TestFlight build waiting for export-compliance information. Upload tester notes
+only after App Store Connect finishes processing the selected build.
 
 ## 💳 Testing purchases (AIA-0376)
 

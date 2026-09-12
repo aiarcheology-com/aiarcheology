@@ -14,6 +14,10 @@ cannot be consulted.
 
 ## The current flags
 
+The keys and compiled defaults are defined in
+[FeatureFlagKey](ios/MLBrowser/iOS/State/FeatureFlags.swift). Assess independent rollout, recovery,
+or user-control needs before adding a flag; reuse one only when its meaning and lifecycle match.
+
 | Key | Default | Applies | Gates |
 |-|-|-|-|
 | `isModelCatalogEnabled` | `true` | **live** | The public model-catalog acquisition surface (AIA-0413) |
@@ -21,9 +25,11 @@ cannot be consulted.
 | `isAnalyticsEnabled` | `true` | **live** | Optional analytics availability: when off, no prompt or Settings control is shown and no provider can activate. When on, users retain their own opt-in/out choice. |
 | `isAppMessagingEnabled` | `true` | **live** | The app→user messaging surface (AIA-0115): whether remotely-published messages render at all. Fails open — safe because the `appMessages` content setting defaults to empty, so an outage shows no messages rather than stale ones. |
 | `isRatingPromptEnabled` | `true` | **live** | The native App Store rating request offered after a positive moment — a finding saved, or a model imported/converted (AIA-0117). When off, the app never asks; the user can still review from the App Store. |
-| `isSupportReportingEnabled` | `true` | **live** | The in-app support-request surface. |
+| `isSupportReportingEnabled` | `true` | **live** | The screenshot-triggered support offer. The manual Settings support route remains available. |
 | `isCrossDeviceAnalyticsIdentityEnabled` | `true` | **live** | Whether the analytics identity is tied to the account across devices. See `AUTH-SUBSCRIPTION.md`, "What the analytics identity does *not* change". |
 | `isFreeAccessPeriodEnabled` | `true` | **launch only** | Whether a new 14-day app-managed free-access window may be **granted** (AIA-0556). It never shortens or revokes a window already open, and it is captured once at construction. See `ios/STOREKIT_SUBSCRIPTION_SETUP.md`, "Two free periods". |
+| `isDetailedApplicationLogEnabled` | `true` | **live** | Persistent application logging and retained debug entries. Turning it off removes persisted logs and retains the session-only support-log path. |
+| `isFindingShareLinkEnabled` | `false` | **live** | New finding-share link/QR emission. Receiving existing links remains available; the default fails closed because emission depends on external link infrastructure. |
 
 > **Retired: `isRefundRequestEnabled`** (AIA-0461 → removed by AIA-0455). It gated the
 > Settings → Subscription "Request a Refund" row. The row and the flag are both gone: Apple mandates
@@ -57,15 +63,16 @@ DependencyContainer  →  AppState.featureFlags  →  views
 - **The key is `rawValue`, a declared literal.** Never derive a flag key from a symbol
   name — release builds strip and rename symbols, and the lookup would silently miss and
   fall back to the default forever.
-- **Nothing blocks launch.** The snapshot seeds synchronously from the SDK's own cache;
-  `refresh()` runs detached *after* `isReady`. Never `await` ConfigCat on the launch path.
+- **Nothing blocks launch.** The live snapshot seeds from the provider's immediately available
+  values, which can still be compiled defaults while the SDK loads its cache. `refresh()` runs
+  detached *after* `isReady`. Never `await` ConfigCat on the launch path.
 - **A live flag needs a subscription, not just a refresh.** `FeatureFlagsState` observes
   `onConfigChanged` (via `FeatureFlagProviding.changes()`) and republishes. The SDK's
   auto-poll updates its *own* cache and calls nothing of ours, so a one-shot `refresh()`
   at launch would leave `client.snapshot()` stale until relaunch.
-- **No app-owned cache.** The ConfigCat SDK already persists config JSON to `UserDefaults`
-  under `com.configcat-` and exposes a synchronous `client.snapshot()`. A second cache
-  would be a competing source of truth that diverges across environments.
+- **Use the SDK cache for live flags.** ConfigCat persists config JSON to `UserDefaults`
+  under `com.configcat-` and exposes a synchronous `client.snapshot()`. Do not add a competing
+  live cache. The deliberate exception is the next-launch mirror in `LaunchCapturedFlags`, below.
 - **A launch-captured flag cannot read the snapshot (AIA-0513).** `FeatureFlagsState` seeds
   synchronously and the ConfigCat SDK has not synced at composition time — not even from its own
   on-disk cache, which loads asynchronously. Reading `snapshot` at launch therefore yields the
@@ -118,10 +125,11 @@ configuration, not distribution channel: a TestFlight binary is promoted to the 
 unchanged, so it must read the flags it will read once released. Sending it to Test would
 validate the release candidate against config it never sees in production.
 
-This intentionally differs from `ClerkAuthProvider.publishableKey`, which keys off
-`isAppStoreDistribution` and so gives TestFlight the *dev* Clerk instance. Dev auth and
-sandbox purchases are imposed on TestFlight by the receipt; the flag environment is a free
-choice, spent here on fidelity.
+`ClerkAuthProvider.publishableKey` now reaches the same conclusion by a different route: it
+reads `BackendEnvironment`, fixed at build time from `AIA_BACKEND_ENVIRONMENT`, which is
+`production` for every Release build including TestFlight (AIA-0791). It used to key off
+`isAppStoreDistribution` and give TestFlight the *dev* Clerk instance. They remain two
+separate settings; sandbox purchases are still imposed on TestFlight by the receipt.
 
 > **There is no tester-only flag.** Flipping a flag reaches TestFlight testers and live App
 > Store users alike. To rehearse a flip, use a Debug build against the Test environment.
@@ -145,8 +153,8 @@ swift run --package-path Tools ProjectTool secrets refresh
 by `ios/ci_scripts/ci_pre_xcodebuild.sh` — 1Password is not reachable there. The **archive**
 workflow must define `CONFIGCAT_SDK_KEY_LIVE` (mark as Secret), and the script hard-fails
 without it. That hard failure is deliberate: a missing key is not otherwise a build error,
-so the app would ship falling back to compiled defaults — both ON, indistinguishable from
-healthy, and unreachable by any dashboard change. Test and build actions need no key: they
+so the app would ship using compiled defaults, including the deliberately disabled share-link
+flag, and remain unreachable by any dashboard change. Test and build actions need no key: they
 are Debug and pin `StaticFeatureFlagProvider`.
 
 Xcode Cloud env var names match build-setting names (as with `SENTRY_DSN` and

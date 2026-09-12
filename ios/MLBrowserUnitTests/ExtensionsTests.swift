@@ -334,7 +334,17 @@ final class URLIsImageExtensionsTests: XCTestCase {
 // MARK: - URL Extensions Tests
 
 final class URLExtensionsTests: XCTestCase {
-    
+
+    func testIsCompiledCoreMLModel_OnlyForMlmodelcExtension_CaseInsensitive() {
+        XCTAssertTrue(URL(fileURLWithPath: "/models/model.mlmodelc").isCompiledCoreMLModel)
+        XCTAssertTrue(URL(fileURLWithPath: "/models/MODEL.MLMODELC").isCompiledCoreMLModel)
+        XCTAssertTrue(URL(fileURLWithPath: "/models/model.mlmodelc/").isCompiledCoreMLModel)
+        XCTAssertFalse(URL(fileURLWithPath: "/models/model.mlmodel").isCompiledCoreMLModel)
+        XCTAssertFalse(URL(fileURLWithPath: "/models/model.mlpackage").isCompiledCoreMLModel)
+        XCTAssertFalse(URL(fileURLWithPath: "/models/model.onnx").isCompiledCoreMLModel)
+        XCTAssertFalse(URL(fileURLWithPath: "/models/mlmodelc").isCompiledCoreMLModel)
+    }
+
     func testCompletePath_ToDocumentDirectory() throws {
         let relativePath = URL(fileURLWithPath: "test/file.txt")
         

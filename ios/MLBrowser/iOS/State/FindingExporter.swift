@@ -11,7 +11,7 @@ import CoreData
 /// A Core Data `Finding` flattened into a Sendable value, captured on the
 /// MainActor at export time so the export work can run off the viewContext's
 /// thread without touching the managed object. `id` is the single identity for
-/// the zip entry name, the JSON relative path, and the source PNG lookup — they
+/// the zip entry name, the JSON relative path, and the source image lookup — they
 /// can never three-way disagree.
 struct FindingSnapshot: Sendable, Equatable {
 	struct Box: Sendable, Equatable, Codable {
@@ -25,55 +25,120 @@ struct FindingSnapshot: Sendable, Equatable {
 	let title: String
 	let label: String?
 	let note: String?
+	/// The finder's credit (AIA-0651), nil when it was left blank.
+	let author: String?
 	let gps: String?
 	let page: URL?
 	let detectionClass: String?
 	let confidence: Double
 	let date: Date?
 	let box: Box
-	/// The PNG on disk at capture time, or nil when the file is already missing.
+	/// Where the detection sat on the **captured view**, before the save sheet's crop was baked
+	/// into the image (AIA-0761). Nil when the finding never recorded one — a row saved before the
+	/// attribute existed, or one imported from an older client's archive. Nil travels as an
+	/// explicit JSON `null`, and on the way back in it means "not stated", so an old peer's archive
+	/// cannot blank a capture box this device already knows.
+	let captureBox: Box?
+	/// Last-write-wins ordering key (AIA-713). Nil only for rows that predate model 0.0.2.
+	let modifiedAt: Date?
+	/// The configuration that produced the detection. Carried so a restored finding keeps its
+	/// provenance instead of becoming an anonymous box.
+	let modelId: UUID?
+	/// `CoreDataManageableState` raw value. The escape-hatch export deliberately includes every
+	/// lifecycle, so restoring one as `.ready` unconditionally would change what it means.
+	let lifeCycle: String
+	/// The image on disk at capture time, or nil when the file is already missing.
 	/// Copy time tolerates a disappearance too — this is only the best guess.
 	let screenshotSourceURL: URL?
+	/// `Finding.source_` verbatim — the RAW column, not `Finding.source` (AIA-0835).
+	///
+	/// Carrying the raw value is what keeps "never recorded" distinguishable from "recorded as
+	/// local" across the wire. Reading the typed accessor here would collapse both to `"local"`,
+	/// and a reader would then have no way to tell an old archive from a deliberate claim.
+	let source: String?
+	/// When the exporting device took delivery of a received finding; nil for the user's own work.
+	let receivedAt: Date?
 
 	init(
 		id: UUID,
 		title: String = "",
 		label: String? = nil,
 		note: String? = nil,
+		author: String? = nil,
 		gps: String? = nil,
 		page: URL? = nil,
 		detectionClass: String? = nil,
 		confidence: Double = 0,
 		date: Date? = nil,
 		box: Box = Box(x: 0, y: 0, width: 0, height: 0),
-		screenshotSourceURL: URL? = nil
+		captureBox: Box? = nil,
+		modifiedAt: Date? = nil,
+		modelId: UUID? = nil,
+		lifeCycle: String = CoreDataManageableState.ready.rawValue,
+		screenshotSourceURL: URL? = nil,
+		source: String? = nil,
+		receivedAt: Date? = nil
 	) {
 		self.id = id
 		self.title = title
 		self.label = label
 		self.note = note
+		self.author = author
 		self.gps = gps
 		self.page = page
 		self.detectionClass = detectionClass
 		self.confidence = confidence
 		self.date = date
 		self.box = box
+		self.captureBox = captureBox
+		self.modifiedAt = modifiedAt
+		self.modelId = modelId
+		self.lifeCycle = lifeCycle
 		self.screenshotSourceURL = screenshotSourceURL
+		self.source = source
+		self.receivedAt = receivedAt
 	}
 
 	/// Reads the managed object's attributes. Must be called on the context's
 	/// queue (the viewContext is MainActor-bound), hence the isolation.
+	/// A snapshot whose ordering key is stated rather than read off the finding.
+	///
+	/// Cloud sync needs this: the wire carries whole milliseconds and the server may clamp a
+	/// future-dated clock, so the metadata it stores has to say exactly what the index says. A
+	/// snapshot carrying the raw local `Date` would restore a timestamp the index disagrees with.
+	@MainActor init(_ finding: Finding, modifiedAt: Date) {
+		self.init(finding)
+		self = FindingSnapshot(
+			id: id, title: title, label: label, note: note, author: author, gps: gps, page: page,
+			detectionClass: detectionClass, confidence: confidence, date: date, box: box,
+			captureBox: captureBox, modifiedAt: modifiedAt, modelId: modelId, lifeCycle: lifeCycle,
+			screenshotSourceURL: screenshotSourceURL, source: source, receivedAt: receivedAt
+		)
+	}
+
 	@MainActor init(_ finding: Finding) {
 		id = finding.entityId
 		title = finding.title
 		label = finding.label_
 		note = finding.note_
+		author = finding.author
 		gps = finding.gps_
 		page = finding.page
 		detectionClass = finding.detectionClass
 		confidence = finding.detectionConfidence
 		date = finding.creationDate_
 		box = Box(x: finding.boxX, y: finding.boxY, width: finding.boxWidth, height: finding.boxHeight)
+		// The zero rect is Core Data's default, i.e. "never recorded" — carried as nil rather than
+		// as four zeroes so the wire says "not stated" instead of asserting a degenerate rectangle.
+		let capture = finding.captureNormalizedBox
+		captureBox = capture == .zero
+			? nil
+			: Box(x: capture.minX, y: capture.minY, width: capture.width, height: capture.height)
+		modifiedAt = finding.modifiedAt
+		modelId = finding.modelId
+		lifeCycle = finding.lifeCycleString
+		source = finding.source_
+		receivedAt = finding.receivedAt
 		if
 			let filename = finding.screenshotFilename,
 			let url = FindingScreenshotStore.url(forFilename: filename),
@@ -86,7 +151,7 @@ struct FindingSnapshot: Sendable, Equatable {
 }
 
 /// Builds a self-contained ZIP of the supplied findings — `findings.json`,
-/// `findings.csv`, and `images/<id>.png` — staged in a temporary directory and
+/// `findings.csv`, and `images/<id>.<ext>` — staged in a temporary directory and
 /// zipped via `NSFileCoordinator`. Stateless and off-MainActor: the heavy file
 /// IO never blocks the UI. Mirrors `FindingScreenshotStore`'s enum-of-statics shape.
 enum FindingExporter {
@@ -106,7 +171,9 @@ enum FindingExporter {
 		try? fileManager.removeItem(at: exportsDirectory)
 		try fileManager.createDirectory(at: exportsDirectory, withIntermediateDirectories: true)
 
-		// Per-export staging tree: <tmp>/<UUID>/Findings/{findings.json, findings.csv, images/<id>.png}.
+		// Per-export staging tree: <tmp>/<UUID>/Findings/{findings.json, findings.csv, images/<id>.<ext>}.
+		// NOTE: the zip's root entry is `Findings/`, because NSFileCoordinator zips the DIRECTORY.
+		// Every reader must resolve `screenshot` against findings.json's parent, not the zip root.
 		let stagingRoot = tempRoot.appendingPathComponent(UUID().uuidString, isDirectory: true)
 		let findingsDirectory = stagingRoot.appendingPathComponent("Findings", isDirectory: true)
 		let imagesDirectory = findingsDirectory.appendingPathComponent("images", isDirectory: true)
@@ -116,22 +183,25 @@ enum FindingExporter {
 		// Copy images FIRST: the JSON/CSV only reference the ones that actually
 		// landed, so a mid-export missing/unreadable file degrades to a null path
 		// rather than a dangling reference.
-		var copiedIds = Set<UUID>()
+		var copiedImageNames: [UUID: String] = [:]
 		for snapshot in snapshots {
 			guard let source = snapshot.screenshotSourceURL else { continue }
-			let destination = imagesDirectory.appendingPathComponent("\(snapshot.id.uuidString).png")
+			// The extension follows the FILE, not a constant: a store upgraded from 1.0.7 holds
+			// legacy .png alongside current .jpg, and both must export under their real name.
+			let name = imageEntryName(for: snapshot.id, source: source)
+			let destination = imagesDirectory.appendingPathComponent(name)
 			do {
 				try fileManager.copyItem(at: source, to: destination)
-				copiedIds.insert(snapshot.id)
+				copiedImageNames[snapshot.id] = name
 			} catch {
 				LoggingPolicy.warning("Skipped a finding image during export: \(error.localizedDescription)", logger: .storage)
 			}
 		}
 
-		let jsonData = try encodeJSON(snapshots, copiedIds: copiedIds)
+		let jsonData = try encodeJSON(snapshots, copiedImageNames: copiedImageNames)
 		try jsonData.write(to: findingsDirectory.appendingPathComponent("findings.json"), options: .atomic)
 
-		let csv = encodeCSV(snapshots, copiedIds: copiedIds)
+		let csv = encodeCSV(snapshots, copiedImageNames: copiedImageNames)
 		try Data(csv.utf8).write(to: findingsDirectory.appendingPathComponent("findings.csv"), options: .atomic)
 
 		let destinationZip = exportsDirectory.appendingPathComponent("Findings-\(Self.timestamp(date)).zip")
@@ -149,16 +219,24 @@ enum FindingExporter {
 		let title: String
 		let label: String?
 		let note: String?
+		let author: String?
 		let gps: String?
 		let page: String?
 		let detectionClass: String?
 		let confidence: Double
 		let date: String?
 		let box: FindingSnapshot.Box
+		let captureBox: FindingSnapshot.Box?
+		let modifiedAt: String?
+		let modelId: String?
+		let lifeCycle: String
 		let screenshot: String?
+		let source: String?
+		let receivedAt: String?
 
 		enum CodingKeys: String, CodingKey {
-			case id, title, label, note, gps, page, detectionClass, confidence, date, box, screenshot
+			case id, title, label, note, author, gps, page, detectionClass, confidence, date, box
+			case captureBox, modifiedAt, modelId, lifeCycle, screenshot, source, receivedAt
 		}
 
 		// Explicit `encode` (not the synthesized `encodeIfPresent`) so nil fields
@@ -169,47 +247,81 @@ enum FindingExporter {
 			try container.encode(title, forKey: .title)
 			try container.encode(label, forKey: .label)
 			try container.encode(note, forKey: .note)
+			try container.encode(author, forKey: .author)
 			try container.encode(gps, forKey: .gps)
 			try container.encode(page, forKey: .page)
 			try container.encode(detectionClass, forKey: .detectionClass)
 			try container.encode(confidence, forKey: .confidence)
 			try container.encode(date, forKey: .date)
 			try container.encode(box, forKey: .box)
+			try container.encode(captureBox, forKey: .captureBox)
+			try container.encode(modifiedAt, forKey: .modifiedAt)
+			try container.encode(modelId, forKey: .modelId)
+			try container.encode(lifeCycle, forKey: .lifeCycle)
 			try container.encode(screenshot, forKey: .screenshot)
+			try container.encode(source, forKey: .source)
+			try container.encode(receivedAt, forKey: .receivedAt)
 		}
 	}
 
-	static func encodeJSON(_ snapshots: [FindingSnapshot], copiedIds: Set<UUID>) throws -> Data {
+	/// The archive schema this build writes. Bumped only for a change an older reader could
+	/// MISREAD; additive nullable columns do not need it. Version 0 is the bare top-level array
+	/// 1.0.7 shipped — the importer still accepts it and always will.
+	static let schemaVersion = 1
+
+	/// The `{schemaVersion, findings}` envelope written to `findings.json`.
+	private struct Document: Encodable {
+		let schemaVersion: Int
+		let findings: [Row]
+	}
+
+	static func encodeJSON(_ snapshots: [FindingSnapshot], copiedImageNames: [UUID: String]) throws -> Data {
 		let formatter = ISO8601DateFormatter()
+		// Fractional seconds for the last-write-wins key ONLY: two edits inside one second must
+		// not tie. `date` keeps whole-second formatting so v0 readers see the field unchanged.
+		let preciseFormatter = ISO8601DateFormatter()
+		preciseFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 		let rows = snapshots.map { snapshot in
 			Row(
 				id: snapshot.id.uuidString,
 				title: snapshot.title,
 				label: snapshot.label,
 				note: snapshot.note,
+				author: snapshot.author,
 				gps: snapshot.gps,
 				page: snapshot.page?.absoluteString,
 				detectionClass: snapshot.detectionClass,
 				confidence: snapshot.confidence,
 				date: snapshot.date.map(formatter.string(from:)),
 				box: snapshot.box,
-				screenshot: relativeImagePath(for: snapshot, copiedIds: copiedIds)
+				captureBox: snapshot.captureBox,
+				modifiedAt: snapshot.modifiedAt.map(preciseFormatter.string(from:)),
+				modelId: snapshot.modelId?.uuidString,
+				lifeCycle: snapshot.lifeCycle,
+				screenshot: relativeImagePath(for: snapshot, copiedImageNames: copiedImageNames),
+				source: snapshot.source,
+				receivedAt: snapshot.receivedAt.map(formatter.string(from:))
 			)
 		}
 		let encoder = JSONEncoder()
 		encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-		return try encoder.encode(rows)
+		return try encoder.encode(Document(schemaVersion: schemaVersion, findings: rows))
 	}
 
 	// MARK: - CSV
 
+	/// Positionally coupled with the `fields` array in `encodeCSV` — nothing enforces their
+	/// agreement, so a new column must be appended to BOTH, in the same place.
 	private static let csvColumns = [
 		"id", "title", "label", "note", "gps", "page", "detectionClass",
-		"confidence", "date", "boxX", "boxY", "boxWidth", "boxHeight", "screenshot"
+		"confidence", "date", "boxX", "boxY", "boxWidth", "boxHeight", "screenshot", "author",
+		"modifiedAt", "modelId", "lifeCycle"
 	]
 
-	static func encodeCSV(_ snapshots: [FindingSnapshot], copiedIds: Set<UUID>) -> String {
+	static func encodeCSV(_ snapshots: [FindingSnapshot], copiedImageNames: [UUID: String]) -> String {
 		let formatter = ISO8601DateFormatter()
+		let preciseFormatter = ISO8601DateFormatter()
+		preciseFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 		var lines = [csvColumns.joined(separator: ",")]
 		for snapshot in snapshots {
 			let fields: [String?] = [
@@ -226,7 +338,11 @@ enum FindingExporter {
 				String(snapshot.box.y),
 				String(snapshot.box.width),
 				String(snapshot.box.height),
-				relativeImagePath(for: snapshot, copiedIds: copiedIds)
+				relativeImagePath(for: snapshot, copiedImageNames: copiedImageNames),
+				snapshot.author,
+				snapshot.modifiedAt.map(preciseFormatter.string(from:)),
+				snapshot.modelId?.uuidString,
+				snapshot.lifeCycle
 			]
 			// RFC-4180 line terminator is CRLF.
 			lines.append(fields.map { csvField($0) }.joined(separator: ","))
@@ -236,18 +352,35 @@ enum FindingExporter {
 
 	/// RFC-4180 field escaping: nil → empty field; a field containing a comma,
 	/// double-quote, CR or LF is wrapped in double-quotes with internal quotes doubled.
+	///
+	/// A leading `=`, `+`, `-`, `@` or tab is additionally prefixed with an apostrophe. Those start
+	/// a formula in Excel, Numbers and Sheets, and a title or note is free text the user typed --
+	/// or, after an import, text that arrived in somebody else's archive. `=HYPERLINK(...)` as a
+	/// finding's title is a working attack on whoever opens the export, not a display quirk. The
+	/// apostrophe is the convention every spreadsheet reads as "this is literal text".
 	static func csvField(_ value: String?) -> String {
 		guard let value else { return "" }
-		guard value.contains(where: { $0 == "," || $0 == "\"" || $0 == "\r" || $0 == "\n" }) else {
-			return value
+		let guarded = value.first.map { "=+-@\t".contains($0) } == true ? "'" + value : value
+		guard guarded.contains(where: { $0 == "," || $0 == "\"" || $0 == "\r" || $0 == "\n" }) else {
+			return guarded
 		}
-		return "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
+		return "\"\(guarded.replacingOccurrences(of: "\"", with: "\"\""))\""
 	}
 
 	// MARK: - Helpers
 
-	private static func relativeImagePath(for snapshot: FindingSnapshot, copiedIds: Set<UUID>) -> String? {
-		copiedIds.contains(snapshot.id) ? "images/\(snapshot.id.uuidString).png" : nil
+	/// The zip entry name for a finding's image: the finding id plus the extension the file
+	/// actually carries on disk, lowercased. Falls back to `jpg` for a file with no extension.
+	private static func imageEntryName(for id: UUID, source: URL) -> String {
+		let ext = source.pathExtension.lowercased()
+		return "\(id.uuidString).\(ext.isEmpty ? "jpg" : ext)"
+	}
+
+	/// The path recorded in the JSON/CSV `screenshot` column, relative to the `Findings/`
+	/// directory that is the archive's root — NOT to the zip root, which also contains that
+	/// directory. Nil when the image was not copied.
+	private static func relativeImagePath(for snapshot: FindingSnapshot, copiedImageNames: [UUID: String]) -> String? {
+		copiedImageNames[snapshot.id].map { "images/\($0)" }
 	}
 
 	/// Filename-safe timestamp (no colons) for the zip name.

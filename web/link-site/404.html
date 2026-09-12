@@ -1,0 +1,40 @@
+<!doctype html>
+<!--
+  This file exists for one reason, and it is not the 404 text.
+
+  Cloudflare Pages: "If your project does not include a top-level 404.html file, Pages assumes
+  that you are deploying a single-page application ... and matches all incoming paths to the
+  root." Without this file, a request for a path Pages did not publish returns the ROOT
+  DOCUMENT with a 200.
+
+  That would be actively dangerous here. If Pages ever declines to publish the .well-known
+  dot-directory, /.well-known/apple-app-site-association would answer 200 with HTML - and the
+  _headers rule for that exact path would stamp Content-Type: application/json onto it. The
+  deploy check would look like it passed while iOS was handed a document it cannot parse, and
+  universal links would fail with nothing anywhere to explain why.
+
+  With this file present, that same situation returns a plain 404, which the curl check in
+  README.md catches immediately. Loud beats silent.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>Not found</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="card">
+    <p class="eyebrow">ML Browser</p>
+    <h1 class="title">Nothing here</h1>
+    <p class="hint">
+      This address only serves finding links shared from ML Browser. The link you followed may
+      have been shortened, edited, or truncated on its way to you.
+    </p>
+    <div class="actions">
+      <a class="button button-primary" href="https://apps.apple.com/app/id6466878953">Get ML Browser</a>
+    </div>
+  </main>
+</body>
+</html>

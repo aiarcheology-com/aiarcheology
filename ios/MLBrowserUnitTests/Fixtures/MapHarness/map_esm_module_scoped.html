@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ESM module-scoped map</title>
+<style>html,body,#map{margin:0;height:320px;width:480px}</style>
+<div id="map" class="ol-viewport"></div>
+<script>
+  // The shape measured on openlayers.org and maplibre.org: the map exists only inside a module
+  // closure. No global, and — verified in a real browser — the container, the canvas and every
+  // ancestor have ZERO own properties, so no DOM walk can reach it either.
+  //
+  // The one thing these libraries all do is bind methods to the map during construction. The bound
+  // receiver IS the map, which is what the bind trap keys on.
+  (function () {
+    const map = {
+      getView() {
+        return {
+          getCenter() { return [1607296.6, 6461536.4]; },   // EPSG:3857 metres
+          getZoom() { return 12; },
+          getProjection() { return { getCode() { return 'EPSG:3857'; } }; }
+        };
+      },
+      getTargetElement() { return document.getElementById('map'); },
+      handleBrowserEvent() {}
+    };
+    // Exactly what OpenLayers' Map constructor does.
+    const handler = map.handleBrowserEvent.bind(map);
+    document.addEventListener('click', handler);
+    window.__harnessReady = true;
+  }());
+</script>

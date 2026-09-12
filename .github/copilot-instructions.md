@@ -1,4 +1,5 @@
-@../ios/AGENTS.md
+Follow [repository guidance](../AGENTS.md). For changes under `ios/`, also read
+[iOS guidance](../ios/AGENTS.md). Load linked references when relevant to the reviewed changes.
 
 # GitHub Copilot Instructions
 ### Pull Request Reviews

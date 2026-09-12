@@ -10,6 +10,110 @@ import XCTest
 
 final class NavigationUITests: UITestCase {
 
+	/// AIA-0868: Find opens an alignment mode over a *live* web view, not the old full-screen tap
+	/// catcher. Only a fingertip-sized core at the centre takes touches; everything else must reach
+	/// the page, because panning the page under the target is the interaction the feature exists
+	/// for. The element's own frame is asserted, since a regression here would most likely be the
+	/// interactive area growing back to the size of the drawn glyph — which no tap assertion in the
+	/// middle of the screen would notice.
+	@MainActor
+	func testFind_alignmentCrosshairLeavesTheContentPannable() {
+		enterAlignmentMode()
+		let crosshair = element(AID.findingAlignmentCrosshair)
+
+		let core = crosshair.frame
+		XCTAssertEqual(core.width, 44, accuracy: 4, "The crosshair's touch area is not the 44pt core")
+		XCTAssertEqual(core.height, 44, accuracy: 4, "The crosshair's touch area is not the 44pt core")
+
+		// A pan that starts well clear of that core is the ordinary aiming gesture. It must neither
+		// end the mode nor be mistaken for a capture — with the old overlay it was a pick.
+		app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+			.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)))
+		XCTAssertTrue(crosshair.exists, "A pan next to the crosshair ended alignment mode")
+		XCTAssertFalse(
+			app.textFields[AID.saveFindingTitle].waitForExistence(timeout: 2),
+			"A pan next to the crosshair was taken as a capture"
+		)
+
+		let cancel = app.buttons[AID.findPickCancel]
+		XCTAssertTrue(cancel.waitForExistence(timeout: 5), "Alignment mode offered no Cancel button")
+		cancel.tap()
+		XCTAssertTrue(
+			waitForDisappearance(of: crosshair),
+			"Cancelling alignment mode left the crosshair on screen"
+		)
+	}
+
+	/// AIA-0868 (owner follow-up): the crosshair stores a finding whether or not it is green. With
+	/// no model enabled nothing is ever detected, so this runs the red path end to end — including
+	/// the branch that has to take its own snapshot, because with detection off there is no
+	/// displayed frame to reuse. That is what makes "record something no model found" work.
+	@MainActor
+	func testFind_redCrosshairStoresThePlaceUnderIt() {
+		enterAlignmentMode()
+
+		element(AID.findingAlignmentCrosshair).tap()
+		XCTAssertTrue(
+			app.textFields[AID.saveFindingTitle].waitForExistence(timeout: 15),
+			"Tapping the red crosshair did not open the finding form"
+		)
+
+		let cancel = app.buttons[AID.saveFindingCancel]
+		XCTAssertTrue(cancel.waitForExistence(timeout: 5), "Finding form offered no Cancel button")
+		cancel.tap()
+		XCTAssertTrue(
+			waitForDisappearance(of: element(AID.findingAlignmentCrosshair)),
+			"Dismissing the finding form left alignment mode on screen"
+		)
+	}
+
+	/// AIA-0880: the Find button starts alignment mode and now ends it too. Testers reported being
+	/// unable to back out of the store-a-finding flow, and before this the second tap was dropped by
+	/// a guard. Cancelling here has to run the same teardown the overlay's Cancel button runs, so
+	/// this asserts the mode is genuinely over — and that the button will still re-open it, which is
+	/// what fails if the cancel left the state stuck.
+	@MainActor
+	func testFind_findButtonCancelsTheAlignmentModeItStarted() {
+		enterAlignmentMode()
+		let crosshair = element(AID.findingAlignmentCrosshair)
+		let find = app.buttons[AID.findTop]
+
+		find.tap()
+		XCTAssertTrue(
+			waitForDisappearance(of: crosshair),
+			"Tapping Find again left alignment mode on screen"
+		)
+		XCTAssertFalse(
+			app.textFields[AID.saveFindingTitle].waitForExistence(timeout: 2),
+			"Cancelling from the Find button was mistaken for a capture"
+		)
+
+		find.tap()
+		XCTAssertTrue(
+			crosshair.waitForExistence(timeout: 10),
+			"Find could not re-open alignment mode after cancelling it"
+		)
+	}
+
+	/// Loads the plain local fixture — no model is enabled, so the crosshair is always red — and
+	/// enters alignment mode with the Find button.
+	@MainActor
+	private func enterAlignmentMode() {
+		launch(LaunchConfig(pageScenario: .localFixture, fixtureName: "uitest_page"))
+		XCTAssertTrue(
+			waitForCheckpoint(AID.cpCurrentPageFile, equals: "uitest_page.html"),
+			"Local fixture did not become the live page"
+		)
+
+		let find = app.buttons[AID.findTop]
+		XCTAssertTrue(find.waitForExistence(timeout: 10), "Find button missing")
+		find.tap()
+		XCTAssertTrue(
+			element(AID.findingAlignmentCrosshair).waitForExistence(timeout: 10),
+			"Find did not show the large alignment crosshair"
+		)
+	}
+
 	/// Browser chrome composition for the current device idiom, with detection not running
 	/// and fullscreen detection disabled (the issue's precondition). Runs meaningfully on
 	/// both iPhone and iPad — it asserts the layout for whichever idiom it runs on, so it

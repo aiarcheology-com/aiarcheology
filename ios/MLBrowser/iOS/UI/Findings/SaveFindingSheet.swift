@@ -16,9 +16,43 @@ struct FindingCapture: Identifiable {
 	let observation: DetectedObject
 	let params: DeepDriverParams?
 	let frame: AppliedDetectionFrame
-	let pageURL: URL?
+	/// Everything resolved about the page at the moment of capture: its URL, and a coordinate when
+	/// the live map or the URL could supply one (AIA-0817).
+	let location: MapPageLocation
+
+	/// Derived, never stored alongside ``location``. Two fields holding "the page" could disagree,
+	/// and the repository would silently persist whichever one it happened to read.
+	var pageURL: URL? { location.sourceURL }
 
 	var id: UUID { observation.uuid }
+
+	init(
+		observation: DetectedObject,
+		params: DeepDriverParams?,
+		frame: AppliedDetectionFrame,
+		location: MapPageLocation
+	) {
+		self.observation = observation
+		self.params = params
+		self.frame = frame
+		self.location = location
+	}
+
+	/// For callers that have only a URL and no resolved location — tests, and any capture path
+	/// where the resolver was not run.
+	init(
+		observation: DetectedObject,
+		params: DeepDriverParams?,
+		frame: AppliedDetectionFrame,
+		pageURL: URL?
+	) {
+		self.init(
+			observation: observation,
+			params: params,
+			frame: frame,
+			location: MapPageLocation(sourceURL: pageURL)
+		)
+	}
 
 	/// The displayed detection whose box contains the tap — the smallest one wins
 	/// when boxes nest, and every box counts as at least 44pt so small detections
@@ -39,6 +73,28 @@ struct FindingCapture: Identifiable {
 				)
 				guard target.contains(location) else { continue }
 				let area = rect.width * rect.height
+				if area < (best?.area ?? .infinity) {
+					best = (observation, group.params, area)
+				}
+			}
+		}
+		return best.map { ($0.observation, $0.params) }
+	}
+
+	/// The smallest displayed detection that genuinely contains the centre of the web view.
+	///
+	/// This intentionally does not reuse the 44-point expansion in ``detection(at:in:results:minimumTarget:)``:
+	/// that expansion makes a small box finger-friendly, but would claim crosshair alignment before
+	/// the rectangle actually reaches the stationary target. Vision's y-axis is inverted relative
+	/// to SwiftUI, but `(0.5, 0.5)` is the centre in both coordinate systems.
+	static func detectionAlignedWithCentre(
+		in results: [DetectionResult]
+	) -> (observation: DetectedObject, params: DeepDriverParams)? {
+		let centre = CGPoint(x: 0.5, y: 0.5)
+		var best: (observation: DetectedObject, params: DeepDriverParams, area: CGFloat)?
+		for group in results {
+			for observation in group.observations where observation.boundingBox.contains(centre) {
+				let area = observation.boundingBox.width * observation.boundingBox.height
 				if area < (best?.area ?? .infinity) {
 					best = (observation, group.params, area)
 				}
@@ -69,6 +125,60 @@ struct FindingCapture: Identifiable {
 			y: min(max(0, centerY - windowHeight / 2), 1 - windowHeight),
 			width: windowWidth,
 			height: windowHeight
+		)
+	}
+
+	/// The scale and offset that open the crop editor centred on `box`, showing `contextScale` times
+	/// its size (AIA-0757).
+	///
+	/// Pure, and beside ``cropRect(scale:offset:fitted:cover:)`` rather than inside the editor view,
+	/// so the geometry can be tested directly — the editor itself only latches and applies it.
+	///
+	/// Best-effort by construction: the image is aspect-**filled**, so part of it is already outside
+	/// the viewport at scale 1, and a detection bigger than the largest achievable window cannot be
+	/// contained at any zoom. The result is then clamped as close as the geometry permits rather than
+	/// revealing an edge. A degenerate box or viewport returns "no framing" — scale 1, no offset.
+	static func initialFraming(
+		box visionBox: CGRect,
+		cover: CGSize,
+		fitted: CGSize,
+		contextScale: CGFloat,
+		zoomRange: ClosedRange<CGFloat>
+	) -> (scale: CGFloat, offset: CGSize) {
+		let unframed = (scale: zoomRange.lowerBound, offset: CGSize.zero)
+		guard
+			fitted.width > 0, fitted.height > 0,
+			cover.width > 0, cover.height > 0,
+			contextScale > 0,
+			visionBox.width > 0, visionBox.height > 0
+		else { return unframed }
+
+		let target = visionBox.visionRect(in: cover)
+		guard target.width > 0, target.height > 0 else { return unframed }
+
+		// The visible window is `fitted / scale` in cover points. Ask for it to be at least
+		// `contextScale` boxes wide *and* tall; whichever constraint binds wins.
+		let byWidth = fitted.width / (contextScale * target.width)
+		let byHeight = fitted.height / (contextScale * target.height)
+		let proposed = min(byWidth, byHeight)
+		guard proposed.isFinite else { return unframed }
+		let scale = min(max(zoomRange.lowerBound, proposed), zoomRange.upperBound)
+
+		// Invert `cropRect`'s centre: a positive offset moves the image right/down, so centring the
+		// window on the box means offsetting by the box's distance from the middle.
+		let centred = CGSize(
+			width: (cover.width / 2 - target.midX) * scale,
+			height: (cover.height / 2 - target.midY) * scale
+		)
+		// Same clamp the editor applies, so the published crop can never reveal an edge.
+		let maxX = max(0, (cover.width * scale - fitted.width) / 2)
+		let maxY = max(0, (cover.height * scale - fitted.height) / 2)
+		return (
+			scale: scale,
+			offset: CGSize(
+				width: min(max(-maxX, centred.width), maxX),
+				height: min(max(-maxY, centred.height), maxY)
+			)
 		)
 	}
 
@@ -156,7 +266,7 @@ struct FindingCapture: Identifiable {
 }
 
 /// Save dialog for a tapped detection (AIA-0215): stores the finding as a Core Data
-/// row plus a clean PNG of the displayed snapshot — the highlight is always drawn
+/// row plus a clean image of the displayed snapshot — the highlight is always drawn
 /// live from the stored bounding box, never baked into the image.
 struct SaveFindingSheet: View {
 	@Environment(\.dismiss) private var dismiss
@@ -175,6 +285,11 @@ struct SaveFindingSheet: View {
 	/// itself is made by `WebScreen`'s `onDismiss`, once this sheet is off screen.
 	let reviewPrompt: ReviewPromptCoordinator
 
+	/// The signed-in account's display name, or nil when nobody is signed in (AIA-0651). Seeds the
+	/// Author field ONCE, at capture; the sheet never re-reads it, so the credit a finding carries
+	/// is the text that was on screen when it was saved.
+	let defaultAuthor: String?
+
 	/// Called after a successful save, before the sheet dismisses. Lets the presenter follow up —
 	/// the sign-in offer needs to know a finding was actually written, which it cannot infer from
 	/// the review prompt (that can decline for its own reasons) or from the tour (AIA-0536).
@@ -187,7 +302,16 @@ struct SaveFindingSheet: View {
 	/// and previously used labels.
 	@State private var label = ""
 	@State private var note = ""
+	/// The finder's credit. Seeded from `defaultAuthor` on first appearance only — see `didPrefill`.
+	@State private var author = ""
+	/// Latches the one-shot author prefill. The guard cannot be `author.isEmpty`: the sheet's
+	/// `onAppear` fires again on re-appearance, and an empty field then means the user deliberately
+	/// cleared the name — restoring it would put a credit back that they just removed.
+	@State private var didPrefill = false
 	@State private var gps = ""
+	/// The page URL, editable since AIA-0817 so a user can correct or paste one the app could not
+	/// resolve. Seeded once from the capture, on the same latch as `author`.
+	@State private var page = ""
 	@State private var suggestions: [String] = []
 	@State private var saveFailed = false
 	/// Preview-only: lets the user dim or hide the highlight rectangle to see
@@ -203,20 +327,66 @@ struct SaveFindingSheet: View {
 	var body: some View {
 		NavigationStack {
 			Form {
+				// Title first (AIA-0757 E2): it is the one required field — Save stays disabled until
+				// it is filled — so it should not sit below a 420pt image the user has to scroll past.
+				Section(L10n.Finding.title) {
+					TextField(L10n.Finding.titlePlaceholder, text: $title)
+						.testability(Testability.TextField.saveFindingTitle)
+				}
+				// Directly under the title, and above the image: where the finding *is* matters more
+				// than how it was framed, and on a map site these two are the answer. Page first —
+				// it identifies what was being looked at — then the coordinate, which is the part
+				// that still works when a site can only give a generic landing URL, because it can
+				// be pasted into that site's own search. Both carry a visible copy button rather
+				// than only a long-press menu; the whole point of recording them is to paste them
+				// somewhere else.
+				// AIA-0873: the address is honest but not always sufficient. A site that keeps its
+				// URL fixed records a page, not a place — geoland.at saved one carrying nothing but
+				// an `fbclid`, and reopening it showed the whole of Austria while the coordinate sat
+				// correct in the field below. Capture cannot fix that: inventing a viewport
+				// parameter a site does not read produces a link that looks precise and opens
+				// nowhere (see `MapURLViewportRefresh`). So the form says which record to trust.
+				Section {
+					HStack(alignment: .firstTextBaseline, spacing: 8) {
+						// Editable, not static text: the app cannot resolve a usable URL for every
+						// map site, and this is where a user corrects or pastes one.
+						// Body size, like GPS directly below and every other field here. It was
+						// `.caption`, which bought a line or two of height for a long URL and cost
+						// legibility on the one field a user has to read character by character to
+						// judge — and made the sheet look like the address mattered less than the
+						// coordinate. The extra line allowance below pays for the height instead.
+						TextField(L10n.Finding.page, text: $page, axis: .vertical)
+							.lineLimit(1...4)
+							.keyboardType(.URL)
+							.textInputAutocapitalization(.never)
+							.autocorrectionDisabled()
+							.testability(Testability.TextField.saveFindingPage)
+						copyButton(page, identifier: Testability.Button.saveFindingCopyPage)
+					}
+				} header: {
+					Text(L10n.Finding.page)
+				} footer: {
+					Text(L10n.Finding.Page.footnote)
+						.testability(Testability.Label.saveFindingPageFootnote)
+				}
+				Section(L10n.Finding.gps) {
+					HStack(alignment: .firstTextBaseline, spacing: 8) {
+						// The ordinary keyboard, not `.numbersAndPunctuation`. Since AIA-0817 the
+						// prefilled value carries its provenance in letters — `leaflet: 47.9, 18.7`,
+						// `S-JTSK (EPSG:5514): …` — and a numeric keyboard cannot type a single
+						// character of that, so correcting or retyping one was impossible (raised in
+						// review). The field is free text by design; its keyboard has to be too.
+						TextField(L10n.Finding.gpsPlaceholder, text: $gps)
+							.testability(Testability.TextField.saveFindingGps)
+						copyButton(gps, identifier: Testability.Button.saveFindingCopyGps)
+					}
+				}
 				Section {
 					preview
 					opacitySlider
 					zoomSlider
 				}
-				Section(L10n.Finding.title) {
-					TextField(L10n.Finding.titlePlaceholder, text: $title)
-						.testability(Testability.TextField.saveFindingTitle)
-				}
-				Section(L10n.Finding.page) {
-					Text(capture.pageURL?.absoluteString ?? "")
-						.font(.caption)
-						.foregroundStyle(.secondary)
-				}
+
 				Section(L10n.Finding.label) {
 					TextField(L10n.Finding.labelPlaceholder, text: $label)
 						.testability(Testability.TextField.saveFindingLabel)
@@ -229,11 +399,11 @@ struct SaveFindingSheet: View {
 						.lineLimit(3...6)
 						.testability(Testability.TextField.saveFindingNote)
 				}
-				Section(L10n.Finding.gps) {
-					TextField(L10n.Finding.gpsPlaceholder, text: $gps)
-						.keyboardType(.numbersAndPunctuation)
-						.testability(Testability.TextField.saveFindingGps)
+				Section(L10n.Finding.author) {
+					TextField(L10n.Finding.authorPlaceholder, text: $author)
+						.testability(Testability.TextField.saveFindingAuthor)
 				}
+
 			}
 			.navigationTitle(L10n.Finding.Save.title)
 			.navigationBarTitleDisplayMode(.inline)
@@ -275,6 +445,22 @@ struct SaveFindingSheet: View {
 			// (the dimmed Title field is reachable but not obvious) — AIA-0333.
 			if tour.isOnSaveStep, title.isEmpty {
 				title = L10n.Tour.defaultFindingTitle
+			}
+			// Author prefill (AIA-0651), exactly once per sheet: latch first, so a re-appearance
+			// takes no branch at all and can never overwrite a field the user edited or cleared.
+			if didPrefill.not {
+				didPrefill = true
+				if let defaultAuthor, defaultAuthor.isEmpty.not, author.isEmpty {
+					author = defaultAuthor
+				}
+				// AIA-0817. Seeded once, for the same reason the author is: `onAppear` fires again
+				// on re-appearance, and an empty field by then means the user cleared it
+				// deliberately. Never refreshed while the sheet is open — the value would move
+				// under the user as the page kept panning behind it.
+				page = capture.pageURL?.absoluteString ?? ""
+				if let prefill = capture.location.gpsPrefill, gps.isEmpty {
+					gps = prefill
+				}
 			}
 		}
 	}
@@ -353,10 +539,33 @@ struct SaveFindingSheet: View {
 		return result
 	}
 
+	/// A visible copy button, matching the one on the model download screen.
+	///
+	/// Deliberately not only a long-press menu: these two fields exist to be pasted somewhere else,
+	/// and an affordance nobody discovers is the same as no affordance. Disabled while empty rather
+	/// than hidden, so the row does not change shape as a value arrives.
+	private func copyButton(_ value: String, identifier: Testability.Button) -> some View {
+		Button {
+			// Plain text ONLY, not `UIPasteboard.string`.
+			//
+			// A stored coordinate begins `arcgis: `, `leaflet: ` … which UIKit reads as a URL
+			// scheme: setting `.string` also publishes a URL flavour, and a receiving app that
+			// prefers it pastes `arcgis:%2040.92…` with the spaces percent-encoded. Declaring a
+			// single plain-text representation leaves nothing else for anyone to choose.
+			UIPasteboard.general.setValue(value, forPasteboardType: "public.utf8-plain-text")
+		} label: {
+			Image(systemName: "doc.on.doc")
+		}
+		.accessibilityLabel(L10n.Common.copy)
+		.buttonStyle(.borderless)
+		.disabled(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+		.testability(identifier)
+	}
+
 	// MARK: - Save
 
 	/// Bake the editor's crop, then hand the finding to the repository — the whole persist
-	/// transaction (PNG write → entity → lifecycle → save → rollback) lives there (AIA-0392).
+	/// transaction (image write → entity → lifecycle → save → rollback) lives there (AIA-0392).
 	private func save() {
 		let (imageToStore, boxToStore) = croppedCapture()
 		do {
@@ -364,7 +573,10 @@ struct SaveFindingSheet: View {
 				capture: capture,
 				image: imageToStore,
 				box: boxToStore,
-				metadata: FindingMetadata(title: title, label: label, note: note, gps: gps)
+				metadata: FindingMetadata(
+					title: title, label: label, note: note, author: author, gps: gps,
+					page: FindingPageURL.resolve(edited: page, captured: capture.pageURL)
+				)
 			)
 			// Onboarding tour (AIA-0333): the finding is saved → advance the in-sheet save step
 			// before dismissing, so the dismiss isn't mistaken for a cancel.
@@ -382,7 +594,7 @@ struct SaveFindingSheet: View {
 		title.trimmingCharacters(in: .whitespacesAndNewlines)
 	}
 
-	/// Bakes the editor's crop at save time: the stored PNG IS the cropped region
+	/// Bakes the editor's crop at save time: the stored image IS the cropped region
 	/// (still clean — no highlight baked in) and the box is re-normalized into
 	/// crop space, so every downstream renderer works unchanged. Any failure
 	/// falls back to the uncropped capture rather than losing the finding.
@@ -428,7 +640,22 @@ private struct CropAdjustableSnapshot: View {
 	@GestureState private var pinchFactor: CGFloat = 1
 	@GestureState private var dragDelta: CGSize = .zero
 
+	/// Latches the one-shot opening framing (AIA-0757). Without it a re-appearance — or any layout
+	/// pass that re-runs the trigger — would throw away a zoom and pan the user had set by hand. The
+	/// same hazard `SaveFindingSheet.didPrefill` exists for, and for the same reason: `onAppear`
+	/// fires again on re-appearance.
+	@State private var didFrame = false
+
 	static let zoomRange: ClosedRange<CGFloat> = 1...8
+
+	/// How much of the surroundings the editor opens with, as a multiple of the detection box.
+	///
+	/// The report asks for the form to show the rectangle rather than the whole page — users were
+	/// reading the entire page as the finding. It does **not** ask for the rectangle alone: a finding
+	/// cropped edge-to-edge loses the landscape that makes it recognisable, and that image is what a
+	/// share card carries. Three times the box keeps the place identifiable while making it
+	/// unmistakable which part is the finding.
+	static let initialContextScale: CGFloat = 3
 
 	var body: some View {
 		GeometryReader { geometry in
@@ -474,7 +701,27 @@ private struct CropAdjustableSnapshot: View {
 			publishCrop(fitted: fitted, cover: cover)
 		}
 		.onAppear {
+			frameOnDetectionIfNeeded(fitted: fitted)
 			publishCrop(fitted: fitted, cover: cover)
+		}
+		// `onAppear` alone is not enough: it can fire inside the `GeometryReader` before a size has
+		// settled, and at zero size there is nothing to frame against.
+		.onChange(of: fitted) { _, newFitted in
+			let newCover = newFitted.coverSize(for: image.size)
+			guard didFrame else {
+				frameOnDetectionIfNeeded(fitted: newFitted)
+				return
+			}
+			// Already framed, and the geometry moved under it — a rotation, or an iPad window
+			// resize. The published crop is what `croppedCapture()` bakes into the stored image, so
+			// it has to describe the window as it is NOW. Re-clamping matters as much as
+			// re-publishing: the render path clamps `shownOffset` for display, but the stored
+			// `offset` keeps its pre-rotation value, so without this Save persists the window from
+			// before the turn. Harmless before AIA-0757, when the default was zoom 1 and
+			// `croppedCapture()`'s full-rect guard skipped cropping entirely; auto-framing makes
+			// zoom > 1 the default for every save.
+			offset = clampOffset(offset, scale: zoom, cover: newCover, fitted: newFitted)
+			publishCrop(fitted: newFitted, cover: newCover)
 		}
 
 		// Pan only engages once zoomed in — at scale 1 a drag on the image
@@ -537,6 +784,28 @@ private struct CropAdjustableSnapshot: View {
 			width: min(max(-maxX, value.width), maxX),
 			height: min(max(-maxY, value.height), maxY)
 		)
+	}
+
+	/// Opens the editor centred on the detection, showing ``initialContextScale`` times its size.
+	///
+	/// Best-effort by construction. The image is aspect-**filled**, so at scale 1 part of it is
+	/// already outside the viewport; a detection larger than the window can be at any allowed zoom
+	/// simply cannot be contained, and `clampZoom`/`clampOffset` then leave the editor as close as
+	/// the geometry permits rather than revealing an edge.
+	private func frameOnDetectionIfNeeded(fitted: CGSize) {
+		guard didFrame == false, fitted.width > 0, fitted.height > 0 else { return }
+		let cover = fitted.coverSize(for: image.size)
+		let framing = FindingCapture.initialFraming(
+			box: normalizedBox,
+			cover: cover,
+			fitted: fitted,
+			contextScale: Self.initialContextScale,
+			zoomRange: Self.zoomRange
+		)
+		didFrame = true
+		offset = framing.offset
+		zoom = framing.scale
+		publishCrop(fitted: fitted, cover: cover)
 	}
 
 	private func publishCrop(fitted: CGSize, cover: CGSize) {

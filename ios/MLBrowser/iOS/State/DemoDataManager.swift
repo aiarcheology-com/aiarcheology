@@ -14,9 +14,25 @@ final class DemoDataManager {
     // The Czech ČÚZK "Analýzy výškopisu" DMR 5G grayscale-hillshade relief page, seeded into the
     // demo history and loaded into the address bar when the onboarding tour starts (AIA-0333) — the
     // tour's first step points at it. (Replaces the Bavaria geoportal, which had upstream outages.)
+    //
+    // AIA-0757 pins it to Vladař rather than the whole country. The step tells the user to load a
+    // site, and an unzoomed national relief map gives the detection models nothing to find — so the
+    // very next step, "switch a model on", appeared to do nothing. The `extent` frames a hillfort
+    // where the demo models actually detect something, and `o=1` turns the relief layer fully on.
+    //
+    // Note the reach of this change: an existing install keeps the old address in its history, since
+    // `createBrowsingHistoryIfNeeded` seeds only into an empty history. A fresh install — and any
+    // onboarding replay — gets the new page.
+    //
     // Known-valid literal URL; the force-unwrap can't fail.
+    //
+    // On one line because `disable:next` covers exactly one line: wrapped across three, it landed on
+    // the `URL(` opener — which has no force-unwrap, so the rule reported the exception as
+    // superfluous — while the `)!` two lines down stayed unguarded and violated. Both warnings were
+    // that one misplacement. `line_length` is disabled for this repo (ios/.swiftlint.yml), so the
+    // single line costs nothing and the exception now sits on the statement it excuses.
     // swiftlint:disable:next force_unwrapping
-    static let onboardingDemoPage = URL(string: "https://ags.cuzk.cz/av/?zvd=dmr5g&rf=GrayscaleHillshade&o=0")!
+    static let onboardingDemoPage = URL(string: "https://ags.cuzk.cz/av/?extent=-831002.3241535446,-1032569.7200186695,-826473.7490963945,-1029973.3903260101&zvd=dmr5g&rf=GrayscaleHillshade&o=1")!
 
     let dataController: DataController
 
@@ -212,7 +228,11 @@ final class DemoDataManager {
         let extractedInfo: ExtractedModelInfo
         do {
             let service = ModelLoadingService()
-            extractedInfo = try await service.loadAndExtractMetadata(from: url, demo: true)
+            // Exempt from the AIA-0889 memory gate. Seeding is not retryable — the guard above
+            // skips all demo creation once any demo exists, so a demo refused on one launch is
+            // never created again. Bundled models are small and their size is fixed at build time,
+            // so the gate could not usefully fire here anyway.
+            extractedInfo = try await service.loadAndExtractMetadata(from: url, admission: .exempt)
         } catch {
             LoggingPolicy.error("Failed to load demo model metadata", error: error, logger: .configuration)
             return

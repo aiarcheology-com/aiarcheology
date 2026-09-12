@@ -1,0 +1,15 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>OpenLayers harness</title>
+<style>html,body,#map{margin:0;height:320px;width:480px}</style>
+<div id="map"></div>
+<script src="ol-10.3.1.js"></script>
+<script>
+  // The view is EPSG:3857, so a correct reading requires OpenLayers' own `toLonLat`. If the probe
+  // ever reads the raw view centre instead, the assertion sees Web-Mercator metres.
+  var map = new ol.Map({
+    target: 'map',
+    view: new ol.View({ center: ol.proj.fromLonLat([14.4378005, 50.0755381]), zoom: 12 })
+  });
+  window.__harnessReady = true;
+</script>

@@ -33,27 +33,73 @@ extension Finding: CoreDataManagableWithState {
             issues.append(.init(key: "boundingBox", message: "Bounding box is outside the unit rect."))
         }
 
+        // The capture-space box (AIA-0761) is legitimately absent — the zero rect — on any row
+        // that predates it or arrived from an older client, so it is valid either as the zero
+        // rect or as a real unit rect. `isUnitRect` is deliberately NOT widened to admit a
+        // zero-area rect: it also guards `boxX…`, where a zero-area detection IS a defect.
+        //
+        // Defence in depth only. The import path sanitizes before writing, because a rejection
+        // here costs the whole finding (`FindingRepository.apply` maps it to
+        // `ImportRejection.invalidContent`, which cloud sync never retries) — an unaffordable
+        // price for a field no renderer requires.
+        if isAbsent(x: captureBoxX, y: captureBoxY, width: captureBoxWidth, height: captureBoxHeight).not,
+           isUnitRect(x: captureBoxX, y: captureBoxY, width: captureBoxWidth, height: captureBoxHeight).not {
+            issues.append(.init(key: "captureBoundingBox", message: "Capture bounding box is outside the unit rect."))
+        }
+
         if (detectionConfidence >= 0 && detectionConfidence <= 1).not {
             issues.append(.init(key: "detectionConfidence", message: "Confidence is outside 0...1."))
         }
 
         // Required: a finding without its screenshot reference is unusable.
-        if screenshotFilename != Finding.screenshotFilename(for: entityId) {
+        if Finding.isCanonicalScreenshotFilename(screenshotFilename, for: entityId).not {
             issues.append(.init(key: "screenshotFilename", message: "Filename is missing or does not match the entity id."))
         }
 
         return .init(issues: issues)
     }
 
-    /// The canonical screenshot filename — derived from the entity id so a stored
-    /// row and its file can always be matched without extra bookkeeping.
+    /// Extensions a stored finding screenshot may legitimately carry.
+    ///
+    /// `jpg` is what every new finding is written as (AIA-713); `png` is what 1.0.7 and earlier
+    /// wrote. Both must stay valid FOR EVER: those files are never rewritten, so a row that
+    /// accepted only the current extension would fail `validateForUpdate` the next time anything
+    /// touched a pre-1.0.8 finding — turning a silent format change into user-visible data loss.
+    static let supportedScreenshotExtensions: Set<String> = ["jpg", "png"]
+
+    /// The canonical screenshot filename for a NEW finding — derived from the entity id so a
+    /// stored row and its file can always be matched without extra bookkeeping.
     static func screenshotFilename(for entityId: UUID) -> String {
-        "\(entityId.uuidString).png"
+        "\(entityId.uuidString).jpg"
+    }
+
+    /// The screenshot filename for `entityId` carrying a specific extension, used when restoring an
+    /// archived finding whose image must keep the bytes — and therefore the codec — it was exported
+    /// with. Returns nil for an unsupported extension rather than inventing one.
+    static func screenshotFilename(for entityId: UUID, pathExtension: String) -> String? {
+        let ext = pathExtension.lowercased()
+        guard supportedScreenshotExtensions.contains(ext) else { return nil }
+        return "\(entityId.uuidString).\(ext)"
+    }
+
+    /// Whether `filename` is a legitimate screenshot name for `entityId`: the entity's UUID plus
+    /// any supported image extension. Checked instead of equality against the current canonical
+    /// name so legacy `.png` rows keep validating (see `supportedScreenshotExtensions`).
+    static func isCanonicalScreenshotFilename(_ filename: String?, for entityId: UUID) -> Bool {
+        guard let filename else { return false }
+        let name = (filename as NSString).deletingPathExtension
+        let ext = (filename as NSString).pathExtension.lowercased()
+        return name == entityId.uuidString && supportedScreenshotExtensions.contains(ext)
     }
 
     /// Pure validation: avoid main-actor-only APIs here. Findings are always captured
     /// on a remote page, so unlike WebHistoryEntry no file scheme is allowed.
-    private static func isValidPageURL(_ url: URL) -> Bool {
+    ///
+    /// Internal rather than private since AIA-0817: `FindingPageURL` applies the same rule *before*
+    /// a URL reaches the entity, so an unstorable one becomes "no page" instead of a validation
+    /// failure that deletes the finding. Two copies of this rule could drift apart, and the
+    /// consequence of drifting would be lost findings.
+    static func isValidPageURL(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased() else { return false }
         switch scheme {
         case "http", "https":
@@ -61,6 +107,16 @@ extension Finding: CoreDataManagableWithState {
         default:
             return false
         }
+    }
+
+    /// The "not recorded" value for an optional box quartet: all four components exactly zero.
+    ///
+    /// Exact equality is right here. This is not a measured rectangle being compared against a
+    /// tolerance — it is Core Data's own `defaultValueString="0.0"`, the literal bytes a migration
+    /// or a nil-valued import leaves behind. A tolerance would start swallowing real detections in
+    /// the top-left corner.
+    private func isAbsent(x: Double, y: Double, width: Double, height: Double) -> Bool {
+        x == 0 && y == 0 && width == 0 && height == 0
     }
 
     private func isUnitRect(x: Double, y: Double, width: Double, height: Double) -> Bool {

@@ -122,6 +122,88 @@ final class DeepStateTests: XCTestCase {
                       "A classifier driver must be registered after the type change")
     }
 
+    func testDriverRegistrationAfterContainerReplacement_UsesReplacementContext() async throws {
+        guard Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") != nil else {
+            throw XCTSkip("Demo model not available in test bundle")
+        }
+
+        let configurationID = UUID()
+        try await dataController.replaceContainerForTesting { context in
+            let config = DeepConfiguration.create(in: context)
+            config.entityId = configurationID
+            config.demo = true
+            config.file_ = URL(string: "AIArcheology.mlmodelc")
+            config.modelType = .detector
+            config.enabled = false
+            try DeepConfiguration.save(in: context)
+        }
+
+        // The disabled row must be observed and reconciled before enabling it. This excludes the
+        // reconciliation path as an explanation for the eventual driver: only a notification from
+        // the replacement context can register the driver after this point.
+        try await pollUntil {
+            self.deepState.reconciledContainerGenerationForTesting == self.dataController.containerGeneration
+        }
+
+        deepState.updateConfiguration(configurationID) { configuration in
+            configuration.enabled = true
+        }
+
+        try await pollUntil { self.deepState.drivers.detectors.contains { $0.id == configurationID } }
+        XCTAssertTrue(deepState.drivers.detectors.contains { $0.id == configurationID })
+    }
+
+    func testDriverRegistrationAfterContainerReplacement_ReconcilesExistingEnabledConfiguration() async throws {
+        guard Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") != nil else {
+            throw XCTSkip("Demo model not available in test bundle")
+        }
+
+        let configurationID = UUID()
+        try await dataController.replaceContainerForTesting { context in
+            let config = DeepConfiguration.create(in: context)
+            config.entityId = configurationID
+            config.demo = true
+            config.file_ = URL(string: "AIArcheology.mlmodelc")
+            config.modelType = .detector
+            config.enabled = true
+            try DeepConfiguration.save(in: context)
+        }
+
+        // The enabled row was saved before `DeepState` could bind the new context, so a Core Data
+        // change notification cannot load it. The ready-store reconciliation must do that work.
+        try await pollUntil { self.deepState.drivers.detectors.contains { $0.id == configurationID } }
+        XCTAssertEqual(deepState.drivers.detectors.filter { $0.id == configurationID }.count, 1)
+    }
+
+    func testDriverReloadsWhenComputeUnitChanges() async throws {
+        guard Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") != nil else {
+            throw XCTSkip("Demo model not available in test bundle")
+        }
+
+        let config = deepState.createConfiguration()
+        config.demo = true
+        config.file_ = URL(string: "AIArcheology.mlmodelc")
+        config.modelType = .detector
+        config.enabled = true
+        try DeepConfiguration.save(in: dataController.container.viewContext)
+        let id = config.entityId
+
+        try await pollUntil { self.deepState.drivers.detectors.contains { $0.id == id } }
+        let originalDriver = try XCTUnwrap(deepState.drivers.detectors.first { $0.id == id })
+        let originalIdentity = ObjectIdentifier(originalDriver as AnyObject)
+
+        deepState.updateConfiguration(id) { configuration in
+            configuration.computeUnit = .processorOnly
+        }
+
+        try await pollUntilAsync {
+            guard let reloadedDriver = self.deepState.drivers.detectors.first(where: { $0.id == id }),
+                  ObjectIdentifier(reloadedDriver as AnyObject) != originalIdentity
+            else { return false }
+            return await reloadedDriver.params.computeUnit == .processorOnly
+        }
+    }
+
     /// Polls `condition` on the MainActor until it holds or the timeout elapses.
     private func pollUntil(timeout: TimeInterval = 5, _ condition: @MainActor () -> Bool) async throws {
         let deadline = Date().addingTimeInterval(timeout)
@@ -131,6 +213,18 @@ final class DeepStateTests: XCTestCase {
         }
         // Surface the timeout here rather than letting a later, less-specific assertion fail.
         XCTFail("pollUntil timed out after \(timeout)s waiting for condition")
+    }
+
+    private func pollUntilAsync(
+        timeout: TimeInterval = 5,
+        _ condition: @escaping @MainActor () async -> Bool
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if await condition() { return }
+            try await Task.sleep(nanoseconds: 40_000_000)
+        }
+        XCTFail("pollUntilAsync timed out after \(timeout)s waiting for condition")
     }
 
     func testTemporaryConfigurationCleanup() {

@@ -9,14 +9,6 @@ import Foundation
 import OSLog
 import ClerkKit
 
-/// Which Clerk instance non-App-Store builds talk to. App Store builds always use
-/// `.production` and ignore any stored override. Lets testers/QA validate the
-/// production instance from a TestFlight build before the public release.
-enum ClerkEnvironment: String, CaseIterable {
-    case development
-    case production
-}
-
 /// Production ``AuthProviding`` backed by the Clerk iOS SDK.
 ///
 /// `@MainActor` (not an `actor`) on purpose: `Clerk.shared` is itself a
@@ -27,65 +19,41 @@ enum ClerkEnvironment: String, CaseIterable {
 @MainActor
 final class ClerkAuthProvider: AuthProviding {
 
-    /// The Clerk publishable key for the current distribution channel: the
-    /// production (`pk_live_`) instance for App Store builds, the dev/test
-    /// (`pk_test_`) instance everywhere else (TestFlight, AdHoc, dev, simulator).
-    /// Per the v1 model, testers run on the dev instance and production users on
-    /// the production instance — both keys are public, so both ship in the binary
-    /// and are selected by the receipt type.
+    /// The Clerk publishable key for an environment. Pure and injectable, so the pairing with the
+    /// findings Worker is testable without a bundle — non-archive CI builds ship no Clerk keys.
+    ///
+    /// Both keys are public and both ship in the binary; which one is *used* is fixed at build
+    /// time by `AIA_BACKEND_ENVIRONMENT`, never inferred from the receipt. Receipt inference is
+    /// what broke this: it fails closed to `.appStore` for an iOS-app-on-Mac install and for an
+    /// iPhone restored from backup, and the findings Worker was chosen from a different value
+    /// entirely, so the two disagreed permanently (AIA-0791).
+    nonisolated static func publishableKey(
+        for environment: BackendEnvironment,
+        testKey: String = ClerkAuthProvider.testKey,
+        liveKey: String = ClerkAuthProvider.liveKey
+    ) -> String {
+        switch environment {
+        case .development: return testKey
+        case .production: return liveKey
+        }
+    }
+
+    /// The key for the environment in force. Non-optional: `BackendEnvironment` cannot be
+    /// unresolved, because an invalid `AIA_BACKEND_ENVIRONMENT` fails the build (AIA-0791).
     static var publishableKey: String {
-        // App Store is always production and ignores the override. Non-App-Store
-        // builds (TestFlight/AdHoc/dev) honor the selected environment so QA can
-        // validate production before release.
-        if AppEnvironment.isAppStoreDistribution { return liveKey }
-        return selectedEnvironment == .production ? liveKey : testKey
+        publishableKey(for: BackendEnvironment.current)
     }
 
     /// Dev/test instance key, injected from `CLERK_PUBLISHABLE_KEY` in `Secrets.xcconfig`.
-    private static let testKey =
+    ///
+    /// `nonisolated` so the pure seam above can default to it and so tests can skip themselves
+    /// when this build ships no keys.
+    nonisolated static let testKey =
         Bundle.main.object(forInfoDictionaryKey: "ClerkPublishableKey") as? String ?? ""
 
     /// Production instance key, injected from `CLERK_PUBLISHABLE_KEY_LIVE`.
-    private static let liveKey =
+    nonisolated static let liveKey =
         Bundle.main.object(forInfoDictionaryKey: "ClerkPublishableKeyLive") as? String ?? ""
-
-    private static let environmentDefaultsKey = "clerk.selectedEnvironment"
-
-    /// The Clerk instance selected for non-App-Store builds (persisted). Defaults to
-    /// `.development` so testers stay on the dev instance unless they opt into prod.
-    static var selectedEnvironment: ClerkEnvironment {
-        get {
-            let raw = UserDefaults.standard.string(forKey: environmentDefaultsKey)
-            return raw.flatMap(ClerkEnvironment.init(rawValue:)) ?? .development
-        }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: environmentDefaultsKey) }
-    }
-
-    /// Switch the active Clerk instance at runtime (non-App-Store only). Reconfigures
-    /// the SDK with the new instance's key, which clears the current session; the gate's
-    /// `ClerkSessionWatcher` then routes the user to sign in on the new instance.
-    static func switchEnvironment(to environment: ClerkEnvironment) async {
-        guard AppEnvironment.isAppStoreDistribution == false else { return }
-        let targetKey = environment == .production ? liveKey : testKey
-        // Only switch if the target instance's key is actually present (e.g. a local
-        // build without CLERK_PUBLISHABLE_KEY_LIVE can't switch to production). Persist
-        // only on success so we don't leave the app pointed at an unconfigured instance.
-        guard targetKey.hasPrefix("pk_") else {
-            LoggingPolicy.warning(
-                "No \(environment.rawValue) Clerk key available — cannot switch environment.",
-                logger: .configuration
-            )
-            return
-        }
-        do {
-            try await Clerk.reconfigure(publishableKey: targetKey)
-            // Persist only after a successful reconfigure, so a failed switch never leaves
-            // the app pointed at an environment Clerk isn't actually configured for.
-            selectedEnvironment = environment
-        } catch {
-            LoggingPolicy.error("Clerk reconfigure failed: \(error.localizedDescription)", logger: .configuration)
-        }
-    }
 
     /// Configure the Clerk SDK. Call once, at app launch, before reading `Clerk.shared`.
     static func configure() {
@@ -111,6 +79,43 @@ final class ClerkAuthProvider: AuthProviding {
     /// per-device and would defeat the cross-device attribution it is used for (AIA-0437).
     var accountIdentifier: String? {
         Clerk.shared.user?.id
+    }
+
+    /// The account's name, preferring "First Last" and falling back to the username.
+    ///
+    /// Clerk populates these inconsistently depending on how the account was created — an OAuth
+    /// sign-up usually has both names, an email/password one may have neither, and `username` is
+    /// optional on the instance — so every field here can be absent. When they all are, this
+    /// returns `nil` rather than reaching for `primaryEmailAddress`: see ``AuthProviding/displayName``
+    /// for why an email address must never become a byline on a shared image.
+    var displayName: String? {
+        guard let user = Clerk.shared.user else { return nil }
+        let fullName = [user.firstName, user.lastName]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty.not }
+            .joined(separator: " ")
+        return Self.nameUnlessItIsAnAddress(fullName)
+            ?? Self.nameUnlessItIsAnAddress(user.username)
+    }
+
+    /// The candidate, or `nil` if it is blank **or looks like an email address**.
+    ///
+    /// Not reading `primaryEmailAddress` is not enough to keep an address off a share card.
+    /// `firstName`, `lastName` and `username` are free text: the user can type anything, and an
+    /// OAuth provider may populate them from the account's email when it has nothing better. A
+    /// profile with `firstName = "alice@example.com"` would otherwise be prefilled, saved, and
+    /// rendered onto an image the user posts publicly — the exact outcome the no-email rule exists
+    /// to prevent.
+    ///
+    /// The test is simply "contains an `@`", which is deliberately blunt: no human name contains
+    /// one, so the false-positive cost is an empty field the user can type into, while the
+    /// false-negative cost is a leaked address on a public graphic. Those are not comparable.
+    static func nameUnlessItIsAnAddress(_ candidate: String?) -> String? {
+        guard let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines),
+              trimmed.isEmpty.not,
+              trimmed.contains("@").not
+        else { return nil }
+        return trimmed
     }
 
     func prepare() async {
@@ -155,6 +160,13 @@ final class ClerkAuthProvider: AuthProviding {
         guard Clerk.shared.session?.status == .active, Clerk.shared.user != nil else {
             throw AuthValidationError.noValidSession
         }
+    }
+
+    func sessionToken() async throws -> String? {
+        // `getToken()` serves a cached token and refreshes it when it is close to expiring, so
+        // calling this per request is the intended usage rather than a wasteful one.
+        guard let session = Clerk.shared.session else { return nil }
+        return try await session.getToken()
     }
 
     func signOut() async {
@@ -235,6 +247,21 @@ final class MockAuthProvider: AuthProviding {
     /// `nil` while signed out, mirroring the real provider: there is no account to identify.
     var accountIdentifier: String? { outcome == .signedOut ? nil : accountID }
 
+    /// A fixed stand-in name, `nil` while signed out — same shape as the real provider.
+    /// Settable so a unit test can drive the "signed in but no usable name" case, which is a real
+    /// Clerk state (see ``ClerkAuthProvider/displayName``) and the one where the author field must
+    /// end up empty rather than showing something derived from the email address.
+    ///
+    /// **UI tests do see this value**, they just cannot choose it: `fromLaunchArguments()` defaults
+    /// to `.ready`, so any UI test that opens the save sheet finds the Author field prefilled with
+    /// the default below and saves a finding carrying that credit. A UI test asserting an *empty*
+    /// author must therefore arrange `-mockAuthGate signedOut`, not assume nothing filled it in.
+    /// Making the name itself selectable would need a `-mockDisplayName` flag, which no test needs yet.
+    var displayName: String? { outcome == .signedOut ? nil : mockDisplayName }
+
+    /// Overridable stand-in for the account's name (tests/previews only).
+    var mockDisplayName: String? = "Mock Finder"
+
     func prepare() async {}
 
     func validateSession() async throws {
@@ -242,6 +269,16 @@ final class MockAuthProvider: AuthProviding {
         case .offline: throw AuthValidationError.offline
         case .signedOut: throw AuthValidationError.noValidSession
         case .ready: return
+        }
+    }
+
+    /// A syntactically plausible stand-in. Nothing in the app parses it; the Worker would reject
+    /// it, which is correct — a UI test must never reach real storage.
+    func sessionToken() async throws -> String? {
+        switch outcome {
+        case .signedOut: return nil
+        case .offline: throw AuthValidationError.offline
+        case .ready: return "mock.session.token"
         }
     }
 

@@ -96,8 +96,6 @@ internal enum L10n {
     internal enum Account {
       /// Deleting your account does not cancel your subscription. Cancel it in the App Store.
       internal static let deleteBillingNote = L10n.tr("Localizable", "auth.account.deleteBillingNote", fallback: "Deleting your account does not cancel your subscription. Cancel it in the App Store.")
-      /// Permanently delete your account and all associated data. This cannot be undone.
-      internal static let deleteFooter = L10n.tr("Localizable", "auth.account.deleteFooter", fallback: "Permanently delete your account and all associated data. This cannot be undone.")
       /// Free Beta
       internal static let freeBeta = L10n.tr("Localizable", "auth.account.freeBeta", fallback: "Free Beta")
       /// Manage Account
@@ -109,6 +107,18 @@ internal enum L10n {
       internal enum Delete {
         /// Delete Account
         internal static let action = L10n.tr("Localizable", "auth.account.delete.action", fallback: "Delete Account")
+        /// Your settings and your saved findings stay on this device.
+        internal static let deviceNote = L10n.tr("Localizable", "auth.account.delete.deviceNote", fallback: "Your settings and your saved findings stay on this device.")
+        /// Your cloud back-up was removed, but your account was not deleted. Please try again. The findings on this device are untouched.
+        internal static let failedDeletion = L10n.tr("Localizable", "auth.account.delete.failedDeletion", fallback: "Your cloud back-up was removed, but your account was not deleted. Please try again. The findings on this device are untouched.")
+        /// Your account was not deleted and nothing was removed. Please try again.
+        internal static let failedNothingErased = L10n.tr("Localizable", "auth.account.delete.failedNothingErased", fallback: "Your account was not deleted and nothing was removed. Please try again.")
+        /// Your account was not deleted, so you can try again. Some of your cloud back-up may already have been removed. The findings on this device are untouched.
+        internal static let failedPurge = L10n.tr("Localizable", "auth.account.delete.failedPurge", fallback: "Your account was not deleted, so you can try again. Some of your cloud back-up may already have been removed. The findings on this device are untouched.")
+        /// The findings saved on this device are not deleted, and you can export them first.
+        internal static let findingsNote = L10n.tr("Localizable", "auth.account.delete.findingsNote", fallback: "The findings saved on this device are not deleted, and you can export them first.")
+        /// Permanently deletes your account and anything backed up to it. This cannot be undone.
+        internal static let footer = L10n.tr("Localizable", "auth.account.delete.footer", fallback: "Permanently deletes your account and anything backed up to it. This cannot be undone.")
         /// This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.
         internal static let messageBilling = L10n.tr("Localizable", "auth.account.delete.messageBilling", fallback: "This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.")
         /// Delete Account?
@@ -138,8 +148,8 @@ internal enum L10n {
     internal enum SignIn {
       /// Sign In
       internal static let button = L10n.tr("Localizable", "auth.signIn.button", fallback: "Sign In")
-      /// Sign in to your ML Browser account.
-      internal static let subtitle = L10n.tr("Localizable", "auth.signIn.subtitle", fallback: "Sign in to your ML Browser account.")
+      /// Sign in to back up your findings and share them across your devices.
+      internal static let subtitleBackup = L10n.tr("Localizable", "auth.signIn.subtitleBackup", fallback: "Sign in to back up your findings and share them across your devices.")
       /// Welcome to ML Browser
       internal static let title = L10n.tr("Localizable", "auth.signIn.title", fallback: "Welcome to ML Browser")
     }
@@ -361,6 +371,8 @@ internal enum L10n {
     internal static let created = L10n.tr("Localizable", "configuration.created", fallback: "Created")
     /// Description
     internal static let description = L10n.tr("Localizable", "configuration.description", fallback: "Description")
+    /// Detection Confidence
+    internal static let detectionConfidence = L10n.tr("Localizable", "configuration.detectionConfidence", fallback: "Detection Confidence")
     /// Export
     internal static let export = L10n.tr("Localizable", "configuration.export", fallback: "Export")
     /// Fade Out Time
@@ -371,6 +383,28 @@ internal enum L10n {
     internal static let flashOnFinding = L10n.tr("Localizable", "configuration.flashOnFinding", fallback: "Flash when object found")
     /// Flash border size
     internal static let flashSize = L10n.tr("Localizable", "configuration.flashSize", fallback: "Flash border size")
+    /// Hardware Acceleration
+    internal static let hardwareAcceleration = L10n.tr("Localizable", "configuration.hardwareAcceleration", fallback: "Hardware Acceleration")
+    /// Automatic
+    internal static let hardwareAccelerationAutomatic = L10n.tr("Localizable", "configuration.hardwareAccelerationAutomatic", fallback: "Automatic")
+    /// Lets the system pick the best available hardware for each part of the model. The right choice for almost everyone. Which hardware is used can vary by device, so results may differ very slightly between devices.
+    internal static let hardwareAccelerationAutomaticDescription = L10n.tr("Localizable", "configuration.hardwareAccelerationAutomaticDescription", fallback: "Lets the system pick the best available hardware for each part of the model. The right choice for almost everyone. Which hardware is used can vary by device, so results may differ very slightly between devices.")
+    /// Graphics Processor
+    internal static let hardwareAccelerationGraphicsProcessor = L10n.tr("Localizable", "configuration.hardwareAccelerationGraphicsProcessor", fallback: "Graphics Processor")
+    /// Uses the graphics processor alongside the main processor and never the Neural Engine. Mainly useful for comparison when a model behaves unexpectedly; it is not automatically faster.
+    internal static let hardwareAccelerationGraphicsProcessorDescription = L10n.tr("Localizable", "configuration.hardwareAccelerationGraphicsProcessorDescription", fallback: "Uses the graphics processor alongside the main processor and never the Neural Engine. Mainly useful for comparison when a model behaves unexpectedly; it is not automatically faster.")
+    /// Neural Engine
+    internal static let hardwareAccelerationNeuralEngine = L10n.tr("Localizable", "configuration.hardwareAccelerationNeuralEngine", fallback: "Neural Engine")
+    /// Prefers Apple's Neural Engine, built for machine-learning work and typically the most power-efficient. It calculates in reduced precision, so detections can shift very slightly compared with the processor.
+    internal static let hardwareAccelerationNeuralEngineDescription = L10n.tr("Localizable", "configuration.hardwareAccelerationNeuralEngineDescription", fallback: "Prefers Apple's Neural Engine, built for machine-learning work and typically the most power-efficient. It calculates in reduced precision, so detections can shift very slightly compared with the processor.")
+    /// Choose the hardware Core ML requests for this model.
+    internal static let hardwareAccelerationPickerHint = L10n.tr("Localizable", "configuration.hardwareAccelerationPickerHint", fallback: "Choose the hardware Core ML requests for this model.")
+    /// Processor Only
+    internal static let hardwareAccelerationProcessorOnly = L10n.tr("Localizable", "configuration.hardwareAccelerationProcessorOnly", fallback: "Processor Only")
+    /// Uses only the main processor. Much slower — several seconds per image tile — but the most exact, and identical on every device. Choose this when detections must match a reference result precisely.
+    internal static let hardwareAccelerationProcessorOnlyDescription = L10n.tr("Localizable", "configuration.hardwareAccelerationProcessorOnlyDescription", fallback: "Uses only the main processor. Much slower — several seconds per image tile — but the most exact, and identical on every device. Choose this when detections must match a reference result precisely.")
+    /// Not available on this device
+    internal static let hardwareAccelerationUnavailable = L10n.tr("Localizable", "configuration.hardwareAccelerationUnavailable", fallback: "Not available on this device")
     /// License
     internal static let license = L10n.tr("Localizable", "configuration.license", fallback: "License")
     /// Link
@@ -387,6 +421,38 @@ internal enum L10n {
     internal static let modelTypeReviewConfirm = L10n.tr("Localizable", "configuration.modelTypeReviewConfirm", fallback: "Pre-selected as our best guess. Confirm it's correct or change it — the app can't verify it, so you're responsible for the choice, and a wrong type can produce incorrect results.")
     /// This model's type isn't set, so it won't run. Choose Detection or Classification — the app can't verify the model's real type, so you're responsible for the choice, and a wrong type can produce incorrect results.
     internal static let modelTypeReviewDisabled = L10n.tr("Localizable", "configuration.modelTypeReviewDisabled", fallback: "This model's type isn't set, so it won't run. Choose Detection or Classification — the app can't verify the model's real type, so you're responsible for the choice, and a wrong type can produce incorrect results.")
+    /// Sound
+    internal static let sound = L10n.tr("Localizable", "configuration.sound", fallback: "Sound")
+    /// Bell
+    internal static let soundBell = L10n.tr("Localizable", "configuration.soundBell", fallback: "Bell")
+    /// Bloom
+    internal static let soundBloom = L10n.tr("Localizable", "configuration.soundBloom", fallback: "Bloom")
+    /// Chime
+    internal static let soundChime = L10n.tr("Localizable", "configuration.soundChime", fallback: "Chime")
+    /// Click
+    internal static let soundClick = L10n.tr("Localizable", "configuration.soundClick", fallback: "Click")
+    /// Croak
+    internal static let soundCroak = L10n.tr("Localizable", "configuration.soundCroak", fallback: "Croak")
+    /// Drop
+    internal static let soundDrop = L10n.tr("Localizable", "configuration.soundDrop", fallback: "Drop")
+    /// Echo
+    internal static let soundEcho = L10n.tr("Localizable", "configuration.soundEcho", fallback: "Echo")
+    /// Play sound for annotations
+    internal static let soundEnabled = L10n.tr("Localizable", "configuration.soundEnabled", fallback: "Play sound for annotations")
+    /// Your device's media volume is off, so these sounds will not be heard.
+    internal static let soundOutputMuted = L10n.tr("Localizable", "configuration.soundOutputMuted", fallback: "Your device's media volume is off, so these sounds will not be heard.")
+    /// Detection sounds follow Silent mode. If your device is silenced you will not hear them, not even the previews above.
+    internal static let soundOutputNote = L10n.tr("Localizable", "configuration.soundOutputNote", fallback: "Detection sounds follow Silent mode. If your device is silenced you will not hear them, not even the previews above.")
+    /// Ping
+    internal static let soundPing = L10n.tr("Localizable", "configuration.soundPing", fallback: "Ping")
+    /// Pulse
+    internal static let soundPulse = L10n.tr("Localizable", "configuration.soundPulse", fallback: "Pulse")
+    /// Sonar
+    internal static let soundSonar = L10n.tr("Localizable", "configuration.soundSonar", fallback: "Sonar")
+    /// Tap
+    internal static let soundTap = L10n.tr("Localizable", "configuration.soundTap", fallback: "Tap")
+    /// Volume
+    internal static let soundVolume = L10n.tr("Localizable", "configuration.soundVolume", fallback: "Volume")
     /// Symbol
     internal static let symbol = L10n.tr("Localizable", "configuration.symbol", fallback: "Symbol")
     /// Configuration
@@ -423,8 +489,8 @@ internal enum L10n {
     internal static let title = L10n.tr("Localizable", "download.title", fallback: "Model")
     /// URL
     internal static let url = L10n.tr("Localizable", "download.url", fallback: "URL")
-    /// Enter a direct .mlmodel URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.
-    internal static let urlHint = L10n.tr("Localizable", "download.urlHint", fallback: "Enter a direct .mlmodel URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.")
+    /// Enter a direct .mlmodel or .onnx URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.
+    internal static let urlHintFormats = L10n.tr("Localizable", "download.urlHintFormats", fallback: "Enter a direct .mlmodel or .onnx URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.")
     /// https://.../mymodel.mlmodel
     internal static let urlPlaceholder = L10n.tr("Localizable", "download.urlPlaceholder", fallback: "https://.../mymodel.mlmodel")
     internal enum Button {
@@ -469,6 +535,10 @@ internal enum L10n {
     internal static let paused = L10n.tr("Localizable", "downloadState.paused", fallback: "Paused")
   }
   internal enum Finding {
+    /// Author
+    internal static let author = L10n.tr("Localizable", "finding.author", fallback: "Author")
+    /// Who found it
+    internal static let authorPlaceholder = L10n.tr("Localizable", "finding.authorPlaceholder", fallback: "Who found it")
     /// Detection
     internal static let detection = L10n.tr("Localizable", "finding.detection", fallback: "Detection")
     /// GPS
@@ -493,9 +563,25 @@ internal enum L10n {
     internal static let titlePlaceholder = L10n.tr("Localizable", "finding.titlePlaceholder", fallback: "Name this finding")
     /// Zoom
     internal static let zoom = L10n.tr("Localizable", "finding.zoom", fallback: "Zoom")
+    internal enum Page {
+      /// Some map sites keep this address fixed, so it may not carry the position you captured. Open it once to check where it lands; if it does not show the right place, rely on the GPS position below. If the site has its own share button, the link it makes usually does carry the position — you can paste it in here.
+      internal static let footnote = L10n.tr("Localizable", "finding.page.footnote", fallback: "Some map sites keep this address fixed, so it may not carry the position you captured. Open it once to check where it lands; if it does not show the right place, rely on the GPS position below. If the site has its own share button, the link it makes usually does carry the position — you can paste it in here.")
+    }
     internal enum Pick {
+      /// Tap the crosshair to store this place, or move a detection under it
+      internal static let align = L10n.tr("Localizable", "finding.pick.align", fallback: "Tap the crosshair to store this place, or move a detection under it")
+      /// Aligned — tap the crosshair to store it
+      internal static let aligned = L10n.tr("Localizable", "finding.pick.aligned", fallback: "Aligned — tap the crosshair to store it")
       /// Tap the place to store
       internal static let hint = L10n.tr("Localizable", "finding.pick.hint", fallback: "Tap the place to store")
+    }
+    internal enum Received {
+      /// No photo travelled with this link — the outline shows where the detection sat.
+      internal static let noImage = L10n.tr("Localizable", "finding.received.noImage", fallback: "No photo travelled with this link — the outline shows where the detection sat.")
+      /// Received
+      internal static let on = L10n.tr("Localizable", "finding.received.on", fallback: "Received")
+      /// Sent to you by someone else. Shown as they wrote it.
+      internal static let provenance = L10n.tr("Localizable", "finding.received.provenance", fallback: "Sent to you by someone else. Shown as they wrote it.")
     }
     internal enum Save {
       /// Save
@@ -506,8 +592,26 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "finding.save.title", fallback: "Save Finding")
     }
     internal enum Share {
+      /// No web address will travel with this link.
+      internal static let addressNotIncluded = L10n.tr("Localizable", "finding.share.addressNotIncluded", fallback: "No web address will travel with this link.")
+      /// This link carries at most:
+      internal static let addressPreview = L10n.tr("Localizable", "finding.share.addressPreview", fallback: "This link carries at most:")
       /// Dark
       internal static let dark = L10n.tr("Localizable", "finding.share.dark", fallback: "Dark")
+      /// Enlarge the card
+      internal static let enlarge = L10n.tr("Localizable", "finding.share.enlarge", fallback: "Enlarge the card")
+      /// Share the full web address
+      internal static let fullAddress = L10n.tr("Localizable", "finding.share.fullAddress", fallback: "Share the full web address")
+      /// Map sites keep the view you are looking at inside the web address. Sharing it in full is what lets someone open that same view; turned off, only the site itself is shared.
+      internal static let fullAddressFootnote = L10n.tr("Localizable", "finding.share.fullAddressFootnote", fallback: "Map sites keep the view you are looking at inside the web address. Sharing it in full is what lets someone open that same view; turned off, only the site itself is shared.")
+      /// Let people open this finding in the app
+      internal static let includeLink = L10n.tr("Localizable", "finding.share.includeLink", fallback: "Let people open this finding in the app")
+      /// Adds a tappable link beside the picture, so people can open this finding in the app. While it's on, iOS hides Save Image and any app that only accepts pictures from the share sheet. Turn it off to share just the picture.
+      internal static let includeLinkFootnote = L10n.tr("Localizable", "finding.share.includeLinkFootnote", fallback: "Adds a tappable link beside the picture, so people can open this finding in the app. While it's on, iOS hides Save Image and any app that only accepts pictures from the share sheet. Turn it off to share just the picture.")
+      /// Share where this finding is
+      internal static let includeLocation = L10n.tr("Localizable", "finding.share.includeLocation", fallback: "Share where this finding is")
+      /// Prints the recorded coordinate on the card and carries it in the link. Turn it off to share the picture without saying where the finding is.
+      internal static let includeLocationFootnote = L10n.tr("Localizable", "finding.share.includeLocationFootnote", fallback: "Prints the recorded coordinate on the card and carries it in the link. Turn it off to share the picture without saying where the finding is.")
       /// Landscape
       internal static let landscape = L10n.tr("Localizable", "finding.share.landscape", fallback: "Landscape")
       /// Layout
@@ -521,17 +625,57 @@ internal enum L10n {
       /// Share Finding
       internal static let title = L10n.tr("Localizable", "finding.share.title", fallback: "Share Finding")
     }
+    internal enum Shared {
+      /// Open the Original Page
+      internal static let openPage = L10n.tr("Localizable", "finding.shared.openPage", fallback: "Open the Original Page")
+      /// This finding could not be saved on your device.
+      internal static let saveFailed = L10n.tr("Localizable", "finding.shared.saveFailed", fallback: "This finding could not be saved on your device.")
+      /// Show on Map
+      internal static let showOnMap = L10n.tr("Localizable", "finding.shared.showOnMap", fallback: "Show on Map")
+      /// Shared Finding
+      internal static let title = L10n.tr("Localizable", "finding.shared.title", fallback: "Shared Finding")
+      /// Everything on this screen came from the link that was shared with you. None of it has been checked, so treat the details as unconfirmed.
+      internal static let unverifiedMessage = L10n.tr("Localizable", "finding.shared.unverifiedMessage", fallback: "Everything on this screen came from the link that was shared with you. None of it has been checked, so treat the details as unconfirmed.")
+      /// Shared by Someone Else
+      internal static let unverifiedTitle = L10n.tr("Localizable", "finding.shared.unverifiedTitle", fallback: "Shared by Someone Else")
+      internal enum Owned {
+        /// This link points to a finding already saved on this device, so there is nothing to add.
+        internal static let message = L10n.tr("Localizable", "finding.shared.owned.message", fallback: "This link points to a finding already saved on this device, so there is nothing to add.")
+        /// Open Findings
+        internal static let `open` = L10n.tr("Localizable", "finding.shared.owned.open", fallback: "Open Findings")
+        /// This Is Your Finding
+        internal static let title = L10n.tr("Localizable", "finding.shared.owned.title", fallback: "This Is Your Finding")
+      }
+      internal enum Unreadable {
+        /// It may have been shortened or edited on its way to you. Ask whoever shared it to send the link again.
+        internal static let message = L10n.tr("Localizable", "finding.shared.unreadable.message", fallback: "It may have been shortened or edited on its way to you. Ask whoever shared it to send the link again.")
+        /// This Link Could Not Be Read
+        internal static let title = L10n.tr("Localizable", "finding.shared.unreadable.title", fallback: "This Link Could Not Be Read")
+      }
+      internal enum Where {
+        /// Detection %1$@ from the left, %2$@ from the top, covering about %3$@ of the page.
+        internal static func accessibility(_ p1: Any, _ p2: Any, _ p3: Any) -> String {
+          return L10n.tr("Localizable", "finding.shared.where.accessibility", String(describing: p1), String(describing: p2), String(describing: p3), fallback: "Detection %1$@ from the left, %2$@ from the top, covering about %3$@ of the page.")
+        }
+        /// Where on the page
+        internal static let title = L10n.tr("Localizable", "finding.shared.where.title", fallback: "Where on the page")
+      }
+    }
   }
   internal enum Findings {
+    /// Data
+    internal static let data = L10n.tr("Localizable", "findings.data", fallback: "Data")
     /// Export
     internal static let export = L10n.tr("Localizable", "findings.export", fallback: "Export")
+    /// Import
+    internal static let `import` = L10n.tr("Localizable", "findings.import", fallback: "Import")
     /// Open Page
     internal static let openPage = L10n.tr("Localizable", "findings.openPage", fallback: "Open Page")
     /// Findings
     internal static let title = L10n.tr("Localizable", "findings.title", fallback: "Findings")
     internal enum Empty {
-      /// Use the Find button, then tap the place in the web content to store it here.
-      internal static let message = L10n.tr("Localizable", "findings.empty.message", fallback: "Use the Find button, then tap the place in the web content to store it here.")
+      /// Use Find, then tap the crosshair to store what is under it here.
+      internal static let message = L10n.tr("Localizable", "findings.empty.message", fallback: "Use Find, then tap the crosshair to store what is under it here.")
       /// No Findings Yet
       internal static let title = L10n.tr("Localizable", "findings.empty.title", fallback: "No Findings Yet")
     }
@@ -542,6 +686,126 @@ internal enum L10n {
     internal enum Filter {
       /// All
       internal static let all = L10n.tr("Localizable", "findings.filter.all", fallback: "All")
+    }
+    internal enum Import {
+      /// That file is not a findings archive.
+      internal static let error = L10n.tr("Localizable", "findings.import.error", fallback: "That file is not a findings archive.")
+      internal enum Duplicates {
+        /// Keep Mine
+        internal static let keep = L10n.tr("Localizable", "findings.import.duplicates.keep", fallback: "Keep Mine")
+        /// %lld of these findings are already on this device.
+        internal static func message(_ p1: Int) -> String {
+          return L10n.tr("Localizable", "findings.import.duplicates.message", p1, fallback: "%lld of these findings are already on this device.")
+        }
+        /// Replace
+        internal static let replace = L10n.tr("Localizable", "findings.import.duplicates.replace", fallback: "Replace")
+        /// Some findings are already here
+        internal static let title = L10n.tr("Localizable", "findings.import.duplicates.title", fallback: "Some findings are already here")
+      }
+      internal enum Result {
+        /// Restored %1$lld. Skipped %2$lld already here. %3$lld could not be read.
+        internal static func message(_ p1: Int, _ p2: Int, _ p3: Int) -> String {
+          return L10n.tr("Localizable", "findings.import.result.message", p1, p2, p3, fallback: "Restored %1$lld. Skipped %2$lld already here. %3$lld could not be read.")
+        }
+        /// Import finished
+        internal static let title = L10n.tr("Localizable", "findings.import.result.title", fallback: "Import finished")
+      }
+    }
+    internal enum Sort {
+      /// Alphabetical
+      internal static let alphabetical = L10n.tr("Localizable", "findings.sort.alphabetical", fallback: "Alphabetical")
+      /// Date
+      internal static let date = L10n.tr("Localizable", "findings.sort.date", fallback: "Date")
+      /// Website
+      internal static let host = L10n.tr("Localizable", "findings.sort.host", fallback: "Website")
+      /// Sort
+      internal static let label = L10n.tr("Localizable", "findings.sort.label", fallback: "Sort")
+      /// Reverse
+      internal static let reverse = L10n.tr("Localizable", "findings.sort.reverse", fallback: "Reverse")
+    }
+    internal enum Sync {
+      /// %d could not be backed up
+      internal static func parked(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "findings.sync.parked", p1, fallback: "%d could not be backed up")
+      }
+      /// %d waiting to back up
+      internal static func pending(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "findings.sync.pending", p1, fallback: "%d waiting to back up")
+      }
+      internal enum Backup {
+        /// Backing up…
+        internal static let busy = L10n.tr("Localizable", "findings.sync.backup.busy", fallback: "Backing up…")
+        /// Back Up Everything on This Device
+        internal static let button = L10n.tr("Localizable", "findings.sync.backup.button", fallback: "Back Up Everything on This Device")
+        /// Back Up
+        internal static let confirm = L10n.tr("Localizable", "findings.sync.backup.confirm", fallback: "Back Up")
+        /// Back-up didn’t finish. It will try again.
+        internal static let failed = L10n.tr("Localizable", "findings.sync.backup.failed", fallback: "Back-up didn’t finish. It will try again.")
+        /// Keep on This Device
+        internal static let keepOnDevice = L10n.tr("Localizable", "findings.sync.backup.keepOnDevice", fallback: "Keep on This Device")
+        /// %d findings on this device are not in this account yet.
+        internal static func message(_ p1: Int) -> String {
+          return L10n.tr("Localizable", "findings.sync.backup.message", p1, fallback: "%d findings on this device are not in this account yet.")
+        }
+        /// No connection. Your findings will go up when you’re back online.
+        internal static let offline = L10n.tr("Localizable", "findings.sync.backup.offline", fallback: "No connection. Your findings will go up when you’re back online.")
+        /// Your findings are backed up.
+        internal static let succeeded = L10n.tr("Localizable", "findings.sync.backup.succeeded", fallback: "Your findings are backed up.")
+        /// Back up existing findings?
+        internal static let title = L10n.tr("Localizable", "findings.sync.backup.title", fallback: "Back up existing findings?")
+        /// Back Up My Findings
+        internal static let toggle = L10n.tr("Localizable", "findings.sync.backup.toggle", fallback: "Back Up My Findings")
+        /// When off, nothing new leaves this device. Findings already backed up stay in your account and are still restored on a new device.
+        internal static let toggleFooter = L10n.tr("Localizable", "findings.sync.backup.toggleFooter", fallback: "When off, nothing new leaves this device. Findings already backed up stay in your account and are still restored on a new device.")
+      }
+      internal enum Row {
+        /// Backed up
+        internal static let backedUp = L10n.tr("Localizable", "findings.sync.row.backedUp", fallback: "Backed up")
+        /// Kept on this device
+        internal static let keptOnDevice = L10n.tr("Localizable", "findings.sync.row.keptOnDevice", fallback: "Kept on this device")
+        /// Not backed up yet
+        internal static let owed = L10n.tr("Localizable", "findings.sync.row.owed", fallback: "Not backed up yet")
+      }
+      internal enum Storage {
+        /// Cloud storage full — delete findings you no longer need, or export them
+        internal static let full = L10n.tr("Localizable", "findings.sync.storage.full", fallback: "Cloud storage full — delete findings you no longer need, or export them")
+        /// Cloud storage %d%% full
+        internal static func warning(_ p1: Int) -> String {
+          return L10n.tr("Localizable", "findings.sync.storage.warning", p1, fallback: "Cloud storage %d%% full")
+        }
+      }
+      internal enum Synchronize {
+        /// Synchronizing…
+        internal static let busy = L10n.tr("Localizable", "findings.sync.synchronize.busy", fallback: "Synchronizing…")
+        /// Synchronize
+        internal static let button = L10n.tr("Localizable", "findings.sync.synchronize.button", fallback: "Synchronize")
+        /// Synchronizing didn’t finish. It will try again.
+        internal static let failed = L10n.tr("Localizable", "findings.sync.synchronize.failed", fallback: "Synchronizing didn’t finish. It will try again.")
+        /// No connection. Nothing could be sent or fetched.
+        internal static let offline = L10n.tr("Localizable", "findings.sync.synchronize.offline", fallback: "No connection. Nothing could be sent or fetched.")
+        /// Up to date.
+        internal static let succeeded = L10n.tr("Localizable", "findings.sync.synchronize.succeeded", fallback: "Up to date.")
+        internal enum Help {
+          /// What does Synchronize do?
+          internal static let accessibility = L10n.tr("Localizable", "findings.sync.synchronize.help.accessibility", fallback: "What does Synchronize do?")
+          /// Synchronize works in both directions. It brings down findings your account has that this device does not, and — unless you have turned back-up off — it sends up findings this device has that your account does not.
+          /// 
+          /// It is not a one-way upload. But a finding you change on another device will not appear here on its own, however long you leave this list open. Open this list again, pull down on it, or press Synchronize to ask.
+          /// 
+          /// It does not undo what you chose to keep on this device. Findings you asked the app to keep here stay here, and are not sent.
+          internal static let body = L10n.tr("Localizable", "findings.sync.synchronize.help.body", fallback: "Synchronize works in both directions. It brings down findings your account has that this device does not, and — unless you have turned back-up off — it sends up findings this device has that your account does not.\n\nIt is not a one-way upload. But a finding you change on another device will not appear here on its own, however long you leave this list open. Open this list again, pull down on it, or press Synchronize to ask.\n\nIt does not undo what you chose to keep on this device. Findings you asked the app to keep here stay here, and are not sent.")
+          /// About Synchronize
+          internal static let title = L10n.tr("Localizable", "findings.sync.synchronize.help.title", fallback: "About Synchronize")
+        }
+      }
+    }
+    internal enum Tab {
+      /// Findings source
+      internal static let accessibility = L10n.tr("Localizable", "findings.tab.accessibility", fallback: "Findings source")
+      /// My
+      internal static let mine = L10n.tr("Localizable", "findings.tab.mine", fallback: "My")
+      /// Received
+      internal static let received = L10n.tr("Localizable", "findings.tab.received", fallback: "Received")
     }
   }
   internal enum History {
@@ -561,6 +825,16 @@ internal enum L10n {
   internal enum Import {
     /// Apple Create ML Documentation
     internal static let appleDocumentation = L10n.tr("Localizable", "import.appleDocumentation", fallback: "Apple Create ML Documentation")
+    /// This file describes itself as an ADAF %@ detection model. It was converted on this device.
+    internal static func checkpointDetectorConverted(_ p1: Any) -> String {
+      return L10n.tr("Localizable", "import.checkpointDetectorConverted", String(describing: p1), fallback: "This file describes itself as an ADAF %@ detection model. It was converted on this device.")
+    }
+    /// This file describes itself as an ADAF detection model. It was converted on this device.
+    internal static let checkpointDetectorConvertedUnlabelled = L10n.tr("Localizable", "import.checkpointDetectorConvertedUnlabelled", fallback: "This file describes itself as an ADAF detection model. It was converted on this device.")
+    /// This file describes itself as an image segmentation model. This app finds and classifies objects in a scene, so segmentation models are not supported.
+    internal static let checkpointSegmentation = L10n.tr("Localizable", "import.checkpointSegmentation", fallback: "This file describes itself as an image segmentation model. This app finds and classifies objects in a scene, so segmentation models are not supported.")
+    /// This training checkpoint holds a model this app does not recognise. Only ADAF detection models can be imported.
+    internal static let checkpointUnrecognized = L10n.tr("Localizable", "import.checkpointUnrecognized", fallback: "This training checkpoint holds a model this app does not recognise. Only ADAF detection models can be imported.")
     /// Confirm the model type
     internal static let confirmTypeTitle = L10n.tr("Localizable", "import.confirmTypeTitle", fallback: "Confirm the model type")
     /// Conversion Log
@@ -583,6 +857,8 @@ internal enum L10n {
     internal static let conversionLogPhase = L10n.tr("Localizable", "import.conversionLogPhase", fallback: "Phase")
     /// Conversion revision
     internal static let conversionLogRevision = L10n.tr("Localizable", "import.conversionLogRevision", fallback: "Conversion revision")
+    /// Model file
+    internal static let conversionLogSourceFile = L10n.tr("Localizable", "import.conversionLogSourceFile", fallback: "Model file")
     /// Converter version
     internal static let conversionLogSourceVersion = L10n.tr("Localizable", "import.conversionLogSourceVersion", fallback: "Converter version")
     /// State
@@ -629,6 +905,8 @@ internal enum L10n {
     internal static func inferredSemantics(_ p1: Any, _ p2: Any) -> String {
       return L10n.tr("Localizable", "import.inferredSemantics", String(describing: p1), String(describing: p2), fallback: "This file has no label metadata. AI Archeology used %1$@ and %2$@. Check a few known images before relying on its results.")
     }
+    /// The conversion itself succeeded, so you can export the converted model and use it on a device with more memory.
+    internal static let insufficientMemoryCanExport = L10n.tr("Localizable", "import.insufficientMemoryCanExport", fallback: "The conversion itself succeeded, so you can export the converted model and use it on a device with more memory.")
     /// Keep Original
     internal static let keepOriginal = L10n.tr("Localizable", "import.keepOriginal", fallback: "Keep Original")
     /// The converted Core ML model will be used by the app. Do you also want to keep a copy of the original model package for provenance or future conversion?
@@ -641,6 +919,10 @@ internal enum L10n {
     internal static let onnxConversion = L10n.tr("Localizable", "import.onnxConversion", fallback: "ONNX Conversion")
     /// Use this Python code to convert ONNX models:
     internal static let onnxConversionHint = L10n.tr("Localizable", "import.onnxConversionHint", fallback: "Use this Python code to convert ONNX models:")
+    /// Preparing the model for export…
+    internal static let preparingExport = L10n.tr("Localizable", "import.preparingExport", fallback: "Preparing the model for export…")
+    /// Report Failing Conversion
+    internal static let reportConversion = L10n.tr("Localizable", "import.reportConversion", fallback: "Report Failing Conversion")
     /// Resume Conversion
     internal static let resumeConversion = L10n.tr("Localizable", "import.resumeConversion", fallback: "Resume Conversion")
     /// A native model conversion did not finish. You can resume it, inspect its path-free conversion log, or discard its staged app-sandbox artifacts.
@@ -665,10 +947,20 @@ internal enum L10n {
     internal static let title = L10n.tr("Localizable", "import.title", fallback: "Import Model")
     /// The model was imported. The app can't verify what an imported model does, so please confirm its type on the next screen. You're responsible for the choice, and a wrong type can produce incorrect results.
     internal static let typeConfirmation = L10n.tr("Localizable", "import.typeConfirmation", fallback: "The model was imported. The app can't verify what an imported model does, so please confirm its type on the next screen. You're responsible for the choice, and a wrong type can produce incorrect results.")
+    /// This download is an archive, not a model. Extract it first, then import the model file inside it.
+    internal static let unsupportedArchive = L10n.tr("Localizable", "import.unsupportedArchive", fallback: "This download is an archive, not a model. Extract it first, then import the model file inside it.")
+    /// This download is a training checkpoint, which this app cannot open yet. Import a Core ML or ONNX model instead.
+    internal static let unsupportedCheckpoint = L10n.tr("Localizable", "import.unsupportedCheckpoint", fallback: "This download is a training checkpoint, which this app cannot open yet. Import a Core ML or ONNX model instead.")
     /// Validating model...
     internal static let validating = L10n.tr("Localizable", "import.validating", fallback: "Validating model...")
     /// WWDC: Core ML Converters
     internal static let wwdcCoreML = L10n.tr("Localizable", "import.wwdcCoreML", fallback: "WWDC: Core ML Converters")
+    internal enum Error {
+      /// Not enough memory to load %1$@ on this device. It needs about %2$@ and about %3$@ is free. Close other apps and try again, or use this model on a device with more memory.
+      internal static func insufficientMemory(_ p1: Any, _ p2: Any, _ p3: Any) -> String {
+        return L10n.tr("Localizable", "import.error.insufficientMemory", String(describing: p1), String(describing: p2), String(describing: p3), fallback: "Not enough memory to load %1$@ on this device. It needs about %2$@ and about %3$@ is free. Close other apps and try again, or use this model on a device with more memory.")
+      }
+    }
   }
   internal enum Items {
     /// %lld items
@@ -686,8 +978,8 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "models.available.title", fallback: "Available Models")
     }
     internal enum Empty {
-      /// Tap the + button to add your first ML model.
-      internal static let message = L10n.tr("Localizable", "models.empty.message", fallback: "Tap the + button to add your first ML model.")
+      /// Add your first ML model to get started.
+      internal static let messageAddModel = L10n.tr("Localizable", "models.empty.messageAddModel", fallback: "Add your first ML model to get started.")
       /// No Models
       internal static let title = L10n.tr("Localizable", "models.empty.title", fallback: "No Models")
     }
@@ -785,6 +1077,12 @@ internal enum L10n {
       /// Your purchases could not be restored. Please try again.
       internal static let message = L10n.tr("Localizable", "paywall.restoreFailed.message", fallback: "Your purchases could not be restored. Please try again.")
     }
+    internal enum RestoreRecommended {
+      /// The App Store reports an active subscription for ML Browser. Tap Restore Purchases below to unlock it on this device.
+      internal static let message = L10n.tr("Localizable", "paywall.restoreRecommended.message", fallback: "The App Store reports an active subscription for ML Browser. Tap Restore Purchases below to unlock it on this device.")
+      /// Subscription Found
+      internal static let title = L10n.tr("Localizable", "paywall.restoreRecommended.title", fallback: "Subscription Found")
+    }
   }
   internal enum Sentry {
     /// Config
@@ -821,6 +1119,10 @@ internal enum L10n {
     internal static let historyLimitPlaceholder = L10n.tr("Localizable", "settings.historyLimitPlaceholder", fallback: "0-100")
     /// Pyramid tiling
     internal static let pyramidTiling = L10n.tr("Localizable", "settings.pyramidTiling", fallback: "Pyramid tiling")
+    /// Read map position from pages
+    internal static let readMapPositionFromPages = L10n.tr("Localizable", "settings.readMapPositionFromPages", fallback: "Read map position from pages")
+    /// Lets a saved finding record where a map was looking. Turn this off if a site misbehaves — the page address is still saved either way.
+    internal static let readMapPositionFromPagesFooter = L10n.tr("Localizable", "settings.readMapPositionFromPagesFooter", fallback: "Lets a saved finding record where a map was looking. Turn this off if a site misbehaves — the page address is still saved either way.")
     /// Reopen Last Page
     internal static let reopenLastPage = L10n.tr("Localizable", "settings.reopenLastPage", fallback: "Reopen Last Page")
     /// Replay onboarding
@@ -947,8 +1249,6 @@ internal enum L10n {
     internal static let detectScreenshots = L10n.tr("Localizable", "support.detectScreenshots", fallback: "Detect screenshots")
     /// Include application log
     internal static let includeApplicationLog = L10n.tr("Localizable", "support.includeApplicationLog", fallback: "Include application log")
-    /// This can make your report much more useful. It gives us a short record of what the app was doing before the problem, which can help us fix it faster.
-    internal static let includeApplicationLogExplanation = L10n.tr("Localizable", "support.includeApplicationLogExplanation", fallback: "This can make your report much more useful. It gives us a short record of what the app was doing before the problem, which can help us fix it faster.")
     /// Open Settings
     internal static let openSettings = L10n.tr("Localizable", "support.openSettings", fallback: "Open Settings")
     /// Nothing is sent until you send it. You will see the whole email and can remove any screenshot or app log attachment before sending.
@@ -967,6 +1267,10 @@ internal enum L10n {
     internal static let shareApplicationLog = L10n.tr("Localizable", "support.shareApplicationLog", fallback: "Save or share the log")
     /// Report a problem
     internal static let title = L10n.tr("Localizable", "support.title", fallback: "Report a problem")
+    internal enum ApplicationLog {
+      /// This makes your report much more useful. It gives us a short record of what the app was doing before the problem.
+      internal static let explanation = L10n.tr("Localizable", "support.applicationLog.explanation", fallback: "This makes your report much more useful. It gives us a short record of what the app was doing before the problem.")
+    }
     internal enum Body {
       /// Account
       internal static let account = L10n.tr("Localizable", "support.body.account", fallback: "Account")

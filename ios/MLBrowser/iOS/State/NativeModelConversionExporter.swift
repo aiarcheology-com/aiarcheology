@@ -2,13 +2,13 @@
 //  NativeModelConversionExporter.swift
 //  AI Archeology
 //
-//  Builds a single, explicit user-shareable archive for a registered conversion.
+//  Builds a single, explicit user-shareable archive for a converted model.
 //
 
 import Foundation
 import NativeModelConverter
 
-/// Exports a registered native conversion as one portable archive.
+/// Exports a converted native model as one portable archive.
 ///
 /// The archive contains the generated `.mlmodel`, its lossless metadata sidecar when present, and
 /// the path-free conversion report. The original `.aiagraph` package is intentionally excluded:
@@ -23,8 +23,11 @@ enum NativeModelConversionExporter {
 		configurationDirectory: URL,
 		date: Date = .now
 	) throws -> URL {
-		guard report.state == .registered else {
-			throw NativeModelConversionExportError.notRegistered
+		// Registered, or kept after a memory refusal (AIA-0889). The second case is the whole point
+		// of retaining that model: the conversion succeeded and only *this* device cannot load it,
+		// so exporting it to a device that can is the one thing still worth doing with it.
+		guard report.state == .registered || report.keepsConvertedModelForExport else {
+			throw NativeModelConversionExportError.notExportable
 		}
 
 		let fileManager = FileManager.default
@@ -61,7 +64,7 @@ enum NativeModelConversionExporter {
 		}
 		try fileManager.copyItem(at: reportURL, to: archiveDirectory.appendingPathComponent(reportURL.lastPathComponent))
 		try Data(
-			"This archive contains a registered Core ML model, its source-metadata sidecar when present, and a path-free conversion report. The original source package is not included.\n".utf8
+			"This archive contains a converted Core ML model, its source-metadata sidecar when present, and a path-free conversion report. The model may not have been registered on the exporting device — a device without the memory to load it can still convert and export it. The original source package is not included.\n".utf8
 		).write(to: archiveDirectory.appendingPathComponent("README.txt"), options: .atomic)
 
 		let archiveName = "ConvertedModel-\(timestamp(date)).zip"
@@ -162,16 +165,16 @@ enum ModelFileExportError: LocalizedError, Equatable {
 }
 
 enum NativeModelConversionExportError: LocalizedError, Equatable {
-	case notRegistered
+	case notExportable
 	case missingConvertedModel
 	case missingConversionReport
 
 	var errorDescription: String? {
 		switch self {
-		case .notRegistered:
-			"Only a registered converted model can be exported."
+		case .notExportable:
+			"This conversion has no converted model to export."
 		case .missingConvertedModel:
-			"The registered converted model file is missing."
+			"The converted model file is missing."
 		case .missingConversionReport:
 			"The conversion report needed for export is missing."
 		}

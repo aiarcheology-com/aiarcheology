@@ -1,0 +1,155 @@
+/*
+ * Shared-finding landing page (AIA-0650).
+ *
+ * A separate file rather than a <style> block on purpose: the Content-Security-Policy in
+ * _headers sets `style-src 'self'`, which forbids inline styles precisely so that an
+ * injected `style` attribute cannot be used to overlay or disguise the page.
+ *
+ * System fonts only - no webfont means no third-party request, which keeps the promise that
+ * opening this page tells nobody anything about the person who opened it.
+ */
+
+:root {
+  color-scheme: light dark;
+  --bg: #f5f5f7;
+  --card: #ffffff;
+  --ink: #1c1c1e;
+  --ink-dim: #6b6b70;
+  --accent: #0a6cff;
+  --accent-soft: rgba(10, 108, 255, 0.12);
+  --line: rgba(0, 0, 0, 0.09);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --card: #1c1c1e;
+    --ink: #f2f2f7;
+    --ink-dim: #9a9aa0;
+    --accent: #4c9bff;
+    --accent-soft: rgba(76, 155, 255, 0.18);
+    --line: rgba(255, 255, 255, 0.12);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 24px 16px 48px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+.card {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 28px 24px 24px;
+  background: var(--card);
+  border-radius: 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 8px 28px rgba(0, 0, 0, 0.06);
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.title {
+  /* A hostile title is capped at 80 characters by app.js, but it can still be 80 characters
+     with no spaces in it, so the box must break rather than stretch. */
+  margin: 0 0 14px;
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.chip {
+  display: inline-block;
+  margin: 0 0 18px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.meta { margin: 0 0 24px; }
+
+.row {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: 15px;
+}
+
+.row dt {
+  flex: 0 0 5.5rem;
+  color: var(--ink-dim);
+}
+
+.row dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.row a { color: var(--accent); }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.button {
+  flex: 1 1 12rem;
+  padding: 13px 18px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+.button-primary { background: var(--accent); color: #ffffff; }
+
+.button-secondary {
+  background: transparent;
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+}
+
+.hint, .fallback, .disclaimer {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+
+.fallback {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.disclaimer {
+  margin-bottom: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+
+[hidden] { display: none !important; }

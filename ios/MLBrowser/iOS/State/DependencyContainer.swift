@@ -43,9 +43,15 @@ class DependencyContainer {
         return SnapState(settings: self.settings)
     }()
     
-    lazy var deepState: DeepState = {
-        return DeepState(dataController: self.dataController)
-    }()
+	lazy var deepState: DeepState = {
+		return DeepState(dataController: self.dataController)
+	}()
+
+	/// Shared player boundary for app-provided annotation sounds (AIA-0716). The actor owns its
+	/// AVAudioPlayer off the main actor; views receive it through AppState rather than `.shared`.
+	lazy var annotationSoundPlayer: any AnnotationSoundPlaying = {
+		AnnotationSoundPlayer()
+	}()
     
     lazy var downloader: Downloader = {
         return Downloader(dataController: self.dataController)
@@ -67,10 +73,27 @@ class DependencyContainer {
         return DemoDataManager(dataController: self.dataController)
     }()
 
+	/// Owns the durable source-package cleanup actor shared by launch recovery and model import.
+	lazy var nativeConversionSourceCleanupService = NativeModelSourceCleanupService()
+
     // `private(set)`: `AppState` captures this instance at construction; reassigning it afterwards
     // would hand later consumers a different repository/persistence context. Read-only to the outside.
     private(set) lazy var findingRepository: FindingRepository = {
         return FindingRepository(dataController: self.dataController)
+    }()
+
+    /// Findings to the cloud and back (AIA-727).
+    ///
+    /// Constructed lazily like everything else here, but note that constructing it is what wires
+    /// the repository's delete hook — so a delete only becomes a tombstone once something has
+    /// asked for this. `AppState` does, at launch.
+    lazy var findingsSync: FindingsSyncCoordinator = {
+        FindingsSyncCoordinator(
+            authProvider: self.authProvider,
+            analytics: self.analyticsState,
+            findingRepository: self.findingRepository,
+            dataController: self.dataController
+        )
     }()
 
     // MARK: - Authentication (AIA-0340)
@@ -440,6 +463,23 @@ class DependencyContainer {
 		// retained by this container; nothing else references it.
 		// Late-bind purchase tagging now that `AuthState` exists (AIA-0536).
 		taggingAuthState = account.authState
+		// Account deletion must erase the cloud copy BEFORE Clerk deletes the user, or the session
+		// token that is the only way to reach that data goes with it (AIA-728).
+		//
+		// Not wired under the mock auth provider: its token is a stand-in the Worker rightly
+		// refuses, so a purge could only ever fail — and a failed purge deliberately blocks
+		// deletion. A build with no real account has no cloud data to erase, so there is nothing
+		// this skips.
+		if usesMockAuth == false {
+			account.authState.purgeCloudData = { [findingsSync] operation in try await findingsSync.purgeCloudData(operation: operation) }
+		}
+		// Signing in is its own trigger. It is none of the three the coordinator watches for, so
+		// without this the first thing a new user does -- sign in -- produces silence (AIA-727).
+		//
+		// Wired on every path, unlike the purge above: the mock provider has no cloud data to
+		// erase, but it does change accounts, and a trigger that only exists in release builds is
+		// one no test can reach.
+		account.authState.accountDidChange = { [findingsSync] _ in _ = findingsSync.syncNow() }
 		_ = messageReplyCoordinator
 		// Arm notification scheduling (AIA-0115, S7): hooks messageCenterState's reevaluation
 		// observer on init so every visibility recompute reconciles scheduled notifications.
@@ -471,10 +511,13 @@ class DependencyContainer {
 			settings: settings,
 			snap: snapState,
 		deep: deepState,
+		annotationSoundPlayer: annotationSoundPlayer,
 		downloader: downloader,
 		catalogProviders: catalogProviders,
 		demoDataManager: demoDataManager,
 			findingRepository: findingRepository,
+			findingsSync: findingsSync,
+		nativeConversionSourceCleanupService: nativeConversionSourceCleanupService,
 			detection: detection,
 			browser: browser,
 			account: account,

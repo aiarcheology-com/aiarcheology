@@ -291,6 +291,40 @@ final class SentryCrashReportingService: CrashReportingService {
 		}
 	}
 	
+	/// Context travels as Sentry **tags** when it is short enough to be indexed, and as **extras**
+	/// otherwise.
+	///
+	/// The split is not cosmetic. Tags are indexed and searchable — `page_host:cuzk.cz` filters the
+	/// issue stream — but Sentry truncates them at 200 characters, and a high-cardinality tag makes
+	/// the index worse for everything. A full address is both long and unique per view, so it goes in
+	/// `extra`, where it is shown on the event and costs the index nothing.
+	///
+	/// Neither is touched by the message redaction in `beforeSend`, which is what allows an address
+	/// to arrive at all. That is a deliberate exemption for a named channel, not a hole in the
+	/// redactor: message text stays redacted everywhere, including here.
+	func captureError(message: String, error: Error?, context: [String: String]) {
+		let messageWithError: String
+		if let error = error {
+			messageWithError = "\(message): \(error.localizedDescription)"
+		} else {
+			messageWithError = message
+		}
+		SentrySDK.capture(message: Self.redactedMessage(messageWithError)) { scope in
+			scope.setLevel(.error)
+			for (key, value) in context {
+				// Routed by what the key IS, not by how long its value happens to be. Keying on
+				// length meant a short address became an indexed tag — the opposite of what the
+				// comment promised, and a high-cardinality tag degrades the index for everything
+				// (raised in review). An address is an address whatever its length.
+				if key.hasSuffix("_url") || value.count > 200 {
+					scope.setExtra(value: value, key: key)
+				} else {
+					scope.setTag(value: value, key: key)
+				}
+			}
+		}
+	}
+
 	func captureFault(message: String) {
 		// Faults are critical - capture with fatal level
 		SentrySDK.capture(message: "[FAULT] \(Self.redactedMessage(message))") { scope in

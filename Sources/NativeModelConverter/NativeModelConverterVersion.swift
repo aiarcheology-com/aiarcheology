@@ -14,7 +14,8 @@
 /// ``NativeModelProducer/name`` and ``NativeModelProducer/version`` in the graph package.
 public enum NativeModelConverterVersion {
 	public static let packageVersion = "0.1.0"
-	/// Revision 3 adds anchor-free detector emission (a Core ML NMS pipeline for v8/v11 raw heads)
-	/// and its target metadata: task, class count, label provenance, and coordinate space.
-	public static let conversionRevision = 3
+	/// Revision 11 removes the ADAF compute-unit metadata. CPU-only remains the explicit placement
+	/// for strict parity measurements, while product loading uses its own per-model setting and
+	/// Automatic defaults to Core ML `.all`.
+	public static let conversionRevision = 11
 }

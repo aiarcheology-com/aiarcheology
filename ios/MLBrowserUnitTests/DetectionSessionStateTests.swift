@@ -30,10 +30,14 @@ final class DetectionSessionStateTests: XCTestCase {
     // `DetectionSessionState.snapAdjustment` is `unowned`; hold it strong for the whole test.
     var snapAdjustment: SnapAdjustment!
     var sut: DetectionSessionState!
+    /// Every web-content event the helpers issue carries the next sequence, as the real signal
+    /// does — one counter, because they arrive on one publisher.
+    private var eventSequence: UInt64 = 0
 
     override func setUp() async throws {
         try await super.setUp()
 
+        eventSequence = 0
         settings = Settings()
         // Settings persists to UserDefaults.standard; pin the default so tests
         // that flip the flag cannot leak into later tests via the suite's defaults.
@@ -167,6 +171,35 @@ final class DetectionSessionStateTests: XCTestCase {
 
         XCTAssertNil(received)
     }
+
+	func testContentInteractionDidEnd_RequestsANewSnapshotForTheActiveRun() {
+		var requests: [SnapshotRequest] = []
+		let cancellable = snapState.combinedPublishers.sink { requests.append($0) }
+		defer { cancellable.cancel() }
+
+		sut.ontheflyDetectionTapped()
+		guard let initialRequest = requests.last else {
+			return XCTFail("Starting detection should issue its initial request")
+		}
+
+		sut.contentInteractionDidEnd()
+
+		guard let replacementRequest = requests.last else {
+			return XCTFail("A settled interaction should issue a replacement request")
+		}
+		XCTAssertEqual(replacementRequest.runID, sut.detectionRunID)
+		XCTAssertGreaterThan(replacementRequest.sequence, initialRequest.sequence)
+	}
+
+	func testContentInteractionDidEnd_DoesNotRequestWhileDetectionIsStopped() {
+		var received: SnapshotRequest?
+		let cancellable = snapState.combinedPublishers.sink { received = $0 }
+		defer { cancellable.cancel() }
+
+		sut.contentInteractionDidEnd()
+
+		XCTAssertNil(received)
+	}
 
     // MARK: - Chrome Visibility Tests
     //
@@ -314,6 +347,364 @@ final class DetectionSessionStateTests: XCTestCase {
         // Should not start timer when detection is disabled
         XCTAssertNil(snapState.timerCancellable)
     }
+
+    // MARK: - Web Content Process Loss (AIA-0879)
+
+    private let site = "umweltdaten.hessen.de"
+
+    /// Puts the SUT in a running detection run, the way the toolbar does.
+    private func startDetection() {
+        sut.ontheflyDetectionTapped(recordAnalytics: false)
+        XCTAssertTrue(sut.ontheflyDetectionEnabled)
+        XCTAssertNotNil(snapState.timerCancellable)
+    }
+
+    /// One termination, with a fresh generation. The real signal is generation-stamped because it
+    /// arrives through a republishing `@Published` value.
+    @discardableResult
+    private func terminate(host: String?, at now: Date = Date()) -> UInt64 {
+        eventSequence += 1
+        sut.webContentProcessDidTerminate(sequence: eventSequence, host: host, now: now)
+        return eventSequence
+    }
+
+    /// One "the page came back" event, with a fresh sequence.
+    private func settleLoaded() {
+        eventSequence += 1
+        sut.webContentDidLoad(sequence: eventSequence)
+    }
+
+    /// One "the load stopped with nothing following it" event.
+    private func settleStopped() {
+        eventSequence += 1
+        sut.webContentDidStopLoading(sequence: eventSequence)
+    }
+
+    func testWebContentProcessDidTerminate_FirstTime_InterruptsWithoutEndingTheRun() {
+        startDetection()
+
+        terminate(host: site)
+
+        XCTAssertTrue(sut.ontheflyDetectionEnabled, "One termination must not cost the whole run")
+        XCTAssertTrue(sut.isInterruptedByContentLoss)
+        XCTAssertNil(snapState.timerCancellable, "Nothing may be captured while the page recovers")
+    }
+
+    func testWebContentProcessDidTerminate_WhileInterrupted_RefusesEveryCapturePath() {
+        startDetection()
+        let run = sut.detectionRunID
+        terminate(host: site)
+
+        // The apply-time boundary, which is what actually gates a physical WebKit snapshot.
+        XCTAssertFalse(sut.accepts(SnapshotRequest(runID: run, sequence: 1)),
+                       "A request enqueued before the termination must not start a capture now")
+
+        // And every path that requests one off the timer. Observed through the publisher the
+        // coordinator actually consumes: these paths do not touch the timer, so asserting on
+        // `timerCancellable` would pass whether or not the gate is there.
+        var requests: [SnapshotRequest] = []
+        let cancellable = snapState.combinedPublishers.sink { requests.append($0) }
+        defer { cancellable.cancel() }
+
+        sut.driverDidRegister()
+        sut.contentGeometryDidChange()
+        sut.contentInteractionDidEnd()
+
+        XCTAssertTrue(requests.isEmpty,
+                      "No capture may be requested while the page that killed the renderer reloads")
+    }
+
+    // MARK: Redelivery
+
+    func testWebContentProcessDidTerminate_SameSequenceTwice_IsAnsweredOnce() {
+        startDetection()
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+
+        // SwiftUI can deliver one change to an outgoing and an incoming subscription both. Answering
+        // twice would spend the site's strike and end the run on a single renderer death.
+        sut.webContentProcessDidTerminate(sequence: 1, host: site, now: start)
+        sut.webContentProcessDidTerminate(sequence: 1, host: site, now: start)
+
+        XCTAssertTrue(sut.ontheflyDetectionEnabled, "One death must not be counted as two")
+        XCTAssertTrue(sut.isInterruptedByContentLoss)
+    }
+
+    func testWebContentProcessDidTerminate_ReplayOfAnOlderEventIsIgnored() {
+        startDetection()
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        // Through the helper, so the termination and the settlement that follows share the one
+        // sequence the real publisher issues. Mixing a hand-written number with the helper's counter
+        // produced a settlement numbered BELOW its own termination, which the consumer correctly
+        // refused — a broken test, not a broken guard.
+        let replayed = terminate(host: site, at: start)
+        settleLoaded()
+
+        // A remount replays an event that was already answered.
+        sut.webContentProcessDidTerminate(sequence: replayed, host: site, now: start.addingTimeInterval(5))
+
+        XCTAssertTrue(sut.ontheflyDetectionEnabled)
+        XCTAssertFalse(sut.isInterruptedByContentLoss,
+                       "A replayed termination must not re-interrupt a healthy run")
+        XCTAssertNotNil(snapState.timerCancellable)
+    }
+
+    func testWebContentProcessDidTerminate_SequenceIsConsumedEvenWhileDetectionIsOff() {
+        // Detection off: the event is still consumed, so turning detection on and receiving the same
+        // replayed generation cannot interrupt the new run.
+        sut.webContentProcessDidTerminate(sequence: 7, host: site)
+        startDetection()
+
+        sut.webContentProcessDidTerminate(sequence: 7, host: site)
+
+        XCTAssertFalse(sut.isInterruptedByContentLoss)
+        XCTAssertNotNil(snapState.timerCancellable)
+    }
+
+    // MARK: Resume
+
+    func testWebContentDidLoad_ResumesTheInterruptedRun() {
+        startDetection()
+        let run = sut.detectionRunID
+        terminate(host: site)
+
+        settleLoaded()
+
+        XCTAssertFalse(sut.isInterruptedByContentLoss)
+        XCTAssertNotNil(snapState.timerCancellable, "The replacement document has loaded")
+        XCTAssertEqual(sut.detectionRunID, run, "Resuming continues the run; it does not start a new one")
+        XCTAssertTrue(sut.accepts(SnapshotRequest(runID: run, sequence: 2)))
+    }
+
+    func testWebContentDidLoad_OnAnOrdinaryLoadDoesNothing() {
+        startDetection()
+        snapState.stopTimer()
+
+        settleLoaded()
+
+        XCTAssertNil(snapState.timerCancellable,
+                     "Every ordinary page load calls this; only an interruption may resume from it")
+    }
+
+    // MARK: Escalation
+
+    func testWebContentProcessDidTerminate_SecondTimeOnTheSameSite_EndsTheRun() {
+        startDetection()
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+
+        terminate(host: site, at: start)
+        settleLoaded()
+        terminate(host: site, at: start.addingTimeInterval(139))
+
+        XCTAssertFalse(sut.ontheflyDetectionEnabled, "The loop is broken by ending the run")
+        XCTAssertNil(snapState.timerCancellable)
+        XCTAssertTrue(sut.chromeVisible, "Ending a run restores the browser chrome")
+        XCTAssertFalse(sut.isInterruptedByContentLoss,
+                       "A run that has ended must not also be left interrupted")
+    }
+
+    func testWebContentDidLoad_AfterTheRunEnded_DoesNotResurrectIt() {
+        startDetection()
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        terminate(host: site, at: start)
+        settleLoaded()
+        terminate(host: site, at: start.addingTimeInterval(10))
+        XCTAssertFalse(sut.ontheflyDetectionEnabled)
+
+        settleLoaded()
+
+        XCTAssertFalse(sut.ontheflyDetectionEnabled)
+        XCTAssertNil(snapState.timerCancellable, "The reload that follows must not restart detection")
+    }
+
+    func testWebContentProcessDidTerminate_WhileDetectionIsOff_DoesNothing() {
+        XCTAssertFalse(sut.ontheflyDetectionEnabled)
+
+        terminate(host: site)
+
+        XCTAssertFalse(sut.isInterruptedByContentLoss)
+        XCTAssertNil(snapState.timerCancellable)
+    }
+
+    // MARK: Interaction with the other ways detection idles
+
+    func testFindingCaptureEnded_DoesNotResumeIntoARecoveringPage() {
+        startDetection()
+        sut.findingCaptureStarted()
+        terminate(host: site)
+
+        sut.findingCaptureEnded()
+
+        // The capture path restarts the timer on its own; without the interruption gate it would
+        // resume capture into the document that is still replacing a dead renderer.
+        XCTAssertNil(snapState.timerCancellable)
+        XCTAssertTrue(sut.isInterruptedByContentLoss)
+    }
+
+    func testFindingCaptureEnded_StillResumesWhenNothingTerminated() {
+        startDetection()
+        sut.findingCaptureStarted()
+        XCTAssertNil(snapState.timerCancellable)
+
+        sut.findingCaptureEnded()
+
+        XCTAssertNotNil(snapState.timerCancellable, "The ordinary capture path must be unaffected")
+    }
+
+    func testBackgroundPauseAndForegroundResume_PreserveTheInterruption() {
+        startDetection()
+        terminate(host: site)
+
+        // Exactly what MLBrowser's lifecycle handlers do.
+        sut.ontheflyDetectionTapped(isUserInitiated: false)
+        sut.ontheflyDetectionTapped(recordAnalytics: false, isUserInitiated: false)
+
+        XCTAssertTrue(sut.ontheflyDetectionEnabled, "The session continues across a suspend")
+        XCTAssertTrue(sut.isInterruptedByContentLoss,
+                      "A trip to the home screen must not resume capture into the recovering page")
+        XCTAssertNil(snapState.timerCancellable)
+    }
+
+    func testBackgroundPauseAndForegroundResume_PreserveTheSiteStrike() {
+        startDetection()
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        terminate(host: site, at: start)
+        settleLoaded()
+
+        sut.ontheflyDetectionTapped(isUserInitiated: false)
+        sut.ontheflyDetectionTapped(recordAnalytics: false, isUserInitiated: false)
+        terminate(host: site, at: start.addingTimeInterval(60))
+
+        XCTAssertFalse(sut.ontheflyDetectionEnabled,
+                       "The loop must not survive the fix by the user visiting the home screen")
+    }
+
+    func testOntheflyDetectionResetTapped_DoesNotResumeIntoARecoveringPage() {
+        startDetection()
+        terminate(host: site)
+
+        // Settings calls this whenever the snapshot frequency changes; it is not a "capture now"
+        // gesture and must not be read as proof the web content is ready.
+        sut.ontheflyDetectionResetTapped()
+
+        XCTAssertTrue(sut.isInterruptedByContentLoss)
+        XCTAssertNil(snapState.timerCancellable)
+        XCTAssertFalse(sut.accepts(SnapshotRequest(runID: sut.detectionRunID, sequence: 1)))
+    }
+
+    // MARK: Recovery that never returns
+
+    func testWebContentDidStopLoading_ResumesTheRunRatherThanLeavingItStuck() {
+        startDetection()
+        terminate(host: site)
+
+        // Pressing Stop during the recovery reload produces neither a finish nor a classified
+        // failure. Before this path existed the interruption had no exit: detection sat enabled and
+        // capturing nothing, with the toolbar still showing a run.
+        settleStopped()
+
+        XCTAssertTrue(sut.ontheflyDetectionEnabled)
+        XCTAssertFalse(sut.isInterruptedByContentLoss)
+        XCTAssertNotNil(snapState.timerCancellable)
+    }
+
+    func testWebContentDidStopLoading_KeepsTheSiteStrike() {
+        startDetection()
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        terminate(host: site, at: start)
+        settleStopped()
+
+        terminate(host: site, at: start.addingTimeInterval(60))
+
+        XCTAssertFalse(sut.ontheflyDetectionEnabled,
+                       "Resuming after a stopped load must not forgive the site its first death")
+    }
+
+    func testWebContentDidStopLoading_OnAnOrdinaryStopDoesNothing() {
+        startDetection()
+        snapState.stopTimer()
+
+        settleStopped()
+
+        XCTAssertNil(snapState.timerCancellable,
+                     "Stopping an ordinary load must not start a detection timer")
+    }
+
+    func testSettlementRedelivery_IsAnsweredOnce() {
+        startDetection()
+        terminate(host: site)
+
+        settleLoaded()
+        // The same settlement redelivered by a remount, after a NEW termination interrupted the run
+        // again, must not resume it.
+        terminate(host: site, at: Date().addingTimeInterval(-1_000))
+        sut.webContentDidLoad(sequence: eventSequence - 1)
+
+        XCTAssertTrue(sut.isInterruptedByContentLoss,
+                      "A replayed settlement must not clear a later interruption")
+        XCTAssertNil(snapState.timerCancellable)
+    }
+
+    func testRemountAfterTerminationAndRecovery_DoesNotStrandTheRun() {
+        // The hazard two publishers created: a termination while WebScreen was unmounted, and the
+        // recovery that settled after it, both replayed on remount. With the settlement delivered
+        // first its sequence was consumed while nothing was interrupted, and the termination that
+        // followed then interrupted the run with nothing left to clear it.
+        //
+        // One publisher replays only the LATEST event, so the remount sees the settlement alone —
+        // and a stale termination arriving afterwards is refused by sequence either way.
+        startDetection()
+        let terminationSequence: UInt64 = 5
+        let settlementSequence: UInt64 = 6
+
+        // Remount replays the latest event only.
+        sut.webContentDidLoad(sequence: settlementSequence)
+        // And the older termination, if anything delivered it, is already behind.
+        sut.webContentProcessDidTerminate(sequence: terminationSequence, host: site)
+
+        XCTAssertFalse(sut.isInterruptedByContentLoss,
+                       "A remount after the page came back must not strand the run")
+        XCTAssertTrue(sut.ontheflyDetectionEnabled)
+        XCTAssertNotNil(snapState.timerCancellable)
+    }
+
+    func testWebContentDidFailToLoad_EndsTheRunRatherThanLeavingItInterrupted() {
+        startDetection()
+        terminate(host: site)
+
+        sut.webContentDidFailToLoad()
+
+        // Otherwise detection sits enabled and capturing nothing, with no way for the user to tell.
+        XCTAssertFalse(sut.ontheflyDetectionEnabled)
+        XCTAssertFalse(sut.isInterruptedByContentLoss)
+    }
+
+    func testWebContentDidFailToLoad_OnAnOrdinaryFailureDoesNothing() {
+        startDetection()
+
+        sut.webContentDidFailToLoad()
+
+        XCTAssertTrue(sut.ontheflyDetectionEnabled,
+                      "A load failure with no termination behind it is not this policy's business")
+        XCTAssertNotNil(snapState.timerCancellable)
+    }
+
+    func testUserRestart_ClearsTheInterruptionAndTheStrike() {
+        startDetection()
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        terminate(host: site, at: start)
+        terminate(host: site, at: start.addingTimeInterval(10))
+        XCTAssertFalse(sut.ontheflyDetectionEnabled)
+
+        sut.ontheflyDetectionTapped(recordAnalytics: false)
+
+        XCTAssertFalse(sut.isInterruptedByContentLoss)
+        XCTAssertNotNil(snapState.timerCancellable)
+        // The strike is spent: this run gets its own first-termination grace.
+        terminate(host: site, at: start.addingTimeInterval(20))
+        XCTAssertTrue(sut.ontheflyDetectionEnabled,
+                      "A run the user started must not end on the previous run's strike")
+    }
+
 }
 
 @MainActor

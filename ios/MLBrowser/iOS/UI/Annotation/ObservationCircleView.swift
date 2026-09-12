@@ -15,16 +15,20 @@ struct ObservationCircleView: View {
 	var showIdentifiers: Bool
 	var animateDetections: Bool
 
-	@State private var animate = false
+	@State private var phasedOut = false
 
 	var body: some View {
 		let center = boundingBoxCenter
+		// The marker first, the label second (AIA-0765). The order used to be the other way round,
+		// so the expanding circle was drawn *over* the text — a second reason classes read as
+		// invisible, on top of the label content itself being unreadable.
 		ZStack {
-			if showIdentifiers {
-				labels(at: center)
-			}
 			pulsingCircle(at: center)
+			if showIdentifiers {
+				label(at: center)
+			}
 		}
+		.detectionPhaseOut($phasedOut, after: phaseOutTime, animated: animateDetections)
 	}
 
 	/// Center of the observation's bounding box in the view's coordinate space
@@ -37,21 +41,25 @@ struct ObservationCircleView: View {
 		)
 	}
 
-	private func labels(at center: CGPoint) -> some View {
-		HStack {
-			ForEach(observation.labels, id: \.self) { label in
-				Text(" \(String(label.identifier.prefix(6)))|")
-			}
-			.foregroundColor(color)
+	/// The detection's single highest-confidence class, centred on the marker — the placement the
+	/// ticket asks for on the round symbols (AIA-0765).
+	@ViewBuilder
+	private func label(at center: CGPoint) -> some View {
+		if let primary = observation.primaryLabel {
+			DetectionLabelView(identifier: primary.identifier, confidence: observation.confidence, color: color)
+				.position(center)
+				// Leaves with the marker. Stopping detection does not tear the annotation views down —
+				// the phase-out *is* how a detection leaves the screen — so a label that does not read
+				// `phasedOut` stays painted over the page after its circle has gone, forever.
+				.opacity(phasedOut ? 0 : 1)
 		}
-		.position(center)
 	}
 
 	private func pulsingCircle(at center: CGPoint) -> some View {
-		let lineWidth: CGFloat = animate ? 6 : 2
-		let scale: CGFloat = animate ? 4 : 1
-		let circleOpacity: Double = animate ? 0 : 1
-		let blurRadius: CGFloat = animate ? 3 : 0
+		let lineWidth: CGFloat = phasedOut ? 6 : 2
+		let scale: CGFloat = phasedOut ? 4 : 1
+		let circleOpacity: Double = phasedOut ? 0 : 1
+		let blurRadius: CGFloat = phasedOut ? 3 : 0
 		return Circle()
 			.stroke(color, lineWidth: lineWidth)
 			.scaleEffect(scale)
@@ -59,13 +67,5 @@ struct ObservationCircleView: View {
 			.frame(width: 30, height: 30)
 			.position(center)
 			.blur(radius: blurRadius)
-			.onAppear {
-				// Static-marker mode (settings.disableDetectionAnimations): leave `animate`
-				// at its initial `false` so the marker holds its visible steady state.
-				guard animateDetections else { return }
-				withAnimation(.easeInOut(duration: phaseOutTime)) {
-					animate = true
-				}
-			}
 	}
 }

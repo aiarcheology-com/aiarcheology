@@ -72,6 +72,22 @@ extension DeepConfiguration {
 			selectedSymbol_ = newValue.rawValue
 		}
 	}
+
+	/// The selected app-provided annotation sound. Unknown legacy/future values fall back to the
+	/// default sound so a corrupted identifier never makes a persisted model unplayable.
+	public var annotationSound: AnnotationSound {
+		get { AnnotationSound(rawValue: annotationSoundIdentifier ?? "") ?? .chime }
+		set { annotationSoundIdentifier = newValue.rawValue }
+	}
+
+	/// Value-only sound choice copied into driver parameters before it crosses actor boundaries.
+	public var annotationSoundConfiguration: AnnotationSoundConfiguration {
+		AnnotationSoundConfiguration(
+			isEnabled: annotationSoundEnabled,
+			sound: annotationSound,
+			volume: annotationSoundVolume
+		)
+	}
 	
 	public var creationDate: String {
 		return DateFormatter.longDateFormater.string(from: creationDate_ ?? .now)
@@ -84,6 +100,14 @@ extension DeepConfiguration {
 		set {
 			modelTypeString = newValue.rawValue
 		}
+	}
+
+	/// No stored value means Automatic, preserving Core ML's `.all` default for existing models.
+	/// An unavailable stored selection is not rewritten: the runtime falls back for that load while
+	/// the preference remains available if the configuration returns to a capable device.
+	var computeUnit: ModelComputeUnit {
+		get { computeUnitString.flatMap(ModelComputeUnit.init(rawValue:)) ?? .automatic }
+		set { computeUnitString = newValue == .automatic ? nil : newValue.rawValue }
 	}
 
 	/// The catalog provider from which this model was acquired, when it originated in Open Catalog.
@@ -99,12 +123,14 @@ extension DeepConfiguration {
 		guard lhs.file == rhs.file else { return false }
 		guard lhs.modelDescription == rhs.modelDescription else { return false }
 		guard lhs.modelTypeString == rhs.modelTypeString else { return false }
+		guard lhs.computeUnit == rhs.computeUnit else { return false }
 		guard lhs.author == rhs.author else { return false }
 		guard lhs.license == rhs.license else { return false }
 		guard lhs.creationDate == rhs.creationDate else { return false }
 		guard lhs.annotationColor == rhs.annotationColor else { return false }
 		guard lhs.phaseOutTime == rhs.phaseOutTime else { return false }
 		guard lhs.selectedSymbol == rhs.selectedSymbol else { return false }
+		guard lhs.annotationSoundConfiguration == rhs.annotationSoundConfiguration else { return false }
 		guard lhs.enabled == rhs.enabled else { return false }
 		return true
 	}
@@ -139,6 +165,7 @@ extension DeepConfiguration {
 	func toDriverParams() -> DeepDriverParams {
 		DeepDriverParams(
 			annotationColor: annotationColor,
+			computeUnit: computeUnit,
 			entityId: entityId,
 			// Same fallback the drawer uses for a nameless model (modelDescription is optional in the
 			// schema and not required by validation, so this is a normal path, not an edge case).
@@ -148,13 +175,13 @@ extension DeepConfiguration {
 			file: file,
 			phaseOutTime: phaseOutTime,
 			selectedSymbol: selectedSymbol,
-			demo: demo,
+			annotationSound: annotationSoundConfiguration,
 			flashEnabled: flashOnFindingEnabled,
 			flashSize: flashSize
 		)
 	}
 
-	// MARK: - Per-model finding flash (AIA-0374)
+	// MARK: - Per-model presentation preferences (AIA-0374, AIA-0702)
 	//
 	// Stored in UserDefaults keyed by entityId, NOT Core Data: the public schema is still 0.0.0
 	// and 0.0.1 must retain its tested migration from it. Promotion to real attributes is tracked
@@ -163,6 +190,8 @@ extension DeepConfiguration {
 	static let flashSizeRange: ClosedRange<Double> = 2.0...24.0
 	static let flashEnabledDefault = true
 	static let flashSizeDefault = 8.0
+	static let detectionConfidenceThresholdRange: ClosedRange<Double> = 0...1
+	static let detectionConfidenceThresholdDefault = 0.0
 
 	/// Whether this classify model's findings pulse the frame. Defaults on.
 	public var flashOnFindingEnabled: Bool {
@@ -188,11 +217,33 @@ extension DeepConfiguration {
 		}
 	}
 
-	/// Removes the per-model flash defaults (call when the configuration is deleted,
-	/// so orphaned keys don't accumulate).
-	public func removeFlashDefaults() {
+	/// The display-only post-Vision confidence floor for this detection configuration. A missing
+	/// value is deliberately 0% so existing models keep rendering every observation they receive.
+	public var detectionConfidenceThreshold: Double {
+		get { Self.detectionConfidenceThreshold(for: entityId) }
+		set {
+			objectWillChange.send()
+			let clamped = min(max(newValue, Self.detectionConfidenceThresholdRange.lowerBound), Self.detectionConfidenceThresholdRange.upperBound)
+			UserDefaults.standard.set(clamped, forKey: Self.detectionConfidenceKey(entityId))
+		}
+	}
+
+	/// Reads the presentation threshold by identity so a retained detection frame can be filtered
+	/// again immediately when the setting changes, without reloading the model or rerunning Vision.
+	static func detectionConfidenceThreshold(for entityId: UUID) -> Double {
+		let stored = UserDefaults.standard.object(forKey: detectionConfidenceKey(entityId)) as? Double
+		return min(
+			max(stored ?? detectionConfidenceThresholdDefault, detectionConfidenceThresholdRange.lowerBound),
+			detectionConfidenceThresholdRange.upperBound
+		)
+	}
+
+	/// Removes per-model presentation preferences when the configuration is deleted, so orphaned
+	/// UserDefaults keys do not accumulate. These remain outside Core Data by design.
+	public func removePresentationDefaults() {
 		UserDefaults.standard.removeObject(forKey: Self.flashKey(.enabled, entityId))
 		UserDefaults.standard.removeObject(forKey: Self.flashKey(.size, entityId))
+		UserDefaults.standard.removeObject(forKey: Self.detectionConfidenceKey(entityId))
 	}
 
 	private enum FlashDefaultKey: String {
@@ -201,5 +252,9 @@ extension DeepConfiguration {
 
 	private static func flashKey(_ suffix: FlashDefaultKey, _ id: UUID) -> String {
 		"deepConfiguration.flash.\(suffix.rawValue).\(id.uuidString)"
+	}
+
+	private static func detectionConfidenceKey(_ id: UUID) -> String {
+		"deepConfiguration.detection.confidence.\(id.uuidString)"
 	}
 }

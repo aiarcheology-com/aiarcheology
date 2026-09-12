@@ -7,6 +7,7 @@
 
 import XCTest
 import Vision
+import CoreML
 @testable import ML_Browser
 
 // MARK: - DeepDriverParams Tests
@@ -18,11 +19,11 @@ final class DeepDriverParamsTests: XCTestCase {
         let params = DeepDriverParams(entityId: entityId, modelName: "Test Model")
         
         XCTAssertEqual(params.annotationColor, .yellow)
+        XCTAssertEqual(params.computeUnit, .automatic)
         XCTAssertEqual(params.entityId, entityId)
         XCTAssertNil(params.file)
         XCTAssertEqual(params.phaseOutTime, 1.0)
         XCTAssertEqual(params.selectedSymbol, .circle)
-        XCTAssertFalse(params.demo)
     }
     
     func testCustomValues() {
@@ -31,19 +32,45 @@ final class DeepDriverParamsTests: XCTestCase {
         
         let params = DeepDriverParams(
             annotationColor: .red,
+            computeUnit: .processorOnly,
             entityId: entityId, modelName: "Test Model",
             file: fileURL,
             phaseOutTime: 2.5,
-            selectedSymbol: .square,
-            demo: true
+            selectedSymbol: .square
         )
         
         XCTAssertEqual(params.annotationColor, .red)
+        XCTAssertEqual(params.computeUnit, .processorOnly)
         XCTAssertEqual(params.entityId, entityId)
         XCTAssertEqual(params.file, fileURL)
         XCTAssertEqual(params.phaseOutTime, 2.5)
         XCTAssertEqual(params.selectedSymbol, .square)
-        XCTAssertTrue(params.demo)
+    }
+}
+
+// MARK: - Model Compute Unit Tests
+
+final class ModelComputeUnitTests: XCTestCase {
+    func testDefaultAndAcceleratedRequests_MapToTheirCoreMLPlacements() {
+        XCTAssertEqual(ModelComputeUnit.automatic.requestedComputeUnits, .all)
+        XCTAssertEqual(ModelComputeUnit.neuralEngine.requestedComputeUnits, .cpuAndNeuralEngine)
+        XCTAssertEqual(ModelComputeUnit.graphicsProcessor.requestedComputeUnits, .cpuAndGPU)
+        XCTAssertEqual(ModelComputeUnit.processorOnly.requestedComputeUnits, .cpuOnly)
+    }
+
+    func testUnavailableAccelerator_FallsBackToAutomaticForThisLoadOnly() {
+        XCTAssertEqual(
+            ModelComputeUnit.neuralEngine.resolvedComputeUnits(in: []),
+            .all
+        )
+        XCTAssertEqual(
+            ModelComputeUnit.graphicsProcessor.resolvedComputeUnits(in: [.graphicsProcessor]),
+            .cpuAndGPU
+        )
+        XCTAssertEqual(
+            ModelComputeUnit.processorOnly.resolvedComputeUnits(in: []),
+            .cpuOnly
+        )
     }
 }
 

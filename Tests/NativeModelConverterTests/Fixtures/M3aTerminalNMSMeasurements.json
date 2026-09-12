@@ -1,0 +1,6 @@
+{
+  "trials": 200,
+  "trials_where_outputs_differ": 200,
+  "mean_boxes_two_pass": 73.89,
+  "mean_boxes_single_pass_at_0_2": 153.07
+}

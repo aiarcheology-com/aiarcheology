@@ -26,6 +26,8 @@ final class AppState: ObservableObject {
 	let settings: Settings
 	let snap: SnapState
 	let deep: DeepState
+	/// Shared app-provided sound player, injected by the composition root (AIA-0716).
+	let annotationSoundPlayer: any AnnotationSoundPlaying
 	let downloader: Downloader
 	let catalogProviders: [any CatalogProvider]
 	/// Ephemeral catalog browsing state. It deliberately survives sheet dismissal during this
@@ -33,6 +35,12 @@ final class AppState: ObservableObject {
 	lazy var catalogSearchManager = CatalogSearchManager(providers: catalogProviders)
 	let demoDataManager: DemoDataManager
 	let findingRepository: FindingRepository
+	/// Findings to the cloud and back (AIA-727). Held here because constructing it is what wires
+	/// the repository's delete hook, so a delete becomes a tombstone from launch rather than from
+	/// whenever a view happens to ask for sync.
+	let findingsSync: FindingsSyncCoordinator
+	/// Reconciles source-package removal after a converted Core ML model is durably registered.
+	let nativeConversionSourceCleanupService: NativeModelSourceCleanupService
 
 	/// Real Clerk-backed auth vs. the DEBUG mock, decided by the composition root (AIA-0385).
 	let usesRealAuth: Bool
@@ -43,6 +51,11 @@ final class AppState: ObservableObject {
 	// `lazy` so it can reference the stored `analytics` — this is the tour's only construction site
 	// in the app, and it feeds the onboarding half of the free-access funnel (AIA-0567).
 	lazy var tour = TourState(analytics: analytics)
+
+	/// The finding a shared universal link asked us to open, buffered until a surface can show it
+	/// (AIA-0650). Dependency-free app-chrome state, like `tour` above: it holds a value parsed from
+	/// a URL and nothing else, so it needs no services and has no entry in `DependencyContainer`.
+	lazy var sharedFinding = SharedFindingState()
 
 	/// App-chrome + navigation state (AIA-0391, formerly the chrome half of `Guide`). Lives on the
 	/// shell (not a detection feature internal). Lazy → forced on first UI access, exactly as the
@@ -99,10 +112,13 @@ final class AppState: ObservableObject {
 		settings: Settings,
 		snap: SnapState,
 		deep: DeepState,
+		annotationSoundPlayer: any AnnotationSoundPlaying,
 		downloader: Downloader,
 		catalogProviders: [any CatalogProvider],
 		demoDataManager: DemoDataManager,
 		findingRepository: FindingRepository,
+		findingsSync: FindingsSyncCoordinator,
+		nativeConversionSourceCleanupService: NativeModelSourceCleanupService,
 		detection: DetectionSession,
 		browser: BrowserSession,
 		account: AccountSession,
@@ -117,10 +133,13 @@ final class AppState: ObservableObject {
 		self.settings = settings
 		self.snap = snap
 		self.deep = deep
+		self.annotationSoundPlayer = annotationSoundPlayer
 		self.downloader = downloader
 		self.catalogProviders = catalogProviders
 		self.demoDataManager = demoDataManager
 		self.findingRepository = findingRepository
+		self.findingsSync = findingsSync
+		self.nativeConversionSourceCleanupService = nativeConversionSourceCleanupService
 		self.detection = detection
 		self.browser = browser
 		self.account = account
@@ -200,6 +219,13 @@ final class AppState: ObservableObject {
 		// 4. Signal ready
 		isReady = true
 		LoggingPolicy.debug("AppState ready", logger: .lifecycle)
+
+		// Source removal is deliberately out of the launch critical path. Reports already record a
+		// pending cleanup only after Core Data registration, so this actor can safely retry it without
+		// delaying first render or touching incomplete imports.
+		Task(priority: .utility) { [nativeConversionSourceCleanupService] in
+			await nativeConversionSourceCleanupService.reconcileAll()
+		}
 
 		// 5. Best-effort remote flag refresh. Deliberately *after* `isReady`, and not
 		// awaited: launch must never wait on ConfigCat (AIA-0350). Failures leave the

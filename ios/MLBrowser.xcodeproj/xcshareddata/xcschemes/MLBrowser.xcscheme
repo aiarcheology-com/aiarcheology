@@ -117,6 +117,11 @@
             value = "1"
             isEnabled = "NO">
          </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "DISABLE_URL_LOCATION_PARSER"
+            value = "1"
+            isEnabled = "NO">
+         </EnvironmentVariable>
       </EnvironmentVariables>
       <StoreKitConfigurationFileReference
          identifier = "../MLBrowser/Configuration.storekit">

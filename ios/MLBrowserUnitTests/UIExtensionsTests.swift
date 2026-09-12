@@ -179,6 +179,16 @@ final class ViewExtensionsTests: XCTestCase {
         
         XCTAssertNotNil(view)
     }
+
+    // MARK: - SheetRoom Tests
+
+    func test_sheetRoomIsGenerous_onlyForIPad() {
+        XCTAssertTrue(SheetRoom.isGenerous(for: .pad))
+
+        for idiom in [UIUserInterfaceIdiom.phone, .tv, .carPlay, .mac, .unspecified] {
+            XCTAssertFalse(SheetRoom.isGenerous(for: idiom), "\(idiom) must keep system sheet sizing")
+        }
+    }
 }
 
 // MARK: - UIApplication+Extensions Tests

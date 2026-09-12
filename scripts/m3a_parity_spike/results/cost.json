@@ -1,0 +1,50 @@
+{
+  "parameters": 43315482,
+  "weight_mib_fp32": 165.2354507446289,
+  "weight_mib_fp16": 82.61772537231445,
+  "roi_activation_mib": [
+    {
+      "k": 1000,
+      "levels_cropped": 4,
+      "crop_tensor_mib": 765.625,
+      "pooled_tensor_mib": 191.40625,
+      "dtype_bytes": 4
+    },
+    {
+      "k": 512,
+      "levels_cropped": 4,
+      "crop_tensor_mib": 392.0,
+      "pooled_tensor_mib": 98.0,
+      "dtype_bytes": 4
+    },
+    {
+      "k": 256,
+      "levels_cropped": 4,
+      "crop_tensor_mib": 196.0,
+      "pooled_tensor_mib": 49.0,
+      "dtype_bytes": 4
+    },
+    {
+      "k": 128,
+      "levels_cropped": 4,
+      "crop_tensor_mib": 98.0,
+      "pooled_tensor_mib": 24.5,
+      "dtype_bytes": 4
+    },
+    {
+      "k": 100,
+      "levels_cropped": 4,
+      "crop_tensor_mib": 76.5625,
+      "pooled_tensor_mib": 19.140625,
+      "dtype_bytes": 4
+    },
+    {
+      "k": 64,
+      "levels_cropped": 4,
+      "crop_tensor_mib": 49.0,
+      "pooled_tensor_mib": 12.25,
+      "dtype_bytes": 4
+    }
+  ],
+  "note": "peak activation is dominated by the 800x800 backbone pass and the ROI stage, which a static graph must run at every FPN level because level assignment is data dependent"
+}

@@ -1,0 +1,714 @@
+//
+//  ADAFDetectorDeviceParityTests.swift
+//  MLBrowserUnitTests
+//
+//  AIA-0688's physical-device closeout. This test is opt-in because the locally staged detector
+//  is roughly 191 MiB and is intentionally not a source-controlled test fixture.
+//
+//  Both tests run against the torchvision-oracle fixture produced by
+//  scripts/prepare_adaf_device_parity_assets.sh.
+//
+//  `.cpuOnly` is the only placement that holds the 1 px budget. Measured on an iPhone 16 Pro Max
+//  (iOS 26.5.2), maximum box shift against the oracle:
+//
+//      .cpuOnly                      0.00033092498779296875 px
+//      .cpuAndNeuralEngine / .all    3.913543701171875 px
+//      .cpuAndGPU                    9.662333488464355 px
+//
+//  An earlier revision of this file asserted that `.cpuAndGPU` met the same budgets, on the strength
+//  of AIA-0676 measuring that placement bit-identical to `.cpuOnly`. That probe ran on a
+//  random-weights model and did not generalise: on the real detector the GPU path is the *worst* of
+//  the three. The requirement is therefore CPU placement, not ANE exclusion — the GPU runs this
+//  graph in Float32, so its ~1e-06 reassociation difference is already enough to flip a near-tie in
+//  the terminal NMS onto a different overlapping proposal.
+//
+//  The contract and the characterisation are deliberately separate test methods. When they shared
+//  one method, an accelerator failure aborted the run before the blank-tile checks were reached, so
+//  the contract could never be observed passing on its own.
+//
+
+import CoreGraphics
+import CoreML
+import Foundation
+import NativeModelConverter
+import UIKit
+import Vision
+import XCTest
+@testable import ML_Browser
+
+@MainActor
+class ADAFDetectorDeviceTestSupport: XCTestCase {
+
+	private static let fixtureName = "AOBarrowOracle"
+	private static let modelName = "AOBarrowDetector"
+	private static let canvasName = "AOBarrowCanvas"
+	private static let sourceName = "AOBarrowSource"
+
+	/// The converter-verification contract: an explicit `.cpuOnly` app load reproduces torchvision.
+	func assertCPUOnlyParityContract() async throws {
+		let probe = try makeProbe()
+
+		let cpuDetections = try detect(
+			image: probe.image, compiledModel: probe.compiledModel, computeUnits: .cpuOnly,
+			geometry: probe.geometry
+		)
+		assertOracleBudgets(
+			measure(cpuDetections, reference: probe.fixture.reference, matchIoU: probe.fixture.rule.matchIoU),
+			referenceCount: probe.fixture.reference.count,
+			rule: probe.fixture.rule,
+			computeUnits: .cpuOnly,
+			systemVersion: probe.systemVersion
+		)
+
+		// CPU is selected explicitly for the strict parity measurement. Product placement comes from
+		// DeepConfiguration, whose Automatic value resolves to Core ML `.all`.
+		let loadedCPUModel = try await Detector.loadModel(
+			from: probe.compiledModel, computeUnit: .processorOnly
+		)
+		let cpuModel = try XCTUnwrap(
+			loadedCPUModel,
+			"The converted detector must load through the production driver path."
+		)
+		let userDefined = try XCTUnwrap(
+			cpuModel.modelDescription.metadata[.creatorDefinedKey] as? [String: String],
+			"The converted detector must carry creatorDefined metadata for its input sizing contract."
+		)
+		XCTAssertEqual(
+			NativeModelImageSizingContract(userDefined: userDefined),
+			.adafFasterRCNN,
+			"the converted detector must declare the exact host transform the app is about to run"
+		)
+		assertOracleBudgets(
+			measure(
+				try detect(image: probe.image, model: cpuModel, geometry: probe.geometry),
+				reference: probe.fixture.reference, matchIoU: probe.fixture.rule.matchIoU
+			),
+			referenceCount: probe.fixture.reference.count,
+			rule: probe.fixture.rule,
+			computeUnits: .cpuOnly,
+			systemVersion: probe.systemVersion
+		)
+
+		// This is the app path rather than the standalone request above: an arbitrary-size source
+		// image goes through Detector's crop → torchvision resize → fixed 1344 canvas path before
+		// Vision sees it. A full-frame region corresponds exactly to the oracle fixture; the tile
+		// geometry itself is separately pinned in ADAFBoxRoundTripTests.
+		let detector = Detector(params: DeepDriverParams(
+			computeUnit: .processorOnly,
+			entityId: UUID(), modelName: "AIA-0697 device parity", file: probe.compiledModel
+		))
+		try await detector.loadFile()
+		let appObjects = await detector.detect(image: probe.sourceImage, regions: [TileLayout.fullFrame])
+		await detector.unload()
+		let appDetections = appObjects.map { appDetection($0, sourceSize: probe.sourceSize) }
+		assertOracleBudgets(
+			measure(appDetections, reference: probe.fixture.reference, matchIoU: probe.fixture.rule.matchIoU),
+			referenceCount: probe.fixture.reference.count,
+			rule: probe.fixture.rule,
+			computeUnits: .cpuOnly,
+			systemVersion: probe.systemVersion
+		)
+
+		let blankDetections = try detect(
+			image: try makeBlankImage(size: probe.canvasSize), compiledModel: probe.compiledModel,
+			computeUnits: .cpuOnly, geometry: probe.geometry
+		)
+		XCTAssertTrue(
+			blankDetections.isEmpty,
+			"cpuOnly produced \(blankDetections.count) phantom detections for an empty tile"
+		)
+	}
+
+	/// The product contract is intentionally wider than the converter-verification contract above.
+	/// It verifies that users who opt into an available accelerator retain the complete detection set
+	/// within a 10 px / 0.01 product budget; it must never be read as evidence that an accelerator
+	/// satisfies the CPU-only, 1 px torchvision parity budget.
+	func assertNonDefaultProductPlacementContract() async throws {
+		try requirePhysicalIPhoneRuntimePlacement()
+		let probe = try makeProbe()
+		let productRule = Rule(
+			matchIoU: probe.fixture.rule.matchIoU,
+			maxBoxShiftPixels: 10,
+			maxScoreDelta: 0.01
+		)
+
+		for computeUnit in [ModelComputeUnit.neuralEngine, .graphicsProcessor] {
+			guard computeUnit.isAvailable() else { continue }
+			let loadedModel = try await Detector.loadModel(
+				from: probe.compiledModel, computeUnit: computeUnit
+			)
+			let model = try XCTUnwrap(
+				loadedModel,
+				"The converted detector must load for the \(computeUnit.rawValue) product placement."
+			)
+			let detections = try detect(image: probe.image, model: model, geometry: probe.geometry)
+			assertOracleBudgets(
+				measure(detections, reference: probe.fixture.reference, matchIoU: productRule.matchIoU),
+				referenceCount: probe.fixture.reference.count,
+				rule: productRule,
+				computeUnits: computeUnit.requestedComputeUnits,
+				systemVersion: probe.systemVersion
+			)
+		}
+	}
+
+	/// Records the actual app path's physical footprint for a complete 15-region pass. This is opt-in
+	/// because the monolithic detector is about 191 MiB and XCTest runs each measurement repeatedly;
+	/// the retained JSON attachment says exactly which model contract, image, tiling and iteration
+	/// count produced the metric in the `.xcresult`.
+	func assertPhysicalIPhoneMetrics() async throws {
+		try requirePhysicalIPhoneBenchmark()
+		let probe = try makeProbe()
+		let regions = TileLayout.regions(for: [.pyramid, .grid3x3])
+		let detector = Detector(params: DeepDriverParams(
+			entityId: UUID(), modelName: "AIA-0697 memory benchmark", file: probe.compiledModel
+		))
+		try await detector.loadFile()
+
+		let userDefined = await detector.creatorDefinedMetadata()
+		addBenchmarkAttachment(
+			probe: probe,
+			regionCount: regions.count,
+			measurementIterations: 3,
+			userDefined: userDefined
+		)
+
+		let options = XCTMeasureOptions()
+		options.iterationCount = 3
+		let input = BenchmarkImage(probe.sourceImage)
+		measure(metrics: [XCTClockMetric(), XCTMemoryMetric()], options: options) {
+			do {
+				_ = try synchronously {
+					await detector.detect(image: input.image, regions: regions)
+				}
+			} catch {
+				XCTFail("ADAF app-path detection failed during physical-memory measurement: \(error)")
+			}
+		}
+		await detector.unload()
+	}
+
+	// MARK: - Probe
+
+	private struct Probe {
+		let fixture: Fixture
+		let geometry: NativeModelImageSizing.Geometry
+		let sourceSize: NativeModelImageSize
+		let canvasSize: NativeModelImageSize
+		let sourceImage: UIImage
+		let image: CGImage
+		let compiledModel: URL
+		let systemVersion: String
+	}
+
+	private func makeProbe() throws -> Probe {
+		guard Bundle(for: Self.self).url(forResource: Self.fixtureName, withExtension: "json") != nil else {
+			throw XCTSkip(
+				"Device-only parity probe. Run scripts/prepare_adaf_device_parity_assets.sh and stage "
+					+ "the assets with AIA_DEVICE_PARITY_ASSETS before building the test bundle."
+			)
+		}
+		let fixture = try loadFixture()
+		let sourceSize = NativeModelImageSize(width: fixture.sourceSize.width, height: fixture.sourceSize.height)
+		let canvasSize = NativeModelImageSize(width: fixture.canvasSize.width, height: fixture.canvasSize.height)
+		let geometry = try XCTUnwrap(
+			NativeModelImageSizing.geometry(source: sourceSize, minSize: 800, maxSize: 1_333, canvas: canvasSize)
+		)
+		let canvas = try loadPortablePixmap(named: Self.canvasName)
+		XCTAssertEqual(canvas.width, canvasSize.width)
+		XCTAssertEqual(canvas.height, canvasSize.height)
+		let source = try loadPortablePixmap(named: Self.sourceName)
+		XCTAssertEqual(source.width, sourceSize.width)
+		XCTAssertEqual(source.height, sourceSize.height)
+		return Probe(
+			fixture: fixture,
+			geometry: geometry,
+			sourceSize: sourceSize,
+			canvasSize: canvasSize,
+			sourceImage: UIImage(cgImage: try makeImage(rgb: source.rgb, width: source.width, height: source.height)),
+			image: try makeImage(rgb: canvas.rgb, width: canvas.width, height: canvas.height),
+			compiledModel: try loadCompiledModel(),
+			systemVersion: ProcessInfo.processInfo.operatingSystemVersionString
+		)
+	}
+
+	private func requirePhysicalIPhoneBenchmark() throws {
+		guard ProcessInfo.processInfo.environment["ADAF_DETECTOR_DEVICE_BENCHMARK"] == "1" else {
+			throw XCTSkip(
+				"Set ADAF_DETECTOR_DEVICE_BENCHMARK=1 in the Test action to record the opt-in physical-iPhone metric."
+			)
+		}
+		guard ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] == nil else {
+			throw XCTSkip("XCTMemoryMetric evidence for AIA-0697 must come from a physical iPhone, not a simulator.")
+		}
+		guard UIDevice.current.userInterfaceIdiom == .phone else {
+			throw XCTSkip("AIA-0697 records this benchmark on a physical iPhone; the current device is not an iPhone.")
+		}
+	}
+
+	private func requirePhysicalIPhoneRuntimePlacement() throws {
+		guard ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] == nil else {
+			throw XCTSkip("AIA-0695 product-placement evidence must come from a physical iPhone, not a simulator.")
+		}
+		guard UIDevice.current.userInterfaceIdiom == .phone else {
+			throw XCTSkip("AIA-0695 product-placement evidence must come from a physical iPhone; the current device is not an iPhone.")
+		}
+	}
+
+	// MARK: - Fixture
+
+	private func loadFixture() throws -> Fixture {
+		let bundle = Bundle(for: Self.self)
+		let url = try XCTUnwrap(
+			bundle.url(forResource: Self.fixtureName, withExtension: "json"),
+			"The device fixture is absent. Run scripts/prepare_adaf_device_parity_assets.sh and pass "
+				+ "AIA_DEVICE_PARITY_ASSETS=$PWD/.adaf-device-parity-assets to xcodebuild."
+		)
+		return try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: url))
+	}
+
+	private func loadCompiledModel() throws -> URL {
+		let bundle = Bundle(for: Self.self)
+		if let compiled = bundle.url(forResource: Self.modelName, withExtension: "mlmodelc") {
+			return compiled
+		}
+		return try XCTUnwrap(
+			bundle.url(forResource: Self.modelName, withExtension: "mlmodel"),
+			"The locally staged detector is absent from the test bundle. Check the Device Parity Assets build phase."
+		)
+	}
+
+	private func loadPortablePixmap(named name: String) throws -> PortablePixmap {
+		let bundle = Bundle(for: Self.self)
+		let url = try XCTUnwrap(bundle.url(forResource: name, withExtension: "ppm"))
+		let bytes = [UInt8](try Data(contentsOf: url))
+		var index = 0
+		let magic = try nextHeaderToken(in: bytes, index: &index)
+		let width = try XCTUnwrap(Int(try nextHeaderToken(in: bytes, index: &index)))
+		let height = try XCTUnwrap(Int(try nextHeaderToken(in: bytes, index: &index)))
+		let maximum = try XCTUnwrap(Int(try nextHeaderToken(in: bytes, index: &index)))
+		guard magic == "P6", width > 0, height > 0, maximum == 255 else {
+			throw FixtureError.invalidPortablePixmap(name)
+		}
+		guard index < bytes.count, isWhitespace(bytes[index]) else {
+			throw FixtureError.invalidPortablePixmap(name)
+		}
+		index += 1
+		if index < bytes.count, bytes[index - 1] == 13, bytes[index] == 10 { index += 1 }
+		let expected = try checkedProduct(width, height, 3)
+		guard bytes.count - index == expected else { throw FixtureError.invalidPortablePixmap(name) }
+		return PortablePixmap(rgb: Array(bytes[index...]), width: width, height: height)
+	}
+
+	private func nextHeaderToken(in bytes: [UInt8], index: inout Int) throws -> String {
+		while index < bytes.count {
+			if isWhitespace(bytes[index]) {
+				index += 1
+				continue
+			}
+			if bytes[index] == 35 {
+				while index < bytes.count, bytes[index] != 10, bytes[index] != 13 { index += 1 }
+				continue
+			}
+			break
+		}
+		let start = index
+		while index < bytes.count, isWhitespace(bytes[index]) == false, bytes[index] != 35 { index += 1 }
+		guard start < index, let token = String(bytes: bytes[start..<index], encoding: .ascii) else {
+			throw FixtureError.invalidPortablePixmap(Self.canvasName)
+		}
+		return token
+	}
+
+	private func isWhitespace(_ byte: UInt8) -> Bool {
+		byte == 9 || byte == 10 || byte == 13 || byte == 32
+	}
+
+	private func checkedProduct(_ left: Int, _ right: Int, _ multiplier: Int) throws -> Int {
+		let (product, overflow) = left.multipliedReportingOverflow(by: right)
+		let (result, resultOverflow) = product.multipliedReportingOverflow(by: multiplier)
+		guard overflow == false, resultOverflow == false else { throw FixtureError.invalidPortablePixmap(Self.canvasName) }
+		return result
+	}
+
+	// MARK: - Vision
+
+	private func detect(
+		image: CGImage,
+		compiledModel: URL,
+		computeUnits: MLComputeUnits,
+		geometry: NativeModelImageSizing.Geometry
+	) throws -> [Detection] {
+		let configuration = MLModelConfiguration()
+		configuration.computeUnits = computeUnits
+		let model = try MLModel(contentsOf: compiledModel, configuration: configuration)
+		return try detect(image: image, model: model, geometry: geometry)
+	}
+
+	private func appDetection(_ object: DetectedObject, sourceSize: NativeModelImageSize) -> Detection {
+		let box = object.boundingBox
+		let width = Double(sourceSize.width)
+		let height = Double(sourceSize.height)
+		return Detection(
+			box: [
+				Double(box.minX) * width,
+				(1 - Double(box.minY) - Double(box.height)) * height,
+				Double(box.maxX) * width,
+				(1 - Double(box.minY)) * height
+			],
+			score: Double(object.confidence)
+		)
+	}
+
+	private func addBenchmarkAttachment(
+		probe: Probe,
+		regionCount: Int,
+		measurementIterations: Int,
+		userDefined: [String: String]
+	) {
+		let report = DeviceBenchmarkReport(
+			device: UIDevice.current.model,
+			operatingSystemVersion: UIDevice.current.systemVersion,
+			modelFilename: probe.compiledModel.lastPathComponent,
+			sourceWidth: probe.sourceSize.width,
+			sourceHeight: probe.sourceSize.height,
+			regionCount: regionCount,
+			measurementIterations: measurementIterations,
+			imageSizingContract: NativeModelImageSizingContract(userDefined: userDefined),
+			modelMetadata: userDefined
+		)
+		guard let data = try? JSONEncoder.prettySorted.encode(report) else {
+			return XCTFail("Could not encode ADAF physical-device benchmark metadata.")
+		}
+		let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+		attachment.name = "adaf-full-detection-pass-benchmark.json"
+		attachment.lifetime = .keepAlways
+		add(attachment)
+	}
+
+	private func synchronously<T: Sendable>(
+		_ operation: @escaping @Sendable () async -> T
+	) throws -> T {
+		let result = LockedResult<T>()
+		let semaphore = DispatchSemaphore(value: 0)
+		Task.detached {
+			result.store(.success(await operation()))
+			semaphore.signal()
+		}
+		semaphore.wait()
+		return try result.take().get()
+	}
+
+	private func detect(
+		image: CGImage,
+		model: MLModel,
+		geometry: NativeModelImageSizing.Geometry
+	) throws -> [Detection] {
+		let request = VNCoreMLRequest(model: try VNCoreMLModel(for: model))
+		request.imageCropAndScaleOption = .scaleFill
+		try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
+		let observations = try XCTUnwrap(
+			request.results as? [VNRecognizedObjectObservation],
+			"The converted artifact must expose Vision detector observations."
+		)
+		return observations.compactMap { observation in
+			guard let sourceBox = geometry.sourceBox(fromCanvasBox: NativeModelNormalizedRect(
+				x: Double(observation.boundingBox.origin.x),
+				y: Double(observation.boundingBox.origin.y),
+				width: Double(observation.boundingBox.width),
+				height: Double(observation.boundingBox.height)
+			)) else { return nil }
+			let width = Double(geometry.sourceSize.width)
+			let height = Double(geometry.sourceSize.height)
+			return Detection(
+				box: [
+					sourceBox.x * width,
+					(1 - sourceBox.y - sourceBox.height) * height,
+					(sourceBox.x + sourceBox.width) * width,
+					(1 - sourceBox.y) * height
+				],
+				score: Double(observation.confidence)
+			)
+		}
+	}
+
+	private func makeImage(rgb: [UInt8], width: Int, height: Int) throws -> CGImage {
+		let pixels = try checkedProduct(width, height, 1)
+		let rgbByteCount = try checkedProduct(width, height, 3)
+		guard rgb.count == rgbByteCount else { throw FixtureError.invalidPortablePixmap(Self.canvasName) }
+		var bgra = [UInt8](repeating: 255, count: try checkedProduct(width, height, 4))
+		for pixel in 0..<pixels {
+			bgra[pixel * 4] = rgb[pixel * 3 + 2]
+			bgra[pixel * 4 + 1] = rgb[pixel * 3 + 1]
+			bgra[pixel * 4 + 2] = rgb[pixel * 3]
+		}
+		let data = Data(bgra)
+		let provider = try XCTUnwrap(CGDataProvider(data: data as CFData))
+		return try XCTUnwrap(CGImage(
+			width: width,
+			height: height,
+			bitsPerComponent: 8,
+			bitsPerPixel: 32,
+			bytesPerRow: width * 4,
+			space: CGColorSpaceCreateDeviceRGB(),
+			bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue),
+			provider: provider,
+			decode: nil,
+			shouldInterpolate: false,
+			intent: .defaultIntent
+		))
+	}
+
+	private func makeBlankImage(size: NativeModelImageSize) throws -> CGImage {
+		let pixels = try checkedProduct(size.width, size.height, 1)
+		let planar = (0..<3).flatMap { channel in
+			Array(repeating: NativeModelImageSizing.imageNetMeanPixels[channel], count: pixels)
+		}
+		let bgra = try XCTUnwrap(NativeModelImageSizing.interleavedBGRA(from: planar, size: size))
+		var rgb = [UInt8](repeating: 0, count: try checkedProduct(size.width, size.height, 3))
+		for pixel in 0..<pixels {
+			rgb[pixel * 3] = bgra[pixel * 4 + 2]
+			rgb[pixel * 3 + 1] = bgra[pixel * 4 + 1]
+			rgb[pixel * 3 + 2] = bgra[pixel * 4]
+		}
+		return try makeImage(rgb: rgb, width: size.width, height: size.height)
+	}
+
+	// MARK: - Comparison
+
+	private struct Comparison {
+		let matched: Int
+		let disappeared: [Detection]
+		let appeared: [Detection]
+		let maximumBoxShift: Double?
+		let maximumScoreDelta: Double?
+	}
+
+	/// One-to-one greedy IoU matching, mirroring the oracle's `compare()` so appeared and
+	/// disappeared detections stay visible instead of hiding inside an aggregate error.
+	private func measure(_ candidate: [Detection], reference: [Detection], matchIoU: Double) -> Comparison {
+		var available = Set(candidate.indices)
+		var shifts: [Double] = []
+		var deltas: [Double] = []
+		var matched = 0
+		var disappeared: [Detection] = []
+		for expected in reference {
+			let match = available.max { left, right in
+				iou(expected.box, candidate[left].box) < iou(expected.box, candidate[right].box)
+			}
+			guard let match, iou(expected.box, candidate[match].box) >= matchIoU else {
+				disappeared.append(expected)
+				continue
+			}
+			available.remove(match)
+			matched += 1
+			shifts.append(boxShift(expected.box, candidate[match].box))
+			deltas.append(abs(expected.score - candidate[match].score))
+		}
+		return Comparison(
+			matched: matched,
+			disappeared: disappeared,
+			appeared: available.map { candidate[$0] },
+			maximumBoxShift: shifts.max(),
+			maximumScoreDelta: deltas.max()
+		)
+	}
+
+	private func assertOracleBudgets(
+		_ comparison: Comparison,
+		referenceCount: Int,
+		rule: Rule,
+		computeUnits: MLComputeUnits,
+		systemVersion: String
+	) {
+		let label = computeUnits.label
+		XCTAssertTrue(
+			comparison.disappeared.isEmpty && comparison.appeared.isEmpty,
+			"\(label) changed the torchvision detection set: \(comparison.disappeared.count) disappeared, "
+				+ "\(comparison.appeared.count) appeared"
+		)
+		XCTAssertLessThanOrEqual(
+			comparison.maximumBoxShift ?? .infinity,
+			rule.maxBoxShiftPixels,
+			"\(label) box shift \(describe(comparison.maximumBoxShift)) exceeds \(rule.maxBoxShiftPixels) px"
+		)
+		XCTAssertLessThanOrEqual(
+			comparison.maximumScoreDelta ?? .infinity,
+			rule.maxScoreDelta,
+			"\(label) score delta \(describe(comparison.maximumScoreDelta)) exceeds \(rule.maxScoreDelta)"
+		)
+		print(
+			"[AIA-0688] \(systemVersion) \(label): \(comparison.matched)/\(referenceCount) detections matched, "
+				+ "max box shift \(describe(comparison.maximumBoxShift)) px, "
+				+ "max score delta \(describe(comparison.maximumScoreDelta))"
+		)
+	}
+
+	/// Records what an excluded placement actually did, without asserting a budget on it.
+	///
+	/// Reporting rather than asserting is deliberate. The numbers below are hardware- and
+	/// OS-specific; pinning them as expectations would turn a phone swap into a red test that says
+	/// nothing useful. The caller asserts the structural invariants and the tripwire instead.
+	private func reportDivergence(
+		_ comparison: Comparison,
+		referenceCount: Int,
+		reference: String,
+		computeUnits: MLComputeUnits,
+		systemVersion: String
+	) {
+		print(
+			"[AIA-0688] \(systemVersion) \(computeUnits.label) vs \(reference): "
+				+ "\(comparison.matched)/\(referenceCount) detections matched, "
+				+ "max box shift \(describe(comparison.maximumBoxShift)) px, "
+				+ "max score delta \(describe(comparison.maximumScoreDelta))"
+		)
+	}
+
+	private func describe(_ value: Double?) -> String {
+		guard let value else { return "none" }
+		return "\(value)"
+	}
+
+	private func iou(_ left: [Double], _ right: [Double]) -> Double {
+		let x0 = max(left[0], right[0])
+		let y0 = max(left[1], right[1])
+		let x1 = min(left[2], right[2])
+		let y1 = min(left[3], right[3])
+		let intersection = max(0, x1 - x0) * max(0, y1 - y0)
+		let leftArea = max(0, left[2] - left[0]) * max(0, left[3] - left[1])
+		let rightArea = max(0, right[2] - right[0]) * max(0, right[3] - right[1])
+		let union = leftArea + rightArea - intersection
+		return union > 0 ? intersection / union : 0
+	}
+
+	private func boxShift(_ left: [Double], _ right: [Double]) -> Double {
+		zip(left, right).map { abs($0 - $1) }.max() ?? .infinity
+	}
+}
+
+@MainActor
+final class ADAFDetectorDeviceParityTests: ADAFDetectorDeviceTestSupport {
+	func testDeviceComputeUnits_cpuOnlyMatchesTorchvision() async throws {
+		try await assertCPUOnlyParityContract()
+	}
+
+	func testPhysicalIPhoneMetrics_fullAppDetectionPass() async throws {
+		try await assertPhysicalIPhoneMetrics()
+	}
+}
+
+/// Product-runtime coverage, intentionally separate from `ADAFDetectorDeviceParityTests`: the
+/// non-default choices have a user-facing precision budget, while the converter keeps its strict
+/// CPU-only oracle contract. Keeping the test classes separate prevents a later edit from silently
+/// treating the 10 px product budget as parity evidence.
+@MainActor
+final class ADAFDetectorDeviceRuntimePlacementTests: ADAFDetectorDeviceTestSupport {
+	func testDeviceComputeUnits_nonDefaultPlacementsMeetProductBudget() async throws {
+		try await assertNonDefaultProductPlacementContract()
+	}
+}
+
+private final class BenchmarkImage: @unchecked Sendable {
+	let image: UIImage
+
+	init(_ image: UIImage) {
+		self.image = image
+	}
+}
+
+private final class LockedResult<Value: Sendable>: @unchecked Sendable {
+	private let lock = NSLock()
+	private var result: Result<Value, Error>?
+
+	func store(_ result: Result<Value, Error>) {
+		lock.lock()
+		defer { lock.unlock() }
+		self.result = result
+	}
+
+	func take() -> Result<Value, Error> {
+		lock.lock()
+		defer { lock.unlock() }
+		guard let result else {
+			fatalError("ADAF device benchmark did not produce a result.")
+		}
+		return result
+	}
+}
+
+private struct DeviceBenchmarkReport: Encodable {
+	let device: String
+	let operatingSystemVersion: String
+	let modelFilename: String
+	let sourceWidth: Int
+	let sourceHeight: Int
+	let regionCount: Int
+	let measurementIterations: Int
+	let imageSizingContract: NativeModelImageSizingContract?
+	let modelMetadata: [String: String]
+}
+
+private extension JSONEncoder {
+	static var prettySorted: JSONEncoder {
+		let encoder = JSONEncoder()
+		encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+		return encoder
+	}
+}
+
+private extension MLComputeUnits {
+	var label: String {
+		switch self {
+		case .cpuOnly: "cpuOnly"
+		case .cpuAndGPU: "cpuAndGPU"
+		case .cpuAndNeuralEngine: "cpuAndNeuralEngine"
+		case .all: "all"
+		@unknown default: "unknown"
+		}
+	}
+}
+
+private struct Fixture: Decodable {
+	let sourceSize: Size
+	let canvasSize: Size
+	let reference: [Detection]
+	let rule: Rule
+}
+
+private struct Size: Decodable {
+	let width: Int
+	let height: Int
+}
+
+private struct Rule: Decodable {
+	let matchIoU: Double
+	let maxBoxShiftPixels: Double
+	let maxScoreDelta: Double
+
+	enum CodingKeys: String, CodingKey {
+		case matchIoU = "match_iou"
+		case maxBoxShiftPixels = "max_box_shift_px"
+		case maxScoreDelta = "max_score_delta"
+	}
+}
+
+private struct Detection: Decodable {
+	let box: [Double]
+	let score: Double
+}
+
+private struct PortablePixmap {
+	let rgb: [UInt8]
+	let width: Int
+	let height: Int
+}
+
+private enum FixtureError: LocalizedError {
+	case invalidPortablePixmap(String)
+
+	var errorDescription: String? {
+		switch self {
+		case .invalidPortablePixmap(let name): "Invalid PPM fixture: \(name)"
+		}
+	}
+}

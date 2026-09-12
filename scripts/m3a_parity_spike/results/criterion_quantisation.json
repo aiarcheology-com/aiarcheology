@@ -1,0 +1,44 @@
+{
+  "max_abs_difference": 0.0019607245922088623,
+  "note": "prices bit depth only; JPEG's other losses are not reproduced here",
+  "OD_ringfort": {
+    "float": {
+      "detections_above_0_05": 0,
+      "max_score": 0.0
+    },
+    "8bit_roundtrip": {
+      "detections_above_0_05": 0,
+      "max_score": 0.0
+    }
+  },
+  "OD_barrow": {
+    "float": {
+      "detections_above_0_05": 0,
+      "max_score": 0.0
+    },
+    "8bit_roundtrip": {
+      "detections_above_0_05": 0,
+      "max_score": 0.0
+    }
+  },
+  "OD_enclosure": {
+    "float": {
+      "detections_above_0_05": 0,
+      "max_score": 0.0
+    },
+    "8bit_roundtrip": {
+      "detections_above_0_05": 0,
+      "max_score": 0.0
+    }
+  },
+  "OD_AO": {
+    "float": {
+      "detections_above_0_05": 0,
+      "max_score": 0.0
+    },
+    "8bit_roundtrip": {
+      "detections_above_0_05": 0,
+      "max_score": 0.0
+    }
+  }
+}

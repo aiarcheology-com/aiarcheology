@@ -102,7 +102,17 @@ final class ModelTypeBackfiller {
             // MainActor. One load serves both passes when a row needs them together.
             let info: ExtractedModelInfo
             do {
-                info = try await loader.loadAndExtractMetadata(from: file, demo: configuration.demo)
+                info = try await loader.loadAndExtractMetadata(from: file)
+            } catch let error as ModelLoadingError where error.isInsufficientMemory {
+                // AIA-0889: a memory refusal is deferred work, not evidence the file is unloadable.
+                // Counting it would spend this row's permanent-failure budget on a condition that
+                // has nothing to do with the model — three launches under pressure would arm the
+                // one-shot guards and leave a perfectly good model's type unbackfilled forever.
+                LoggingPolicy.warning(
+                    "ModelTypeBackfiller: deferring \(file.lastPathComponent) — not enough memory to load it now",
+                    logger: .configuration
+                )
+                continue
             } catch {
                 // A failed load (transient compile failure, low disk, brief file-provider outage)
                 // must not be mistaken for "nothing to backfill": count it so the one-shot guards

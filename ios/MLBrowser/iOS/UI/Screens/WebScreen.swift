@@ -126,10 +126,15 @@ struct WebScreenView: View {
 	@State private var runningDetectorIDs: Set<UUID> = []
 	/// The tapped detection being saved; non-nil presents the save sheet.
 	@State private var findingCapture: FindingCapture?
+	/// Guards the asynchronous window between a centre alignment and the sheet appearing.
+	@State private var isResolvingCapture = false
+	/// Invalidates an asynchronous location resolution if the user keeps manipulating the page or
+	/// cancels, so an old aligned frame can never present its form during a newer attempt.
+	@State private var captureResolutionGeneration: UInt64 = 0
 	/// Freezes DetectableView's displayed frame while the save sheet is up.
 	@State private var isCapturingFinding: Bool = false
-	/// Pick mode (Find/Store button): the next tap on the content marks the
-	/// place to store — independent of whether detection is running.
+	/// Alignment mode (Find/Store button): the user moves web content until a displayed detection
+	/// sits beneath the stationary centre crosshair.
 	@State private var findPickActive: Bool = false
 
 	/// Set by the save sheet when a finding is actually written, read once on its dismissal. The
@@ -138,8 +143,8 @@ struct WebScreenView: View {
 
 	/// The one-time contextual sign-in offer that follows a save (AIA-0536).
 	@State private var showSignInOffer = false
-	/// Mirror of DetectableView's displayed frame (updated on every apply/clear):
-	/// pick mode hit-tests its boxes and reuses its snapshot.
+	/// Mirror of DetectableView's displayed frame (updated on every apply/clear). Alignment mode
+	/// reads the exact frame it displays, so its saved image and detected rectangle stay coherent.
 	@State private var appliedFrame: AppliedDetectionFrame?
 	/// Live width of the screen content area (== the navigation bar width). The `.principal`
 	/// toolbar item collapses to its content width instead of filling on every idiom, so the
@@ -214,6 +219,7 @@ struct WebScreenView: View {
         DetectableView(
 			snapshotWorkCoordinator: appState.snapshotWorkCoordinator,
             drivers: appState.deep.drivers,
+			soundPlayer: appState.annotationSoundPlayer,
             trigger: appState.snap.combinedPublishers,
             showIdentifiers: showIdentifiers,
             animateDetections: animateDetections,
@@ -222,6 +228,7 @@ struct WebScreenView: View {
             detectionActive: detectionActive,
 			acceptsSnapshot: { appState.detectionState.accepts($0) },
 			contentGeometryDidChange: { appState.detectionState.contentGeometryDidChange() },
+			contentInteractionDidEnd: { appState.detectionState.contentInteractionDidEnd() },
             isCapturingFinding: $isCapturingFinding,
             onFrameChanged: { frame in
                 appliedFrame = frame
@@ -229,6 +236,13 @@ struct WebScreenView: View {
             onInteractionStateChanged: { state in
                 // Optionally propagate to chromeState for other UI components to observe
                 appState.chromeState.contentInteractionState = state
+				// A resolver asks the live page for its coordinate. If the user moves the page after
+				// tapping the aligned crosshair but before that answer arrives, drop the stale frame
+				// and stay in alignment mode, so the crosshair goes back to red until the page
+				// settles and a current detection covers the centre again.
+				if state.isInteracting && isResolvingCapture {
+					abandonPendingCapture()
+				}
             }
         ) { interactionState in
 			MLWebView(loadRequest, renderer: appState.webViewRenderer, rendererAttached: {
@@ -243,7 +257,18 @@ struct WebScreenView: View {
 						// (AIA-0296) — genuine load failures still log at .error below.
 						LoggingPolicy.debug("WebView loading cancelled: \(error.localizedDescription)", logger: .ui)
 					case .error:
-						LoggingPolicy.error("WebView loading error: \(error.localizedDescription)", logger: .ui)
+						// The URL out of the ERROR, not out of the address bar. `displayedURL` is
+						// mutable and deliberately keeps the previous page until a commit, so a failed
+						// search reported the site the user was on before it — and a superseded
+						// navigation failing late reported the newer one (raised in review). WebKit
+						// names the failing URL in the error itself; nothing else is attributable, so
+						// when it is absent no address is sent at all.
+						let page = (error as NSError).userInfo[NSURLErrorFailingURLErrorKey] as? URL
+						LoggingPolicy.error(
+							"WebView loading error [site: \(page?.host ?? "unknown")]: \(error.localizedDescription)",
+							page: page,
+							logger: .ui
+						)
 					}
                 }
             }, interactionStateChanged: { state in
@@ -286,7 +311,12 @@ struct WebScreenView: View {
             tiledBorders = appState.settings.tiledBorders
             if hasPerformedInitialAction.not {
                 hasPerformedInitialAction = true
-                if let fixtureURL = appState.settings.launchFixtureURL {
+                if appState.chromeState.pageToOpen != nil {
+                    // A shared link is already waiting; the `onReceive` above loads it. Skipping the
+                    // default here is what stops a home-page flash when `onAppear` wins the race —
+                    // the flag set above covers the other ordering.
+                    intendedPageKind = "sharedLink"
+                } else if let fixtureURL = appState.settings.launchFixtureURL {
                     // AIA-0316 UI-test harness: load a bundled local-HTML fixture directly via
                     // loadFileURL. Highest precedence, and deliberately NOT recorded in history.
                     intendedPageKind = "localFixture"
@@ -376,8 +406,12 @@ struct WebScreenView: View {
                 tour: appState.tour,
                 repository: appState.findingRepository,
                 reviewPrompt: appState.reviewPrompt,
+                defaultAuthor: appState.authState.accountDisplayName,
                 onSaved: { didSaveFinding = true }
             )
+            // The form-sheet default left the cropped preview as a strip, with the address wrapping
+            // to three lines above it (reported from a build on iPad).
+            .roomySheet()
         }
         .sheet(isPresented: $showSignInOffer) {
             SignInSheet(authState: appState.authState)
@@ -388,24 +422,60 @@ struct WebScreenView: View {
             // A finding's "open page" action lands here (the findings UI cannot
             // reach the web view directly).
             guard let url else { return }
-            appState.chromeState.pageToOpen = nil
+            // A shared link IS this screen's initial action, so claim it. `.onAppear` below performs
+            // the default first load (onboarding / last page / home) and there is no guaranteed
+            // ordering between the two: on a FIRST mount — a link opened from behind the paywall,
+            // which is the whole point of AIA-0657 — `onAppear` ran second and overwrote the page
+            // the user had asked for with the home page. Reported from a real build; no unit test
+            // reaches a SwiftUI lifecycle race.
+            hasPerformedInitialAction = true
+            // Cleared on the NEXT runloop turn, not inline, and that is not a style choice.
+            // `@Published` publishes from `willSet`, so this closure runs *inside* the assignment
+            // that delivered the value — the inline `pageToOpen = nil` completed first and the
+            // outer assignment then wrote the URL back over it, leaving the latch permanently
+            // armed. Nothing failed visibly: the page loaded, and the next time this screen was
+            // rebuilt (a tab or mode switch) the stale value was redelivered and navigated away
+            // from whatever the user was reading. Measured on develop before AIA-0657.
+            // `SharedFindingStateTests` pins the Combine semantics that force this shape, but it
+            // cannot reach a SwiftUI `onReceive` closure — so nothing automated fails if this line
+            // reverts to an inline assignment. Stated rather than implied.
+            DispatchQueue.main.async { appState.chromeState.pageToOpen = nil }
             openRequested(url.absoluteString)
         }
-        .onReceive(appState.chromeState.$findModeRequested) { requested in
-            guard requested else { return }
-            appState.chromeState.findModeRequested = false
-            // Freeze exactly like an annotation tap would: detection passes pause
-            // and the displayed frame holds while the user picks the place.
-			appState.snapshotWorkCoordinator.findingCaptureStarted()
-            isCapturingFinding = true
-            appState.detectionState.findingCaptureStarted()
+        .onReceive(appState.chromeState.$findPickActive) { active in
+			// The dedupe is what makes the state safe to write from both sides. It absorbs the
+			// publish that this screen's own exits (`present`/`cancelFindPick`) cause, so those
+			// never re-enter here, and it absorbs the value replayed on every mount. It also does
+			// the job the old `guard findPickActive == false` did: Find stays reachable while the
+			// overlay is up, and re-entering would freeze a second time with no matching end.
+			guard active != findPickActive else { return }
+			guard active else {
+				// Cancelled from the Find/Store control. Deliberately the same path as the overlay's
+				// own Cancel button, so the pending capture is abandoned and the detection freeze
+				// released identically — a second way out must not become a second lifecycle.
+				cancelFindPick()
+				return
+			}
+			if appState.tour.isActive {
+				// The published onboarding lesson still teaches its original one-tap map capture. It is
+				// intentionally kept out of alignment mode (and therefore never shows the large
+				// crosshair); changing that guided flow needs its own scripted map fixture and lesson.
+				appState.snapshotWorkCoordinator.findingCaptureStarted()
+				isCapturingFinding = true
+				appState.detectionState.findingCaptureStarted()
+			}
+            // This is not a capture yet. Keeping the normal interaction lifecycle alive is what
+            // lets WKWebView receive pan/pinch gestures and refreshes boxes after it settles.
             findPickActive = true
         }
         .overlay {
             if findPickActive {
                 FindPickOverlay(
                     results: appliedFrame?.results ?? [],
-                    onPick: pick,
+                    isAligned: alignedDetection != nil,
+                    allowsTourManualPick: appState.tour.isActive,
+                    onPick: pickForTour,
+                    onCapture: captureUnderCrosshair,
                     onCancel: cancelFindPick
                 )
             }
@@ -423,6 +493,44 @@ struct WebScreenView: View {
         }
         .onReceive(appState.browserState.$loadFailure) { failure in
             loadFailure = failure
+            // The recovery ladder is exhausted and the failure UI is up, so a run interrupted by the
+            // termination has nothing to come back to. Read from `BrowserState` rather than from the
+            // raw delegate error: this verdict is already filtered for the current web view and
+            // ignores the cancellations that are the ordinary result of navigating away, which the
+            // delegate callback is not (raised in review).
+            if failure != nil {
+                appState.detectionState.webContentDidFailToLoad()
+            }
+        }
+        // Deliberately NOT `dropFirst()`. `@Published` replays its current value to every new
+        // subscriber and SwiftUI resubscribes whenever it remounts this screen, so dropping the first
+        // delivery loses a termination that happened while this screen was unmounted — and during a
+        // transition the outgoing and incoming subscriptions can both receive the same live change,
+        // which dropping cannot prevent either. The generation is consumed in `DetectionSessionState`
+        // instead, which outlives the view and can tell a repeat from a redelivery (AIA-0879).
+        // One publisher, not two. `@Published` replays its current value to every new subscriber and
+        // SwiftUI resubscribes whenever it remounts this screen, so two of them would replay
+        // INDEPENDENTLY — a termination from while the screen was unmounted and the recovery that
+        // settled after it, in whichever order these modifiers happened to be written. That order
+        // decided whether detection came back or stayed paused forever (raised in review). One value
+        // replays once, and it is the latest, which is all a remounting observer needs.
+        //
+        // Not `dropFirst()`: that would discard an event published while this screen was unmounted.
+        // The sequence is consumed in `DetectionSessionState`, which outlives the view.
+        .onReceive(appState.browserState.$webContentEvent) { event in
+            switch event.kind {
+            case .none:
+                break
+            case let .processTerminated(host):
+                appState.detectionState.webContentProcessDidTerminate(
+                    sequence: event.sequence,
+                    host: host
+                )
+            case .loaded:
+                appState.detectionState.webContentDidLoad(sequence: event.sequence)
+            case .stopped:
+                appState.detectionState.webContentDidStopLoading(sequence: event.sequence)
+            }
         }
         .onReceive(appState.browserState.$rebuildRequest) { request in
             guard let request else { return }
@@ -515,10 +623,135 @@ struct WebScreenView: View {
 		appState.detectionState.driverDidRegister()
 	}
 
-	/// The user marked a place in pick mode — the ONLY capture path (direct taps on
-	/// annotations would clash with the web app's own gestures, like panning a map).
-	/// A tap inside a frozen detection box snaps to that detection, preserving its
-	/// class/confidence/driver; anywhere else becomes a synthetic manual observation.
+	/// A displayed detection is selected when it truly covers the stationary centre crosshair.
+	/// The smallest nested rectangle wins, matching the existing direct-pick rule.
+	private var alignedDetection: (observation: DetectedObject, params: DeepDriverParams)? {
+		guard findPickActive, appState.tour.isActive.not,
+			appState.chromeState.contentInteractionState.isInteracting.not,
+			let appliedFrame
+		else { return nil }
+		return FindingCapture.detectionAlignedWithCentre(in: appliedFrame.results)
+	}
+
+	/// The crosshair was tapped. Green stores the detection that covers it; red stores the centre
+	/// itself as a manual observation, because plenty of what a user wants to record is something
+	/// no enabled model detects (owner request). The colour therefore says what *kind* of finding
+	/// the tap will make, not whether the tap does anything.
+	///
+	/// Detection stays live for the whole aiming phase — that is what lets the boxes follow the
+	/// page the user is panning — so the freeze happens only here, pinning the exact frame that
+	/// was on screen while the location resolver runs.
+	///
+	/// Alignment is re-read from the frame current at the moment of the tap rather than from
+	/// whatever made the crosshair green a moment earlier: a newer detection pass can land between
+	/// the render and the touch, and a capture must come from the frame it will save.
+	private func captureUnderCrosshair(in size: CGSize) {
+		guard findPickActive, isResolvingCapture.not else { return }
+		if let hit = alignedDetection, let frame = appliedFrame {
+			beginCapture()
+			presentResolvingLocation(
+				observation: hit.observation,
+				params: hit.params,
+				frame: frame,
+				generation: captureResolutionGeneration
+			)
+			return
+		}
+		captureCentreManually(in: size)
+	}
+
+	/// Nothing is aligned: store the crosshair's own position as a synthetic observation with no
+	/// class, confidence or driver — the same shape the pre-AIA-0868 tap-anywhere pick produced,
+	/// anchored at the centre instead of at an arbitrary touch.
+	///
+	/// The displayed frame is reused when detection is running, so the saved image is the one whose
+	/// boxes the user was looking at. With detection off there is no frame at all and a snapshot is
+	/// taken here — the branch that makes "record a place the models say nothing about" work.
+	private func captureCentreManually(in size: CGSize) {
+		let observation = DetectedObject(
+			uuid: UUID(),
+			labels: [],
+			confidence: 0,
+			boundingBox: FindingCapture.manualBox(
+				at: CGPoint(x: size.width / 2, y: size.height / 2),
+				in: size
+			),
+			regionIndex: 0
+		)
+		beginCapture()
+		if let frame = appliedFrame {
+			presentResolvingLocation(
+				observation: observation,
+				params: nil,
+				frame: frame,
+				generation: captureResolutionGeneration
+			)
+			return
+		}
+		let generation = captureResolutionGeneration
+		Task { @MainActor in
+			defer {
+				if captureResolutionGeneration == generation {
+					isResolvingCapture = false
+				}
+			}
+			LoggingPolicy.info("Manual finding capture: taking web snapshot", logger: .ui)
+			// Resolved BEFORE the snapshot await: the page can navigate while a snapshot is being
+			// taken, and the finding must record the page these pixels came from rather than
+			// whatever the web view moved on to.
+			let resolved = await appState.browserState.resolveCaptureLocation()
+			let image = await appState.webViewRenderer.snapshot()
+			// Checked BEFORE acting on the failure, not only before presenting: this task may have
+			// been superseded while it waited (the user moved the page, then tapped again). A stale
+			// task that called `cancelFindPick()` would tear down the *current* attempt — dropping
+			// the user out of alignment mode, or unfreezing the frame under a sheet the newer
+			// attempt had already presented.
+			guard captureResolutionGeneration == generation, findPickActive else { return }
+			guard let image else {
+				// WebSnapshotRenderer records the concrete WebKit error when one is available.
+				// Cancelling here is the expected fallback for a frame that cannot be snapshotted,
+				// so keep it as a breadcrumb instead of sending a second, context-free Sentry error.
+				LoggingPolicy.warning("Manual finding capture cancelled: snapshot unavailable", logger: .ui)
+				cancelFindPick()
+				return
+			}
+			present(FindingCapture(
+				observation: observation,
+				params: nil,
+				frame: AppliedDetectionFrame(image: image, results: []),
+				location: resolved
+			))
+		}
+	}
+
+	/// Freezes the displayed frame and opens a new resolution generation. Every capture path goes
+	/// through this so the freeze and the generation bump cannot drift apart.
+	private func beginCapture() {
+		isResolvingCapture = true
+		captureResolutionGeneration &+= 1
+		appState.snapshotWorkCoordinator.findingCaptureStarted()
+		isCapturingFinding = true
+		appState.detectionState.findingCaptureStarted()
+	}
+
+	/// Drops an in-flight capture without leaving alignment mode: the frozen frame is released and
+	/// detection resumes, so the crosshair returns to red and can go green again on a fresh frame.
+	/// Distinct from ``cancelFindPick()``, which is the user's explicit exit.
+	private func abandonPendingCapture() {
+		captureResolutionGeneration &+= 1
+		isResolvingCapture = false
+		guard isCapturingFinding else { return }
+		isCapturingFinding = false
+		// Dropped here as well as by the coordinator's own interaction clear. That clear reads the
+		// freeze flag through a Binding written one line above, and this screen must not depend on
+		// that write being visible within the same event: a frame that outlived its freeze is the
+		// pre-movement page, and reusing it would turn the crosshair green over boxes that have
+		// moved away, or save an image that is no longer what the user is looking at.
+		appliedFrame = nil
+		appState.snapshotWorkCoordinator.findingCaptureEnded()
+		appState.detectionState.findingCaptureEnded()
+	}
+
 	/// Offer sign-in once, after a save, to someone who could actually act on it.
 	///
 	/// Deliberately narrow. The offer is a convenience, not a gate: the save already succeeded and
@@ -533,78 +766,88 @@ struct WebScreenView: View {
 		showSignInOffer = true
 	}
 
-	private func pick(at location: CGPoint, in size: CGSize) {
-		// Snap to a displayed detection: the frozen frame's snapshot is the exact
-		// image its boxes came from, so the pair is coherent by construction.
-		if let frame = appliedFrame,
-		   let hit = FindingCapture.detection(at: location, in: size, results: frame.results) {
+	/// Resolves the page's URL and, where a map will say, its coordinate — then presents the sheet
+	/// (AIA-0817). Its caller has already frozen the aligned snapshot.
+	///
+	/// Asking the live map is asynchronous, so the alignment overlay remains visible until
+	/// `present`. If interaction resumes before that answer arrives, its generation is invalidated
+	/// and this task returns without presenting a stale capture.
+	private func presentResolvingLocation(
+		observation: DetectedObject,
+		params: DeepDriverParams?,
+		frame: AppliedDetectionFrame,
+		generation: UInt64
+	) {
+		Task { @MainActor in
+			defer {
+				if captureResolutionGeneration == generation {
+					isResolvingCapture = false
+				}
+			}
+			let resolved = await appState.browserState.resolveCaptureLocation()
+			// The screen can be unmounted mid-resolve — a mode switch, or the user simply leaving —
+			// and `onDisappear` cancels the pick. Without this the sheet would arrive afterwards, on
+			// a screen the user had already walked away from (raised in review). `present` clears
+			// the flag itself, so this reads it while it still means "the pick is live".
+			guard captureResolutionGeneration == generation, findPickActive else { return }
 			present(FindingCapture(
-				observation: hit.observation,
-				params: hit.params,
+				observation: observation,
+				params: params,
 				frame: frame,
-				pageURL: appState.browserState.displayedURL
+				location: resolved
 			))
-			return
 		}
-
-		manualPick(at: location, in: size)
 	}
 
-	/// No detection under the tap: a synthetic observation around the point (no
-	/// class, no driver). The frozen frame's snapshot is reused when detection is
-	/// running; otherwise a fresh one is taken — there may be no frame at all.
-	private func manualPick(at location: CGPoint, in size: CGSize) {
-		let observation = DetectedObject(
+	/// The onboarding tour's established scripted map lesson remains a one-tap capture until that
+	/// lesson can teach alignment against a deterministic detected rectangle. Production Find never
+	/// installs this gesture: its large crosshair is inert and leaves all web-content gestures live.
+	private func pickForTour(at location: CGPoint, in size: CGSize) {
+		guard findPickActive, isResolvingCapture.not, let frame = appliedFrame else { return }
+		let selection = FindingCapture.detection(at: location, in: size, results: frame.results)
+		let observation = selection?.observation ?? DetectedObject(
 			uuid: UUID(),
 			labels: [],
 			confidence: 0,
 			boundingBox: FindingCapture.manualBox(at: location, in: size),
 			regionIndex: 0
 		)
-		if let frame = appliedFrame {
-			present(FindingCapture(
-				observation: observation,
-				params: nil,
-				frame: frame,
-				pageURL: appState.browserState.displayedURL
-			))
-			return
-		}
-		Task { @MainActor in
-			LoggingPolicy.info("Manual finding pick: taking web snapshot", logger: .ui)
-			guard let image = await appState.webViewRenderer.snapshot() else {
-				// WebSnapshotRenderer records the concrete WebKit error when one is
-				// available. Cancelling here is the expected fallback for a frame that
-				// cannot be snapshotted, so keep it as a breadcrumb instead of sending
-				// a second, context-free Sentry error for the same attempt.
-				LoggingPolicy.warning("Manual finding pick cancelled: snapshot unavailable", logger: .ui)
-				cancelFindPick()
-				return
-			}
-			present(FindingCapture(
-				observation: observation,
-				params: nil,
-				frame: AppliedDetectionFrame(image: image, results: []),
-				pageURL: appState.browserState.displayedURL
-			))
-		}
+		isResolvingCapture = true
+		captureResolutionGeneration &+= 1
+		presentResolvingLocation(
+			observation: observation,
+			params: selection?.params,
+			frame: frame,
+			generation: captureResolutionGeneration
+		)
 	}
 
-	/// Pick mode ends only when the capture is ready (or cancelled): the overlay
-	/// keeps blocking scroll/zoom while the fresh-snapshot path is in flight, so
-	/// the captured image cannot drift from the tapped location.
+	/// Alignment mode ends only when the capture is ready (or cancelled).
 	private func present(_ capture: FindingCapture) {
-		findPickActive = false
+		endFindPick()
 		findingCapture = capture
+	}
+
+	/// Leaves pick mode and brings the chrome's copy back in step, so the Find/Store control stops
+	/// offering to cancel a pick that is over.
+	///
+	/// The order is load-bearing, not stylistic. `@Published` publishes from `willSet`, so
+	/// `findPickEnded()` delivers to this screen's own `onReceive` *inside* that assignment; the
+	/// local flag is cleared first precisely so the dedupe there absorbs the delivery. Clearing it
+	/// afterwards would re-enter `cancelFindPick()` from `present(_:)` and abandon the capture that
+	/// was just built. Same family of hazard as the `pageToOpen` latch documented above (AIA-0657).
+	private func endFindPick() {
+		findPickActive = false
+		appState.chromeState.findPickEnded()
 	}
 
 	/// Leaves pick mode without storing: unfreeze and resume (the sheet path
 	/// does the same via its onDismiss).
 	private func cancelFindPick() {
-		findPickActive = false
-		isCapturingFinding = false
-		appState.snapshotWorkCoordinator.findingCaptureEnded()
-		appState.detectionState.findingCaptureEnded()
+		endFindPick()
+		// Releases the freeze only if one was actually taken: alignment mode leaves detection
+		// running until the crosshair is tapped, so a cancel from the red state has nothing to end.
+		abandonPendingCapture()
 	}
 
 	/// The location sheet confirmed an input (Open button, return key, or history pick).
@@ -680,27 +923,37 @@ struct WebScreenView: View {
 
 // MARK: - Find pick overlay
 
-/// Captures ONE tap on the content to mark the place of a finding. The frozen
-/// frame's detection boxes are re-drawn SOLID (the live annotations have faded
-/// by now) so the user can aim at one; a tap inside snaps to that detection.
-/// Slightly dimmed so the mode is visible; scroll/zoom are intentionally
-/// blocked while picking — Cancel leaves the mode.
+/// The visual half of finding alignment. It deliberately contains no full-screen hit-testable
+/// background: pan and pinch events must continue to the live WKWebView below, because panning the
+/// page under a stationary target IS the interaction. The interactive parts are Cancel and the
+/// crosshair's small centre core.
 private struct FindPickOverlay: View {
+	/// Point size of the crosshair glyph in the hint capsule. The centre target is defined as
+	/// exactly four times this, per the ticket, instead of an independently tuned constant.
+	static let hintSymbolPointSize: CGFloat = 17
+
 	let results: [DetectionResult]
+	let isAligned: Bool
+	/// The onboarding lesson retains its existing one-tap map exercise. It never draws the large
+	/// crosshair, so alignment mode's gesture pass-through promise remains unambiguous.
+	let allowsTourManualPick: Bool
 	let onPick: (CGPoint, CGSize) -> Void
+	let onCapture: (CGSize) -> Void
 	let onCancel: () -> Void
 
 	var body: some View {
 		GeometryReader { geometry in
 			ZStack(alignment: .top) {
-				Color.black.opacity(0.15)
-					.contentShape(Rectangle())
-					.gesture(
-						SpatialTapGesture()
-							.onEnded { value in
-								onPick(value.location, geometry.size)
-							}
-					)
+				if allowsTourManualPick {
+					Color.black.opacity(0.15)
+						.contentShape(Rectangle())
+						.gesture(SpatialTapGesture().onEnded { value in
+							onPick(value.location, geometry.size)
+						})
+				} else {
+					FindingAlignmentCrosshair(isAligned: isAligned) { onCapture(geometry.size) }
+						.frame(maxWidth: .infinity, maxHeight: .infinity)
+				}
 				detectionBoxes(in: geometry.size)
 				hint
 			}
@@ -721,19 +974,110 @@ private struct FindPickOverlay: View {
 		}
 	}
 
+	/// The tour keeps the original one-tap wording; alignment mode names the move to make, then the
+	/// action that becomes available once the crosshair is green.
+	private var hintText: String {
+		if allowsTourManualPick { return L10n.Finding.Pick.hint }
+		return isAligned ? L10n.Finding.Pick.aligned : L10n.Finding.Pick.align
+	}
+
 	private var hint: some View {
 		HStack(spacing: 12) {
 			Image(systemName: "plus.viewfinder")
-			Text(L10n.Finding.Pick.hint)
-			Button(L10n.Common.cancel, action: onCancel)
-				.bold()
-				.testability(Testability.Button.findPickCancel)
+				.font(.system(size: Self.hintSymbolPointSize))
+			Text(hintText)
+			// Red on white, not the accent tint: testers reported not finding the way out of pick
+			// mode, and a tinted word in a row of tinted chrome did not read as the exit (AIA-0880).
+			// Painted explicitly rather than with `.borderedProminent`, whose fill follows whatever
+			// tint the surrounding material inherits.
+			Button(action: onCancel) {
+				Text(L10n.Common.cancel)
+					.bold()
+					.foregroundStyle(.white)
+					.padding(.horizontal, 12)
+					.padding(.vertical, 6)
+					.background(Color.red, in: Capsule())
+			}
+			.buttonStyle(.plain)
+			.testability(Testability.Button.findPickCancel)
 		}
 		.padding(.horizontal, 16)
 		.padding(.vertical, 10)
 		.background(.regularMaterial, in: Capsule())
 		.padding(.top, 12)
 		.frame(maxWidth: .infinity)
+	}
+}
+
+/// The alignment crosshair's two colours and the contour drawn behind them (AIA-0880).
+///
+/// Green and red alone are only legible against page content that happens to contrast with them —
+/// a green crosshair over foliage, a red one over brickwork, both vanish. The contour is the
+/// opposite luminance to its fill, so whichever of the two the background defeats, the other holds
+/// the shape. That is why the pairing is dark-behind-green and light-behind-red rather than one
+/// contour colour for both.
+///
+/// Split out of the view so the mapping is unit-testable: this is the part with a rule in it.
+enum FindingCrosshairPalette {
+	/// Aligned means a detection sits under the centre — the state the user is aiming for.
+	static func fill(isAligned: Bool) -> Color { isAligned ? .green : .red }
+
+	static func contour(isAligned: Bool) -> Color {
+		isAligned ? Color.black.opacity(0.65) : Color.white.opacity(0.85)
+	}
+}
+
+/// The hint capsule's crosshair, four times as wide and four times as tall, at the centre of the
+/// web content. It pulses red while no detected rectangle covers that centre and green once one
+/// does, and a tap stores a finding either way: the colour says which kind, not whether the tap
+/// works.
+///
+/// Only a 44-point core accepts that tap. The drawn glyph is far larger, but a glyph-sized touch
+/// area would swallow pans that start near the target — and panning the page under the target is
+/// the whole interaction. The core is the standard minimum control size, so the compromise costs a
+/// fingertip in the middle of the screen and leaves the rest of the content pannable.
+private struct FindingAlignmentCrosshair: View {
+	let isAligned: Bool
+	let onCapture: () -> Void
+	@State private var pulseExpanded = false
+
+	/// Four times the capsule glyph in both directions. `Image` scales a symbol by its point size,
+	/// which sets width and height together, so one multiplier expresses both halves of the rule.
+	private static let pointSize = FindPickOverlay.hintSymbolPointSize * 4
+	private static let tapCoreSide: CGFloat = 44
+
+	var body: some View {
+		Image(systemName: FindControlAppearance.startSymbol)
+			.font(.system(size: Self.pointSize, weight: .regular))
+			// Monochrome, not hierarchical. Hierarchical draws the glyph's secondary layer at
+			// reduced alpha, and the contour behind a translucent stroke shows through it and
+			// muddies the very colour that carries the meaning. A solid glyph is also the higher
+			// contrast of the two, which is what this crosshair is for (AIA-0880).
+			.symbolRenderingMode(.monochrome)
+			.foregroundStyle(FindingCrosshairPalette.fill(isAligned: isAligned))
+			// The contour, doubled to build up density. It is what makes the state readable over
+			// arbitrary page content rather than only over the mid-tones the fill happens to beat.
+			.shadow(color: FindingCrosshairPalette.contour(isAligned: isAligned), radius: 2)
+			.shadow(color: FindingCrosshairPalette.contour(isAligned: isAligned), radius: 2)
+			.scaleEffect(pulseExpanded ? 1.08 : 0.92)
+			.opacity(pulseExpanded ? 1 : 0.68)
+			.animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulseExpanded)
+			.onAppear { pulseExpanded = true }
+			// The glyph itself never takes touches. Applied before the overlay so the pulse, which
+			// animates `scaleEffect`, cannot breathe the tap area in and out with it.
+			.allowsHitTesting(false)
+			.overlay { tapCore }
+	}
+
+	private var tapCore: some View {
+		Color.clear
+			.frame(width: Self.tapCoreSide, height: Self.tapCoreSide)
+			.contentShape(Circle())
+			.onTapGesture(perform: onCapture)
+			.accessibilityElement()
+			.accessibilityLabel(isAligned ? L10n.Finding.Pick.aligned : L10n.Finding.Pick.align)
+			.accessibilityAddTraits(.isButton)
+			.testability(Testability.View.findingAlignmentCrosshair)
 	}
 }
 

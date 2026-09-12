@@ -74,6 +74,22 @@ final class TourState {
 	/// tapped. Returns `true` if a model was enabled.
 	private var enableModelHook: (() -> Bool)?
 
+	/// Whether the drawer is currently ringing a specific model switch (AIA-0757 A4).
+	///
+	/// The root overlay reads it to decide whether *it* should ring the cutout as well. A step that
+	/// spotlights through `spotlightFallback` has the whole drawer as its cutout, so ringing that
+	/// says only "press somewhere in here" — worth suppressing while a single switch is pointed at,
+	/// but the only affordance there is when none can be. That happens on a replay where every demo
+	/// model is already enabled: the step's goal already holds, and the drawer has no off switch to
+	/// ring, yet the user still has to tap to move on.
+	private(set) var drawerHighlightsModelSwitch = false
+
+	/// Told by the drawer as its pulse target appears and disappears.
+	func setDrawerHighlightsModelSwitch(_ isHighlighting: Bool) {
+		guard drawerHighlightsModelSwitch != isHighlighting else { return }
+		drawerHighlightsModelSwitch = isHighlighting
+	}
+
 	/// The current step, or `nil` when inactive / past the end.
 	var currentStep: TourStep? {
 		guard isActive, steps.indices.contains(currentIndex) else { return nil }
@@ -303,9 +319,10 @@ final class TourState {
 		case .detectionStarted:
 			return detectionState?.ontheflyDetectionEnabled == true
 		case .pickModeEntered, .modelEnabled, .captureStarted, .findingSaved:
-			// Event-driven (no app-state poll — `findModeRequested` is a transient pulse, so it
-			// can't be polled here): signalled by pickModeDidStart() / userEnabledModel() /
-			// captureDidStart() / findingDidSave() respectively.
+			// Event-driven rather than polled: these are edges, not conditions — re-reading
+			// `findPickActive` later would also see a pick the user started for their own reasons.
+			// Signalled by pickModeDidStart() / userEnabledModel() / captureDidStart() /
+			// findingDidSave() respectively.
 			return false
 		}
 	}
@@ -322,7 +339,9 @@ final class TourState {
 		case .detectionStarted:
 			detectionState?.ontheflyDetectionTapped()
 		case .pickModeEntered:
-			chromeState?.findTapped()
+			// Never cancelling: this step's fulfilment (`pickModeDidStart()`) does not re-arm, so a
+			// tap that toggled pick mode back off would strand the tour on a step it cannot satisfy.
+			chromeState?.findTapped(allowsCancel: false)
 		case .modelEnabled:
 			if enableModelHook?() == true { actionFulfilled(step) }
 		case .captureStarted, .findingSaved:
@@ -336,8 +355,8 @@ final class TourState {
 		actionFulfilled(step)
 	}
 
-	/// Finding-capture (pick) mode was entered (the user tapped Find). `findModeRequested` is a
-	/// transient pulse, so the view layer signals this on the pulse rather than polling.
+	/// Finding-capture (pick) mode was entered (the user tapped Find). The view layer signals the
+	/// entering edge of `chromeState.findPickActive`; a cancel must not reach this (AIA-0880).
 	func pickModeDidStart() {
 		guard isActive, let step = currentStep, case .userAction(.pickModeEntered) = step.advance else { return }
 		actionFulfilled(step)

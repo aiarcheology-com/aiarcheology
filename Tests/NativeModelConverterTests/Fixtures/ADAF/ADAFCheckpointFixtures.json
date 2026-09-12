@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "record": "https://zenodo.org/records/15848663",
+    "title": "ADAF machine learning model weights",
+    "licence": "CC-BY-SA-4.0"
+  },
+  "models": [
+    {
+      "id": "OD_ringfort",
+      "fileName": "OD_ringfort.tar",
+      "url": "https://zenodo.org/records/15848663/files/OD_ringfort.tar?download=1",
+      "totalLength": 517823445,
+      "md5": "4518e1966cafa0544bd3ea78be3b711a",
+      "head": {
+        "offset": 0,
+        "length": 163840,
+        "file": "OD_ringfort.head.bin",
+        "sha256": "4686f06f0a10b7465427eafc36871f42157dd261650a30b5faf2c73a7c3ddc07"
+      },
+      "tail": {
+        "offset": 517741000,
+        "length": 82445,
+        "file": "OD_ringfort.tail.bin",
+        "sha256": "cc0cfe4b9e429fd541bb06f43d74f67b55413ea0ff781adf8b3963cdec36d60f"
+      },
+      "expects": "objectDetection",
+      "classLabel": "Ringfort",
+      "tensorCount": 404
+    },
+    {
+      "id": "AO_HRNet",
+      "fileName": "AO_HRNet_SLRM_512px_pretrained_train_12_val_124_with_Transformation.tar",
+      "url": "https://zenodo.org/records/15848663/files/AO_HRNet_SLRM_512px_pretrained_train_12_val_124_with_Transformation.tar?download=1",
+      "totalLength": 861530273,
+      "md5": "fba3667a886b7b55d6e745f836951919",
+      "head": {
+        "offset": 0,
+        "length": 655360,
+        "file": "AO_HRNet.head.bin",
+        "sha256": "186eb621a2846e154168f8cfd5fa56a106897c6dc9a5ff40a66189457e3afa0e"
+      },
+      "tail": {
+        "offset": 861110000,
+        "length": 420273,
+        "file": "AO_HRNet.tail.bin",
+        "sha256": "52b471862c700abdc22a131fbadfd2e9c81aa86334c264122b9d5737802b8e1f"
+      },
+      "expects": "segmentation",
+      "tensorCount": 1964
+    },
+    {
+      "id": "OD_barrow",
+      "fileName": "OD_barrow.tar",
+      "url": "https://zenodo.org/records/15848663/files/OD_barrow.tar?download=1",
+      "totalLength": 517823445,
+      "md5": "b9afba2246821035ea7007e08a64ab80",
+      "expects": "objectDetection",
+      "classLabel": "Barrow",
+      "tensorCount": 404
+    },
+    {
+      "id": "OD_AO",
+      "fileName": "OD_AO.tar",
+      "url": "https://zenodo.org/records/15848663/files/OD_AO.tar?download=1",
+      "totalLength": 517823445,
+      "md5": "0826a6bc1a5ea9f76fd2894dc1751d2b",
+      "expects": "objectDetection",
+      "classLabel": "All archaeology",
+      "tensorCount": 404
+    },
+    {
+      "id": "OD_enclosure",
+      "fileName": "OD_enclosure.tar",
+      "url": "https://zenodo.org/records/15848663/files/OD_enclosure.tar?download=1",
+      "totalLength": 517822511,
+      "md5": "8f3eebec97a3a0a5b821a9934eb73142",
+      "expects": "objectDetection",
+      "classLabel": "Enclosure",
+      "tensorCount": 404
+    }
+  ],
+  "note": "Entries carrying head/tail also ship those bytes in this directory and are used by the always-on suite. Every entry is fetchable by scripts/fetch_adaf_checkpoints.sh for the gated suite."
+}

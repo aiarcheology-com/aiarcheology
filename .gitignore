@@ -115,3 +115,27 @@ ios/asc.auth/
 
 # Downloaded ONNX test fixtures (scripts/fetch_native_test_models.sh)
 .native-model-fixtures/
+
+# Downloaded ADAF checkpoints (scripts/fetch_adaf_checkpoints.sh); the committed byte ranges the
+# always-on suite uses live in Tests/NativeModelConverterTests/Fixtures/ADAF/ and are not ignored.
+.adaf-checkpoints/
+
+# Locally generated physical-iPhone detector fixture (AIA-0688). The emitted model is roughly 191 MiB.
+.adaf-device-parity-assets/
+
+# Python oracle environment for the M3a Faster R-CNN parity spike (AIA-0670). Holds torch,
+# torchvision and coremltools — gigabytes of third-party wheels, rebuildable from the pinned
+# requirements the spike records, so it is machine-local state rather than project content.
+.venv-m3a/
+
+# Third-party imagery the M3a spike downloads to measure on (ADAF's own SLRM figures, CC-BY-SA-4.0).
+# The corpus manifest pins each one by SHA-256, so the measurements stay reproducible without this
+# repository redistributing someone else's pictures.
+scripts/m3a_parity_spike/results/figures/
+
+# Wrangler's local cache, created by `wrangler pages deploy` for the link.aiarcheology.com
+# static site (AIA-0650). Holds the resolved Cloudflare account id and project metadata —
+# machine-local state, not project configuration, and not something to publish.
+.wrangler/
+/ios/MLBrowser.xcodeproj/xcshareddata/xcodecloud
+.adaf-conversion-benchmark-assets/

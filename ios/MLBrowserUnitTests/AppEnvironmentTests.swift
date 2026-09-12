@@ -75,7 +75,9 @@ final class AppEnvironmentTests: XCTestCase {
 
         // StoreKit's local testing configuration can create a receipt called `receipt`,
         // identical to an App Store receipt by filename. A Simulator must still retain
-        // development-only controls such as the Clerk environment picker.
+        // development-only behaviour: Settings' debug section, full Sentry sampling and
+        // StoreKit sandbox detection. (The Clerk environment picker used to be on this
+        // list; it is now `#if DEBUG` and reads `BackendEnvironment` — AIA-0791.)
         XCTAssertFalse(AppEnvironment.isAppStoreDistribution)
     }
 
@@ -84,9 +86,11 @@ final class AppEnvironmentTests: XCTestCase {
     /// receipt has not landed — Apple documents the receipt can be absent until refreshed.
     ///
     /// Every consumer of `isAppStoreDistribution` tests it *positively* (`== .appStore`), so
-    /// answering anything else there sends a real customer down the development branch: the dev
-    /// Clerk key (`ClerkAuthProvider.swift:40`), the dev/prod picker (`SignInSheet.swift:36`), the
-    /// debug section, Core Data recovery, and Sentry's full sampling rate.
+    /// answering anything else there sends a real customer down the development branch: the debug
+    /// section, `DataController`'s mapping-model choice and recovery paths, and Sentry's full
+    /// sampling rate. Auth used to be on that list; AIA-0791 moved it to `BackendEnvironment`,
+    /// because this inference answers `.appStore` for an iOS-app-on-Mac install and for a phone
+    /// restored from backup — right for a cosmetic decision, wrong for where a user's data lives.
     ///
     /// `.unknown` must therefore mean **only** "simulator" — which is what its own doc comment
     /// claims. This asserts that claim rather than trusting it, and fails if the fallback is ever

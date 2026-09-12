@@ -7,6 +7,26 @@
 
 import SwiftUI
 
+/// The two faces of the Find/Store control, shared by the top bar and the floating capsule so the
+/// same tap reads the same way wherever it lives (AIA-0880).
+///
+/// The symbol names are constants rather than literals at each call site because an SF Symbol name
+/// that does not exist renders *nothing* and still compiles — `xmark.viewfinder`, the obvious
+/// choice here, is one of those. `FindControlTests.testBothFacesResolveToRealSymbolsOnThisPlatform`
+/// resolves exactly these constants, so a name that does not ship cannot pass as an invisible button.
+enum FindControlAppearance {
+	/// Starts pick mode.
+	static let startSymbol = "plus.viewfinder"
+	/// Cancels the pick in progress.
+	static let cancelSymbol = "xmark.circle.fill"
+
+	static func symbol(cancels: Bool) -> String { cancels ? cancelSymbol : startSymbol }
+
+	static func label(cancels: Bool) -> String {
+		cancels ? L10n.Common.cancel : L10n.Finding.Save.title
+	}
+}
+
 struct GlobalToolbarLeading: View {
 	@EnvironmentObject var chromeState: AppChromeState
 	@EnvironmentObject var download: Downloader
@@ -48,6 +68,11 @@ struct GlobalToolbarLeading: View {
 struct GlobalToolbarTrailing: View {
 	@EnvironmentObject var chromeState: AppChromeState
 	@EnvironmentObject var detectionState: DetectionSessionState
+	/// Injected by `ContentView.modeTab`'s `trailingItems:`. Optional because `Screens.barItems`
+	/// builds this toolbar for any `AppMode`, and a non-optional `@Environment` lookup traps at
+	/// runtime wherever the object was not injected — but a `nil` here silently disables the tour
+	/// guard below, so the injection is the thing to keep, not this fallback.
+	@Environment(TourState.self) private var tour: TourState?
 	@State private var isAnimating = false
 	@State private var showPopoverAdjustment = false
 
@@ -69,17 +94,26 @@ struct GlobalToolbarTrailing: View {
 	// MARK: - Find Button
 
 	/// Starts the store-a-finding pick mode: the next tap on the content marks
-	/// the place to store (works with or without detection running).
+	/// the place to store (works with or without detection running). Once pick mode is up the same
+	/// button cancels it, so the way out is the way in (AIA-0880).
+	///
+	/// The accessibility identifier is deliberately the same in both states: UI tests tap this
+	/// control to enter *and* to cancel, and `.accessibilityLabel` stays ahead of `.testability`
+	/// because that ordering is what lets the identifier override the label under UI testing.
 	private var findButton: some View {
-		Button(action: {
-			chromeState.findTapped()
+		// The tour drives this control itself and its pick step does not re-arm, so while the tour
+		// runs the button neither shows nor performs a cancel.
+		let cancels = chromeState.findPickActive && tour?.isActive != true
+		return Button(action: {
+			chromeState.findTapped(allowsCancel: cancels)
 		}) {
-			Image(systemName: "plus.viewfinder")
-				.foregroundColor(.gray)
+			Image(systemName: FindControlAppearance.symbol(cancels: cancels))
+				// Red is the pick overlay's own Cancel colour, so both ways out read alike.
+				.foregroundColor(cancels ? .red : .gray)
 				.frame(minWidth: 44, minHeight: 44)
 				.contentShape(Rectangle())
 		}
-		.accessibilityLabel(L10n.Finding.Save.title)
+		.accessibilityLabel(FindControlAppearance.label(cancels: cancels))
 		.testability(Testability.Button.globalToolbarFind)
 		.tourTarget(.findButton)
 	}

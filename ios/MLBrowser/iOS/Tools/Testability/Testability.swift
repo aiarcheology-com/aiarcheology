@@ -81,6 +81,7 @@ extension TestabilityIdentification {
 		case configurationFormExport
 		case configurationFormDismiss
 		case configurationFormCancel
+		case configurationFormSoundChoice
 		case configurationExapandableRow
 		// New Configuration
 		case newConfigurationPickDocument
@@ -146,6 +147,27 @@ extension TestabilityIdentification {
 		/// The destructive action inside the delete-account confirmation dialog. It shares its
 		/// label with the button that opens it, so a test cannot tell them apart by text alone.
 		case paywallDeleteAccountConfirm
+		/// Export First… offered inside the delete-account confirmation when this device still
+		/// holds saved findings (AIA-0779). Absent when there is nothing to export, so its absence
+		/// is itself the assertion that the action is conditional.
+		case paywallDeleteAccountExportFindings
+		/// The Settings-side delete path added for App Review 5.1.1(v) (AIA-0891): the destructive
+		/// button on ``DeleteAccountView``, the Manage Subscription escape beside its confirmation,
+		/// and the confirmation's own destructive action — which shares its label with the button
+		/// that opens it, so nothing could tell them apart by text alone.
+		///
+		/// **Unreferenced by the UI suite, and not an oversight.** The screen sits behind Clerk's
+		/// embedded profile, which Settings renders only when `usesRealAuth` — and the UI suite runs
+		/// on `MockAuthProvider` under `UI_TESTING`, where that is false by construction
+		/// (`DependencyContainer.usesMockAuth`). No launch argument reaches this screen, so these
+		/// exist for manual and future coverage rather than for a test that could be written today.
+		///
+		/// The Clerk row that *reaches* the screen could not carry one anyway: Clerk applies
+		/// `accessibilityIdentifier` to its built-in rows only, so a custom row's label is all
+		/// anything has to match on.
+		case settingsDeleteAccount
+		case settingsDeleteAccountManage
+		case settingsDeleteAccountConfirm
 		/// The findings escape hatch on the hard wall (AIA-0556) and the two choices inside its
 		/// confirmation. Present only where the paywall is a dead end, so its absence is itself the
 		/// assertion that an informational free-access paywall — not the wall — is showing.
@@ -159,6 +181,18 @@ extension TestabilityIdentification {
 		// Optional analytics first-run choice
 		case analyticsChoiceEnable
 		case analyticsChoiceNotNow
+		/// The back-up question raised over any screen once findings exist that this account has
+		/// never agreed to send (AIA-727).
+		case backupConsentConfirm
+		case backupConsentDecline
+		/// The always-visible sync button at the bottom of the findings sheet. Identifier kept from
+		/// AIA-740, when it was labelled "Back Up My Findings"; AIA-0758 renamed the label only.
+		case findingsBackUp
+		/// The question mark beside it, opening the explanation of what Synchronize does (AIA-0758).
+		case findingsSyncHelp
+		/// Inside that explanation: the explicit "back up everything, including what I chose to keep
+		/// on this device" action, which is the only thing that lifts exclusions (AIA-0758).
+		case findingsBackUpEverything
 		// App Messages (AIA-0115)
 		case appMessageDismiss
 		case appMessageReply
@@ -213,21 +247,56 @@ extension TestabilityIdentification {
 		case drawerFindings
 		// Save Finding
 		case saveFindingSave
+		case saveFindingCopyPage
+		case saveFindingCopyGps
 		case saveFindingCancel
 		case saveFindingSuggestion
 		case findPickCancel
 		// Findings
 		case findingsDismiss
+		case findingsImport
 		case findingsItem
 		case findingsFilterLabel
 		case findingsDeleteEntry
+		case findingDetailCopyPage
+		case findingDetailCopyGps
 		case findingsOpenPage
 		case findingsExport
+		case findingsSortOrder
+		case findingsDataMenu
+		case findingsSortReverse
+		case findingsSortByDate
+		case findingsSortByTitle
+		case findingsSortByHost
 		case findingsShareEntry
 		case findingDetailSave
 		case findingDetailShare
 		case findingShareConfirm
 		case findingShareCancel
+		// Finding Share Composer — closes the enlarged card from its Done button
+		case findingShareInspectDone
+		// Finding Share Composer — opens the card at reading size from the preview's enlarge button
+		case findingShareEnlarge
+		/// Copies the exact address the link will carry. Present only while an address travels, so its
+		/// absence asserts that nothing is being disclosed rather than that copying merely failed.
+		case findingShareCopyAddress
+		// Shared finding links (AIA-0650) — the read-only screen a recipient sees.
+		/// Closes the shared-finding screen. The ONLY control that clears the pending link, so a test
+		/// that taps it is exercising the one dismissal path the buffer recognises.
+		case sharedFindingDismiss
+		/// Browses to the page the link says the finding was captured on. Present only when the link
+		/// carried one, so its absence is itself the assertion that no page travelled.
+		case sharedFindingOpenPage
+		/// Shown instead of the unverified card when the id in the link matches a finding this device
+		/// already stores — it opens the findings inventory rather than the link's copy of the work.
+		case sharedFindingOpenOwn
+		case sharedFindingDone
+		/// Loads the map for the link's coordinate. Its presence is the assertion that no map was
+		/// mounted on arrival — tiles are only fetched for a sender-chosen point once tapped.
+		case sharedFindingShowMap
+		/// Copies the full address a received link would open. Present whenever the link carried a
+		/// page, so a recipient can inspect the destination outside the app before trusting it.
+		case sharedFindingCopyAddress
 		// Snap Adjustment
 		case snapAdjustmentReset
 		case snapAdjustmentOverlayDismiss
@@ -241,10 +310,14 @@ extension TestabilityIdentification {
 	}
 	
 	enum Toggle: String, TestabilityIdentification {
+		/// The cloud back-up switch in Settings (AIA-744).
+		case findingsBackUp
 		// Settings
 		case settingsRunAtLaunch
 		case settingsShowLabels
 		case settingsReopenLastPage
+		/// AIA-0821: the switch that stops the map-location parser touching pages.
+		case settingsReadMapPositionFromPages
 		case settingsFullscreenDetection
 		case settingsDisableDetectionAnimations
 		case settingsAnalytics
@@ -259,11 +332,21 @@ extension TestabilityIdentification {
 		case supportRequestSendUnredactedData
 		// Configuration Form — per-model finding flash (AIA-0374)
 		case configurationFormFlashOnFinding
+		// Configuration Form — per-model annotation sound (AIA-0716)
+		case configurationFormSoundEnabled
+		// Finding Share Composer — attach an openable link (AIA-0650)
+		case findingShareIncludeLink
+		// Finding Share Composer — carry the page's whole address, or only its site (AIA-0657)
+		case findingShareFullAddress
+		// Finding Share Composer — print the recorded coordinate, or withhold it (AIA-0817)
+		case findingShareIncludeLocation
 		// Side Menu Cell
 		case sideMenuCellEnabled
 	}
 	
 	enum Picker: String, TestabilityIdentification {
+		// Findings
+		case findingsTab
 		// Settings
 		case settingsFrequency
 		// Model Catalog
@@ -271,6 +354,7 @@ extension TestabilityIdentification {
 		// Configuration Form
 		case configurationFormSymbol
 		case configurationFormModelType
+		case configurationFormComputeUnits
 		// Finding Share Composer
 		case findingShareTheme
 		case findingShareLayout
@@ -280,6 +364,8 @@ extension TestabilityIdentification {
 		// Configuration Form
 		case configurationFormFadeOutTime
 		case configurationFormFlashSize
+		case configurationFormDetectionConfidence
+		case configurationFormSoundVolume
 		// Snap Adjustment
 		case snapAdjustmentBrightness
 		case snapAdjustmentContrast
@@ -310,6 +396,7 @@ extension TestabilityIdentification {
 	enum NavigationLink: String, TestabilityIdentification {
 		// Settings
 		case settingsTiledDetection
+		case configurationFormSound
 		case settingsHistory
 		case settingsAbout
 		case settingsReset
@@ -325,6 +412,9 @@ extension TestabilityIdentification {
 	}
 	
 	enum Label: String, TestabilityIdentification {
+		/// The note under the finding form's Page field saying the address may not carry the
+		/// captured position, and which record to trust when it does not (AIA-0873).
+		case saveFindingPageFootnote
 		case drawerAccountOffline
 		case settingsAccountOffline
 		/// The note under Settings → Manage Account saying deletion does not stop billing
@@ -351,6 +441,13 @@ extension TestabilityIdentification {
 		/// days". Identified so a test can read back the granted length the screen actually rendered,
 		/// which is remote-configurable, without matching localized copy.
 		case welcomeHeadline
+		/// The annotation sound screen's standing note that playback follows Silent mode
+		/// (AIA-0720). Always present; iOS exposes no API for the Silent switch, so this note is
+		/// the only coverage that case can have.
+		case configurationFormSoundOutputNote
+		/// The annotation sound screen's warning that device media volume is zero (AIA-0720).
+		/// Unlike the note above this one is detectable, so it is shown conditionally.
+		case configurationFormSoundOutputMuted
 	}
 
 	enum TextField: String, TestabilityIdentification {
@@ -366,12 +463,16 @@ extension TestabilityIdentification {
 		case saveFindingTitle
 		case saveFindingLabel
 		case saveFindingNote
+		case saveFindingAuthor
 		case saveFindingGps
+		case saveFindingPage
 		// Finding Detail
 		case findingDetailTitle
 		case findingDetailLabel
 		case findingDetailNote
+		case findingDetailAuthor
 		case findingDetailGps
+		case findingDetailPage
 	}
 	
 	enum Stepper: String, TestabilityIdentification {
@@ -404,6 +505,30 @@ extension TestabilityIdentification {
 		/// paywall sibling is: the landscape test needs a scroll view to drive before it can prove
 		/// the footer bullets and the price note stay reachable on a short viewport.
 		case welcomeContent
+		/// The provenance banner on a shared finding (AIA-0650) — "this came from a link and has not
+		/// been verified". Identified because that sentence is the whole security posture of the
+		/// screen: Associated Domains authenticates the domain, never the fields, so a test must be
+		/// able to prove the warning is on screen without matching localized copy.
+		case sharedFindingProvenance
+		/// The "we could not read this link" screen (AIA-0650). Identified so a test can prove the app
+		/// says *something* when a damaged link opens it — the association matches on path alone, so
+		/// iOS routes a truncated link here instead of to the landing page that explains it.
+		case sharedFindingUnreadable
+		/// The exact address a shared link will carry, shown to the sender before they post it
+		/// (AIA-0657). Identified because it is the mechanism behind the ticket's credential
+		/// criterion: a test must be able to read what is on screen without matching localized copy.
+		case findingShareAddressPreview
+		/// The full address a received link will open, shown beside its button (AIA-0659). Identified
+		/// because the disclosure IS the phishing mitigation: a test must be able to prove the whole
+		/// address is on screen — not the host that a lookalike domain imitates — without matching
+		/// localized copy.
+		case sharedFindingAddress
+		/// The page diagram on a received link (AIA-0657): where on the captured page the detection
+		/// sat. Identified because it is the visible half of the ticket's first criterion, and the
+		/// half no localized string can stand in for.
+		case sharedFindingBoxDiagram
+		/// The large, red/green capture target shown after Find starts alignment mode (AIA-0868).
+		case findingAlignmentCrosshair
 		// Onboarding tour coach-mark bubble.
 		case tourBubble
 		// App Messages banner container (AIA-0115)

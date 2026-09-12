@@ -1,0 +1,54 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ArcGIS projected view, not ready at first</title>
+<style>html,body,#view{margin:0;height:320px;width:480px}</style>
+<div id="view"></div>
+<script>
+  // Measured on a real page: the view is NOT ready when a finding is captured -- `center` is
+  // undefined and `zoom` is -1 for a few hundred milliseconds after the document finishes. A
+  // fixture whose view is ready by construction cannot fail, which is how "read too early" once
+  // shipped green.
+  //
+  // The projection module is reachable through the loader here, which is a READ of `window.require`
+  // -- the probe calls it, it never replaces it.
+  (function () {
+    var view = {
+      container: document.getElementById('view'),
+      ready: false,
+      zoom: -1,
+      center: undefined,
+      spatialReference: { wkid: 102067 },
+      when: function () {
+        return new Promise(function (resolve) {
+          var t = setInterval(function () { if (view.ready) { clearInterval(t); resolve(view); } }, 40);
+        });
+      }
+    };
+    window.__view = view;
+    setTimeout(function () {
+      view.ready = true;
+      view.zoom = 11;
+      // A national grid: ArcGIS reports null for latitude/longitude, so only its own projection can
+      // produce degrees.
+      view.center = { latitude: null, longitude: null, x: -743000, y: -1044000,
+                      spatialReference: { wkid: 102067 } };
+    }, 400);
+
+    var modules = {
+      'esri/geometry/SpatialReference': function SpatialReference(o) { this.wkid = o.wkid; },
+      'esri/geometry/projection': {
+        load: function () { return Promise.resolve(); },
+        project: function (point, sr) {
+          if (sr.wkid !== 4326) { return null; }
+          return { latitude: 50.0755381, longitude: 14.4378005 };
+        }
+      }
+    };
+    window.require = function (deps, callback) {
+      var resolved = [];
+      for (var i = 0; i < deps.length; i++) { resolved.push(modules[deps[i]]); }
+      callback.apply(null, resolved);
+    };
+    window.__harnessReady = true;
+  }());
+</script>

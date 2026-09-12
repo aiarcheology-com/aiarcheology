@@ -190,6 +190,34 @@ private final class BackgroundRefreshCompletion: @unchecked Sendable {
 	}
 }
 
+/// Keeps the app running long enough to finish one short piece of teardown after it leaves the
+/// foreground (#785).
+///
+/// A notification handler is synchronous, so work that has to hop to an actor cannot be awaited
+/// there. Without an assertion the process can be suspended before the hop lands, which is exactly
+/// what the teardown existed to prevent.
+///
+/// A class rather than a bare identifier so the expiration handler has something to call: the
+/// system reclaims the assertion if it is held too long, and an assertion that expires unhandled
+/// terminates the app.
+@MainActor
+final class BackgroundTaskAssertion {
+	private var identifier: UIBackgroundTaskIdentifier = .invalid
+
+	init(name: String) {
+		identifier = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
+			self?.end()
+		}
+	}
+
+	/// Idempotent: the expiration handler and the completing work race, and only one may end it.
+	func end() {
+		guard identifier != .invalid else { return }
+		UIApplication.shared.endBackgroundTask(identifier)
+		identifier = .invalid
+	}
+}
+
 @main
 struct MLBrowser: App {
 	@UIApplicationDelegateAdaptor(BackgroundDownloadAppDelegate.self) var appDelegate
@@ -206,7 +234,24 @@ struct MLBrowser: App {
 		// Build the app's single composition root LAST — after observability is started and
 		// Clerk is configured — so service construction never precedes them (AIA-0385).
 		_appState = StateObject(wrappedValue: DependencyContainer.shared.makeAppState())
+		// Clears readable support-log exports that a PRE-AIA-0643 build left in the temporary
+		// container. iOS does not wipe `tmp` on update, and the in-sheet cleanup only runs if the
+		// user opens the Support form — which most never will. Off the main thread and best-effort:
+		// it touches nothing this launch depends on.
+		Task.detached(priority: .utility) { SupportRequestView.purgeLegacyApplicationLogExports() }
 		LoggingPolicy.info("MLBrowser app launching", logger: .lifecycle)
+		// Answers "which Worker did this build talk to?" from a support log alone. Diagnosing
+		// AIA-0791 needed a decrypted log plus three source files to answer it.
+		LoggingPolicy.info(
+			"Backend environment: \(BackendEnvironment.current.rawValue)",
+			logger: .configuration
+		)
+		#if DEBUG
+		// A Debug build pointed at production can write real findings and delete a real account,
+		// so the warning is a window rather than a view modifier: it has to survive `.sheet` and
+		// `.fullScreenCover`, which is where every destructive action lives.
+		ProductionBannerWindow.install(usesMockAuth: DependencyContainer.shared.usesMockAuth)
+		#endif
 	}
 
 	/// The app behind the subscription gate (AIA-0536).
@@ -296,6 +341,58 @@ struct MLBrowser: App {
 			// Single injection of the composition root's real-vs-mock auth flag for the whole
 			// view tree; re-injected across sheet boundaries where needed (AIA-0385).
 			.environment(\.usesRealAuth, appState.usesRealAuth)
+			// Shared finding links (AIA-0650). Attached at the scene root because that is where iOS
+			// delivers them, and because a link must be caught whatever is on screen — including the
+			// paywall, the consent screen, and the launch spinner above.
+			//
+			// This is the app's only `onOpenURL`, and with the activity handler below it is the whole
+			// of its URL intake. It sees every URL the app is handed. That
+			// includes Clerk's OAuth callback on `com.aiarcheology.ios`, which is normally consumed
+			// by `ASWebAuthenticationSession` and must never be swallowed here. `handle` returns
+			// whether the URL was ours, delegating the decision to `FindingShareLink`'s strict
+			// host/path matching, so anything that is not a finding link falls through untouched.
+			//
+			// Deliberately NOT gated on `isFindingShareLinkEnabled`: that flag governs whether this
+			// app *emits* links. Links already shared are out in the world regardless, and turning
+			// emission off must not break them for the strangers who tap them.
+			.task {
+				// A UI test cannot hand the app a URL without driving Safari, so a configured link is
+				// delivered here instead — the same entry point `onOpenURL` uses, so the test
+				// exercises the real buffering and import rather than a parallel path. Gated on
+				// `isRunningUITests`; `UITestLaunchConfiguration` is dead code in shipping builds.
+				guard AppEnvironment.isRunningUITests,
+				      let config = UITestLaunchConfiguration.fromEnvironment,
+				      let raw = config.sharedLinkURL,
+				      let url = URL(string: raw)
+				else { return }
+				// Delivered more than once when the test asks, so the duplicate-import guarantee can
+				// be exercised at all — two launches cannot do it, because each one starts from an
+				// empty store (AIA-0836).
+				for _ in 0..<max(1, config.sharedLinkDeliveries ?? 1) {
+					appState.sharedFinding.handle(url)
+				}
+			}
+			.onOpenURL { url in
+				LoggingPolicy.debug("Shared finding: URL delivered via onOpenURL", logger: .state)
+				appState.sharedFinding.handle(url)
+			}
+			// **The other half of the same door, and the app was missing it.**
+			//
+			// A universal link does not always arrive as a URL. iOS hands it to the app as an
+			// `NSUserActivity` of type `NSUserActivityTypeBrowsingWeb`, and only some routes are
+			// bridged into `onOpenURL` above. Tapping a link in Safari happened to land there;
+			// scanning the same link with the Code Scanner did not — so the app launched, the user
+			// watched it open, and nothing whatsoever happened. Found on a real iPhone with build
+			// 999, and invisible in the app log precisely because no handler ran (AIA-0657).
+			//
+			// Both handlers funnel into the same `handle`, which is idempotent for our purposes: it
+			// replaces the pending link with the newest one, so a URL arriving down both routes
+			// buffers the same payload twice rather than presenting twice.
+			.onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+				guard let url = activity.webpageURL else { return }
+				LoggingPolicy.debug("Shared finding: URL delivered via NSUserActivity", logger: .state)
+				appState.sharedFinding.handle(url)
+			}
 			// The remote brake on the detailed application log (AIA-0602). `initial: true` so the
 			// compiled default is applied on a first launch that has not synced yet, and the live
 			// snapshot thereafter — `FeatureFlagsState` observes the provider's change stream, so a
@@ -308,17 +405,37 @@ struct MLBrowser: App {
 				LoggingPolicy.info("App entering background", logger: .lifecycle)
 				LoggingPolicy.flushApplicationLog()
 				appState.analytics.flushDetectionSessionSummary()
+				// Ends any sounding annotation voice before the process is suspended, and refuses
+				// new ones until the app is back (#785). A player left alive across a suspend
+				// outlives the shared audio session the system tears down, and the retention task
+				// that eventually released it then deallocated a player whose queue was already gone.
+				//
+				// Held under a background-task assertion because this handler cannot await: the stop
+				// reaches the player through an actor hop, and without the assertion the process may
+				// be suspended before the hop lands — which is the state the stop exists to prevent,
+				// so an unheld `Task` would leave the comment above claiming more than it delivers.
+				let annotationSoundSuspension = BackgroundTaskAssertion(name: "Annotation sound suspend")
+				Task { @MainActor in
+					await appState.annotationSoundPlayer.suspend()
+					annotationSoundSuspension.end()
+				}
 				if appState.detectionState.ontheflyDetectionEnabled {
 					appState.settings.isDetectionPaused = true
-					appState.detectionState.ontheflyDetectionTapped()
+					// `isUserInitiated: false`: this pause and the foreground resume are one detection
+					// session either side of a suspend. Treating them as a fresh start would clear an
+					// outstanding web-content interruption and refill the escalation budget, so a page
+					// that kills its renderer could survive the fix by the user visiting the home
+					// screen (AIA-0879).
+					appState.detectionState.ontheflyDetectionTapped(isUserInitiated: false)
 				}
 			}
 			.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
 				LoggingPolicy.info("App entering foreground", logger: .lifecycle)
+				Task { await appState.annotationSoundPlayer.resume() }
 				if appState.settings.isDetectionPaused {
 					appState.settings.isDetectionPaused = false
 					// Resume is a continuation of the same detection session, not a new run.
-					appState.detectionState.ontheflyDetectionTapped(recordAnalytics: false)
+					appState.detectionState.ontheflyDetectionTapped(recordAnalytics: false, isUserInitiated: false)
 				}
 			}
 			// Attached above the analytics/auth/subscription gates, so a bug on the paywall or the
@@ -342,12 +459,36 @@ struct MLBrowser: App {
 				freeAccess: appState.freeAccess,
 				isReady: appState.isReady
 			)
+			// Asked here rather than on the findings list, because a user who never opens that
+			// screen would never be asked -- and their findings would sit unsynced with nothing
+			// saying so (AIA-727).
+			.backupConsentPrompt(appState.findingsSync)
 			.task {
 				// Reconnect to background URLSession tasks after app launch.
 				// (No-op during XCTest runs; gated inside Downloader.)
 				await appState.dataController.awaitStoreReady()
 				appState.downloader.reconnectBackgroundSession()
+				// Started here rather than at construction: sync reads and writes findings, so it
+				// must not run before the store is open (AIA-727).
+				appState.findingsSync.start()
 			}
+			// A received shared finding (AIA-0650, moved here by AIA-0657). **Applied last, on
+			// purpose**: this modifier must be the outermost one in the scene so the card sits above
+			// everything — the subscription gate, the analytics gate, and also `.screenshotReportOffer`
+			// and `.appMessageBanner` above, which are themselves applied outside the gates. "Outside
+			// the gates" and "top of the z-order" are not the same claim, and only the second one is
+			// what the ticket asks for.
+			//
+			// It used to hang off `ContentView`, i.e. *inside* both gates, so a link tapped by someone
+			// who had not yet dealt with the paywall, the welcome screen or the telemetry question was
+			// buffered and shown only afterwards — the visitor a shared link exists to attract met a
+			// wall and no finding.
+			//
+			// Still an **overlay** rather than a `.sheet`, and now more so than before: as an ancestor
+			// of every sheet the app raises, a sheet here would present and immediately auto-dismiss
+			// whenever one was already up (the trap `AnalyticsChoiceGate` documents). A link arriving
+			// while Settings or the composer is open would flash and be lost.
+			.sharedFindingPresentation(appState)
 		}
 	}
 }
@@ -464,7 +605,11 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 		Group {
 			switch display {
 			case .choice:
+				// The root swap: this replaces content, so there is nothing behind the card to
+				// show through its dim. The opaque background belongs here and only here — see
+				// the overlay branch below (AIA-0763).
 				AnalyticsChoiceView(analytics: analytics)
+					.background(Color(uiColor: .systemBackground).ignoresSafeArea())
 			case .content:
 				content
 			case .hold:
@@ -487,48 +632,57 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 		// old root swap did.
 		.overlay {
 			if asksOverContent {
+				// **No opaque background here, unlike the `.choice` branch below** (AIA-0763). The
+				// card dims what is behind it, and there is something behind it on this path — the
+				// app the user is already using. A `systemBackground` under the card would hide the
+				// very content the dim exists to show through.
 				AnalyticsChoiceView(analytics: analytics)
-					.background(Color(uiColor: .systemBackground))
 					.transition(.opacity)
 			}
 		}
 		.onChange(of: display, initial: true) { _, value in
 			if value == .content { hasEverShownContent = true }
 		}
+		// The gate publishes, up its own window's view tree, whether its question is actually
+		// rendered — so the back-up question can hold rather than land on top of it (AIA-0763).
+		//
+		// A preference and not a flag on `AnalyticsState`: that object is shared by every scene and
+		// this fact is per-window. It is also self-clearing, which is what makes stranding
+		// impossible — the value is recomputed with the view tree, so a gate that stops asking, or
+		// that is torn down with its window, reverts to the default without anything having to
+		// remember to write `false`.
+		.preference(key: ConsentQuestionOnScreenKey.self, value: isQuestionOnScreen)
+	}
+
+	/// Whether this gate is putting the telemetry question to the user right now, by either of the
+	/// two routes it has: as the screen the user arrives at, or as an overlay on content.
+	private var isQuestionOnScreen: Bool {
+		display == .choice || asksOverContent
 	}
 }
 
+/// The telemetry question, drawn as a ``ConsentCard`` — the same view type as the back-up question
+/// (AIA-0763).
+///
+/// It used to be a bare full-screen `VStack`: no backdrop, no card, sized to the whole screen. That
+/// is what made the overlap unreadable rather than merely untidy — the back-up card is an overlay
+/// applied further out in the scene, so when both were raised the card sat in the middle of this
+/// screen with this screen's icon above it and its buttons below, and nothing said the two belonged
+/// to different questions.
 private struct AnalyticsChoiceView: View {
 	let analytics: AnalyticsState
 
 	var body: some View {
-		VStack(spacing: 20) {
-			Spacer()
-			Image(systemName: "chart.bar.xaxis")
-				.font(.system(size: 48))
-				.foregroundStyle(.tint)
-				.accessibilityHidden(true)
-			Text(L10n.Analytics.Choice.title)
-				.font(.title2.bold())
-				.multilineTextAlignment(.center)
-			Text(L10n.Analytics.Choice.message)
-				.multilineTextAlignment(.center)
-				.foregroundStyle(.secondary)
-				.padding(.horizontal, 28)
-			Button(L10n.Analytics.Choice.enable) {
-				analytics.chooseAnalytics(enabled: true)
-			}
-			.buttonStyle(.borderedProminent)
-			.controlSize(.large)
-			.testability(Testability.Button.analyticsChoiceEnable)
-			Button(L10n.Analytics.Choice.notNow) {
-				analytics.chooseAnalytics(enabled: false)
-			}
-			.buttonStyle(.bordered)
-			.controlSize(.large)
-			.testability(Testability.Button.analyticsChoiceNotNow)
-			Spacer()
-		}
-		.padding()
+		ConsentCard(
+			systemImage: "chart.bar.xaxis",
+			title: L10n.Analytics.Choice.title,
+			message: L10n.Analytics.Choice.message,
+			primaryTitle: L10n.Analytics.Choice.enable,
+			primaryIdentifier: Testability.Button.analyticsChoiceEnable,
+			primaryAction: { analytics.chooseAnalytics(enabled: true) },
+			secondaryTitle: L10n.Analytics.Choice.notNow,
+			secondaryIdentifier: Testability.Button.analyticsChoiceNotNow,
+			secondaryAction: { analytics.chooseAnalytics(enabled: false) }
+		)
 	}
 }

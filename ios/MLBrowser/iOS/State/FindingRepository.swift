@@ -17,24 +17,64 @@ struct FindingMetadata {
 	let title: String
 	let label: String
 	let note: String
+	/// The finder's credit (AIA-0651). Deliberately declared WITHOUT a default: a `let` with an
+	/// initializer is dropped from the memberwise init, which would silently ignore whatever every
+	/// call site passed. Requiring it at each site is what makes the capture editor's value arrive.
+	let author: String
 	let gps: String
+	/// The page to store, already resolved from the editor's text and the captured URL by
+	/// ``FindingPageURL`` (AIA-0817).
+	///
+	/// Declared WITHOUT a default for the same reason `author` is — though not the reason first
+	/// written here: a default does not remove the parameter from the synthesized memberwise
+	/// initializer, it makes it optional to pass (raised in review). That is the actual hazard. A
+	/// call site that forgot the page would still compile, and record no page while appearing to
+	/// carry one. With no default, forgetting it is a compile error.
+	let page: URL?
 }
 
 /// The Core Data + screenshot-store repository for `Finding` rows.
 ///
-/// Extracted from `SaveFindingSheet` (AIA-0392) so the persist transaction (PNG write → entity
+/// Extracted from `SaveFindingSheet` (AIA-0392) so the persist transaction (image write → entity
 /// create → lifecycle → validate → save → rollback) is unit-testable against Core Data + the
 /// filesystem alone, with no View. Injected the SAME `DataController` as the rest of the graph, so
 /// the write always targets the one store-backed `viewContext` — deterministically, regardless of
 /// whether `@Environment(\.managedObjectContext)` crossed the presenting `.sheet` boundary.
 ///
 /// **Privacy invariant (centralized here):** a finding screenshot is written only to the app's
-/// local `Documents/Findings` (via `FindingScreenshotStore`) and is never transmitted off-device;
-/// it leaves the device only through explicit user export (`FindingExporter`). This type is the
-/// only production caller of `FindingScreenshotStore.save` — enforced by
+/// local `Documents/Findings` (via `FindingScreenshotStore`). This type is the only production
+/// caller of `FindingScreenshotStore.save` — enforced by
 /// `ArchitectureTests.testOnlyFindingRepositoryWritesScreenshots`.
+///
+/// The invariant is about the *writer*, not about egress, and this comment used to claim both. A
+/// screenshot now leaves the device by two paths: explicit user export (`FindingExporter`), and
+/// cloud back-up for a signed-in account (`FindingsSyncCoordinator.upload`, AIA-713) — which is
+/// gated on the account owning the finding, and readable in the privacy policy §3.5. Saying
+/// "never transmitted off-device" here outlived the feature that made it false, which is exactly
+/// how a future reader ends up trusting it.
 @MainActor
 final class FindingRepository {
+
+	/// Called with a finding's id immediately BEFORE a user-initiated delete commits, so sync can
+	/// record the tombstone first. Wired by `DependencyContainer`; `nil` leaves deletes purely
+	/// local, which is exactly what a build with no sync should do.
+	/// Throws to STOP the delete. A tombstone that could not be recorded means the cloud copy would
+	/// survive on every other device while the user was told the finding was gone.
+	var willDeleteFinding: ((UUID) throws -> Void)?
+
+	/// Called with a finding's id right after it is created here, so sync can record that this
+	/// account made it — which is what separates the user's own work from whatever else happens to
+	/// be in a shared device's store.
+	var didCreateFinding: ((UUID) -> Void)?
+
+	/// Called with every finding's id before a wholesale removal commits. Throws to stop it, for
+	/// the same reason ``willDeleteFinding`` does.
+	var willDeleteAllFindings: (([UUID]) throws -> Void)?
+
+	/// Called after findings change locally, so sync can offer them to the cloud without waiting for
+	/// the app to be backgrounded and reopened. `nil` in a build with no sync.
+	var didChangeFindings: (() -> Void)?
+
 	private let dataController: DataController
 
 	init(dataController: DataController) {
@@ -45,10 +85,34 @@ final class FindingRepository {
 		dataController.container.viewContext
 	}
 
-	/// Persists one finding. PNG first, then the entity: a file without a row is self-healed by the
+	/// Discards a finding's uncommitted edits by reloading it from the store.
+	///
+	/// Lives here rather than in the editor because reaching the context is this type's job: a View
+	/// holding `@Environment(\.managedObjectContext)` to call one method is the Core-Data-in-a-View
+	/// coupling `ArchitectureTests.testViewTypesAvoidCoreDataImports_Aspirational` ratchets down.
+	func discardEdits(to finding: Finding) {
+		context.refresh(finding, mergeChanges: false)
+	}
+
+	/// Commits edits the caller has already made to a stored finding.
+	///
+	/// The caller owns the field mapping -- an edit screen knows which fields it exposes and this
+	/// type should not -- so this is only the commit and the notification. It exists because the
+	/// notification was the part that kept getting missed: create, import and delete all ring
+	/// ``didChangeFindings``, and the edit screen called `Finding.save(in:)` directly, which
+	/// persisted the change and told sync nothing. An edited finding was still *marked* as owed
+	/// (`willSave()` stamps `modifiedAt` on that path too), so it did upload -- whenever some
+	/// unrelated trigger happened to fire next. Uploading a correction at an arbitrary later time is
+	/// its own kind of wrong (AIA-737).
+	func commitEdits() throws {
+		try Finding.save(in: context)
+		didChangeFindings?()
+	}
+
+	/// Persists one finding. Image first, then the entity: a file without a row is self-healed by the
 	/// orphan sweep, while a row without a file would be a broken finding. Any entity failure deletes
 	/// both the pending object (it must not linger in the context for a later unrelated save to
-	/// commit) and the PNG. Throws on either failure so the caller can surface the error UI.
+	/// commit) and the image. Throws on either failure so the caller can surface the error UI.
 	/// - Returns: the persisted, `.ready` finding.
 	@discardableResult
 	func save(capture: FindingCapture, image: UIImage, box: CGRect, metadata: FindingMetadata) throws -> Finding {
@@ -64,19 +128,37 @@ final class FindingRepository {
 		let finding = Finding.create(in: context)
 		finding.entityId = entityId
 		finding.creationDate_ = .now
-		finding.page = capture.pageURL
+		// The editor's value, not the capture's: the field is editable precisely so a user can fix
+		// a URL the app resolved wrongly, and reading the capture here would discard that.
+		finding.page = metadata.page
 		finding.screenshotFilename = filename
 		finding.title = metadata.title.trimmingCharacters(in: .whitespacesAndNewlines)
 		finding.label_ = Self.normalized(metadata.label)
 		finding.note_ = Self.normalized(metadata.note)
+		finding.author = Self.normalized(metadata.author)
 		finding.gps_ = Self.normalized(metadata.gps)
 		finding.detectionClass = capture.observation.primaryLabelIdentifier
-		finding.detectionConfidence = Double(capture.observation.labels.first?.confidence ?? capture.observation.confidence)
+		// The **observation's** confidence, which is what the annotation draws and what the
+		// confidence threshold filters on (AIA-0765). It used to prefer the first label's
+		// confidence, and that is the class probability: on a single-class detector it is
+		// trivially 1.0, so every saved finding recorded a perfect score regardless of how weak
+		// the detection actually was.
+		finding.detectionConfidence = Double(capture.observation.confidence)
 		finding.modelId = capture.params?.entityId
 		finding.boxX = box.minX
 		finding.boxY = box.minY
 		finding.boxWidth = box.width
 		finding.boxHeight = box.height
+		// The capture-space box is derived HERE rather than passed in (AIA-0761). `box` is the
+		// caller's — the save sheet's — box, already re-normalized into the crop it baked into
+		// `image`; the detection's position on the captured view is `capture`'s to state, and
+		// `capture` is already a parameter. A second box argument would be one more thing a future
+		// caller could forget to pass correctly, which is precisely the failure this fixes.
+		let captureBox = capture.observation.boundingBox
+		finding.captureBoxX = captureBox.minX
+		finding.captureBoxY = captureBox.minY
+		finding.captureBoxWidth = captureBox.width
+		finding.captureBoxHeight = captureBox.height
 
 		finding.transition(to: .draft)
 		do {
@@ -91,13 +173,559 @@ final class FindingRepository {
 			throw error
 		}
 
+		didCreateFinding?(entityId)
+		didChangeFindings?()
 		return finding
+	}
+
+	// MARK: - Shared-link import (AIA-0835)
+
+	/// Stores a finding that arrived by share link.
+	///
+	/// Returns the **existing** row when the link's id is already ours, writing nothing: that is what
+	/// stops a sender who opens their own link from getting a second copy, and it is why the id is a
+	/// signature rather than a local identifier.
+	///
+	/// ## No image is written, and none is missing
+	/// A link carries no picture, so the row gets the canonical screenshot name with **no file behind
+	/// it** — the same already-supported state an archive import produces for a row whose image the
+	/// sender did not include (see `apply(_:to:screenshotFilename:)`). Validation checks the filename
+	/// string, never the filesystem, and every consumer already draws a placeholder. A real image is
+	/// a later ticket's backend work.
+	@discardableResult
+	func saveReceived(_ payload: FindingShareLink.Payload) throws -> Finding {
+		if let id = payload.id, let existing = Finding.select(id, in: context) {
+			LoggingPolicy.info("Shared finding: already stored; not importing again", logger: .storage)
+			return existing
+		}
+
+		// A link with no `i=` still deserves to be kept -- refusing would lose a real finding -- so it
+		// gets a fresh identity. Two opens of the same id-less link therefore make two rows; that is
+		// the accepted cost of not dropping one.
+		//
+		// Re-importing a link the user previously deleted **does** bring the finding back, on this
+		// device and in the cloud, and that is the general conflict rule rather than a hole in it:
+		// the new row carries a fresh `modifiedAt`, which outranks the older tombstone exactly as a
+		// newer local edit does (`FindingsSyncCoordinator.swift:991-997`). It resurrects only because
+		// somebody opened that link again, which is as clear a statement of intent as the delete was.
+		//
+		// It is the rare case, since AIA-0836: `Key.id` is no longer on `FindingShareLink`'s shed
+		// ladder, so no link this app emits can arrive without one however long its page URL is. A
+		// missing `i=` now means a hand-edited link or one built by something else -- the defensive
+		// branch rather than the routine path a printed card walks into, which is what it was while
+		// the id was still droppable.
+		let entityId = payload.id ?? UUID()
+		let receivedAt = Date()
+
+		let finding = Finding.create(in: context)
+		finding.entityId = entityId
+		finding.source = .received
+		finding.receivedAt = receivedAt
+		// The sender's capture day, resolved in UTC -- never the recipient's calendar. The wire day is
+		// UTC on both sides, so local midnight would re-emit as the previous day for every user east
+		// of UTC, walking the date backwards one step per forward.
+		finding.creationDate_ = Self.utcStartOfDay(payload.date) ?? receivedAt
+		finding.title = payload.title.trimmingCharacters(in: .whitespacesAndNewlines)
+		finding.author = payload.author.flatMap(Self.normalized)
+		finding.page = payload.page
+		finding.detectionClass = payload.detectionClass.flatMap(Self.normalized)
+		// Range-checked here as well as in the parser: `Payload` is a plain struct that validates
+		// nothing, so a directly-constructed one could carry 101 -- which `throwIfInvalid` rejects,
+		// costing the whole finding.
+		finding.detectionConfidence = payload.confidencePercent
+			.map { Double(min(max($0, 0), 100)) / 100 }
+			?? 0
+		// The sender's own text wins over the reformatted degrees, so the recipient's card says what
+		// the sender's card said -- including the coordinate systems `Coordinate` cannot represent,
+		// which is every projected one a map page might report (AIA-0836). The formatted fallback is
+		// for links emitted before the text field existed.
+		// `Self.normalized` for the reason `author` above uses it: `Payload` validates nothing, so a
+		// directly-constructed one can carry `""` and an empty string is not a location.
+		//
+		// The text is stored exactly as the sender wrote it, including a `leaflet:`-style provenance
+		// tag if they had one. That tag describes how *their* device obtained the value, not how this
+		// one did, and it is kept anyway: the whole point is that the recipient's card reads as the
+		// sender's did. Nothing branches on the tag — `CoordinateText.strippingStorageTag` only
+		// ignores it when parsing — so it costs nothing beyond being read literally.
+		finding.gps_ = payload.locationText.flatMap(Self.normalized)
+			?? payload.coordinate.map { String(format: "%.5f, %.5f", $0.latitude, $0.longitude) }
+		// The recipient does not have the sender's model, and claiming one they cannot resolve would
+		// make the finding look reproducible here when it is not.
+		finding.modelId = nil
+		finding.screenshotFilename = Finding.screenshotFilename(for: entityId)
+
+		let stored = payload.box.map(Self.visionRect(fromWire:))
+		// Absent means the sender stated no capture-space box, which is the documented zero-rect
+		// "not recorded" value -- never the unit rect, which would claim a whole-page detection.
+		let captureBox = stored ?? .zero
+		finding.captureBoxX = captureBox.minX
+		finding.captureBoxY = captureBox.minY
+		finding.captureBoxWidth = captureBox.width
+		finding.captureBoxHeight = captureBox.height
+		// `boxX…` has no absence signal and validation demands a unit rect, so a link with no box
+		// gets the whole frame. Readers must gate "was a box sent?" on the zero `captureBox` above.
+		let drawn = stored ?? CGRect(x: 0, y: 0, width: 1, height: 1)
+		finding.boxX = drawn.minX
+		finding.boxY = drawn.minY
+		finding.boxWidth = drawn.width
+		finding.boxHeight = drawn.height
+
+		finding.transition(to: .draft)
+		do {
+			try finding.throwIfInvalid()
+			finding.transition(to: .ready)
+			try Finding.save(in: context)
+		} catch {
+			let validationKeys = finding.validationReport().issues?.map(\.key).joined(separator: ", ") ?? "none"
+			Finding.delete(finding, in: context)
+			LoggingPolicy.error(
+				"Failed to store a received finding (validation keys: \(validationKeys))",
+				error: error,
+				logger: .storage
+			)
+			throw error
+		}
+
+		// Both hooks, exactly as a locally captured finding fires them. `didCreateFinding` is what
+		// puts the row in this account's owned set; without it sync treats it as unclaimed and raises
+		// the back-up consent prompt -- a modal the user would get for tapping a link.
+		//
+		// Reviewed and kept deliberately (AIA-0835): the owned set decides what this account backs
+		// up, and a received finding IS the user's to keep -- theirs to open, to forward and to
+		// delete. Backing it up costs them nothing and losing it on a device change would. The name
+		// reads as a claim of authorship, but authorship is `Finding.author`, which stays the
+		// sender's and is what the share card prints. Not firing it was the alternative, and it would
+		// quietly leave exactly the findings a user was given out of the backup they believe covers
+		// everything.
+		didCreateFinding?(entityId)
+		didChangeFindings?()
+		LoggingPolicy.info("Shared finding: stored a received finding", logger: .storage)
+		return finding
+	}
+
+	/// Converts a wire box to the Vision rect the stored attributes use.
+	///
+	/// `FindingShareLink.Box` is **top-left** origin by deliberate choice (the landing page is a
+	/// second reader and every web coordinate system points that way); `Finding.boxX…` and
+	/// `captureBox…` are **bottom-left** Vision rects. `FindingShareEmission` converts on the way out
+	/// with `y: 1 - captureNormalizedBox.maxY`; this is that inverse, at the one boundary where a link
+	/// becomes a row. Assigning the wire value directly would mirror the box vertically -- and mirror
+	/// it again on every forward.
+	private static func visionRect(fromWire box: FindingShareLink.Box) -> CGRect {
+		CGRect(x: box.x, y: 1 - box.y - box.height, width: box.width, height: box.height)
+	}
+
+	/// The start of a link's day-precision date in **UTC**, or nil when the link did not carry a
+	/// complete one.
+	///
+	/// All three fields are required rather than letting `Calendar` fill in what a partial
+	/// `DateComponents` omits -- a link carrying only a year would otherwise resolve to 1 January,
+	/// a date nobody sent.
+	private static func utcStartOfDay(_ components: DateComponents?) -> Date? {
+		guard let components, let year = components.year, let month = components.month,
+		      let day = components.day
+		else { return nil }
+		var calendar = Calendar(identifier: .gregorian)
+		calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? calendar.timeZone
+		return calendar.date(from: DateComponents(year: year, month: month, day: day))
+	}
+
+	// MARK: - Archive import (AIA-713)
+
+	/// What to do about a finding whose id the device already stores.
+	enum DuplicatePolicy {
+		/// Leave the stored finding exactly as it is.
+		case skip
+		/// Overwrite it with the archived one.
+		case replace
+	}
+
+	/// The outcome of an import, in the terms the user is told about.
+	struct ImportSummary: Equatable {
+		var restored = 0
+		var skipped = 0
+		/// The device could not store the row — no disk space, a store error. Trying again may work.
+		var failed = 0
+		/// The row itself is not a valid finding, so trying again reproduces it exactly. Kept apart
+		/// from `failed` because a caller that retries the whole page — sync does — would otherwise
+		/// pin itself on one bad row for ever and lose every finding behind it.
+		var rejected = 0
+
+		mutating func count(_ error: Error) {
+			if error is ImportRejection { rejected += 1 } else { failed += 1 }
+		}
+	}
+
+	/// A row that will never import, however many times it is tried.
+	enum ImportRejection: Error {
+		case invalidContent
+	}
+
+	/// Which of the two counters a per-row failure belongs in.
+	///
+	/// The distinction is not cosmetic: sync retries a page, so a row whose own content is invalid
+	/// would pin the cursor on itself for ever and lose every finding behind it, while a row the
+	/// device merely could not write must be retried once there is room.
+
+	/// Restores findings decoded by ``FindingArchiveImport`` into the store.
+	///
+	/// **Identity is resolved before any file is touched.** Screenshot filenames derive from the
+	/// finding id, so writing an archived image before deciding skip-or-replace would overwrite the
+	/// picture of a finding the user never agreed to change — and `Data.write(.atomic)` replaces
+	/// silently. Every row therefore looks itself up first, and a `.skip` duplicate causes no file
+	/// IO at all.
+	///
+	/// **A replaced finding is recoverable until the save commits.** The existing image is read into
+	/// memory before the new one is written, and put back if the row fails validation or the
+	/// terminal save throws. Without that, a failed replace leaves a row pointing at an image that
+	/// was already overwritten.
+	///
+	/// Rows are inserted, validated and then committed in ONE save. A row that fails validation is
+	/// removed (a new object) or reverted to its stored values (an existing one) and counted as
+	/// failed, rather than being allowed to fail the whole save — `Finding.save(in:)` commits the
+	/// entire context, so one bad row would otherwise discard every good one.
+	///
+	/// - Note: the caller must have decoded the archive OFF the MainActor; this method is the
+	///   `viewContext` half and does no unzipping, parsing or image decoding.
+	@discardableResult
+	func importFindings(
+		_ contents: FindingArchiveContents,
+		duplicates: DuplicatePolicy
+	) throws -> ImportSummary {
+		var summary = ImportSummary()
+		var replacedImages: [(filename: String, backup: URL?)] = []
+		var writtenFilenames: [String] = []
+		// Backups are hard links, not bytes (AIA-0755). This used to hold `Data` for every replaced
+		// screenshot until the import committed, so restoring 120 findings meant ~700 MB resident --
+		// the same failure the archive reader was just fixed for, one layer down.
+		let backupDirectory = FindingArchiveImport.transientDirectory(under: FindingArchiveImport.backupRootDirectory)
+		defer { try? FileManager.default.removeItem(at: backupDirectory) }
+		// Which rows this import created and which it replaced, so a failed commit can be undone in
+		// the PARENT context too. `importContext.reset()` only abandons the child: by then the child
+		// save has already pushed every row into the parent, where they sit pending and get written
+		// by the next unrelated save -- as findings the user was told had failed to import, with
+		// their images already deleted.
+		var createdIds: [UUID] = []
+		var replacedIds: [UUID] = []
+
+		// All import work happens in a CHILD context, never directly in the viewContext.
+		//
+		// The reason is `rollback()`. Discarding a failed import used to mean rolling back the app's
+		// shared context, which would also throw away any unrelated edit the user happened to have
+		// pending — and, symmetrically, a successful import would commit those unrelated edits as a
+		// side effect. A child context makes the import's own changes the only thing that can be
+		// discarded: on failure the child is simply abandoned, and the parent never saw it.
+		let importContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+		importContext.parent = context
+
+		// Objects whose `modifiedAt` suppression must be lifted once the save that consumes it is
+		// done. Leaving the flag set would freeze the timestamp of every imported finding FOR EVER:
+		// the managed object stays live, and every later edit would keep the archived value.
+		var suppressed: [Finding] = []
+		defer { for finding in suppressed { finding.preservesModifiedAt = false } }
+
+		for row in contents.rows {
+			let existing = Finding.select(row.id, in: importContext)
+			if existing != nil, duplicates == .skip {
+				summary.skipped += 1
+				continue
+			}
+
+			var backup: (filename: String, backup: URL?)?
+			var filename: String?
+			do {
+				if let image = contents.images[row.id] {
+					let ext = row.screenshotExtension ?? "jpg"
+					if let previous = existing?.screenshotFilename,
+						let previousURL = FindingScreenshotStore.url(forFilename: previous) {
+						backup = (previous, try linkedBackup(of: previousURL, named: previous, in: backupDirectory))
+					}
+					let written = try write(image, for: row.id, pathExtension: ext)
+					filename = written
+					writtenFilenames.append(written)
+					if let backup { replacedImages.append(backup) }
+				} else {
+					// No image in the archive: keep whatever the device already has for a replaced
+					// finding, and give a new one the canonical name with no file behind it — a row
+					// whose picture is missing is an already-supported state.
+					filename = existing?.screenshotFilename ?? Finding.screenshotFilename(for: row.id)
+				}
+
+				let finding = existing ?? Finding.create(in: importContext)
+				suppressed.append(finding)
+				try apply(row, to: finding, screenshotFilename: filename)
+				if existing == nil { createdIds.append(row.id) } else { replacedIds.append(row.id) }
+				summary.restored += 1
+			} catch {
+				LoggingPolicy.warning(
+					"Skipped a finding during import: \(error.localizedDescription)",
+					logger: .storage
+				)
+				restore(backup)
+				if let existing {
+					// Never delete a finding the user already had because an archived copy was bad.
+					importContext.refresh(existing, mergeChanges: false)
+				} else if let pending = Finding.select(row.id, in: importContext) {
+					importContext.delete(pending)
+				}
+				if let filename, backup == nil, existing == nil {
+					FindingScreenshotStore.delete(filename: filename)
+					writtenFilenames.removeAll { $0 == filename }
+				}
+				summary.count(error)
+			}
+		}
+
+		var reachedParent = false
+		do {
+			// Child first (validates and pushes into the parent), then the parent to the store.
+			try importContext.save()
+			reachedParent = true
+			try preservingTimestamps(of: createdIds + replacedIds) { try Finding.save(in: context) }
+		} catch {
+			// Undo this import's own rows in the parent, by id, and nothing else -- the parent's
+			// unrelated pending edits are deliberately left alone. Only when the child save
+			// actually pushed them: if it was the one that threw, the parent never saw them, and
+			// refreshing a pre-existing finding here would discard edits that are not ours.
+			if reachedParent { undoInParent(created: createdIds, replaced: replacedIds) }
+			importContext.reset()
+			for filename in writtenFilenames {
+				FindingScreenshotStore.delete(filename: filename)
+			}
+			for backup in replacedImages {
+				restore(backup)
+			}
+			LoggingPolicy.error("Finding import failed to commit", error: error, logger: .storage)
+			throw error
+		}
+
+		didChangeFindings?()
+		return summary
+	}
+
+	/// Runs `work` with `preservesModifiedAt` set on the PARENT's instances of the given rows.
+	///
+	/// The flag was set on the child's instances; the parent holds its own instances of the same
+	/// rows, with the flag false. Its `willSave()` would then restamp "now" over an archived
+	/// timestamp whenever the assignment did not reach `changedValues()` — a replace whose stored
+	/// value already equals the archived one — handing the restored copy a false win over the edit
+	/// it was meant to lose to.
+	private func preservingTimestamps<T>(of ids: [UUID], _ work: () throws -> T) rethrows -> T {
+		let rows = ids.compactMap { Finding.select($0, in: context) }
+		for row in rows { row.preservesModifiedAt = true }
+		defer { for row in rows { row.preservesModifiedAt = false } }
+		return try work()
+	}
+
+	/// Takes one import's rows back out of the parent context, by id and nothing else.
+	///
+	/// `importContext.reset()` abandons the child, but by then the child's save has pushed every row
+	/// into the parent, where they sit pending until some unrelated save writes them -- as findings
+	/// the user was told had failed to import, whose images this method's caller has already
+	/// deleted. The parent's own unrelated pending edits are deliberately left alone.
+	private func undoInParent(created: [UUID], replaced: [UUID]) {
+		for id in created {
+			if let row = Finding.select(id, in: context) { context.delete(row) }
+		}
+		for id in replaced {
+			if let row = Finding.select(id, in: context) { context.refresh(row, mergeChanges: false) }
+		}
+	}
+
+	/// How many of an archive's findings this device already stores.
+	///
+	/// Lets the caller ask the skip-or-replace question ONCE, with a real number, instead of per
+	/// finding or not at all. Read-only: nothing here writes, so asking is always safe.
+	func duplicateCount(in contents: FindingArchiveContents) -> Int {
+		contents.rows.count { Finding.select($0.id, in: context) != nil }
+	}
+
+	/// Writes one decoded row onto a finding and walks it through the lifecycle state machine.
+	///
+	/// The lifecycle goes through `transition(to:)` rather than assigning `lifeCycleString`:
+	/// `.empty → .ready` is not an allowed transition, and setting the raw string would force past
+	/// the guard exactly as a corrupt write does.
+	private func apply(_ row: ImportedFindingRow, to finding: Finding, screenshotFilename: String?) throws {
+		finding.entityId = row.id
+		finding.title = row.title.trimmingCharacters(in: .whitespacesAndNewlines)
+		finding.label_ = row.label
+		finding.note_ = row.note
+		finding.author = row.author
+		finding.gps_ = row.gps
+		finding.page = row.page
+		finding.detectionClass = row.detectionClass
+		finding.detectionConfidence = row.confidence
+		finding.modelId = row.modelId
+		finding.creationDate_ = row.creationDate ?? .now
+		finding.boxX = row.box.x
+		finding.boxY = row.box.y
+		finding.boxWidth = row.box.width
+		finding.boxHeight = row.box.height
+		// Nil means the archive did not STATE a capture box, not that there is none, so the local
+		// value stands (AIA-0761) — the same nil-means-fallback rule `modifiedAt` and `lifeCycle`
+		// use just below. This matters because cloud sync replace-imports automatically: writing
+		// zeroes on nil would let a single un-updated peer strip the capture box off every device,
+		// permanently, with nobody touching anything.
+		if let captureBox = row.captureBox {
+			finding.captureBoxX = captureBox.x
+			finding.captureBoxY = captureBox.y
+			finding.captureBoxWidth = captureBox.width
+			finding.captureBoxHeight = captureBox.height
+		}
+		finding.screenshotFilename = screenshotFilename
+
+		// Nil means the archive did not STATE a provenance, not that the finding is local, so the
+		// existing value stands -- the same rule `captureBox` uses just above, and for a sharper
+		// reason (AIA-0835).
+		//
+		// Cloud sync replace-imports automatically (`duplicates: .replace`). Assigning nil here
+		// would let one peer that does not know the field relabel every received finding as the
+		// user's own work, on every device -- turning content a stranger sent into something
+		// presented as theirs and editable. That is a provenance failure, not a cosmetic one.
+		if let source = row.source { finding.source_ = source }
+		if let receivedAt = row.receivedAt { finding.receivedAt = receivedAt }
+
+		// The archived timestamp is authoritative: stamping "now" would make a restored copy win
+		// last-write-wins against a newer edit elsewhere. v0 archives carry none, so fall back the
+		// way the attribute documents.
+		finding.preservesModifiedAt = true
+		finding.modifiedAt = row.modifiedAt ?? row.creationDate ?? .now
+
+		// Walk to `.draft` first, validate there, then step to the archived state.
+		//
+		// `transition(to:)` silently keeps the current state when a hop is not allowed, so applying
+		// the archived lifecycle directly would leave a replaced `.ready` finding `.ready` even
+		// though the archive says `.draft` — a wrong answer that looks like success. Every state can
+		// reach `.draft`, and `.draft` can reach every state, so this is one deterministic route
+		// rather than a per-pair table.
+		let target = row.lifeCycle.flatMap(CoreDataManageableState.init(rawValue:)) ?? .ready
+		Self.descendToDraft(finding)
+		do {
+			try finding.throwIfInvalid()
+		} catch {
+			// Typed rather than passed through, so a caller can tell "this row is wrong" from "this
+			// device could not write it". Sniffing the NSError domain would be the alternative, and
+			// a renamed domain would silently turn one into the other.
+			LoggingPolicy.warning("An imported finding failed validation: \(error.localizedDescription)", logger: .storage)
+			throw ImportRejection.invalidContent
+		}
+		if target != .draft {
+			finding.transition(to: target)
+		}
+	}
+
+	/// Moves a finding to `.draft` from wherever it is, using only permitted transitions.
+	private static func descendToDraft(_ finding: Finding) {
+		if finding.lifeCycle == .ready { finding.transition(to: .deprecated) }
+		if finding.lifeCycle == .deprecated { finding.transition(to: .empty) }
+		if finding.lifeCycle != .draft { finding.transition(to: .draft) }
+	}
+
+	/// Writes one imported image into the findings store, from wherever it is.
+	///
+	/// The `.file` case never loads the picture: an archive import stages every validated image on
+	/// disk exactly so the set is never resident, and reading each one back to hand it to
+	/// `save(_ data:)` would put the peak straight back (AIA-0755).
+	private func write(_ image: ImportedImage, for id: UUID, pathExtension: String) throws -> String {
+		switch image {
+		case let .data(data):
+			return try FindingScreenshotStore.save(data, for: id, pathExtension: pathExtension)
+		case let .file(url):
+			return try FindingScreenshotStore.save(copyingFrom: url, for: id, pathExtension: pathExtension)
+		}
+	}
+
+	/// Backs up the image about to be replaced, by HARD LINK rather than by copying its bytes.
+	///
+	/// The original stays exactly where it is, so nothing is at risk in the window before the
+	/// import commits — a move would leave the row pointing at a file that is no longer there if
+	/// the app died in between, and for the `.png` → `.jpg` case a 1.0.7-upgraded store actually
+	/// produces, the moved file would be the only copy. The link works because every writer into
+	/// this directory replaces by rename (`save(_ data:)` writes `.atomic`,
+	/// `save(copyingFrom:)` swaps a sibling in), so the new bytes land on a new inode and the link
+	/// keeps the old ones.
+	///
+	/// Nil means there is nothing to put back — the file was already gone — which `restore` reads
+	/// as "delete whatever is at that name", exactly as the byte-copy version did.
+	///
+	/// **A backup that could not be MADE throws instead of returning nil, and the difference
+	/// matters.** Conflating the two lets a full disk destroy the picture it was protecting: the
+	/// backup fails, the replacement write then fails too and leaves the original untouched, and a
+	/// `restore` that read nil as "there was nothing here" would delete it. Throwing costs the row
+	/// — counted as failed, like any other — and costs the user nothing.
+	private func linkedBackup(of source: URL, named filename: String, in directory: URL) throws -> URL? {
+		guard FileManager.default.fileExists(atPath: source.path) else { return nil }
+		do {
+			try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+			let destination = directory.appendingPathComponent(filename)
+			try? FileManager.default.removeItem(at: destination)
+			do {
+				try FileManager.default.linkItem(at: source, to: destination)
+			} catch {
+				// A hard link is refused across volumes and on filesystems that have no links.
+				// Copying is slower and costs the bytes, but it is still a correct backup.
+				try FileManager.default.copyItem(at: source, to: destination)
+			}
+			return destination
+		} catch {
+			LoggingPolicy.warning("Could not back up a finding image before replacing it", logger: .storage)
+			throw error
+		}
+	}
+
+	/// Puts a replaced image back.
+	///
+	/// **Idempotent, and that is required rather than tidy.** A row that fails after its image was
+	/// written restores here immediately, and the same backup is restored a second time if the
+	/// commit later fails — because that path deletes every written file first and then restores.
+	/// The backup is therefore linked back rather than moved back, so it survives its own use; the
+	/// caller's `defer` removes the backup directory once the import is over.
+	private func restore(_ backup: (filename: String, backup: URL?)?) {
+		guard let backup else { return }
+		guard let source = backup.backup else {
+			FindingScreenshotStore.delete(filename: backup.filename)
+			return
+		}
+		guard let url = FindingScreenshotStore.url(forFilename: backup.filename) else { return }
+		do {
+			// Staged beside the destination and swapped in, never remove-then-link: if the link AND
+			// the copy both failed after the removal, the rollback would have destroyed the one
+			// image it existed to bring back.
+			let staged = url.deletingLastPathComponent()
+				.appendingPathComponent("\(UUID().uuidString).\(url.pathExtension)")
+			do {
+				try FileManager.default.linkItem(at: source, to: staged)
+			} catch {
+				try FileManager.default.copyItem(at: source, to: staged)
+			}
+			do {
+				if FileManager.default.fileExists(atPath: url.path) {
+					_ = try FileManager.default.replaceItemAt(url, withItemAt: staged)
+				} else {
+					try FileManager.default.moveItem(at: staged, to: url)
+				}
+			} catch {
+				try? FileManager.default.removeItem(at: staged)
+				throw error
+			}
+		} catch {
+			// Last resort, and the one place a backup's bytes are ever read: the link and the copy
+			// both failed, and `replaceItemAt` does not promise to leave the destination as it was.
+			// Writing the bytes back costs one image of memory, bounded, and is exactly what the
+			// pre-link version of this method did every time. Without it the caller's `defer`
+			// removes the backup next, and the picture is gone for good.
+			do {
+				try Data(contentsOf: source).write(to: url, options: .atomic)
+			} catch {
+				LoggingPolicy.warning("Could not restore a replaced finding image", logger: .storage)
+			}
+		}
 	}
 
 	/// Removes every finding (AIA-0303, Settings → Reset → Remove Findings). Batch-deletes all
 	/// `Finding` rows on a background context, merging the deletion into the live `viewContext` so
 	/// an open `@FetchRequest` refreshes and no zombie rows can resurrect on a later save; then, and
-	/// only if the row delete succeeded, sweeps the now-orphaned screenshot PNGs.
+	/// only if the row delete succeeded, sweeps the now-orphaned screenshot files.
 	///
 	/// Mirrors `DemoDataManager.deleteBrowsingHistory()` but PROPAGATES the delete error instead of
 	/// swallowing it, so the caller can surface it. The sweep is skipped when the delete throws (we
@@ -108,6 +736,11 @@ final class FindingRepository {
 	/// background context's merge policy never actually fires.
 	func removeAllFindings() async throws {
 		LoggingPolicy.info("Removing all findings", logger: .storage)
+		// Tombstones first, and for every finding: this action promises permanent deletion, and
+		// without them the local rows would go while every cloud copy stayed, ready to come back on
+		// the next sync. Recorded before the batch delete for the same reason a single delete is:
+		// a crash in between must complete the deletion, not lose it.
+		try willDeleteAllFindings?(Finding.selectAll(in: context).map(\.entityId))
 		let viewContext = context
 		try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
 			// The viewContext reference is only handed to mergeChanges(fromRemoteContextSave:into:),
@@ -127,6 +760,40 @@ final class FindingRepository {
 		FindingScreenshotStore.sweepOrphans(in: viewContext)
 	}
 
+	/// Deletes one finding at the user's request.
+	///
+	/// Lives here rather than in the list view because a delete now has to reach the cloud: the
+	/// tombstone is recorded through ``willDeleteFinding`` **before** the delete commits, so a
+	/// crash in between completes the delete on the next sync. The other order would lose it, and a
+	/// finding the user deleted would come back from another device -- for this app that means site
+	/// coordinates reappearing after someone chose to remove them.
+	///
+	/// Entity first (committed), then a best-effort file delete: a leftover file is exactly the
+	/// direction the orphan sweep self-heals. The filename is captured before deletion, because
+	/// Core Data nullifies attributes on delete.
+	func delete(_ finding: Finding) throws {
+		let entityId = finding.entityId
+		let filename = finding.screenshotFilename
+		try willDeleteFinding?(entityId)
+		context.delete(finding)
+		try Finding.save(in: context)
+		FindingScreenshotStore.delete(filename: filename)
+		didChangeFindings?()
+	}
+
+	/// Applies a delete that came FROM the cloud.
+	///
+	/// Deliberately does not call ``willDeleteFinding``: this device is being told about a delete,
+	/// not making one, and echoing it back as a fresh tombstone would restamp it with a newer
+	/// timestamp and let it win a conflict it had already lost.
+	func deleteReceivedFromCloud(_ entityId: UUID) throws {
+		guard let finding = Finding.select(entityId, in: context) else { return }
+		let filename = finding.screenshotFilename
+		context.delete(finding)
+		try Finding.save(in: context)
+		FindingScreenshotStore.delete(filename: filename)
+	}
+
 	/// Snapshots every stored finding for the export-before-delete flow (AIA-0303). Unlike
 	/// `FindingsListView`'s `.ready`-only, filtered export, this includes ALL lifecycles: the delete
 	/// that follows removes every row regardless of lifecycle, so the export must cover them too.
@@ -138,6 +805,33 @@ final class FindingRepository {
 	/// an empty archive (AIA-0303).
 	func hasAnyFinding() -> Bool {
 		Finding.count(in: context, predicate: nil) > 0
+	}
+
+	/// What this device already stores for `entityId`, or `nil` when it stores no such finding.
+	///
+	/// The title is read back from the **store** rather than taken from the link, so the one piece
+	/// of text the shared-finding screen renders from a match is the verified local copy and not the
+	/// attacker-controllable one in the URL fragment (AIA-0650).
+	///
+	/// ## Why the source travels with it
+	/// A matching id used to mean exactly one thing — "this is the recipient's own work, most often
+	/// the sender opening their own link" — so a title was the whole answer. Since AIA-0835 a link
+	/// also *creates* a row, so a match now means either the user's own finding **or** one they were
+	/// sent earlier. Answering with the title alone would make the screen greet a stranger's finding
+	/// with "this is yours" on the second open.
+	///
+	/// This is a read. The write lives in ``saveReceived(_:)``; the older claim that "a shared link
+	/// never creates a `Finding`" stopped being true in AIA-0835 and is deliberately not repeated
+	/// here.
+	func storedFinding(_ entityId: UUID) -> StoredFindingSummary? {
+		guard let finding = Finding.select(entityId, in: context) else { return nil }
+		return StoredFindingSummary(title: finding.displayTitle, source: finding.source)
+	}
+
+	/// The verified facts about a stored finding that a shared link is allowed to render.
+	struct StoredFindingSummary: Equatable {
+		let title: String
+		let source: FindingSource
 	}
 
 	/// Trim, then treat an all-whitespace field as absent (nil) — matches the former view helper.

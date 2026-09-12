@@ -230,6 +230,11 @@ final class NativeModelGraphPackageTests: XCTestCase {
 			userDefined["com.aiarcheology.native.converter.conversion-revision"],
 			String(NativeModelConverterVersion.conversionRevision)
 		)
+		// A package conversion runs no numeric check, so it must claim no more than a structural match.
+		XCTAssertEqual(
+			userDefined[NativeModelParityProvenance.userDefinedKey],
+			try NativeModelParityProvenance(evidence: .structurallyMatched).canonicalJSON()
+		)
 		XCTAssertEqual(userDefined["com.aiarcheology.native.conversion.producer.name"], "tests")
 		XCTAssertEqual(userDefined["com.aiarcheology.native.conversion.producer.version"], "1.0.0")
 		XCTAssertEqual(userDefined["com.aiarcheology.native.conversion.source-metadata-sha256"], checksum(of: metadata))
@@ -401,6 +406,22 @@ final class NativeModelGraphPackageTests: XCTestCase {
 		XCTAssertEqual(
 			userDefined["com.aiarcheology.native.conversion.original-model-url"],
 			"https://models.example.invalid/mobilenetv2.onnx"
+		)
+	}
+
+	func testConvert_withoutProgressHandler_stillRecordsProcessMemory() async throws {
+		let packageURL = try makePackage(graph: makeReLUGraph(), weights: Data())
+		defer { try? FileManager.default.removeItem(at: packageURL) }
+		let modelURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
+		defer { try? FileManager.default.removeItem(at: modelURL) }
+
+		let metrics = try await NativeModelConverter().convert(from: packageURL, to: modelURL)
+
+		let processMemoryUsage = try XCTUnwrap(metrics.processMemoryUsage)
+		XCTAssertGreaterThan(processMemoryUsage.baselineProcessFootprintByteCount, 0)
+		XCTAssertGreaterThanOrEqual(
+			processMemoryUsage.peakObservedProcessFootprintByteCount,
+			processMemoryUsage.baselineProcessFootprintByteCount
 		)
 	}
 

@@ -186,10 +186,38 @@ final class LocalizationCatalogTests: XCTestCase {
     /// the gain ever being locked in. 418 records both that gain and AIA-0455's net −5 (six refund
     /// keys plus two replaced keys removed, three fully-translated keys added).
     private static let coverageBaseline = [
-        "ar": 418, "bn": 418, "cs": 418, "de": 418,
-        "es": 418, "fa": 418, "fr": 418, "he": 418,
-        "hi": 418, "hu": 418, "pl": 418, "ru": 418,
-        "uk": 418, "zh-HK": 418, "zh-Hans": 418, "zh-Hant": 418
+        // Unchanged at 418 through AIA-0643. Three support-log strings were replaced rather than
+        // reworded, because sealing the export changed what they promise — `support.privacyNote`
+        // said the user "will see the whole email", which the encrypted attachment no longer
+        // honours, and editing the English in place would have left 16 locales fluently promising
+        // the old thing with no gate able to see it (AIA-0455). The replacements were translated
+        // into all 16 locales in the same change, so three keys left and three arrived and the
+        // floor never moved.
+        //
+        // 447 at AIA-0654, read from this test's own failure output against a sentinel baseline —
+        // never from arithmetic, per the rule above. Only 2 of the 29 points are this ticket's
+        // (`import.unsupportedCheckpoint` and `import.unsupportedArchive`, translated into all 16
+        // locales alongside the `download.urlHintFormats` replacement, which is net zero). The other
+        // 27 were already on `develop`, unlocked: exactly the hazard this comment describes, where a
+        // fully-translated key is added and the gain is never recorded. The floor is a single number
+        // per locale, so locking this ticket's 2 necessarily locks the 27 with them.
+        //
+        // 451 at AIA-0666, read the same way — the sentinel run reported `451 localized key(s)` for
+        // every one of the 16 locales. All four points are this ticket's: the rejection for a
+        // downloaded PyTorch checkpoint stopped being one generic sentence and became four that name
+        // what the file describes itself as (`import.checkpointDetector`,
+        // `…DetectorUnlabelled`, `…Segmentation`, `…Unrecognized`), each translated into all 16
+        // locales in the same change. Nothing was pruned, so the step is exactly the four new keys.
+        // Unchanged at 451 through AIA-0757. That ticket replaced `models.empty.message` with
+        // `models.empty.messageAddModel` rather than rewording it — the drawer's empty state was
+        // telling users to tap a `+` button the ticket removed, and editing the English in place
+        // would have left 16 locales fluently promising the old thing (AIA-0455). The replacement
+        // was translated into all 16 locales in the same change, so one key left and one arrived
+        // and the floor never moved.
+        "ar": 451, "bn": 451, "cs": 451, "de": 451,
+        "es": 451, "fa": 451, "fr": 451, "he": 451,
+        "hi": 451, "hu": 451, "pl": 451, "ru": 451,
+        "uk": 451, "zh-HK": 451, "zh-Hans": 451, "zh-Hant": 451
     ]
 
     /// `%@`, `%lld`, `%1$@`, `%.2f`, `%%`. The length modifier is captured because `%d` and `%lld`
@@ -273,9 +301,14 @@ final class LocalizationCatalogTests: XCTestCase {
     /// though its value is a protected product name.
     private static let infoPlistSourceValues = [
         "NSLocalNetworkUsageDescription": "Your permission is needed to connect with devices on your local network. This allows the app to automatically detect and interact with compatible devices for streamlined data sharing and enhanced functionality.",
+        // AIA-0867: iOS terminates the app if this is missing when the share sheet's Save Image
+        // writes to Photos. Kept here in full so the guard fails on a value that drifts from the
+        // INFOPLIST_KEY_ setting, not merely on a key that disappears.
+        "NSPhotoLibraryAddUsageDescription": "Saving a finding's picture to your photo library needs your permission. It is used only when you pick Save Image while sharing a finding; nothing is written to Photos otherwise.",
         "CFBundleName": "ML Browser",
         "AI Archeology native model graph": "AI Archeology native model graph",
-        "ONNX model": "ONNX model"
+        "ONNX model": "ONNX model",
+        "Compiled Core ML model": "Compiled Core ML model"
     ]
 
     /// Info.plist strings are not generated into `L10n.swift`, so guard their source catalog

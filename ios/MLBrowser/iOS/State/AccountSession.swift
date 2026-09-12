@@ -23,7 +23,13 @@ final class AccountSession {
 	private let isPaymentsEnabled: Bool
 
 	// MARK: - Owned account feature state (lazy → forced on first access, exactly as before).
-	lazy var authState = AuthState(provider: self.authProvider)
+	// The **only** place the real connectivity monitor is built (AIA-0757). Constructing it here
+	// rather than defaulting it inside `AuthState` is what keeps live network monitoring out of the
+	// unit suite, which builds `AuthState(provider:)` many times over.
+	lazy var authState = AuthState(
+		provider: self.authProvider,
+		connectivity: NWPathConnectivityMonitor()
+	)
 	lazy var subscriptionState = SubscriptionState(
 		provider: self.subscriptionProvider,
 		isPaymentsEnabled: self.isPaymentsEnabled

@@ -1,15 +1,60 @@
-Build: TBD
+Build: Importing a large model no longer kills the app
 
-Test Focus 1: What the model-import sheet promises.
+Test Focus: Converting a big model (the ~500 MB detector checkpoints) could make the app vanish
+with no message, sometimes leaving only a "could not be loaded, validated, or registered" note.
+The conversion itself was never the problem - it finished every time. The app died afterwards,
+loading the finished model. This build raises the memory the app is allowed to use, and where that
+is still not enough it now says so instead of disappearing.
 
-It used to say you could import "an object-detection or image-classification model in ONNX format". ONNX is a container, not a model type — the app converts image classifiers and YOLO-family detectors, and nothing else. Someone with an SSD or RetinaFace export would have been told it was supported, imported it, and hit a failure.
+- Import a large model and watch it through to the end. Menu > Models > Import, pick a .tar
+  detector checkpoint. Conversion runs to 100%, and then EITHER the model imports and appears in
+  the list, OR you get a clear message saying there was not enough memory. Both are correct. The
+  app disappearing, or dropping back to the browser with no explanation, is the bug and should no
+  longer happen.
 
-1. Open the model list, tap + to import a model, and read the "Supported Models" paragraph. It should now say image classifiers and YOLO-family detectors are supported — not object detection in general.
+- The message matters. If you get the memory message, please copy the numbers it shows (it names
+  roughly how much was needed and how much was free) and send the conversion log with it: Models >
+  the failed import > the log icon > Share. That log now records the memory readings, and it is
+  what tells us the limit is set correctly.
 
-2. Check it in your own language too. All 17 languages were rewritten; the terms Core ML, ONNX, YOLO, .mlmodel, .mlpackage and .onnx must appear untranslated.
+- iPad 8th generation (3 GB memory) is the device to try first - a ~190 MB converted model does
+  not fit there and SHOULD produce the memory message. iPad Air M3/M4 and recent iPhones have more
+  room and may well import the same file successfully. Both outcomes are worth reporting, with the
+  device named.
 
-3. Import something that should work — a Core ML model, or a YOLO-family ONNX detector — and confirm the import path itself is unchanged.
+- MOST IMPORTANT: if a model that imported FINE on your device before now says there is not enough
+  memory, that is a bug in this build, not a real limit. Please report it with the device, the
+  numbers in the message, and the log. The threshold is set deliberately cautiously, and this is
+  the one way we find out it is set too high.
 
-4. If you have a non-YOLO ONNX detector to hand, import it. It should fail, and the failure should name the operation it could not convert rather than failing vaguely. Tell us the wording if it is unhelpful.
+- Please retry a failed import once. It should behave the same way twice, and the app should stay
+  responsive after a refusal - no freeze, no stuck progress bar.
 
-Please report your device model, iOS version and the language you tested in.
+- Check normal imports did not regress: a small .mlmodel or .mlpackage should import exactly as
+  before, with no memory message.
+
+- Check the app still starts normally and your existing models are all still listed after this
+  update, including the two built-in detectors. Please say if anything is missing from the list.
+
+ALSO IN THIS BUILD: Delete Account is easier to find
+
+- Settings > Account > Manage account. A Delete Account row now sits directly under Sign out, and
+  opens a screen explaining what deletion removes. Check Cancel leaves the account untouched. Only
+  confirm on a throwaway account: it is permanent and erases your cloud back-up.
+
+STILL WORTH RETESTING FROM THE PREVIOUS BUILD
+
+- Pages that reload themselves: on a heavy GIS site (umweltdaten.hessen.de, zbgis.skgeodesy.sk,
+  ags.cuzk.cz), start detection and leave it 15-20 minutes. The first reload should pause detection
+  and resume it; a second reload within ten minutes should stop detection until you press the
+  button again. Please report how often you restart detection.
+
+- Storing a finding: tapping Find twice should end aiming with nothing saved. Cancel is a red pill
+  and must end aiming the same way. Crosshair contrast on a dark satellite view, a bright white map
+  and a busy aerial photo - red vs green must stay obvious.
+
+- The page address saved with a finding: the note under the Page field should read clearly at the
+  largest text sizes (Settings > Accessibility > Display & Text Size > Larger Text).
+
+- KNOWN GAP: on atlas.bayern.de, reopening the app straight onto the page and saving a finding
+  without panning first may still store the wrong address. Please report whether that reproduces.

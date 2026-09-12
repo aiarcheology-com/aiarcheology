@@ -52,6 +52,40 @@ public struct LoadRequest: Equatable, Sendable {
 	}
 }
 
+/// The last thing that happened to the web content, for a detection run that has to answer it
+/// (AIA-0879).
+///
+/// ## Why one event and not two publishers
+/// Termination and settlement were separate `@Published` values, and that was a bug. `@Published`
+/// replays its current value to every new subscriber, `WebScreen` resubscribes whenever SwiftUI
+/// remounts it, and two publishers replay **independently**: a termination that happened while the
+/// screen was unmounted and the recovery that settled afterwards would both arrive, in whichever
+/// order the view's modifiers were applied. With settlement first, its generation was consumed
+/// while nothing was interrupted, and the termination that followed then interrupted the run with
+/// no settlement left to clear it — stuck until some later navigation (raised in review).
+///
+/// One value replays once, and it is the LATEST one, which is the only one a remounting observer
+/// needs: if the page came back, the termination before it is history. Making the order of two
+/// `.onReceive` modifiers load-bearing would have been the fragile way to fix the same thing.
+struct WebContentEvent: Equatable {
+	enum Kind: Equatable {
+		/// Nothing has happened yet. The value a fresh `BrowserState` carries.
+		case none
+		/// The web content process died. `host` is the site it died on, `nil` when unattributable.
+		case processTerminated(host: String?)
+		/// A document finished loading and is on screen.
+		case loaded
+		/// The load stopped without putting one on screen, and nothing superseded it. Pressing Stop
+		/// is the case this exists for, but it also covers an unrenderable scheme or a response that
+		/// became a download — every way a navigation can end with the previous page still showing.
+		case stopped
+	}
+
+	/// Starts at zero and only ever increases. Zero means nothing has happened.
+	var sequence: UInt64 = 0
+	var kind: Kind = .none
+}
+
 /// A request to rebuild the `WKWebView` (AIA-0509 recovery rung 2). Identity-bearing so a view can
 /// tell a new request from a repeat of one it already served.
 struct WebViewRebuildRequest: Equatable {
@@ -117,6 +151,102 @@ final class BrowserState: ObservableObject {
 	/// Last mirrored URL that is actually reopenable. Recovery targets this rather than
 	/// `currentURL`, which KVO drives to `nil` when the content process dies.
 	private(set) var lastRestorableURL: URL?
+
+	// MARK: - AIA-0817 capture URL
+
+	/// The URL of the document actually rendered on screen.
+	///
+	/// Neither existing URL is right for recording *what the user was looking at*.
+	/// `displayedURL` is throttled and, during a user-initiated load, deliberately shows the
+	/// **requested** address while the old page is still on screen. `currentURL` is raw KVO, which
+	/// WebKit may already have moved to a provisional URL before that document exists.
+	///
+	/// So this tracks commits instead: set when a navigation commits, and advanced by the KVO
+	/// stream only while no provisional navigation is in flight. That second half is what makes it
+	/// follow a map pan — `pushState`/`replaceState` fire KVO and never commit, and there is no
+	/// public same-document delegate callback to use instead (`WKNavigationDelegate` has none; the
+	/// only such method is private SPI).
+	///
+	/// Accepted residual: a provisional load that neither commits nor fails leaves this frozen at
+	/// the last committed page. That is the safe direction — stale, never a different page's URL.
+	private(set) var committedURL: URL?
+
+	/// Whether a provisional navigation is in flight, and which one.
+	///
+	/// Tracked by identity rather than as a bare flag because the settle callbacks are keyed on
+	/// navigation identity; a plain boolean cleared by any callback could be cleared by a
+	/// superseded load and let a provisional URL be recorded as committed.
+	private var provisionalNavigation: WKNavigation?
+	private var isProvisionalNavigationInFlight = false
+
+	/// Brings the capture URL back in line with what the web view is showing.
+	///
+	/// Called when loading ends. A navigation that is stopped rather than completed may deliver no
+	/// settle callback at all, which would otherwise leave the in-flight marker set and freeze the
+	/// capture URL for the rest of the session — every later map pan silently unrecorded.
+	private func resyncCommittedURL() {
+		provisionalNavigation = nil
+		isProvisionalNavigationInFlight = false
+		if let url = webView?.url { committedURL = url }
+	}
+
+	/// Whether this document has been seen updating its own URL.
+	///
+	/// A map app that keeps its viewport in the fragment rewrites it as you pan. One that never
+	/// touches it is not using it as state — and almost certainly does not read it on load either,
+	/// so writing a viewport there produces a link that looks specific and opens on the default
+	/// view. Measured on demotiles.maplibre.org, which ignores its hash in both directions.
+	private(set) var hasObservedSameDocumentURLChange = false
+
+	/// What a finding should record as its page.
+	///
+	/// Falls back to `currentURL` when nothing has been observed to commit yet — attaching to an
+	/// already-loaded web view produces no commit callback, and a page is still on screen.
+	var captureURL: URL? { committedURL ?? currentURL }
+
+	/// Everything resolvable about the page right now: its URL always, and a coordinate when the
+	/// live map or the URL can supply one.
+	///
+	/// Lives here because both inputs already do — the capture URL and the live `WKWebView`. Any
+	/// other home would have to be handed the web view a second time.
+	///
+	/// The URL is read **before** awaiting the probe, so the recorded page is the one the user was
+	/// on when they tapped rather than wherever the app drifted to while the page was being asked.
+	func resolveCaptureLocation() async -> MapPageLocation {
+		let url = captureURL
+		// AIA-0821: the same arbiter that decides whether the script is injected decides whether the
+		// page is questioned. A switch that stopped the injection but still ran JavaScript in the
+		// user's document at capture time would only look like a kill switch.
+		let resolved = await MapLocationResolver.resolve(
+			url: url,
+			webView: webView,
+			frames: mapFrames.childFrames,
+			pageMaintainsItsURL: hasObservedSameDocumentURLChange,
+			mayProbe: { [mapParserArming] page in mapParserArming.isArmed(for: page) }
+		)
+		// The probe can take seconds, and the page can move during them — a redirect, a tapped
+		// link, a pushState. What comes back then describes the document that is on screen NOW,
+		// while the finding is being recorded against the one the user tapped on. Pairing them
+		// would produce the most confident possible wrong answer: a precise coordinate under an
+		// unrelated address (raised in review).
+		//
+		// The URL is kept and the coordinate dropped, rather than the whole result discarded,
+		// because the URL is this feature's floor — it was read before the probe started and is
+		// still the page the capture belongs to.
+		guard captureURL == url else {
+			return MapPageLocation(sourceURL: url)
+		}
+		return resolved
+	}
+
+	/// Frames that announced a map, so an iframed map can be probed (AIA-0817).
+	let mapFrames = MapFrameRegistry()
+
+	/// Whether the map-location parser may touch a page (AIA-0821).
+	///
+	/// Lives here for the same reason `mapFrames` does: the web view and the settings it answers to
+	/// are both already owned by this object, and a second home would have to be handed them again.
+	private(set) lazy var mapParserArming = MapParserArming(settings: settings)
 	/// Whether the attached web view currently renders a committed document (AIA-0552). Set on
 	/// commit; cleared when the instance is invalidated or replaced — and cleared at
 	/// `navigationFailed`'s publish point, because a page the overlay has declared broken no
@@ -143,6 +273,18 @@ final class BrowserState: ObservableObject {
 	/// Set when the browser wants a rebuild; `WebScreen` observes it and bumps the web view's
 	/// SwiftUI identity.
 	@Published private(set) var rebuildRequest: WebViewRebuildRequest?
+	/// The latest thing to happen to the web content, for observers that must answer it (AIA-0879).
+	///
+	/// Sequence-stamped and never cleared. Consumers ignore a redelivery by SEQUENCE, not by
+	/// dropping the first value they see: `.dropFirst()` looks like the fix and is not, because it
+	/// also discards an event published while the observer was unmounted, and it cannot help when an
+	/// outgoing and an incoming subscription both receive the same live change during a view
+	/// transition. `DetectionSessionState` records the highest sequence it has answered.
+	///
+	/// Published from the guarded navigation callbacks rather than read off the raw delegate, so a
+	/// late callback from an outgoing web view or a superseded navigation cannot settle a recovery
+	/// that is still running.
+	@Published private(set) var webContentEvent = WebContentEvent()
 
 	/// - Parameter activeNotification: the "app became active" notification to retry on. Injected
 	///   as a name rather than read from `UIApplication` so this file stays free of UIKit — a
@@ -165,6 +307,12 @@ final class BrowserState: ObservableObject {
 	/// Idempotent: cancels any prior web view's mirrors first, so a `makeUIView` re-run
 	/// is safe and the old web view stops publishing.
 	func attach(_ webView: WKWebView) {
+		// Per-instance: a new web view has not committed anything yet, and carrying the previous
+		// one's URL over would let a capture name a document this instance never showed.
+		committedURL = nil
+		hasObservedSameDocumentURLChange = false
+		provisionalNavigation = nil
+		isProvisionalNavigationInFlight = false
 		subscriptions.removeAll()
 		self.webView = webView
 		// Every attach hands over a freshly constructed, blank instance (`makeUIView` never
@@ -227,6 +375,12 @@ final class BrowserState: ObservableObject {
 			.receive(on: DispatchQueue.main)
 			.sink { [weak self] value in
 				self?.isLoading = value
+				// AIA-0817: the capture URL ignores KVO while the web view is loading, because
+				// `load(_:)` publishes the REQUESTED url before the navigation starts. That window
+				// also swallows a `replaceState` fired after the document commits but before it
+				// finishes — a map that pans while its tiles are still arriving. Resynchronising
+				// when loading ends recovers exactly that, and costs nothing otherwise.
+				if value == false { self?.resyncCommittedURL() }
 			}
 			.store(in: &subscriptions)
 	}
@@ -258,6 +412,20 @@ final class BrowserState: ObservableObject {
 	func reloadTapped() {
 		recoveryPolicy.userDidNavigate()
 		loadFailure = nil
+		webView?.reload()
+	}
+
+	/// Reloads because the map parser was disarmed for this site, not because anyone asked.
+	///
+	/// Deliberately NOT `reloadTapped`: that one calls `recoveryPolicy.userDidNavigate()`, which
+	/// replenishes the AIA-0509 recovery budget on the grounds that a person just expressed intent.
+	/// Nobody expressed anything here — the breaker fired — and spending a real user's recovery
+	/// allowance on an automatic reload would let a misbehaving site quietly exhaust the ladder that
+	/// exists to rescue them (AIA-0821).
+	///
+	/// `loadFailure` is left alone for the same reason: a failure the user can see is theirs to
+	/// dismiss, and this reload does not know whether it fixed anything.
+	func reloadAfterMapParserDisarmed() {
 		webView?.reload()
 	}
 
@@ -332,16 +500,41 @@ final class BrowserState: ObservableObject {
 	func navigationStarted(_ navigation: WKNavigation?, from webView: WKWebView? = nil) {
 		guard isCurrent(webView) else { return }
 		latestNavigation = navigation
+		// A different document is being fetched. Until it commits, KVO may report its URL while the
+		// previous page is still what the user can see, so `committedURL` must stop following it.
+		provisionalNavigation = navigation
+		isProvisionalNavigationInFlight = true
 		loadFailure = nil
 	}
 
 	/// A navigation committed: the page is live, so recovery is no longer in flight.
 	func navigationCommitted(_ navigation: WKNavigation?, from webView: WKWebView? = nil) {
 		guard isCurrent(webView), isLatest(navigation) else { return }
+		// The document is now the one on screen, so its URL is what a finding should record.
+		committedURL = (webView ?? self.webView)?.url ?? currentURL
+		// A new document has its own habits; what the previous one did says nothing about it.
+		hasObservedSameDocumentURLChange = false
+		// Every frame handle belonged to the page being replaced.
+		mapFrames.reset()
+		clearProvisionalNavigation(navigation)
 		recoveryStartedAt = nil
 		retryTarget = nil
 		loadFailure = nil
 		hasCommittedContent = true
+	}
+
+	/// A navigation finished with its document on screen.
+	///
+	/// Guarded exactly as the other navigation callbacks are: a `didFinish` from the web view being
+	/// replaced, or from a navigation a newer one superseded, must not be taken as "the recovery is
+	/// over" (AIA-0879).
+	func navigationFinished(_ navigation: WKNavigation?, from webView: WKWebView? = nil) {
+		guard isCurrent(webView), isLatest(navigation) else { return }
+		publishWebContentEvent(.loaded)
+	}
+
+	private func publishWebContentEvent(_ kind: WebContentEvent.Kind) {
+		webContentEvent = WebContentEvent(sequence: webContentEvent.sequence &+ 1, kind: kind)
 	}
 
 	/// A navigation failed. Publishes only reachability-class failures (see `WebLoadFailure`) and
@@ -357,8 +550,27 @@ final class BrowserState: ObservableObject {
 		from webView: WKWebView? = nil
 	) {
 		guard isCurrent(webView), isLatest(navigation) else { return }
+		// Cleared before every early return below. This method returns without publishing for an
+		// unclassified error and for a provisional failure over committed content, and leaving the
+		// in-flight marker set on those paths would freeze `committedURL` for the rest of the
+		// session -- no later map pan would ever be recorded.
+		clearProvisionalNavigation(navigation)
 		recoveryStartedAt = nil
-		guard var failure = WebLoadFailure.classify(error) else { return }
+		guard var failure = WebLoadFailure.classify(error) else {
+			// NOT necessarily a cancellation. `classify` is an allowlist of five reachability codes,
+			// so `nil` covers everything else too: a cancelled load, an unrenderable scheme
+			// (`mailto:`), a response turned into a download (`WebKitErrorDomain` 102). What they have
+			// in common is the only thing this publication claims — the navigation stopped without
+			// putting a document on screen (raised in review, where an earlier comment here asserted
+			// `NSURLErrorCancelled` semantics the code does not check for).
+			//
+			// The call already passed `isLatest`, so nothing superseded this navigation: it stopped
+			// and nothing is coming after it. Saying so is what stops a detection run waiting on a
+			// recovery from waiting for a callback that can never arrive (AIA-0879); a genuinely
+			// superseded load returned above and says nothing at all.
+			publishWebContentEvent(.stopped)
+			return
+		}
 		// AIA-0552: never replace usable content with the opaque overlay. On-device detection and
 		// classification keep working on the committed page, so any navigation intent that fails
 		// provisionally over it — an offline submit, reload, or back/forward — fails silently by
@@ -374,6 +586,16 @@ final class BrowserState: ObservableObject {
 		}
 		retryTarget = failure.retryURL
 		loadFailure = failure
+	}
+
+	/// Forgets the in-flight provisional navigation once it has settled.
+	///
+	/// Identity-checked: a superseded load settling late must not clear the marker belonging to the
+	/// navigation that replaced it.
+	private func clearProvisionalNavigation(_ navigation: WKNavigation?) {
+		guard isProvisionalNavigationInFlight, navigation === provisionalNavigation else { return }
+		isProvisionalNavigationInFlight = false
+		provisionalNavigation = nil
 	}
 
 	/// Whether a callback belongs to the newest navigation.
@@ -421,6 +643,15 @@ final class BrowserState: ObservableObject {
 		isUserLoadPending = false
 		pendingNavigation = nil
 		latestNavigation = nil
+		// AIA-0817: the in-flight marker belongs to a navigation on an instance that no longer
+		// exists, so nothing will ever settle it. Left set, a content-process death mid-load would
+		// freeze the capture URL until some later navigation happened to commit.
+		provisionalNavigation = nil
+		isProvisionalNavigationInFlight = false
+		// The committed URL belongs to a document on an instance that is gone. Left in place, a
+		// finding captured before the replacement lands could name the previous page.
+		committedURL = nil
+		hasObservedSameDocumentURLChange = false
 		// Whichever path invalidated the instance (rebuild or process death), its committed
 		// document does not survive it (AIA-0552).
 		hasCommittedContent = false
@@ -448,7 +679,19 @@ final class BrowserState: ObservableObject {
 	/// nothing ever recovers (AIA-0509).
 	func webContentProcessDidTerminate(from webView: WKWebView? = nil) {
 		guard isCurrent(webView) else { return }
-		LoggingPolicy.error("WebView content process terminated; attempting recovery", logger: .ui)
+		// Named, because this is the one failure that is almost always the page's fault — a renderer
+		// killed by what it was rendering. The host groups the issue; the address reproduces it.
+		let page = webView?.url ?? committedURL
+		let site = page?.host ?? "unknown"
+		LoggingPolicy.error(
+			"WebView content process terminated; attempting recovery [site: \(site)]",
+			page: page,
+			logger: .ui
+		)
+		// Published BEFORE recovery is attempted, so anything that must stand down has already done
+		// so by the time the reload is issued. Detection resuming into the replacement document was
+		// the AIA-0879 loop.
+		publishWebContentEvent(.processTerminated(host: page?.host))
 		webViewInvalidated()
 		attemptRecovery(now: Date())
 	}
@@ -565,6 +808,23 @@ final class BrowserState: ObservableObject {
 
 	private func urlChanged(_ url: URL?) {
 		currentURL = url
+		// A same-document navigation -- the History-API rewrite a map fires on every pan -- changes
+		// the URL without any commit, so this is the only place it can be picked up.
+		//
+		// Three conditions, and the third is the subtle one. `WKWebView.load(_:)` publishes the
+		// REQUESTED url through KVO synchronously, as a pending API request, BEFORE
+		// `didStartProvisionalNavigation` arrives -- so the in-flight marker alone is too late and
+		// this would latch a page the user never saw, then freeze on it for the whole fetch.
+		// `isLoading` is already true at that point, which is what closes the gap. A same-document
+		// rewrite sets none of the three.
+		let isFetchingAnotherDocument = isProvisionalNavigationInFlight
+			|| isUserLoadPending
+			|| webView?.isLoading == true
+		if isFetchingAnotherDocument.not {
+			// A change with no navigation behind it is the page rewriting its own address.
+			if committedURL != nil, url != committedURL { hasObservedSameDocumentURLChange = true }
+			committedURL = url
+		}
 		// Sticky, and gated on the same reopenability rule persistence uses: KVO drives
 		// `currentURL` to nil when the content process dies, and `file://` fixture URLs
 		// (AIA-0316) / `about:blank` must never become recovery targets.

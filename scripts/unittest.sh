@@ -75,14 +75,38 @@ else
     exit $DELIVER_EXIT_CODE
 fi
 
-# Pick the available iPhone simulator on the NEWEST iOS runtime. Selecting the
-# first available iPhone is unsafe: simctl reports devices on runtimes below the
-# app's deployment target as "available", but xcodebuild rejects them as
-# destinations ("Unable to find a destination matching..."). The newest runtime
-# is always >= the deployment target on a sane install.
+# Pick the available iPhone simulator on the newest iOS runtime THIS Xcode can drive.
+#
+# Two constraints, and taking only one of them produces a broken destination:
+#
+#   - Not the first available iPhone: simctl reports devices on runtimes below the app's
+#     deployment target as "available", but xcodebuild rejects them as destinations
+#     ("Unable to find a destination matching...").
+#   - Not simply the newest installed runtime either. Installing an Xcode beta leaves its
+#     newer runtime on the machine, and the shipping Xcode cannot launch a test host on it:
+#     the build succeeds, then every test dies with "Simulator device failed to launch"
+#     (FBSOpenApplicationServiceErrorDomain). Cap at the active toolchain's simulator SDK.
+SDK_VERSION=$(xcodebuild -version -sdk iphonesimulator SDKVersion 2>/dev/null | tr -d '[:space:]')
+if [[ -z "${SDK_VERSION}" ]]; then
+    echo "❌ Could not read the iOS Simulator SDK version from the active Xcode."
+    echo "   Check 'xcode-select -p' / DEVELOPER_DIR — a CommandLineTools selection has no SDK."
+    exit 1
+fi
+
 SIMULATOR_ID=$(xcrun simctl list devices available -j 2>/dev/null | \
-    python3 -c "
-import json, re, sys
+    SDK_VERSION="${SDK_VERSION}" python3 -c "
+import json, os, re, sys
+
+def parse(text):
+    parts = re.findall(r'\d+', text)
+    return tuple(int(p) for p in parts[:2]) if parts else None
+
+cap = parse(os.environ['SDK_VERSION'])
+if cap is None:
+    sys.exit(1)
+if len(cap) == 1:
+    cap = (cap[0], 0)
+
 data = json.load(sys.stdin)
 best = None  # ((major, minor), udid)
 for runtime, devices in data.get('devices', {}).items():
@@ -90,6 +114,8 @@ for runtime, devices in data.get('devices', {}).items():
     if not match:
         continue
     version = (int(match.group(1)), int(match.group(2)))
+    if version > cap:
+        continue
     for d in devices:
         if d.get('isAvailable') and 'iPhone' in d.get('name', ''):
             if best is None or version > best[0]:
@@ -100,8 +126,9 @@ print(best[1])
 " 2>/dev/null)
 
 if [[ -z "${SIMULATOR_ID}" ]]; then
-    echo "❌ No available iPhone simulator found."
-    echo "   Please install an iPhone simulator via Xcode > Settings > Platforms."
+    echo "❌ No available iPhone simulator on an iOS runtime this Xcode can drive (<= ${SDK_VERSION})."
+    echo "   Install one via Xcode > Settings > Platforms. A runtime NEWER than ${SDK_VERSION} is"
+    echo "   deliberately ignored: this Xcode cannot launch a test host on it."
     exit 1
 fi
 

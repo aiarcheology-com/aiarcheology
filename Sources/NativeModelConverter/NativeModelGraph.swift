@@ -184,6 +184,64 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 	case subtract
 	case multiply
 	case divide
+	/// Elementwise bounds taken against a *second tensor* rather than a scalar attribute. A box clip
+	/// needs a different bound per coordinate (x to `[0, W]`, y to `[0, H]`), which is exactly what a
+	/// single scalar cannot express; the second operand is already expressible as a `constantND`, so a
+	/// tensor-valued attribute would duplicate the weight-blob mechanism inside the graph JSON.
+	case minimumND
+	case maximumND
+	case floor
+	case naturalLogarithm
+	/// `x >= threshold` as a 1.0/0.0 mask. The threshold is a scalar attribute because Core ML's
+	/// comparison layer carries one itself; a per-element threshold is a `minimumND`-style two-tensor
+	/// problem and would be a separate operation.
+	case greaterOrEqual
+	/// Bilinear ROI extraction: one fixed-size patch resampled from a feature map per box. The first
+	/// operation with two *heterogeneous* runtime inputs — input 0 is the rank-5 feature map
+	/// `[1, B, C, H, W]` and input 1 the box blob `[K, 1, 4, 1, 1]`, giving `[K, B, C, targetHeight,
+	/// targetWidth]`. Swapping them is not a shape error Core ML catches; it is a different model.
+	///
+	/// Deliberately *only* the crop. torchvision's `roi_align(sampling_ratio=2)` averages 2x2 bilinear
+	/// samples per output bin, which is reproduced by cropping at twice the target size and following
+	/// with a separate `averagePool2D` — a graph-level composition, so neither operation is welded to
+	/// one sampling ratio. Sampling mode and box-coordinate order are pinned at emission
+	/// (ROI_ALIGN_MODE, CORNERS_HEIGHT_FIRST) rather than carried as attributes that could only ever
+	/// hold one legal value.
+	case cropResize
+	/// The `k` largest values along `axis`, and the source index of each. The second operation in this
+	/// IR with more than one output, and the first whose outputs mean different things: output 0 carries
+	/// the values and output 1 the indices, each with the input's rank and `axis` reduced to `k`. Wiring
+	/// only the values does not compile — Core ML requires exactly two outputs — but swapping the two
+	/// does, and then everything downstream reads ranks where it expects scores.
+	///
+	/// `k` is an attribute rather than the second runtime input the layer also accepts: a data-dependent
+	/// K makes every downstream extent dynamic, which a fixed-shape graph has no way to declare.
+	case topK
+	/// Slices of the first input selected by index from the second — what turns `topK`'s indices back
+	/// into the rows they came from. Two runtime inputs that are not interchangeable, and the only
+	/// operation whose output rank is not simply the data input's: it is `data.rank - 1 + indices.rank`,
+	/// because the indices tensor's own shape takes the place of the gathered axis. So rank-2 indices
+	/// over rank-2 data produce a rank-3 result. Indices travel in an ordinary float blob — the
+	/// neural-network spec has no integer one — and are truncated by the layer.
+	case gather
+	/// Greedy non-maximum suppression *inside* the graph — Core ML's NMS **layer**, which is not the
+	/// standalone NMS **model** `NativeModelDetectorPipeline` already emits as its terminal stage.
+	/// Conflating the two was a measured near-miss in the M3a spike: the model has flexible outputs and a
+	/// Vision-facing interface and can only be last, while this one has fixed padded outputs and sits
+	/// mid-graph, where its survivors are an input to everything after it.
+	///
+	/// Two runtime inputs, boxes `[1, N, 4]` then scores `[1, N, classes]`, and both must be rank 3
+	/// exactly — the kernel says so ("first two inputs must have rank 3") rather than merely preferring it.
+	///
+	/// The box coordinates are mandatorily `[center-x, center-y, width, height]`. Unlike `cropResize`,
+	/// which carries a `BoxCoordinatesMode`, this layer has no coordinate-mode parameter at all, so
+	/// corners fed here are not an error but a different model — and every other box operation in this IR
+	/// works in corners.
+	///
+	/// Four outputs, each padded out to `maxBoxes`: kept boxes, kept scores, kept source indices, and the
+	/// count of leading slots that mean anything. That count is not trustworthy at zero survivors — see
+	/// the emitter — which is why a graph must mask on the scores rather than read slot 0.
+	case nonMaximumSuppression
 	case batchNormalization
 	case sigmoid
 	case tanh
@@ -222,6 +280,15 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		case .subtract: "subtract"
 		case .multiply: "multiply"
 		case .divide: "divide"
+		case .minimumND: "minND"
+		case .maximumND: "maxND"
+		case .floor: "floor"
+		case .naturalLogarithm: "log"
+		case .greaterOrEqual: "greaterEqual"
+		case .cropResize: "cropResize"
+		case .topK: "topK"
+		case .gather: "gather"
+		case .nonMaximumSuppression: "nms"
 		case .batchNormalization: "batchNorm"
 		case .sigmoid: "sigmoid"
 		case .tanh: "tanh"
@@ -268,6 +335,15 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		"subtract": .subtract,
 		"multiply": .multiply,
 		"divide": .divide,
+		"minND": .minimumND,
+		"maxND": .maximumND,
+		"floor": .floor,
+		"log": .naturalLogarithm,
+		"greaterEqual": .greaterOrEqual,
+		"cropResize": .cropResize,
+		"topK": .topK,
+		"gather": .gather,
+		"nms": .nonMaximumSuppression,
 		"batchNorm": .batchNormalization,
 		"sigmoid": .sigmoid,
 		"tanh": .tanh,
@@ -306,6 +382,11 @@ public enum NativeModelAttribute: Codable, Equatable, Sendable {
 	case integers([Int])
 	case floatingPoints([Double])
 	case strings([String])
+
+	public var booleanValue: Bool? {
+		guard case .boolean(let value) = self else { return nil }
+		return value
+	}
 
 	public var integerValue: Int? {
 		guard case .integer(let value) = self else { return nil }
@@ -611,6 +692,54 @@ public struct NativeModelGraphValidator {
 		}
 	}
 
+	/// How many output tensors an operation may declare.
+	///
+	/// The counts used to be the cases — `.one`, `.two`, `.twoOrMore` — which made a four-output operation
+	/// a fourth case differing from its neighbours only by a number. Generalised instead of extended: the
+	/// count is data, and the two cases left are the two rules that genuinely differ. Adding the next
+	/// arity is now a row in the table below rather than a case, an `admits` branch and an `expectation`
+	/// branch that must be kept consistent with each other.
+	private enum OutputArity {
+		case exactly(Int)
+		case atLeast(Int)
+
+		func admits(_ outputCount: Int) -> Bool {
+			switch self {
+			case .exactly(let count): outputCount == count
+			case .atLeast(let count): outputCount >= count
+			}
+		}
+
+		var expectation: String {
+			switch self {
+			case .exactly(let count): "exactly \(count) output\(count == 1 ? "" : "s")"
+			case .atLeast(let count): "at least \(count) outputs"
+			}
+		}
+	}
+
+	/// The output rule for one operation kind.
+	///
+	/// Multi-output used to be a single `splitND` branch written inline in the arity check. `topK` is the
+	/// second, and a second inline branch would spread the answer to "how many outputs" across as many
+	/// places as there are multi-output operations — each free to disagree. This is the one place that
+	/// answers it: a kind named here carries its own rule, everything else produces exactly one output,
+	/// and the next multi-output operation is a line in this switch with the check below untouched.
+	private func outputArity(of kind: NativeModelOperationKind) -> OutputArity {
+		switch kind {
+		// One blob per split size; that the count matches `splitSizes` is checked with the attributes.
+		case .splitND: .atLeast(2)
+		// Values then indices. Core ML's own validator rejects a topK layer with any other output count
+		// ("has 1 outputs but expects exactly 2"), so this is the layer's rule rather than a house one.
+		case .topK: .exactly(2)
+		// Boxes, scores, source indices, valid count — the layer's rule again: coremltools' `add_nms`
+		// documents "must be of length 4 exactly", and none of the four is optional even when a graph
+		// consumes only the boxes.
+		case .nonMaximumSuppression: .exactly(4)
+		default: .exactly(1)
+		}
+	}
+
 	private func validateOperationSignature(
 		_ operation: NativeModelOperation,
 		knownTensors: [String: NativeModelTensor],
@@ -618,16 +747,12 @@ public struct NativeModelGraphValidator {
 	) {
 		guard operation.kind.isSupported else { return }
 
-		if operation.kind == .splitND {
-			guard operation.outputs.count >= 2 else {
-				issues.append(.invalidArity(operation: operation.name, expected: "at least two outputs", actual: operation.outputs.count))
-				return
-			}
-		} else {
-			guard operation.outputs.count == 1 else {
-				issues.append(.invalidArity(operation: operation.name, expected: "exactly one output", actual: operation.outputs.count))
-				return
-			}
+		let outputArity = outputArity(of: operation.kind)
+		guard outputArity.admits(operation.outputs.count) else {
+			issues.append(.invalidArity(
+				operation: operation.name, expected: outputArity.expectation, actual: operation.outputs.count
+			))
+			return
 		}
 
 		switch operation.kind {
@@ -650,12 +775,55 @@ public struct NativeModelGraphValidator {
 			// so its only parameter is a positive [H, W] scaling factor.
 			requireArity(operation, exact: 1, issues: &issues)
 			requirePositiveIntegerArray(operation, name: "scalingFactor", count: 2, issues: &issues)
-		case .batchedMatrixMultiplicationND, .add, .subtract, .multiply, .divide:
+		case .batchedMatrixMultiplicationND, .add, .subtract, .multiply, .divide, .minimumND, .maximumND:
 			requireArity(operation, exact: 2, issues: &issues)
+		case .cropResize:
+			// Two inputs, and the arity is exact rather than a range: a crop with only a feature map has
+			// no boxes to crop to, and a third input has nowhere to go.
+			requireArity(operation, exact: 2, issues: &issues)
+			requirePositiveInteger(operation, name: "targetHeight", issues: &issues)
+			requirePositiveInteger(operation, name: "targetWidth", issues: &issues)
+			// A zero or negative scale maps every box onto the same degenerate point; the attribute is
+			// the feature map's stride reciprocal, so it is positive by construction.
+			requirePositiveFloatingPoint(operation, name: "spatialScale", issues: &issues)
+			requireOptionalBoolean(operation, name: "normalizedROI", issues: &issues)
 		case .splitND:
 			requireArity(operation, exact: 1, issues: &issues)
 			requireInteger(operation, name: "axis", issues: &issues)
 			requirePositiveIntegerArray(operation, name: "splitSizes", count: operation.outputs.count, issues: &issues)
+		case .topK:
+			// One activation input. Core ML's layer accepts an optional second input carrying K, which
+			// this graph cannot use: a runtime K leaves every downstream extent undeclarable.
+			requireArity(operation, exact: 1, issues: &issues)
+			requirePositiveInteger(operation, name: "k", issues: &issues)
+			// Non-negative, not merely integral: the emitted axis is a plain (unsigned) varint, so a
+			// negative one has no representation the layer would read back as negative. The readers
+			// normalize before a graph exists, and the contract says so here rather than only in the
+			// emitter, where the rule was reachable solely by a caller that skipped validation.
+			requireNonNegativeInteger(operation, name: "axis", issues: &issues)
+		case .nonMaximumSuppression:
+			// Boxes then scores, and exactly those two. Core ML's layer accepts up to five inputs, the last
+			// three carrying the IoU threshold, the score threshold and `maxBoxes` at runtime; none is
+			// admitted here, because a runtime `maxBoxes` leaves the padded output extent undeclarable and a
+			// runtime threshold costs a constant blob to say what an attribute already says.
+			requireArity(operation, exact: 2, issues: &issues)
+			// Both thresholds are plain floats. An IoU outside [0, 1] is a calibration mistake rather than a
+			// structural one — the layer accepts it and suppresses accordingly — and a score threshold is
+			// legitimately any real number, so neither gets a range rule this validator would have to guess.
+			requireFloatingPoint(operation, name: "iouThreshold", issues: &issues)
+			requireFloatingPoint(operation, name: "scoreThreshold", issues: &issues)
+			// `maxBoxes` is the fixed extent of all four outputs, so zero would declare blobs with no slots.
+			// `perClassSuppression` stays optional and defaults to false, like `cropResize`'s `normalizedROI`:
+			// ADAF's detectors are single-class, where the flag is vacuous.
+			requirePositiveInteger(operation, name: "maxBoxes", issues: &issues)
+			requireOptionalBoolean(operation, name: "perClassSuppression", issues: &issues)
+		case .gather:
+			// Data then indices. Their ranks decide the output rank — `data.rank - 1 + indices.rank`, see
+			// the operation's own documentation — which this validator deliberately does not verify: it
+			// checks declarations against the contract, never inferred shapes.
+			requireArity(operation, exact: 2, issues: &issues)
+			// Non-negative for the same reason as `topK`'s: the emitted axis is an unsigned varint.
+			requireNonNegativeInteger(operation, name: "axis", issues: &issues)
 		case .batchNormalization:
 			requireArity(operation, exact: 5, issues: &issues)
 			requirePositiveFloatingPoint(operation, name: "epsilon", issues: &issues)
@@ -675,11 +843,15 @@ public struct NativeModelGraphValidator {
 		issues: inout [NativeModelGraphValidationIssue]
 	) {
 		switch operation.kind {
-		case .globalAveragePool2D, .relu, .relu6, .sigmoid, .tanh, .exponential, .softmaxChannel, .identity:
+		case .globalAveragePool2D, .relu, .relu6, .sigmoid, .tanh, .exponential, .softmaxChannel, .identity,
+			.floor, .naturalLogarithm:
 			requireArity(operation, exact: 1, issues: &issues)
 		case .leakyReLU:
 			requireArity(operation, exact: 1, issues: &issues)
 			requireFloatingPoint(operation, name: "alpha", issues: &issues)
+		case .greaterOrEqual:
+			requireArity(operation, exact: 1, issues: &issues)
+			requireFloatingPoint(operation, name: "threshold", issues: &issues)
 		case .sliceChannels:
 			// Half-open [startChannel, endChannel) on the channel axis, as Core ML's slice layer takes it.
 			requireArity(operation, exact: 1, issues: &issues)
@@ -721,10 +893,29 @@ public struct NativeModelGraphValidator {
 
 	/// V2 is an exact-ND graph family. V1 retains the classic rank-5 layout operations exactly as
 	/// shipped; the two families may share ordinary convolution/activation/elementwise nodes only.
+	///
+	/// The box-arithmetic primitives are exact-ND only for a second reason: the classic layer set has
+	/// no floor, no comparison, and no subtract at all, so their only Core ML form is a spec-4 layer.
+	/// Admitting them into V1 would mean writing exact-rank layers into a graph whose other layers
+	/// address the rank-5 layout — a mix that compiles and then reads the blob differently.
+	///
+	/// `cropResize` is exact-ND only for a third reason again: its blobs are rank 5 *as data* — the box
+	/// input is `[K, 1, 4, 1, 1]` and the output batches over K — so the legacy mapping, which reads a
+	/// declared rank-4 shape as `[1, C, H, W]`, cannot name those axes at all.
+	///
+	/// `topK` and `gather` share the first reason — the classic layer set has neither — and `gather` adds
+	/// a fourth: its output rank is `data.rank - 1 + indices.rank`, a rank that varies with the indices
+	/// blob and that the legacy mapping's fixed four-axis reading cannot express.
+	///
+	/// `nonMaximumSuppression` shares the first reason and adds a fifth: its kernel refuses inputs that are
+	/// not rank 3 exactly, and rank 3 is a shape the legacy mapping reads as `[C, H, W]` rather than as the
+	/// `[batch, boxes, 4]` the layer means.
 	private func isValid(_ kind: NativeModelOperationKind, forFormatVersion formatVersion: Int) -> Bool {
 		let exactNDOnly: [NativeModelOperationKind] = [
 			.reshapeND, .transposeND, .concatenateND, .sliceND, .splitND,
-			.batchedMatrixMultiplicationND, .constantND
+			.batchedMatrixMultiplicationND, .constantND,
+			.minimumND, .maximumND, .floor, .naturalLogarithm, .greaterOrEqual, .subtract,
+			.cropResize, .topK, .gather, .nonMaximumSuppression
 		]
 		let legacyLayoutOnly: [NativeModelOperationKind] = [
 			.reshape, .transpose, .concatenate, .sliceChannels, .softmaxChannel, .constant
@@ -802,6 +993,23 @@ public struct NativeModelGraphValidator {
 	) {
 		guard let value = operation.attributes[name]?.integerValue, value >= 0 else {
 			issues.append(.invalidAttribute(operation: operation.name, attribute: name, expected: "a non-negative integer"))
+			return
+		}
+	}
+
+	/// An attribute a graph may omit, but may not get wrong: absent takes the documented default, while
+	/// a present value of any other type is a mistake.
+	///
+	/// Without this the emitter's `booleanValue ?? false` cannot tell the two apart, so `"normalizedROI": 1`
+	/// reads as `false` and turns a normalized ROI into an absolute one — a wrong model, silently.
+	private func requireOptionalBoolean(
+		_ operation: NativeModelOperation,
+		name: String,
+		issues: inout [NativeModelGraphValidationIssue]
+	) {
+		guard let attribute = operation.attributes[name] else { return }
+		guard attribute.booleanValue != nil else {
+			issues.append(.invalidAttribute(operation: operation.name, attribute: name, expected: "a boolean when present"))
 			return
 		}
 	}

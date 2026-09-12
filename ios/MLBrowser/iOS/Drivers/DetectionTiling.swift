@@ -31,8 +31,23 @@ struct DetectedObject: Sendable {
 	/// Index into the region list that produced this box (dedup provenance + debugging).
 	let regionIndex: Int
 
+	/// The one label that stands for this detection: its highest-confidence class.
+	///
+	/// **The single definition of "the" label, deliberately** (AIA-0765). Three things need it and
+	/// they must agree: the dedup stage below, the finding written by `FindingRepository`, and the
+	/// text drawn on screen. A second, "better" rule in the view — picking the maximum confidence
+	/// rather than trusting the order — would make the label above a box disagree with the class and
+	/// confidence saved for the finding that box produces.
+	///
+	/// It is `first` and not `max(by:)` because ``labels`` is documented above as Vision's own
+	/// best-first order, so the two agree; `first` is additionally stable on ties, where `max(by:)`
+	/// returns the *last* maximal element.
+	var primaryLabel: Label? {
+		labels.first
+	}
+
 	var primaryLabelIdentifier: String? {
-		labels.first?.identifier
+		primaryLabel?.identifier
 	}
 }
 
@@ -140,10 +155,15 @@ enum TileLayout {
 	/// 2. Greedy IoU suppression by confidence for the near-identical survivors.
 	static func dedupAcrossRegions(
 		_ objects: [DetectedObject],
+		regions: [CGRect],
 		containmentThreshold: CGFloat = 0.7,
 		iouThreshold: CGFloat = 0.45,
-		clippedAreaRatio: CGFloat = 0.8
+		clippedAreaRatio: CGFloat = 0.8,
+		// This is deliberately measured in full-image normalized space: both boxes and tile
+		// boundaries arrive here after remapping, so it must not vary with a tile's dimensions.
+		edgeTolerance: CGFloat = 0.01
 	) -> [DetectedObject] {
+		precondition(edgeTolerance >= 0, "edgeTolerance must not be negative")
 		guard objects.count > 1 else { return objects }
 
 		var survivors = [DetectedObject]()
@@ -164,6 +184,10 @@ enum TileLayout {
 				competing(kept, candidate)
 					&& area(of: candidate.boundingBox) <= clippedAreaRatio * area(of: kept.boundingBox)
 					&& containment(of: candidate.boundingBox, in: kept.boundingBox) >= containmentThreshold
+					// A contained smaller box is only a clipped partial when it reaches an
+					// interior edge of the tile that produced it. A real feature can end at
+					// a tile edge, so this remains a heuristic rather than an exact proof.
+					&& isAdjacentToInteriorRegionEdge(candidate, regions: regions, tolerance: edgeTolerance)
 			}
 			if contained.not {
 				survivors.append(candidate)
@@ -201,6 +225,25 @@ enum TileLayout {
 
 	private static func area(of rect: CGRect) -> CGFloat {
 		rect.width * rect.height
+	}
+
+	/// Returns true only when `candidate` is next to an edge of its producing region that is
+	/// inside the image. Full-frame image edges cannot be evidence of a tile-clipped partial.
+	private static func isAdjacentToInteriorRegionEdge(
+		_ candidate: DetectedObject,
+		regions: [CGRect],
+		tolerance: CGFloat
+	) -> Bool {
+		guard regions.indices.contains(candidate.regionIndex) else { return false }
+		let region = regions[candidate.regionIndex]
+		let box = candidate.boundingBox
+
+		return (
+			(region.minX > fullFrame.minX && abs(box.minX - region.minX) <= tolerance)
+				|| (region.maxX < fullFrame.maxX && abs(box.maxX - region.maxX) <= tolerance)
+				|| (region.minY > fullFrame.minY && abs(box.minY - region.minY) <= tolerance)
+				|| (region.maxY < fullFrame.maxY && abs(box.maxY - region.maxY) <= tolerance)
+		)
 	}
 
 	/// Fraction of `inner`'s area covered by `outer`.

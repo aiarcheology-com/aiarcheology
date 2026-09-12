@@ -71,7 +71,7 @@ final class RemoveAllFindingsTests: XCTestCase {
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: title, label: "site", note: "", gps: "")
+			metadata: FindingMetadata(title: title, label: "site", note: "", author: "", gps: "", page: nil)
 		)
 		return try XCTUnwrap(finding.screenshotFilename, "a saved finding has a screenshot filename")
 	}
@@ -124,6 +124,55 @@ final class RemoveAllFindingsTests: XCTestCase {
 
 		XCTAssertFalse(sut.hasAnyFinding(), "hasAnyFinding is false after removal")
 		XCTAssertTrue(sut.allFindingSnapshots().isEmpty, "no snapshots after removal")
+	}
+
+	// MARK: - Export after entitlement loss
+
+	/// AIA-0451's original lockout is superseded by the paywall export added in AIA-0556.
+	/// Exercise that export against saved rows after the entitlement callback revokes access.
+	/// This covers state, persistence and archive contents; it does not drive the share-sheet UI.
+	func test_entitlementRevocation_preservesFindingsAndAllowsPaywallExport() async throws {
+		let provider = MockSubscriptionProvider(outcome: .subscribed)
+		let subscription = SubscriptionState(provider: provider, isPaymentsEnabled: true)
+		await subscription.start()
+		XCTAssertTrue(subscription.isSubscribed)
+
+		let fileA = try seedFinding(title: "Finding A")
+		defer { FindingScreenshotStore.delete(filename: fileA) }
+		let fileB = try seedFinding(title: "Finding B")
+		defer { FindingScreenshotStore.delete(filename: fileB) }
+		let before = sut.allFindingSnapshots().sorted { $0.title < $1.title }
+
+		provider.simulateEntitlementChange(to: .notSubscribed)
+		XCTAssertFalse(subscription.isSubscribed)
+		XCTAssertNil(subscription.currentTransactionID)
+		for hasShownContent in [false, true] {
+			XCTAssertEqual(
+				RootGateDisplay.resolve(
+					isPaymentsSurfaceEnabled: subscription.isPaymentsSurfaceEnabled,
+					isSubscribed: subscription.isSubscribed,
+					freeAccess: .closed,
+					hasEverShownContent: hasShownContent
+				),
+				hasShownContent ? .wallOverContent : .wall
+			)
+		}
+		XCTAssertTrue(sut.hasAnyFinding(), "the paywall must still discover the saved findings")
+
+		let zip = try await FindingsEscapeHatch.makeShareableZip(from: sut)
+		defer { try? FileManager.default.removeItem(at: zip) }
+		let contents = try FindingArchiveImport.read(archiveAt: zip)
+		defer { contents.discard() }
+		XCTAssertEqual(Set(contents.rows.map(\.id)), Set(before.map(\.id)))
+		XCTAssertEqual(contents.rows.map(\.title).sorted(), ["Finding A", "Finding B"])
+		XCTAssertEqual(Set(contents.images.keys), Set(before.map(\.id)))
+		for snapshot in before {
+			let original = try Data(contentsOf: XCTUnwrap(snapshot.screenshotSourceURL))
+			XCTAssertEqual(try XCTUnwrap(contents.images[snapshot.id]).read(), original)
+		}
+		XCTAssertEqual(sut.allFindingSnapshots().sorted { $0.title < $1.title }, before)
+		XCTAssertTrue(try fileExists(fileA))
+		XCTAssertTrue(try fileExists(fileB))
 	}
 
 	// MARK: - AC5: Restore Defaults must NOT remove findings

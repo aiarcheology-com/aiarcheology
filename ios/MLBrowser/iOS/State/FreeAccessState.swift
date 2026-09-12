@@ -315,6 +315,15 @@ final class FreeAccessState: ObservableObject {
 
 	func reevaluate() {
 		guard hasStarted else { return }
+		#if DEBUG
+		// A debug reset has emptied both stores and this session is waiting for the relaunch it
+		// asked for (AIA-0826). Every path into here persists something — `observe(_:)` advances
+		// the monotonic floor and writes the record to *both* stores — so a foreground, or the
+		// expiry wake-up, would put the cleared anchor straight back and the reset would look like
+		// it had done nothing. Returning also leaves the session on the screen it already has,
+		// rather than collapsing it to a paywall nobody asked for.
+		guard isAwaitingRelaunchAfterDebugReset == false else { return }
+		#endif
 		// Advances the monotonic floor and persists it when it moved, so a device clock wound
 		// backwards cannot rewind a window that has already been observed further along.
 		service.observe(&window)
@@ -366,4 +375,48 @@ final class FreeAccessState: ObservableObject {
 			self?.reevaluate()
 		}
 	}
+
+	// MARK: - Debug reset
+
+	#if DEBUG
+	/// Whether a debug reset has emptied the stores and this session is waiting to be relaunched.
+	///
+	/// Session-only and never persisted: it exists to stop *this* session writing the cleared
+	/// anchor back, and the next launch starts from the stores rather than from here.
+	private var isAwaitingRelaunchAfterDebugReset = false
+
+	/// Clears both halves of the anchor for the Settings → Debug reset row (AIA-0826).
+	///
+	/// Exists so the row talks to a state object rather than reaching for a service of its own
+	/// (AGENTS §3): the anchor's two stores are the service's business, and only the composition
+	/// root knows which ones this session resolved to.
+	///
+	/// **Clearing the stores is not enough on its own, and that is the whole reason this does more
+	/// than one line.** The in-memory `window` still holds the record that was just deleted, and
+	/// every remaining path that touches it writes it back: ``reevaluate()`` advances the monotonic
+	/// floor through `observe(_:)`, which persists to both stores, and it runs on every foreground
+	/// and from the expiry wake-up. Tap Reset, switch away from the app and back, and the anchor
+	/// would be restored — with the reset's own confirmation still on screen saying otherwise.
+	/// So the window is emptied, the wake-up cancelled, and the session frozen against re-entry.
+	///
+	/// **It deliberately does not re-publish ``availability``.** That leaves `.undetermined` for
+	/// good on the first ``start(isEntitled:isPaymentsSurfaceEnabled:)``, because it decides what
+	/// stands at the app root; re-settling mid-session is exactly what the one-shot rule prevents.
+	/// The caller's job is to ask for a relaunch, not to make the screen claim a state the app is
+	/// not in.
+	func resetAnchorForDebugging() throws {
+		// First, and alone in being able to fail: a throw here must leave the session exactly as it
+		// was, not frozen against a reset that never happened.
+		try service.clearAnchorForDebugging()
+
+		isAwaitingRelaunchAfterDebugReset = true
+		expiryTask?.cancel()
+		expiryTask = nil
+		scheduledExpiry = nil
+		// Belt to the guard's braces: with an absent anchor every mutating call on the service —
+		// `observe`, `markDay0Shown`, `markExpiryReported` — returns without persisting, because
+		// each guards on `.granted`.
+		window = FreeAccessWindow()
+	}
+	#endif
 }

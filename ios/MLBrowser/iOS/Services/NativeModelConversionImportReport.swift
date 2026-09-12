@@ -31,6 +31,35 @@ enum NativeModelConversionImportState: String, Codable, Equatable, Sendable {
 			false
 		}
 	}
+
+	/// Whether this is a conversion the app can learn from — the ticket's own definition of a
+	/// failing conversion: one that *does not result in a Core ML model, for a technical reason*
+	/// (AIA-0778).
+	///
+	/// `registered` is excluded because a model exists: an error raised afterwards (an export that
+	/// failed, say) reaches the same alert, and offering to report a conversion that succeeded as a
+	/// failing one would poison the very signal this is collected for. `cancelled` is excluded
+	/// because the user stopped it, which says nothing about whether the model is supported.
+	var isReportableConversionFailure: Bool {
+		switch self {
+		case .staged, .converting, .interrupted, .emitted, .failed:
+			true
+		case .registered, .cancelled:
+			false
+		}
+	}
+}
+
+/// The independently durable lifetime of a source package after its converted model is registered.
+///
+/// Registration and source removal cannot be one filesystem transaction with Core Data. Keeping this
+/// small journal in the report makes the intended removal survive termination and gives launch-time
+/// recovery a safe, idempotent retry point.
+enum NativeModelConversionSourceCleanupState: String, Codable, Equatable, Sendable {
+	case notRequested
+	case pending
+	case removed
+	case failed
 }
 
 /// One path-free event in the user-visible conversion report.
@@ -71,6 +100,9 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 	let sourcePackageFilename: String
 	let convertedModelFilename: String
 	let retainOriginalPackage: Bool
+	/// Optional only for reports produced before source cleanup was journaled. Such a registered,
+	/// non-retained report is conservatively treated as pending and retried on the next launch.
+	var sourceCleanupState: NativeModelConversionSourceCleanupState?
 	let nativeConverterPackageVersion: String
 	let nativeConverterConversionRevision: Int
 	let wasRemoteImport: Bool
@@ -78,6 +110,23 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 	var updatedAt: Date
 	var state: NativeModelConversionImportState
 	var lastProgress: NativeModelConversionProgress?
+	/// The staged source's size on disk, recorded **before** conversion begins.
+	///
+	/// Separate from `metrics` on purpose. `NativeModelConversionMetrics` cannot exist without
+	/// `emission`, which only a *successful* conversion produces — so a failed report carried no
+	/// size at all, and a failed report is precisely the one somebody is asked to send us
+	/// (AIA-0778). This is captured at the point the source is staged, so it survives any failure
+	/// after that. `nil` for reports written before this field existed, and if the size could not
+	/// be read.
+	var sourceByteCount: UInt64?
+	/// Where a **remotely** imported model was downloaded from, if it was.
+	///
+	/// Deliberately never a local path. `logText`'s rule — no user document location — is about the
+	/// user's disk: a filename identifies the model, a path identifies the person's filesystem. A
+	/// download address is neither; it is a public link, it is the single most useful field for
+	/// reproducing a failed conversion, and it is `nil` for local imports because the host only
+	/// supplies it for remote ones (AIA-0778).
+	var sourceURL: String?
 	var metrics: NativeModelConversionMetrics?
 	var diagnostic: NativeModelConversionDiagnostic?
 	var entries: [NativeModelConversionImportLogEntry]
@@ -100,6 +149,7 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 		self.sourcePackageFilename = sourcePackageFilename
 		self.convertedModelFilename = convertedModelFilename
 		self.retainOriginalPackage = retainOriginalPackage
+		sourceCleanupState = retainOriginalPackage ? .notRequested : .pending
 		nativeConverterPackageVersion = NativeModelConverterVersion.packageVersion
 		nativeConverterConversionRevision = NativeModelConverterVersion.conversionRevision
 		self.wasRemoteImport = wasRemoteImport
@@ -122,6 +172,15 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 
 	func convertedModelURL(in configurationDirectory: URL) -> URL {
 		configurationDirectory.appendingPathComponent(convertedModelFilename, isDirectory: false)
+	}
+
+	var effectiveSourceCleanupState: NativeModelConversionSourceCleanupState {
+		sourceCleanupState ?? (retainOriginalPackage ? .notRequested : .pending)
+	}
+
+	var needsSourceCleanup: Bool {
+		state == .registered && !retainOriginalPackage
+			&& effectiveSourceCleanupState != .removed
 	}
 
 	func write(in configurationDirectory: URL) throws {
@@ -186,19 +245,103 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 		updatedAt = Date()
 	}
 
+	mutating func record(sourceByteCount: UInt64?, sourceURL: String? = nil) {
+		if let sourceByteCount { self.sourceByteCount = sourceByteCount }
+		// Sanitised here rather than at the call site, so the durable report cannot hold an unsafe
+		// value however it was reached.
+		if let safe = Self.loggableSourceURL(sourceURL) { self.sourceURL = safe }
+		updatedAt = Date()
+	}
+
+	/// A remote source address reduced to what is safe to put in a support log: scheme, host and
+	/// path. `nil` for anything else.
+	///
+	/// Two hazards, both real rather than theoretical:
+	///
+	/// - **Local paths.** The download row's URL is free text the user can edit after the download
+	///   completes (`DownloadDetailView.swift:197`), and import only checks that it is non-empty.
+	///   A `file:///Users/…` value can therefore reach here. Restricting to `http(s)` rejects it.
+	/// - **Credentials in the query.** `Downloader.swift:733` already states the rule this follows:
+	///   *"full URLs may carry signed query parameters / tokens"*. A presigned link pasted into a
+	///   support attachment would hand over working credentials, so query and fragment are dropped —
+	///   as are any user/password components, which `URLComponents` does not carry across.
+	///
+	/// The path is kept: it names the model, which is the point of recording this at all, and it is
+	/// not where signed tokens live.
+	static func loggableSourceURL(_ raw: String?) -> String? {
+		guard let raw,
+			let components = URLComponents(string: raw),
+			let scheme = components.scheme?.lowercased(),
+			scheme == "https" || scheme == "http",
+			let host = components.host, host.isEmpty == false
+		else { return nil }
+
+		var safe = URLComponents()
+		safe.scheme = scheme
+		safe.host = host
+		safe.path = components.path
+		return safe.string
+	}
+
+	mutating func recordSourceCleanup(
+		_ cleanupState: NativeModelConversionSourceCleanupState,
+		diagnostic: NativeModelConversionDiagnostic? = nil
+	) {
+		let stateChanged = sourceCleanupState != cleanupState
+		sourceCleanupState = cleanupState
+		updatedAt = Date()
+		// Source removal happens after a model is registered. A prior version wrote this operational
+		// retry note into the conversion-level diagnostic; clear that legacy value as soon as cleanup
+		// is reconciled so a usable import is never rendered as a failed conversion.
+		if self.diagnostic?.code == "app.sourceCleanupFailed" {
+			self.diagnostic = nil
+		}
+		if stateChanged {
+			entries.append(NativeModelConversionImportLogEntry(
+				state: state,
+				diagnostic: diagnostic
+			))
+		}
+	}
+
 	/// Records the recovery fact that the app no longer has a live task for an incomplete report.
 	///
 	/// This does not claim a crash diagnosis. iOS can terminate or suspend an app for several reasons
 	/// and the durable journal only proves that its last checkpoint was incomplete. The user can see
 	/// the last saved phase and retry from the retained source package.
+	/// Corrects a report left at `emitted` by a termination that happened *after* Core Data was
+	/// saved, so the app's durable state and the report agree again.
+	///
+	/// The registration is the Core Data row, not this file: the row is written first and this
+	/// report follows, so a stale `emitted` beside a live configuration means the import finished.
+	mutating func repairRegisteredStateAfterStaleEmission() {
+		guard state == .emitted else { return }
+		transition(to: .registered)
+	}
+
 	@discardableResult
 	mutating func markInterruptedIfIncomplete() -> Bool {
+		// `emitted` is a distinct situation, not another incomplete conversion (AIA-0889). The
+		// conversion finished and the model is on disk; what did not finish is loading it, which is
+		// where the app was being killed. Left out of this guard, such a report stayed at `emitted`
+		// with no diagnostic at all — a half-finished import that explained nothing.
+		if state == .emitted {
+			transition(
+				to: .interrupted,
+				diagnostic: NativeModelConversionDiagnostic(
+					code: AppDiagnosticCode.interruptedAfterEmission,
+					phase: .failed,
+					message: "Conversion finished and the model was written, but the app was no longer running before the model could be loaded and registered. Loading a converted model is the most memory-intensive step of an import; this report cannot confirm the termination cause, but memory is the usual one at this stage. Resume to retry the load, or free memory first by closing other apps."
+				)
+			)
+			return true
+		}
 		guard state == .staged || state == .converting else { return false }
 		let lastPhase = lastProgress?.phase ?? .preparing
 		transition(
 			to: .interrupted,
 			diagnostic: NativeModelConversionDiagnostic(
-				code: "app.interruptedBeforeCompletion",
+				code: AppDiagnosticCode.interruptedBeforeCompletion,
 				phase: lastPhase,
 				message: "The app was no longer running before conversion completed. The last saved phase was \(lastPhase.rawValue). The exact process-termination cause is not available in this report; resume to retry from the staged source package."
 			)
@@ -206,14 +349,62 @@ struct NativeModelConversionImportReport: Codable, Equatable, Identifiable, Send
 		return true
 	}
 
+	/// Diagnostic codes the *app* raises, as opposed to the converter's own.
+	///
+	/// Shared rather than written at each site so the producer and the readers that branch on them
+	/// cannot drift apart — the report is persisted, so these strings are a format, not a label.
+	enum AppDiagnosticCode {
+		static let insufficientMemoryForModelLoad = "app.insufficientMemoryForModelLoad"
+		static let modelCompilationFailed = "app.modelCompilationFailed"
+		static let modelLoadFailed = "app.modelLoadFailed"
+		static let modelValidationOrRegistrationFailed = "app.modelValidationOrRegistrationFailed"
+		static let interruptedAfterEmission = "app.interruptedAfterEmission"
+		static let interruptedBeforeCompletion = "app.interruptedBeforeCompletion"
+	}
+
+	/// Whether this failed import kept its converted model so the user can still export it.
+	///
+	/// AIA-0889: a load refused for memory is the one failure where the artifact is *good* — the
+	/// conversion succeeded and only this device cannot load it. Deleting it would throw away the
+	/// expensive half of the work and leave the user no way to use the model anywhere else, so it
+	/// is retained until the failure report is dismissed.
+	var keepsConvertedModelForExport: Bool {
+		state == .failed && diagnostic?.code == AppDiagnosticCode.insufficientMemoryForModelLoad
+	}
+
+	/// Whether a converted model is actually on disk to export right now.
+	///
+	/// `keepsConvertedModelForExport` records the *intent* to retain and stays true for the life of
+	/// the report — it is a fact about how the import failed. Once the model has been cleaned up,
+	/// the report would still advertise an export that could only fail, so every surface offering
+	/// one asks this instead (AIA-0889).
+	func hasExportableConvertedModel(in configurationDirectory: URL) -> Bool {
+		guard state == .registered || keepsConvertedModelForExport else { return false }
+		return FileManager.default.fileExists(atPath: convertedModelURL(in: configurationDirectory).path)
+	}
+
 	static func removeTransientArtifacts(
 		for report: Self,
 		in configurationDirectory: URL,
-		includingSourcePackage: Bool
+		includingSourcePackage: Bool,
+		includingConvertedModel: Bool = true
 	) {
 		let fileManager = FileManager.default
-		try? fileManager.removeItem(at: report.convertedModelURL(in: configurationDirectory))
-		try? fileManager.removeItem(at: NativeModelMetadataSidecar.url(for: report.convertedModelURL(in: configurationDirectory)))
+		let convertedModelURL = report.convertedModelURL(in: configurationDirectory)
+		if includingConvertedModel {
+			try? fileManager.removeItem(at: convertedModelURL)
+			try? fileManager.removeItem(at: NativeModelMetadataSidecar.url(for: convertedModelURL))
+		}
+		let partialPrefix = ".\(report.convertedModelFilename).partial-"
+		if let siblingURLs = try? fileManager.contentsOfDirectory(
+			at: configurationDirectory,
+			includingPropertiesForKeys: nil,
+			options: []
+		) {
+			for url in siblingURLs where url.lastPathComponent.hasPrefix(partialPrefix) {
+				try? fileManager.removeItem(at: url)
+			}
+		}
 		if includingSourcePackage {
 			try? fileManager.removeItem(at: report.sourcePackageURL(in: configurationDirectory))
 		}
@@ -263,8 +454,87 @@ actor NativeModelConversionImportReportStore {
 		try report.write(in: configurationDirectory)
 	}
 
+	func record(sourceByteCount: UInt64?, sourceURL: String? = nil) throws {
+		report.record(sourceByteCount: sourceByteCount, sourceURL: sourceURL)
+		try report.write(in: configurationDirectory)
+	}
+
+	func recordSourceCleanup(
+		_ cleanupState: NativeModelConversionSourceCleanupState,
+		diagnostic: NativeModelConversionDiagnostic? = nil
+	) throws {
+		report.recordSourceCleanup(cleanupState, diagnostic: diagnostic)
+		try report.write(in: configurationDirectory)
+	}
+
 	func snapshot() -> NativeModelConversionImportReport {
 		report
+	}
+}
+
+/// Removes non-retained staged source packages only after a registered report is durable.
+///
+/// This actor is deliberately the sole owner of cleanup attempts. The same service runs after a
+/// successful import and at launch, so a termination between Core Data registration and deletion
+/// leaves a retryable `.pending` journal instead of an orphaned checkpoint archive.
+actor NativeModelSourceCleanupService {
+	@discardableResult
+	func reconcile(
+		reportStore: NativeModelConversionImportReportStore,
+		in configurationDirectory: URL
+	) async -> NativeModelConversionImportReport {
+		let report = await reportStore.snapshot()
+		guard report.needsSourceCleanup else { return report }
+
+		let sourceURL = report.sourcePackageURL(in: configurationDirectory)
+		do {
+			if FileManager.default.fileExists(atPath: sourceURL.path) {
+				try FileManager.default.removeItem(at: sourceURL)
+			}
+		} catch {
+			let diagnostic = NativeModelConversionDiagnostic(
+				code: "app.sourceCleanupFailed",
+				phase: report.lastProgress?.phase ?? .completed,
+				message: "The original package could not yet be removed. The app will retry after the next launch."
+			)
+			try? await reportStore.recordSourceCleanup(.failed, diagnostic: diagnostic)
+			return await reportStore.snapshot()
+		}
+		// If this write is interrupted, the source is already absent but the persisted `.pending`
+		// record is harmless: the next launch observes the absence and records `.removed`.
+		try? await reportStore.recordSourceCleanup(.removed)
+		return await reportStore.snapshot()
+	}
+
+	/// Reconciles every existing report at app launch. Unregistered reports are intentionally left
+	/// alone: their source is the recovery input, even when the user did not ask to retain it after a
+	/// successful conversion.
+	func reconcileAll(in configurationsDirectory: URL) async {
+		guard let configurationDirectories = try? FileManager.default.contentsOfDirectory(
+			at: configurationsDirectory,
+			includingPropertiesForKeys: [.isDirectoryKey],
+			options: [.skipsHiddenFiles]
+		) else {
+			return
+		}
+		for directory in configurationDirectories {
+			guard (try? directory.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true,
+				let report = try? NativeModelConversionImportReport.load(in: directory),
+				report.needsSourceCleanup
+			else {
+				continue
+			}
+			let store = NativeModelConversionImportReportStore(
+				report: report,
+				configurationDirectory: directory
+			)
+			_ = await reconcile(reportStore: store, in: directory)
+		}
+	}
+
+	func reconcileAll() async {
+		guard let documentsDirectory = FileManager.default.documentDirectory else { return }
+		await reconcileAll(in: documentsDirectory.appendingPathComponent("Configurations", isDirectory: true))
 	}
 }
 

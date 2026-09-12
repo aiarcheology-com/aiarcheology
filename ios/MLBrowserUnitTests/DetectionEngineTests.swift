@@ -20,7 +20,12 @@ import UIKit
 import Vision
 @testable import ML_Browser
 
+@MainActor
 final class DetectionEngineTests: XCTestCase {
+
+    private final class IncrementalUpdateRecorder {
+        var count = 0
+    }
 
     /// Bundled demo models, by resource name (compiled to `.mlmodelc` in the app bundle).
     /// Mirrors the set seeded by `DemoDataManager`; keep in sync if a demo model is added.
@@ -38,7 +43,7 @@ final class DetectionEngineTests: XCTestCase {
             Bundle.main.url(forResource: modelResource, withExtension: "mlmodelc"),
             "Demo model \(modelResource).mlmodelc is missing from the app bundle"
         )
-        let detector = Detector(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model", file: url, demo: true))
+        let detector = Detector(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model", file: url))
         try await detector.loadFile()
         return detector
     }
@@ -68,7 +73,23 @@ final class DetectionEngineTests: XCTestCase {
             let detector = try await makeDetector(modelResource: resource)
             var perFixture: [Int] = []
             for image in images {
-                perFixture.append(await detector.detect(image: image, regions: regions).count)
+                let incrementalUpdates = IncrementalUpdateRecorder()
+                let objects = await detector.detect(
+                    image: image,
+                    regions: regions,
+                    onPartialResult: { _ in incrementalUpdates.count += 1 }
+                )
+                XCTAssertGreaterThan(
+                    incrementalUpdates.count,
+                    0,
+                    "Demo model \(resource) did not publish a completed pyramid tile"
+                )
+                XCTAssertLessThanOrEqual(
+                    incrementalUpdates.count,
+                    regions.count,
+                    "Demo model \(resource) published more updates than pyramid tiles"
+                )
+                perFixture.append(objects.count)
             }
             await detector.unload()
 

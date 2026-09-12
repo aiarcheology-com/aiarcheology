@@ -27,7 +27,7 @@ public enum ContentInteractionState {
 /// - For image viewers: called from MagnificationGesture/DragGesture handlers
 struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == Never, P.Output == SnapshotRequest {
 	let snapshotWorkCoordinator: SnapshotWorkCoordinator
-    let drivers: DeepDrivers
+    @ObservedObject private var drivers: DeepDrivers
     let trigger: P
     let showIdentifiers: Bool
     /// Whether detection overlays animate on appear. `false` (settings.disableDetectionAnimations
@@ -49,6 +49,12 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 	/// Asks the session to queue a current-run snapshot after this view invalidates an old frame for
 	/// a layout change. The session owns the request so a paused run cannot restart itself here.
 	let contentGeometryDidChange: () -> Void
+	/// Asks the session for a replacement after an interaction invalidated the current frame. The
+	/// session owns the request so an idle transition cannot restart a paused run.
+	let contentInteractionDidEnd: () -> Void
+	/// Receives the exact presentation-filtered frame that this view overlays, so finding capture
+	/// cannot select an observation hidden by the per-model confidence setting.
+	private let onFrameChanged: ((AppliedDetectionFrame?) -> Void)?
 
     /// Callback to receive interaction state changes. DetectableView manages state internally.
     private let onInteractionStateChanged: ((ContentInteractionState) -> Void)?
@@ -64,7 +70,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     @State private var interactionState: ContentInteractionState = .idle
     /// The detection state machine (generation / coalesce / freeze / apply-guards), extracted so it
     /// is unit-testable without SwiftUI (AIA-0386). This view is now layout + event-forwarding.
-    @StateObject private var coordinator: DetectionCoordinator
+	@StateObject private var coordinator: DetectionCoordinator
+	/// Stable over SwiftUI body recomputation, so a partial/final result pair retains its sound
+	/// de-duplication state instead of becoming audible twice.
+	@State private var soundEvents: AnnotationSoundEventCoordinator
     /// Classification consumer (AIA-0374) — a parallel branch of the snapshot flow,
     /// independent of the detection queue/appliedFrame machinery above.
     @StateObject private var flashController = ClassificationFlashController()
@@ -75,6 +84,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     init(
         snapshotWorkCoordinator: SnapshotWorkCoordinator,
         drivers: DeepDrivers,
+        soundPlayer: any AnnotationSoundPlaying,
         trigger: P,
         showIdentifiers: Bool,
         animateDetections: Bool = true,
@@ -83,13 +93,15 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         detectionActive: Bool = false,
         acceptsSnapshot: @escaping SnapshotRequestAcceptance,
         contentGeometryDidChange: @escaping () -> Void,
+        contentInteractionDidEnd: @escaping () -> Void,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
         @ViewBuilder content: @escaping (Binding<ContentInteractionState>) -> Content
     ) {
 		self.snapshotWorkCoordinator = snapshotWorkCoordinator
-        self.drivers = drivers
+		self._drivers = ObservedObject(wrappedValue: drivers)
+		self._soundEvents = State(initialValue: AnnotationSoundEventCoordinator(player: soundPlayer))
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
         self.animateDetections = animateDetections
@@ -98,28 +110,34 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 		self.detectionActive = detectionActive
 		self.acceptsSnapshot = acceptsSnapshot
 		self.contentGeometryDidChange = contentGeometryDidChange
+		self.contentInteractionDidEnd = contentInteractionDidEnd
         self.isCapturingFinding = isCapturingFinding
+		self.onFrameChanged = onFrameChanged
         self.onInteractionStateChanged = onInteractionStateChanged
         self.content = content
         // The detect seam is @MainActor (DeepDrivers is); the heavy work hops to the engine actor
         // inside detect(). Guards are bound later from the installed view's connected state
         // (.onAppear → bindGuards) — a view's own @State isn't wired to storage at init time.
-        self._coordinator = StateObject(wrappedValue: DetectionCoordinator(
-            tiling: tiling,
-            detect: { image, tiling in await drivers.detect(on: image, tiling: tiling) },
-            onFrameChanged: onFrameChanged
-        ))
+		self._coordinator = StateObject(wrappedValue: DetectionCoordinator(
+			tiling: tiling,
+			detect: { image, tiling, onPartialResults in
+				await drivers.detect(on: image, tiling: tiling, onPartialResults: onPartialResults)
+			},
+			onFrameChanged: { frame in
+				onFrameChanged?(DetectionPresentation.filteredFrame(frame))
+			}
+		))
     }
     
     private var isInteracting: Bool {
         interactionState.isInteracting
     }
 
-    /// Total rendered detection annotations across all result groups — the same `appliedFrame`
+    /// Total rendered detection annotations across all result groups — the same filtered frame
     /// results `AnnotationOverlay` draws. Extracted from `body` so the checkpoint expression stays
     /// within the type-checker budget (AIA-0317).
     private var renderedDetectionCount: Int {
-        (coordinator.appliedFrame?.results ?? []).reduce(0) { $0 + $1.observations.count }
+        DetectionPresentation.filteredResults(coordinator.appliedFrame?.results ?? []).reduce(0) { $0 + $1.observations.count }
     }
 
     // Checkpoint values extracted from the `body` chain for the same type-checker-budget
@@ -165,7 +183,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 
                 // Annotation overlay - SAME geometry scope guarantees coordinate alignment
                 AnnotationOverlay(
-                    observations: coordinator.appliedFrame?.results ?? [],
+					observations: DetectionPresentation.filteredResults(coordinator.appliedFrame?.results ?? []),
                     geometry: geometry,
                     showIdentifiers: showIdentifiers,
                     animateDetections: animateDetections
@@ -213,22 +231,26 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         }
 		.onSnapshot { image, _, request in
 			guard acceptsSnapshot(request) else { return }
-            // Skip detection while content is being manipulated - geometry is changing
-            guard !isInteracting else {
-                LoggingPolicy.debug("Detection snapshot skipped during content interaction", logger: .ui)
-                return
-            }
-            // The frozen frame must outlive the save dialog; new passes resume with
-            // the timer once the capture ends.
-            guard isCapturingFinding.wrappedValue.not else { return }
-            if AppEnvironment.isRunningUITests {
+			// Skip detection while content is being manipulated - geometry is changing
+			guard !isInteracting else { return }
+			// The frozen frame must outlive the save dialog; new passes resume with
+			// the timer once the capture ends.
+			guard isCapturingFinding.wrappedValue.not else { return }
+			if AppEnvironment.isRunningUITests {
                 deliveredSnapshotCount += 1
             }
             // Classification branch (AIA-0374): parallel consumer of the same snapshot,
             // deliberately AFTER both guards above so a straggler frame can't
             // classify-and-flash mid-scroll or behind the save sheet. Independent of
             // the detection queue below.
-            flashController.classifyPass(drivers: drivers, image: image)
+			flashController.classifyPass(
+				drivers: drivers,
+				image: image,
+				showIdentifiers: showIdentifiers,
+				onResultsBecameVisible: { results in
+					soundEvents.classificationResultsBecameVisible(results)
+				}
+			)
             // Detection pipeline: serialize + coalesce + apply-guard live in the coordinator
             // (AIA-0386). This is the single detection entry point.
             coordinator.ingest(snapshot: image)
@@ -246,6 +268,12 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             }
         }
         .onChange(of: interactionState) { _, state in
+            // Observers run FIRST because one of them may end a capture in response to this very
+            // event: AIA-0868's alignment mode abandons an in-flight capture when the user moves
+            // the page again. `setInteracting` skips the clear while a capture is freezing the
+            // frame, so running it first would read the capture that is about to be abandoned and
+            // leave the pre-pan frame — and its boxes — standing for the rest of the movement.
+            onInteractionStateChanged?(state)
             // While the save dialog is up the frame stays frozen (interaction events
             // can still arrive from the web view as the sheet animates in).
             // The coordinator invalidates in-flight detection + clears the frame when
@@ -256,9 +284,12 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 // finding flashes again once the content settles and re-qualifies
                 // (0→n; AIA-0374 accepted behavior).
                 flashController.resetOnInteraction()
+			} else if isCapturingFinding.wrappedValue.not {
+				// Interaction clears the current frame and rejects output that completes while the
+				// page is moving. Once it settles, do not leave an empty overlay until the timer's
+				// next cadence; the session emits a run-scoped replacement request instead.
+				contentInteractionDidEnd()
             }
-            // Notify external observer if provided
-            onInteractionStateChanged?(state)
         }
         .onAppear {
             // Bind the coordinator's live apply-time guards from the installed view's CONNECTED
@@ -266,16 +297,33 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // storage yet at init time, so a closure captured there reads a dead initial value.
             coordinator.bindGuards(
                 isInteracting: { interactionState.isInteracting },
-                isCapturing: { isCapturingFinding.wrappedValue }
+                isCapturing: { isCapturingFinding.wrappedValue },
+                // Read live, like the other two. A model swap unregisters before it loads, so this
+                // answers false for the ~2s a package takes — the window whose empty results used
+                // to wipe the overlay (AIA-0808).
+                hasDetectors: { drivers.detectors.isEmpty == false }
             )
+			coordinator.bindSoundEvents { passID, rawResults in
+				// Same filter as AnnotationOverlay: a hidden low-confidence observation is not painted
+				// and must not produce a sound. This callback is never called by refreshPresentation().
+				soundEvents.detectionResultsApplied(
+					passID: passID,
+					results: DetectionPresentation.filteredResults(rawResults)
+				)
+			}
         }
         .onChange(of: tiling) { _, value in
             // Keep the coordinator's live tiling scheme current (read at each pass start).
             coordinator.tiling = value
         }
+		.onReceive(drivers.$detectionPresentationRevision.dropFirst()) { _ in
+			// The callback re-filters the retained raw frame, keeping the parent pick state in
+			// lockstep with the annotations without an inference pass or model reload.
+			coordinator.refreshPresentation()
+		}
         // AIA-0317: publish the live rendered-annotation count for UI tests. Attached at the body
         // root (outside the ZStack's SnapableGroup), so the 1pt marker is never in the detection
-        // snapshot. Reads the same `appliedFrame.results` that feeds AnnotationOverlay, so the
+        // snapshot. Reads the same filtered results that feed AnnotationOverlay, so the
         // count equals the visible annotation total (0 when none).
         // Gate the O(n) reduce on `isRunningUITests` so production view updates don't pay for a
         // value only the UI-test checkpoint marker reads (the marker itself already renders only

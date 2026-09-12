@@ -1,0 +1,403 @@
+{
+  "configuration": {
+    "model_id": "OD_ringfort",
+    "figure": "ringfort.jpg",
+    "padded_input_side": 800,
+    "construction": "CropResize(ROI_ALIGN_MODE, 14x14) + 2x2 average pool",
+    "reference": "torchvision.ops.roi_align(output_size=7, sampling_ratio=2, aligned=False)",
+    "real_proposals_used": 64,
+    "population_size": 24,
+    "ring_shift_note": "one feature-map pixel, applied as 1/spatial_scale image pixels"
+  },
+  "decision_rule": {
+    "interior_relative_residual_ceiling": 0.0001,
+    "fixed_relative_residual_ceiling": 0.0001
+  },
+  "levels": {
+    "0": {
+      "feature_shape": [
+        256,
+        200,
+        200
+      ],
+      "spatial_scale": 0.25,
+      "ring_shift_image_px": 4.0,
+      "real_proposals": {
+        "all": {
+          "no_ring": {
+            "max_abs_diff": 1.317969799041748,
+            "mean_abs_diff": 0.0052593696302600575,
+            "relative_mean_abs_diff": 0.04363292447195689,
+            "rois": 64
+          },
+          "zero_ring": {
+            "max_abs_diff": 0.9769200086593628,
+            "mean_abs_diff": 0.0020061343693866035,
+            "relative_mean_abs_diff": 0.016643346175255286,
+            "rois": 64
+          },
+          "replicate_ring": {
+            "max_abs_diff": 1.3083219528198242e-05,
+            "mean_abs_diff": 1.2025925947131304e-07,
+            "relative_mean_abs_diff": 9.97698118682297e-07,
+            "rois": 64
+          }
+        },
+        "interior": {
+          "no_ring": {
+            "max_abs_diff": 8.255243301391602e-06,
+            "mean_abs_diff": 9.601447771512817e-08,
+            "relative_mean_abs_diff": 8.130805532269905e-07,
+            "rois": 51
+          },
+          "zero_ring": {
+            "max_abs_diff": 8.255243301391602e-06,
+            "mean_abs_diff": 1.023965738415275e-07,
+            "relative_mean_abs_diff": 8.671261344006617e-07,
+            "rois": 51
+          },
+          "replicate_ring": {
+            "max_abs_diff": 8.255243301391602e-06,
+            "mean_abs_diff": 1.023965738415275e-07,
+            "relative_mean_abs_diff": 8.671261344006617e-07,
+            "rois": 51
+          }
+        },
+        "edge_touching": {
+          "no_ring": {
+            "max_abs_diff": 1.317969799041748,
+            "mean_abs_diff": 0.025891904584483094,
+            "relative_mean_abs_diff": 0.1989450167635513,
+            "rois": 13
+          },
+          "zero_ring": {
+            "max_abs_diff": 0.9769200086593628,
+            "mean_abs_diff": 0.009875952108882825,
+            "relative_mean_abs_diff": 0.07588362035889791,
+            "rois": 13
+          },
+          "replicate_ring": {
+            "max_abs_diff": 1.3083219528198242e-05,
+            "mean_abs_diff": 1.9033594924970245e-07,
+            "relative_mean_abs_diff": 1.4624798454139857e-06,
+            "rois": 13
+          }
+        },
+        "counts": {
+          "interior": 51,
+          "edge_touching": 13
+        },
+        "max_overhang_px": 0.8661509922572463
+      },
+      "synthetic": {
+        "interior": {
+          "no_ring": {
+            "max_abs_diff": 5.245208740234375e-06,
+            "mean_abs_diff": 8.55568821171479e-08,
+            "relative_mean_abs_diff": 8.263467647520642e-07,
+            "rois": 24
+          },
+          "zero_ring": {
+            "max_abs_diff": 5.245208740234375e-06,
+            "mean_abs_diff": 8.55381004908559e-08,
+            "relative_mean_abs_diff": 8.261653633762879e-07,
+            "rois": 24
+          },
+          "replicate_ring": {
+            "max_abs_diff": 5.245208740234375e-06,
+            "mean_abs_diff": 8.55381004908559e-08,
+            "relative_mean_abs_diff": 8.261653633762879e-07,
+            "rois": 24
+          }
+        },
+        "edge_touching": {
+          "no_ring": {
+            "max_abs_diff": 1.4424567222595215,
+            "mean_abs_diff": 0.018832515790318638,
+            "relative_mean_abs_diff": 0.11492469397609566,
+            "rois": 24
+          },
+          "zero_ring": {
+            "max_abs_diff": 1.029755562543869,
+            "mean_abs_diff": 0.009838935289306162,
+            "relative_mean_abs_diff": 0.06004171932012421,
+            "rois": 24
+          },
+          "replicate_ring": {
+            "max_abs_diff": 1.4938414096832275e-05,
+            "mean_abs_diff": 1.1882666806375517e-07,
+            "relative_mean_abs_diff": 7.251351128799508e-07,
+            "rois": 24
+          }
+        },
+        "overhanging": {
+          "no_ring": {
+            "max_abs_diff": 1.601158618927002,
+            "mean_abs_diff": 0.02734232366021507,
+            "relative_mean_abs_diff": 0.30447317059216833,
+            "rois": 24
+          },
+          "zero_ring": {
+            "max_abs_diff": 0.9100196659564972,
+            "mean_abs_diff": 0.013470377081560044,
+            "relative_mean_abs_diff": 0.15000072671447578,
+            "rois": 24
+          },
+          "replicate_ring": {
+            "max_abs_diff": 1.099705696105957e-05,
+            "mean_abs_diff": 3.654648983140042e-08,
+            "relative_mean_abs_diff": 4.069670804596642e-07,
+            "rois": 24
+          }
+        }
+      },
+      "boundary_semantics": {
+        "channels": 16,
+        "rois": 72,
+        "roi_align_clamp": {
+          "vs_roi_align": {
+            "max_abs_diff": 1.0752506304390064e-05,
+            "mean_abs_diff": 1.3628995716312098e-07,
+            "relative_mean_abs_diff": 1.1425979781331766e-06,
+            "rois": 72
+          },
+          "vs_crop_resize": {
+            "max_abs_diff": 1.4793518661612595,
+            "mean_abs_diff": 0.016250520691929345,
+            "relative_mean_abs_diff": 0.15762557300016622,
+            "rois": 72
+          }
+        },
+        "crop_resize_zero": {
+          "vs_roi_align": {
+            "max_abs_diff": 1.4793518781661987,
+            "mean_abs_diff": 0.01625052817443936,
+            "relative_mean_abs_diff": 0.13623762911222737,
+            "rois": 72
+          },
+          "vs_crop_resize": {
+            "max_abs_diff": 9.110350808749779e-06,
+            "mean_abs_diff": 1.2753665293551324e-07,
+            "relative_mean_abs_diff": 1.2370703916870537e-06,
+            "rois": 72
+          }
+        },
+        "roi_align_is_clamping": true,
+        "crop_resize_is_zeroing": true,
+        "hypothesis_in_ticket_673": "roi_align zero-pads and CropResize clamps \u2014 the inverse of what the two rules above measure"
+      }
+    },
+    "2": {
+      "feature_shape": [
+        256,
+        50,
+        50
+      ],
+      "spatial_scale": 0.0625,
+      "ring_shift_image_px": 16.0,
+      "real_proposals": {
+        "all": {
+          "no_ring": {
+            "max_abs_diff": 0.8171850442886353,
+            "mean_abs_diff": 0.015651484770564324,
+            "relative_mean_abs_diff": 0.13984138611009553,
+            "rois": 64
+          },
+          "zero_ring": {
+            "max_abs_diff": 0.7847377974539995,
+            "mean_abs_diff": 0.008243168947906115,
+            "relative_mean_abs_diff": 0.07365027590116144,
+            "rois": 64
+          },
+          "replicate_ring": {
+            "max_abs_diff": 2.4139881134033203e-06,
+            "mean_abs_diff": 3.806374026855595e-08,
+            "relative_mean_abs_diff": 3.4008825857213566e-07,
+            "rois": 64
+          }
+        },
+        "interior": {
+          "no_ring": {
+            "max_abs_diff": 2.4139881134033203e-06,
+            "mean_abs_diff": 3.2481706189448115e-08,
+            "relative_mean_abs_diff": 2.916222446028299e-07,
+            "rois": 48
+          },
+          "zero_ring": {
+            "max_abs_diff": 2.4139881134033203e-06,
+            "mean_abs_diff": 3.784233263558758e-08,
+            "relative_mean_abs_diff": 3.397501941502685e-07,
+            "rois": 48
+          },
+          "replicate_ring": {
+            "max_abs_diff": 2.4139881134033203e-06,
+            "mean_abs_diff": 3.784233263558758e-08,
+            "relative_mean_abs_diff": 3.397501941502685e-07,
+            "rois": 48
+          }
+        },
+        "edge_touching": {
+          "no_ring": {
+            "max_abs_diff": 0.8171850442886353,
+            "mean_abs_diff": 0.06260584163713874,
+            "relative_mean_abs_diff": 0.5513793073235019,
+            "rois": 16
+          },
+          "zero_ring": {
+            "max_abs_diff": 0.7847377974539995,
+            "mean_abs_diff": 0.032972562264626554,
+            "relative_mean_abs_diff": 0.2903944435013544,
+            "rois": 16
+          },
+          "replicate_ring": {
+            "max_abs_diff": 2.3692846298217773e-06,
+            "mean_abs_diff": 3.872796316746106e-08,
+            "relative_mean_abs_diff": 3.4108314730581586e-07,
+            "rois": 16
+          }
+        },
+        "counts": {
+          "interior": 48,
+          "edge_touching": 16
+        },
+        "max_overhang_px": 1.2516697474888332
+      },
+      "synthetic": {
+        "interior": {
+          "no_ring": {
+            "max_abs_diff": 1.6093254089355469e-06,
+            "mean_abs_diff": 3.6535283001529666e-08,
+            "relative_mean_abs_diff": 3.349723184797042e-07,
+            "rois": 24
+          },
+          "zero_ring": {
+            "max_abs_diff": 1.6093254089355469e-06,
+            "mean_abs_diff": 4.019764942375357e-08,
+            "relative_mean_abs_diff": 3.685505823054749e-07,
+            "rois": 24
+          },
+          "replicate_ring": {
+            "max_abs_diff": 1.6093254089355469e-06,
+            "mean_abs_diff": 4.019764942375357e-08,
+            "relative_mean_abs_diff": 3.685505823054749e-07,
+            "rois": 24
+          }
+        },
+        "edge_touching": {
+          "no_ring": {
+            "max_abs_diff": 0.8179258108139038,
+            "mean_abs_diff": 0.014300838429205435,
+            "relative_mean_abs_diff": 0.13316517508511194,
+            "rois": 24
+          },
+          "zero_ring": {
+            "max_abs_diff": 0.6920590624213219,
+            "mean_abs_diff": 0.007505016559405467,
+            "relative_mean_abs_diff": 0.06988449307341914,
+            "rois": 24
+          },
+          "replicate_ring": {
+            "max_abs_diff": 2.1010637283325195e-06,
+            "mean_abs_diff": 3.098512546766498e-08,
+            "relative_mean_abs_diff": 2.885243182322297e-07,
+            "rois": 24
+          }
+        },
+        "overhanging": {
+          "no_ring": {
+            "max_abs_diff": 0.8055709600448608,
+            "mean_abs_diff": 0.01922424011452396,
+            "relative_mean_abs_diff": 0.335112439310345,
+            "rois": 24
+          },
+          "zero_ring": {
+            "max_abs_diff": 0.5616006553173065,
+            "mean_abs_diff": 0.00959517312843718,
+            "relative_mean_abs_diff": 0.167260804771491,
+            "rois": 24
+          },
+          "replicate_ring": {
+            "max_abs_diff": 1.9669532775878906e-06,
+            "mean_abs_diff": 1.4969404932550052e-08,
+            "relative_mean_abs_diff": 2.6094315156733976e-07,
+            "rois": 24
+          }
+        }
+      },
+      "boundary_semantics": {
+        "channels": 16,
+        "rois": 72,
+        "roi_align_clamp": {
+          "vs_roi_align": {
+            "max_abs_diff": 1.5433085369664923e-06,
+            "mean_abs_diff": 3.349477097448131e-08,
+            "relative_mean_abs_diff": 3.5249773227050584e-07,
+            "rois": 72
+          },
+          "vs_crop_resize": {
+            "max_abs_diff": 0.6178105326812329,
+            "mean_abs_diff": 0.010293813161956182,
+            "relative_mean_abs_diff": 0.1214084241382974,
+            "rois": 72
+          }
+        },
+        "crop_resize_zero": {
+          "vs_roi_align": {
+            "max_abs_diff": 0.6178104877471924,
+            "mean_abs_diff": 0.010293813287999228,
+            "relative_mean_abs_diff": 0.10833171073778085,
+            "rois": 72
+          },
+          "vs_crop_resize": {
+            "max_abs_diff": 2.0500452906357935e-06,
+            "mean_abs_diff": 3.191108031330141e-08,
+            "relative_mean_abs_diff": 3.763691755847183e-07,
+            "rois": 72
+          }
+        },
+        "roi_align_is_clamping": true,
+        "crop_resize_is_zeroing": true,
+        "hypothesis_in_ticket_673": "roi_align zero-pads and CropResize clamps \u2014 the inverse of what the two rules above measure"
+      }
+    }
+  },
+  "mechanism": "roi_align clamps a sample in [-1, 0) or (H-1, H] onto the edge pixel and zeroes only beyond [-1, H]; CropResize contributes exactly zero for any sample outside [0, H-1] x [0, W-1]. A box clipped to the image bound samples up to one pixel past the last interpolable centre, so torchvision replicates the edge there and Core ML drops it \u2014 which is the entire residual.",
+  "recommendation": "M3c should pad every FPN level with a one-pixel REPLICATE ring and add one feature-map pixel (1/spatial_scale image pixels) to every ROI coordinate: replicate_ring holds the worst boundary population at 7.25e-07 relative, against 3.35e-01 unpadded and 1.67e-01 for the zero ring the ticket proposed.",
+  "verdicts": [
+    {
+      "criterion": "criterion edge-ROI interior control [P2]",
+      "outcome": "PASS",
+      "detail": "interior ROIs sit at 8.26e-07 relative (ceiling 1e-04); above it, the operators differ in shape and no ring can help"
+    },
+    {
+      "criterion": "criterion edge-ROI replicate ring [edge_touching, P2]",
+      "outcome": "PASS",
+      "detail": "1.15e-01 unpadded, 6.00e-02 with a zero ring, 7.25e-07 with a replicate ring"
+    },
+    {
+      "criterion": "criterion edge-ROI replicate ring [overhanging, P2]",
+      "outcome": "PASS",
+      "detail": "3.04e-01 unpadded, 1.50e-01 with a zero ring, 4.07e-07 with a replicate ring"
+    },
+    {
+      "criterion": "criterion edge-ROI interior control [P4]",
+      "outcome": "PASS",
+      "detail": "interior ROIs sit at 3.35e-07 relative (ceiling 1e-04); above it, the operators differ in shape and no ring can help"
+    },
+    {
+      "criterion": "criterion edge-ROI replicate ring [edge_touching, P4]",
+      "outcome": "PASS",
+      "detail": "1.33e-01 unpadded, 6.99e-02 with a zero ring, 2.89e-07 with a replicate ring"
+    },
+    {
+      "criterion": "criterion edge-ROI replicate ring [overhanging, P4]",
+      "outcome": "PASS",
+      "detail": "3.35e-01 unpadded, 1.67e-01 with a zero ring, 2.61e-07 with a replicate ring"
+    },
+    {
+      "criterion": "criterion edge-ROI mechanism identified",
+      "outcome": "PASS",
+      "detail": "roi_align clamps a sample in [-1, 0) or (H-1, H] onto the edge pixel and zeroes only beyond [-1, H]; CropResize contributes exactly zero for any sample outside [0, H-1] x [0, W-1]. A box clipped to the image bound samples up to one pixel past the last interpolable centre, so torchvision replicates the edge there and Core ML drops it \u2014 which is the entire residual."
+    }
+  ]
+}

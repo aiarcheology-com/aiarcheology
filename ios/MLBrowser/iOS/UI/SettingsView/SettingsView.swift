@@ -14,6 +14,11 @@ import ClerkKitUI
 private enum AccountRoute: Hashable {
 	case profile
 	case subscription
+	/// The app's own delete-account screen, reached from the row this file injects into Clerk's
+	/// profile one place under Sign out (AIA-0891). It rides `AccountRoute` rather than a type of
+	/// its own because Clerk pushes a custom row's route onto the *host's* path, and a second route
+	/// type would need a second `navigationDestination` for a stack that already has one.
+	case deleteAccount
 }
 
 struct SettingsForm: View {
@@ -25,6 +30,10 @@ struct SettingsForm: View {
 	/// Auth, for the account section (AIA-0536). Sign-in is optional under the paywall-first gate
 	/// order, so signed-out is a state Settings must render rather than one it can assume away.
 	@ObservedObject var authState: AuthState
+
+	/// Cloud sync, for the back-up switch in the account section (AIA-744). Settings is where a
+	/// reversible data choice lives in this app -- it is where the analytics one already is.
+	@ObservedObject var findingsSync: FindingsSyncCoordinator
 
 	/// When the app-managed free window runs out, or `nil` when none is open (AIA-0556).
 	///
@@ -41,6 +50,13 @@ struct SettingsForm: View {
 	/// run out while this sheet is up. Passing a snapshot would let the paywall tell someone they
 	/// still have days the gate has already stopped honouring.
 	let freeAccessDaysRemaining: () -> Int?
+
+	/// Clears both halves of the free-access anchor, for the DEBUG-only reset row (AIA-0826).
+	///
+	/// A closure rather than the state object, for the reason its two neighbours above are values:
+	/// Settings needs one action, not a window it might start reading. Optional and defaulted so a
+	/// preview — and a Release build, which has no row to call it from — passes nothing.
+	let debugResetFreeAccess: (() throws -> Void)?
 
 	@Environment(\.dismiss) private var dismiss
 	@Environment(DrawerManager.self) private var drawer
@@ -80,14 +96,18 @@ struct SettingsForm: View {
 	init(
 		findingRepository: FindingRepository,
 		authState: AuthState,
+		findingsSync: FindingsSyncCoordinator,
 		freeAccessEndsOn: Date? = nil,
 		freeAccessDaysRemaining: @escaping () -> Int?,
-		startAtManageAccount: Bool = false
+		startAtManageAccount: Bool = false,
+		debugResetFreeAccess: (() throws -> Void)? = nil
 	) {
 		self.findingRepository = findingRepository
 		self._authState = ObservedObject(wrappedValue: authState)
+		self._findingsSync = ObservedObject(wrappedValue: findingsSync)
 		self.freeAccessEndsOn = freeAccessEndsOn
 		self.freeAccessDaysRemaining = freeAccessDaysRemaining
+		self.debugResetFreeAccess = debugResetFreeAccess
 		var path = NavigationPath()
 		if startAtManageAccount { path.append(AccountRoute.profile) }
 		self._accountPath = State(initialValue: path)
@@ -126,6 +146,7 @@ struct SettingsForm: View {
 				webContentSection
 				mlBrowserSection
 				accountSection
+				backUpToggle
 				debugSection
 			}
 			.navigationDestination(for: AccountRoute.self) { route in
@@ -133,11 +154,40 @@ struct SettingsForm: View {
 				case .profile:
 					// Embedded on the Settings stack (shares `accountPath`), so the profile's
 					// own Manage-account / Security sub-screens resolve correctly.
+					//
+					// The injected Delete account row answers App Review 5.1.1(v) (AIA-0891).
+					// Clerk's own delete affordance is buried in Security, four levels from
+					// Settings, and 1.5.1 exposes no way to move, hide or relabel it — so this
+					// adds a shallower second path to the same outcome instead of relocating the
+					// first. `.after(.signOut)` is a supported placement, and because a custom
+					// row pushes its `route` onto *this* stack, `AccountRoute.deleteAccount`
+					// resolves in the same switch rather than needing `.userProfileDestination`.
+					//
+					// The row renders in Clerk's theme foreground, not destructive red:
+					// `UserProfileRowView` hardcodes the label colour. Only the icon and title
+					// are ours.
+					//
+					// The title is an already-resolved `L10n` string, which Clerk wraps in a
+					// `LocalizedStringKey` and draws with `Text(_:bundle: nil)`. That is a main-
+					// bundle lookup of the *translated* text as a key; it misses, and SwiftUI
+					// falls back to rendering the key — the translation itself. Safe only because
+					// this catalog's keys are dotted identifiers, so no locale's copy can collide
+					// with one and get translated a second time.
 					UserProfileView(isDismissible: false, navigationPath: $accountPath)
+						.userProfileRows([
+							UserProfileCustomRow(
+								route: AccountRoute.deleteAccount,
+								title: L10n.Auth.Account.Delete.action,
+								icon: .system(name: "trash.fill"),
+								placement: .after(.signOut)
+							)
+						])
 						.environment(Clerk.shared)
 						.environment(\.clerkTheme, .app)
 				case .subscription:
 					SubscriptionStatusView(subscriptionState: subscriptionState)
+				case .deleteAccount:
+					DeleteAccountView(authState: authState)
 				}
 			}
 			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
@@ -299,6 +349,15 @@ struct SettingsForm: View {
 		}
 	}
 
+	/// Two groups, for the reason set out on ``mlBrowserSection``: a row whose explanatory text sits
+	/// underneath gets its **own** group, so the caption reads as belonging to that row rather than
+	/// to whichever row happens to be last in a shared block. It matters more than usual here — the
+	/// caption explains what is still recorded when the switch is off, and read as a note about
+	/// "Delete cache" it would say something untrue.
+	///
+	/// Last in the section, because it is the one control here that nobody should need to touch: the
+	/// feature works by default, and this exists for the person whose site it broke (AIA-0821).
+	@ViewBuilder
 	private var webContentSection: some View {
 		Section(header: Text(L10n.Settings.Section.webContent)) {
 			HStack {
@@ -328,6 +387,14 @@ struct SettingsForm: View {
 			}
 			.testability(Testability.NavigationLink.settingsHistory)
 			deleteCacheRow
+		}
+
+		Section(footer: Text(L10n.Settings.readMapPositionFromPagesFooter)) {
+			// The user-reachable half of the map parser's kill switch. The developer launch argument
+			// is unreachable to someone who has simply hit a site our injected script breaks, and
+			// that person is the one who needs it.
+			Toggle(L10n.Settings.readMapPositionFromPages, isOn: $settings.readMapPositionFromPages)
+				.testability(Testability.Toggle.settingsReadMapPositionFromPages)
 		}
 	}
 
@@ -594,6 +661,12 @@ struct SettingsForm: View {
 		.onTapGesture {
 			dismiss()
 			drawer.close()
+			// Stage the demo page too (AIA-0757). First launch does this in
+			// `AppState.initialize()`, but a replay never did — so the tour's opening step told the
+			// user to load a site while whatever they happened to be browsing sat underneath, and
+			// the demo models had nothing to detect on it. `pageToOpen` is the same latch a shared
+			// link uses, so the load runs through the normal pipeline and fills the address bar.
+			chromeState.pageToOpen = DemoDataManager.onboardingDemoPage
 			tour.start()
 		}
 		.accessibilityAddTraits(.isButton)
@@ -672,6 +745,29 @@ struct SettingsForm: View {
 	/// Identity only, since AIA-0455 moved the subscription to the ML Browser section: sign in, who
 	/// is signed in, and Clerk's profile. Nothing here is about money except the warning that
 	/// deleting the account does not stop it.
+	/// The back-up switch (AIA-744).
+	///
+	/// Only while signed in and only when the build has a Worker: offering to turn off something
+	/// that cannot happen would be a promise about a feature the user does not have.
+	@ViewBuilder
+	private var backUpToggle: some View {
+		if let account = authState.accountIdentifier, findingsSync.isCloudConfigured {
+			Section(footer: Text(L10n.Findings.Sync.Backup.toggleFooter)) {
+				Toggle(
+					L10n.Findings.Sync.Backup.toggle,
+					isOn: Binding(
+						get: { findingsSync.isBackUpEnabled },
+						// The account travels with the decision, and the coordinator refuses it if
+						// the provider has moved on -- the same fence the back-up button uses, for
+						// the same reason: `AuthState` lags during an account switch.
+						set: { findingsSync.setBackUpEnabled($0, expectedAccount: account) }
+					)
+				)
+				.testability(Testability.Toggle.findingsBackUp)
+			}
+		}
+	}
+
 	private var accountSection: some View {
 		Section(header: Text(L10n.Auth.Account.title)) {
 			Group {
@@ -724,10 +820,17 @@ struct SettingsForm: View {
 					}
 					.testability(Testability.NavigationLink.settingsManageAccount)
 
-					// Deleting the account does not stop Apple billing (AIA-0528). Clerk owns the
-					// delete confirmation inside `UserProfileView`, so its copy is not ours to amend —
-					// and this is nonetheless the only delete path a *subscribed* user can walk, since
-					// the paywall's own account controls are unreachable once entitled.
+					// Deleting the account does not stop Apple billing (AIA-0528). This is the only
+					// delete path a *subscribed* user can walk, since the paywall's own account
+					// controls are unreachable once entitled.
+					//
+					// It used to be the only place the app could say so at all, because Clerk owned
+					// the sole delete confirmation and its copy is not ours to amend. AIA-0891 added
+					// one we do own — `DeleteAccountView`, reached from the row this section pushes
+					// to — and its confirmation carries the same warning. This note is kept rather
+					// than retired: Clerk's own delete under Security is still reachable, still
+					// unamendable, and a subscriber who walks that path would otherwise be told
+					// nothing about billing at all.
 					//
 					// Placed directly under the row it warns about rather than in the section footer:
 					// that footer already carries the free-access/trial line, sits two pushes from
@@ -768,9 +871,96 @@ struct SettingsForm: View {
 				NavigationLink(destination: SentryStatsView()) {
 					Text(L10n.Settings.Sentry.title)
 				}
+				#if DEBUG
+				resetFreeAccessRow
+				#endif
 			}
 		}
 	}
+
+	#if DEBUG
+	/// Clears the free-access anchor so the next launch is a first install (AIA-0826).
+	///
+	/// `#if DEBUG` **on top of** the section's own gate, which is not redundant: that gate is
+	/// `isAppStoreDistribution.not`, which is true under TestFlight. A reset row in a tester's
+	/// hands is an unlimited free-window farm — exactly what the durable anchor exists to prevent
+	/// (#557) — so the guarantee has to be that the code is not in the binary at all.
+	///
+	/// `verbatim:` because this never ships and must never be translated: a developer tool, in the
+	/// vocabulary of the code it resets. It is also the only way to keep it out of the string
+	/// catalog, which `SWIFT_EMIT_LOC_STRINGS` would otherwise extract a literal into.
+	@ViewBuilder
+	private var resetFreeAccessRow: some View {
+		if let debugResetFreeAccess {
+			Button(role: .destructive) {
+				alertItem = AlertItem(
+					title: Text(verbatim: "Reset free access?"),
+					message: Text(verbatim: """
+						Clears the free-access anchor from this app's UserDefaults and from the \
+						keychain, where deleting the app does not reach. The next launch then \
+						reconciles as a first install.
+
+						It grants a new 14-day window and shows the day-0 Welcome only if nothing \
+						else refuses: an entitlement you already hold, payments off, or the \
+						free-access flag off.
+						"""),
+					primaryButton: .destructive(Text(verbatim: "Reset")) {
+						performDebugFreeAccessReset(debugResetFreeAccess)
+					},
+					secondaryButton: .cancel()
+				)
+			} label: {
+				Text(verbatim: "Reset free access")
+			}
+		}
+	}
+
+	/// Runs the reset and reports what actually happened.
+	///
+	/// The success alert asks for a relaunch rather than claiming the app is now in a first-run
+	/// state, because it is not: `FreeAccessState.availability` settled at launch and deliberately
+	/// never settles twice, so the gate above this sheet is still holding the answer the old anchor
+	/// produced. The stores are what changed, and they are read on the next launch.
+	private func performDebugFreeAccessReset(_ reset: () throws -> Void) {
+		do {
+			try reset()
+			alertItem = AlertItem(
+				title: Text(verbatim: "Free access reset"),
+				message: Text(verbatim: """
+					Both stores are empty, and nothing in this session will write them back. \
+					The access decision made at launch stands until you quit and relaunch.
+					"""),
+				dismissButton: .default(Text(L10n.Common.ok))
+			)
+		} catch {
+			// Named rather than swallowed: a keychain delete that failed left the anchor in place,
+			// and the durable copy is deleted first precisely so this leaves both stores untouched.
+			alertItem = AlertItem(
+				title: Text(L10n.Alert.Error.title),
+				message: Text(verbatim: "Nothing was reset: \(Self.debugResetFailureReason(error))."),
+				dismissButton: .default(Text(L10n.Common.ok))
+			)
+		}
+	}
+
+	/// Why a reset failed, in terms the person reading it can act on.
+	///
+	/// Not `localizedDescription`: `FreeAccessAnchorError` is a plain `Error`, so that property
+	/// synthesises "The operation couldn't be completed. (… error 0.)" — which names neither the
+	/// failure nor the one number that identifies it. The `OSStatus` is the whole diagnosis here;
+	/// `-34018` (`errSecMissingEntitlement`) in particular says the build cannot reach the keychain
+	/// at all, which is a signing problem and not a reset that merely went wrong.
+	private static func debugResetFailureReason(_ error: Error) -> String {
+		switch error {
+		case FreeAccessAnchorError.keychain(let status):
+			return "keychain error \(status)"
+		case FreeAccessAnchorError.malformedRecord:
+			return "the stored anchor could not be decoded"
+		default:
+			return String(describing: error)
+		}
+	}
+	#endif
 
 	// MARK: - Helpers
 

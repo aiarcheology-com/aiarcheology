@@ -88,7 +88,9 @@ struct DrawerContent: View {
     var body: some View {
         NavigationStack {
             configurationList
-                .navigationTitle(L10n.Models.title)
+                // No `.navigationTitle`: the toolbar's Add Model button now carries a visible title,
+                // and a centred "Models" between it and the close cross crowds the drawer's narrow
+                // bar (AIA-0757 D2). The list names itself instead — see `configurationList`.
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
                 // Pinned to the drawer's bottom edge, outside the scrolling list (AIA-0536): the
@@ -104,7 +106,8 @@ struct DrawerContent: View {
                     if needsReview { importedForReviewId = id }
                 },
                 catalogProviders: appState.catalogProviders,
-                catalogSearchManager: appState.catalogSearchManager
+				catalogSearchManager: appState.catalogSearchManager,
+				nativeConversionSourceCleanupService: appState.nativeConversionSourceCleanupService
             )
                 .environmentObject(deep)
                 .environmentObject(downloader)
@@ -123,12 +126,19 @@ struct DrawerContent: View {
         }) { configId in
             if let config = deep.selectConfiguration(configId) {
                 ConfigurationForm(pendingTypeReview: configId == typeReviewConfigId)
+					// ConfigurationForm previews app-provided sounds through AppState; sheets need
+					// explicit reinjection on Mac (Designed for iPad).
+					.environmentObject(appState)
                     .environmentObject(deep)
                     .environmentObject(config)
             }
         }
         .sheet(isPresented: $showFindings) {
-            FindingsListView { url in
+            FindingsListView(
+                findingRepository: appState.findingRepository,
+                findingsSync: appState.findingsSync,
+                authState: authState
+            ) { url in
                 // Open the captured page: tear down this sheet and the drawer,
                 // then hand the URL to the web screen via chromeState.pageToOpen.
                 showFindings = false
@@ -139,6 +149,16 @@ struct DrawerContent: View {
             // reliably carry \.managedObjectContext across the sheet boundary, so
             // the fetch/distinctLabels would hit the empty default context and crash.
             .environment(\.managedObjectContext, moc)
+            // Same reason (AIA-0650): the share composer two sheets down reads
+            // `isFindingShareLinkEnabled` live, and this is where the chain starts.
+            .environmentObject(appState.featureFlags)
+            // Same reason again (AIA-740): the back-up button raises its own `SignInSheet`, which
+            // branches on this to decide whether to build Clerk's `AuthView` at all.
+            .environment(\.usesRealAuth, usesRealAuth)
+            // Sized once for the list AND the detail it pushes: both live in the same
+            // `NavigationStack`, and the detail is the one that needs the room — a page address, a
+            // coordinate, a snapshot and four fields.
+            .roomySheet()
         }
         .sheet(isPresented: $showSignIn) {
             SignInSheet(authState: authState)
@@ -155,6 +175,7 @@ struct DrawerContent: View {
             SettingsForm(
                 findingRepository: appState.findingRepository,
                 authState: authState,
+                findingsSync: appState.findingsSync,
                 // The free window's end date, so the account section can say plainly what the user
                 // is on — free usage, not a trial (AIA-0556). A value rather than the state object:
                 // it is frozen at grant and cannot change while this sheet is up.
@@ -163,7 +184,11 @@ struct DrawerContent: View {
                 // from Settings reads it at the moment Subscribe is tapped, and unlike the end date
                 // above this number moves — the window can run out while the sheet is open.
                 freeAccessDaysRemaining: { appState.freeAccess.windowDaysRemaining },
-                startAtManageAccount: presentation.startsAtManageAccount
+                startAtManageAccount: presentation.startsAtManageAccount,
+                // The DEBUG-only reset row (AIA-0826). `nil` in Release, where the row does not
+                // exist to call it — the closure is the only thing that would carry the reset into
+                // a shipping binary, and it is not built there.
+                debugResetFreeAccess: Self.debugResetFreeAccess(appState)
             )
                 .environmentObject(settings)
                 .environmentObject(chromeState)
@@ -186,6 +211,19 @@ struct DrawerContent: View {
         }
     }
     
+    /// The Settings → Debug free-access reset, or `nil` in a shipping build (AIA-0826).
+    ///
+    /// A single `#if DEBUG` here rather than one around the argument it feeds: the conditional
+    /// belongs where the decision is — whether this build has a reset at all — and keeping it out
+    /// of the initializer call leaves that call the same shape in both configurations.
+    private static func debugResetFreeAccess(_ appState: AppState) -> (() throws -> Void)? {
+        #if DEBUG
+        return { try appState.freeAccess.resetAnchorForDebugging() }
+        #else
+        return nil
+        #endif
+    }
+
     /// After the import sheet finishes dismissing, open the newly imported model's settings so the
     /// user confirms its type. Presenting the settings sheet here (not while the import sheet is
     /// still up) avoids the "present while dismissing" no-op (AIA-0402).
@@ -225,6 +263,22 @@ struct DrawerContent: View {
             settingsSection
         }
         .listStyle(.insetGrouped)
+        // Breathing room under the toolbar (AIA-0783). With no navigation title, the "Available
+        // Models" header sits directly beneath the Add Model button and reads as crowded against
+        // it — most visibly on Mac, where the bar is shallower than on iOS. Applied to the scroll
+        // content rather than as padding on the List, so it spaces the content away from the bar
+        // without insetting the rows themselves.
+        .contentMargins(.top, 12, for: .scrollContent)
+        // Names the drawer for VoiceOver now that the navigation title is gone (AIA-0757 D2).
+        // `configurationsSection` carries its own header, but the empty branch has none, so without
+        // this the first thing a model-less drawer announces is the close button.
+        //
+        // `children: .contain` first, deliberately: an accessibility modifier on a view that is not
+        // itself an element propagates down to every leaf, which would relabel all four drawer
+        // buttons — including the one three UI tests resolve as `app.buttons["Add Model"]`. Marking
+        // the List a container makes the label land on the container and stop there.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(L10n.Models.title)
         // The drawer is a fixed-width panel anchored at the leading edge. In landscape the
         // List would otherwise inset its content by the device's leading safe area (the
         // Dynamic Island side), wasting a gutter inside the panel. The panel is the safe
@@ -238,7 +292,24 @@ struct DrawerContent: View {
         .onAppear {
             let context = moc
             tour.bindEnableModel { enableFirstReadyDemoModel(in: context) }
+            presentFindingsIfRequested()
         }
+        // A shared link that turned out to be the recipient's own finding asks for this sheet
+        // (AIA-0650). It arrives as a latch on chrome state rather than a call because this view is
+        // unmounted while the drawer is closed — which is precisely when the request is made, so
+        // `onAppear` above is the branch that normally fires. This one covers the drawer already
+        // being open.
+        .onChange(of: chromeState.presentsFindings) { _, _ in
+            presentFindingsIfRequested()
+        }
+        // Tell the tour whether a specific switch is being ringed, so the root overlay knows not to
+        // ring the whole drawer on top of it — and knows to fall back to doing so when there is no
+        // switch left to point at (AIA-0757 A4).
+        .onChange(of: tourPulsedModelObjectID, initial: true) { _, pulsed in
+            tour.setDrawerHighlightsModelSwitch(pulsed != nil)
+        }
+        // The drawer unmounts when it closes, taking the ring with it; the flag must not outlive it.
+        .onDisappear { tour.setDrawerHighlightsModelSwitch(false) }
         // UI-test-only hook (AIA-0402): once the first model has seeded, force it to look unparsed
         // (the seeded demos are parser-decided → read-only) and auto-open its settings in type-review
         // mode, so tests can exercise the editable picker + confirmation footnotes without the
@@ -254,6 +325,34 @@ struct DrawerContent: View {
         }
     }
 
+    /// Consumes the `presentsFindings` latch (AIA-0650). Reset before presenting so the request is
+    /// spent exactly once — a latch left set would re-open the sheet every time the drawer is opened.
+    private func presentFindingsIfRequested() {
+        guard chromeState.presentsFindings else { return }
+        chromeState.presentsFindings = false
+        showFindings = true
+    }
+
+    /// The label colour for the drawer's own rows — Findings, Settings and the account footer.
+    ///
+    /// Stated explicitly because the app's `AccentColor` is a **deliberate neutral grey** (0.700 in
+    /// light appearance; see `PaywallView.interactiveTint`), and a `Button` label that sets no colour
+    /// of its own inherits it. That is why these three read as disabled while being perfectly live —
+    /// AIA-0757 D1. The Add Model and `✕` buttons above escaped it only by setting `.tint(.blue)`.
+    ///
+    /// Applied with `.tint`, **not** `.foregroundStyle`. `SettingsView.replayOnboardingRow` records
+    /// that the list-button style renders its label gray *and overrides* `.foregroundStyle`, which is
+    /// why that row had to stop being a `Button` at all. These three cannot take that escape — three
+    /// UI tests resolve them as `app.buttons[…]` — so they use the mechanism the toolbar's two
+    /// buttons already prove works here: the tint the button style itself reads.
+    ///
+    /// Mirrors `.disabled(tour.isActive)` rather than reading `\.isEnabled`: the disable is applied
+    /// *below* this view, so the environment here would still say enabled — and an unconditional
+    /// `.primary` would leave the rows looking live during the tour, when they deliberately do nothing.
+    private var drawerRowLabelColor: Color {
+        tour.isActive ? .secondary : .primary
+    }
+
     private var findingsSection: some View {
         Section {
             Button {
@@ -261,6 +360,7 @@ struct DrawerContent: View {
             } label: {
                 Label(L10n.Findings.title, systemImage: "archivebox")
             }
+            .tint(drawerRowLabelColor)
             .testability(Testability.Button.drawerFindings)
             // During the tour the whole drawer is the spotlight; keep only the model toggles
             // interactive so the user can't wander off into Findings (AIA-0333).
@@ -275,6 +375,7 @@ struct DrawerContent: View {
             } label: {
                 Label(L10n.Settings.title, systemImage: "gearshape")
             }
+            .tint(drawerRowLabelColor)
             .testability(Testability.Button.drawerSettings)
             .disabled(tour.isActive)
         }
@@ -335,11 +436,22 @@ struct DrawerContent: View {
     ) -> some View {
         Button(action: action) {
             accountFooterLabel {
-                Label(title, systemImage: systemImage)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                // The glyph is styled apart from the title on purpose. This row is drawn by hand
+                // outside the `List`, so the `.tint` below reaches its icon — where in a list row it
+                // does not — and the sign-in symbol came out solid black while Findings and Settings
+                // above it kept grey ones. Same words, different weight of mark, for no reason a
+                // user could name.
+                Label {
+                    Text(title)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                } icon: {
+                    Image(systemName: systemImage)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
+        .tint(drawerRowLabelColor)
         .disabled(tour.isActive)
     }
 
@@ -387,7 +499,7 @@ struct DrawerContent: View {
                 Text(L10n.Models.Empty.title)
                     .font(.headline)
 
-                Text(L10n.Models.Empty.message)
+                Text(L10n.Models.Empty.messageAddModel)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -398,7 +510,9 @@ struct DrawerContent: View {
     }
     
     private var configurationsSection: some View {
-        Section(L10n.Models.Available.title) {
+        // Resolved once for the whole section: every row asks whether *it* is the pulsed one.
+        let pulsedModelID = tourPulsedModelObjectID
+        return Section(L10n.Models.Available.title) {
             // Use objectID for identity - it's always valid even for deleted objects.
             // Using entityId crashes when Core Data nullifies it during deletion.
             ForEach(configurations, id: \.objectID) { configuration in
@@ -407,6 +521,7 @@ struct DrawerContent: View {
                 ConfigurationRow(
                     configuration: configuration,
                     tour: tour,
+                    pulsesToggle: configuration.objectID == pulsedModelID,
                     onTap: {
                         selectedConfigurationId = entityId
                     },
@@ -417,26 +532,64 @@ struct DrawerContent: View {
             }
         }
     }
-    
+
+    /// The single model row whose switch pulses during the tour's "switch a model on" step
+    /// (AIA-0757 A4), or `nil` on every other step. `ConfigurationRow` is built for *every*
+    /// configuration — imported and invalid ones included — so a plain "is this the enable step?"
+    /// test would pulse every switch in the list while only one of them is the model the step
+    /// actually turns on. Asks `demoModelTheTourWillEnable(among:)`, the same function that
+    /// performs the flip, so the two can't disagree. `configurations` is already the ready-only
+    /// fetch, which that predicate re-checks anyway.
+    private var tourPulsedModelObjectID: NSManagedObjectID? {
+        guard tour.isActive, tour.currentStep?.id == .enableModelToggle else { return nil }
+        return demoModelTheTourWillEnable(among: configurations)?.objectID
+    }
+
     // MARK: - Toolbar
     
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
+            // A titled button rather than the bare `plus.circle.fill` it replaced (AIA-0757 D2): a
+            // glyph alone left the drawer's only creative action unnamed on screen. The title also
+            // *is* the accessibility label now, which is why the explicit one is gone — and what
+            // keeps `app.buttons["Add Model"]` resolving in FeatureFlagUITests.
             Button {
                 showImport = true
             } label: {
-                Image(systemName: "plus.circle.fill")
+                Text(L10n.Models.add)
+                    .fontWeight(.semibold)
+                    // **The title must not be allowed to compress** (AIA-0783). On macOS
+                    // (Designed for iPad) this item was rendering as a small blue disc showing a
+                    // single "M" — the *middle* character of "Add Model", which is what a
+                    // centre-aligned label does when its container is narrower than the text and
+                    // nothing has pinned the text's own width. `.fixedSize()` makes the label
+                    // report its ideal width as its minimum, so the bar has to lay the item out
+                    // wide enough to show the whole title instead of shrinking it to a glyph.
+                    // `.lineLimit(1)` keeps that ideal width on one line rather than letting it
+                    // resolve as a tall wrapped block.
+                    .lineLimit(1)
+                    .fixedSize()
             }
+            // The platform's own prominent style: filled with the tint, white label. Adding a model
+            // is the drawer's primary action and the reason the panel exists before any model is
+            // imported, so it should not read as one plain word among the rows (AIA-0757 D2).
+            // `.tint` rather than a hand-set background — `borderedProminent` fills with the tint,
+            // and the app's grey `AccentColor` would otherwise make the fill grey too.
+            .buttonStyle(.borderedProminent)
+            // The other half of the AIA-0783 fix, and the half that names the actual shape: a
+            // prominent bar button is free to adopt the platform's circular bar-button shape, and a
+            // circle is a container that cannot be wide. Asking for a capsule keeps the control
+            // free to grow with its title on every platform, and is what the button already looked
+            // like on iOS and iPad — so this pins the shape rather than changing it there.
+            .buttonBorderShape(.capsule)
             .tint(.blue)
-            .accessibilityLabel(L10n.Models.add)
             // Keep only the model toggles interactive during the tour (AIA-0333).
             .disabled(tour.isActive)
         }
 
         ToolbarItem(placement: .topBarTrailing) {
-            // A plain cross balances the leading plus symbol, keeping the inline
-            // title visually centered between the two.
+            // A plain cross, balancing the leading Add Model button across the bar.
             Button {
                 drawer.close()
             } label: {
@@ -451,23 +604,47 @@ struct DrawerContent: View {
 
 // MARK: - Tour enable action
 
+/// The models the tour's enable step is allowed to touch: seeded demos that finished downloading.
+private func readyDemoModels<S: Sequence>(among configurations: S) -> [DeepConfiguration]
+where S.Element == DeepConfiguration {
+    configurations.filter { $0.demo && $0.lifeCycleString == CoreDataManageableState.ready.rawValue }
+}
+
+/// The one model `enableFirstReadyDemoModel(in:)` will flip: the newest ready demo still switched
+/// off. Newest-first matches the list's sort order, so it is the top eligible row.
+///
+/// Factored out rather than restated because two callers need the *same* answer (AIA-0757 A4):
+/// this function performs the flip, and the drawer list pulses the switch it will flip. A second
+/// copy of the predicate could drift and leave the app pulsing one model while tapping the
+/// spotlight turns on another.
+private func demoModelTheTourWillEnable<S: Sequence>(among configurations: S) -> DeepConfiguration?
+where S.Element == DeepConfiguration {
+    readyDemoModels(among: configurations)
+        .filter { $0.enabled == false }
+        // Total, not just by date. `max(by:)` returns the *last* maximal element, and the two
+        // callers iterate different orders — the drawer's fetch is sorted newest-first, the action's
+        // `selectAll` is unsorted. Two demos with equal or missing creation dates (a demo whose
+        // bundle metadata carries no date parses to `.distantPast`) would then let the list pulse
+        // one switch while tapping the spotlight flipped another. The id breaks the tie the same way
+        // for both.
+        .max { left, right in
+            let leftDate = left.creationDate_ ?? .distantPast
+            let rightDate = right.creationDate_ ?? .distantPast
+            if leftDate != rightDate { return leftDate < rightDate }
+            return left.entityId.uuidString < right.entityId.uuidString
+        }
+}
+
 /// Ensures a demo model is enabled for the onboarding tour's overlay-driven enable step
 /// (AIA-0333). Returns `true` if a demo model is enabled afterwards — including the **Replay**
 /// case where one is already on (so the step isn't stuck), and only `false` when there are no
 /// ready demo models at all or the save fails.
 private func enableFirstReadyDemoModel(in context: NSManagedObjectContext) -> Bool {
-    let demos = DeepConfiguration.selectAll(in: context)
-        .filter { $0.demo && $0.lifeCycleString == CoreDataManageableState.ready.rawValue }
-    guard demos.isEmpty == false else { return false }
+    let all = DeepConfiguration.selectAll(in: context)
+    guard readyDemoModels(among: all).isEmpty == false else { return false }
 
-    // Newest-first (matching the list) so it flips the top, spotlighted row. If they're all
-    // already enabled (Replay), the step's goal already holds — proceed.
-    guard let target = demos
-        .filter({ $0.enabled == false })
-        .max(by: { ($0.creationDate_ ?? .distantPast) < ($1.creationDate_ ?? .distantPast) })
-    else {
-        return true
-    }
+    // If they're all already enabled (Replay), the step's goal already holds — proceed.
+    guard let target = demoModelTheTourWillEnable(among: all) else { return true }
     target.enabled = true
     do {
         try DeepConfiguration.save(in: context)
@@ -488,6 +665,10 @@ private struct ConfigurationRow: View {
     @ObservedObject var configuration: DeepConfiguration
     /// The tour engine, poked when a demo model is enabled during the enable-model step (AIA-0333).
     var tour: TourState?
+    /// True for the one row the tour's enable step will switch on — see
+    /// `DrawerContent.tourPulsedModelObjectID`. Passed down rather than derived here: this row can
+    /// only see itself, and the step targets exactly one model out of the whole list.
+    var pulsesToggle: Bool = false
     let onTap: () -> Void
     let onDelete: () -> Void
 
@@ -557,6 +738,19 @@ private struct ConfigurationRow: View {
             // A Disabled (undetermined-type) model can't run — block enabling it until the user
             // picks a type in the config form (AIA-0402).
             .disabled(configuration.modelType == .invalid)
+            // AIA-0757 A4: on the "switch a model on" tour step, ring this switch so it's obvious
+            // it is meant to be turned on. Non-hit-testing decoration (see `TourPulse`), so the
+            // switch underneath stays tappable — the tour's pass-through enable path depends on it.
+            .overlay {
+                if pulsesToggle {
+                    TourPulse(cornerRadius: 22)
+                        // Negative padding grows the ring outward. It has to clear the ring's own
+                        // thickness as well as the switch: `strokeBorder` draws *inward* from the
+                        // frame, so at a 6pt line a -5 inset would put the stroke back on top of
+                        // the switch it is pointing at.
+                        .padding(-11)
+                }
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture { onTap() }

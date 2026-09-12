@@ -1,0 +1,53 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ArcGIS ESM web component</title>
+<style>html,body,arcgis-map{margin:0;display:block;height:320px;width:480px}</style>
+<arcgis-map id="map"></arcgis-map>
+<script>
+  // The shape ags.cuzk.cz actually ships, measured: an <arcgis-map> element carrying a live `.view`,
+  // NO `require`, NO `define`, no `__esri` — the SDK's only entry point is the `$arcgis` global.
+  // An AMD-only projection path finds nothing here, which is why this page exists as a fixture.
+  (function () {
+    var element = document.getElementById('map');
+    var view = {
+      ready: false,
+      zoom: -1,
+      center: undefined,
+      container: element,
+      when: function () {
+        return new Promise(function (resolve) {
+          var check = setInterval(function () {
+            if (view.ready) { clearInterval(check); resolve(view); }
+          }, 50);
+        });
+      }
+    };
+    element.view = view;
+    setTimeout(function () {
+      view.ready = true;
+      view.zoom = 12;
+      view.center = { latitude: null, longitude: null, x: -828738, y: -1031271,
+                      spatialReference: { wkid: 102067, latestWkid: 5514 } };
+    }, 400);
+
+    window.$arcgis = {
+      import: function (id) {
+        if (id.indexOf('projection') < 0) { return Promise.reject(new Error('unknown module')); }
+        return Promise.resolve({
+          load: function () { return Promise.resolve(); },
+          // Derived from the point, never a constant. A stub that answered the same thing for
+          // every input could not tell whether the probe projected the visible map's centre or
+          // something else entirely, so a regression that projected the wrong geometry would have
+          // passed (raised in review). This is not the real S-JTSK maths and does not need to be —
+          // it only needs to be injective, so a different point produces a different answer.
+          project: function (point, sr) {
+            if (!sr || sr.wkid !== 4326) { return null; }
+            if (!point || typeof point.x !== 'number' || typeof point.y !== 'number') { return null; }
+            return { latitude: 49.6835 + (point.y + 1031271) / 1000, longitude: 14.0421 + (point.x + 828738) / 1000 };
+          }
+        });
+      }
+    };
+    window.__harnessReady = true;
+  }());
+</script>

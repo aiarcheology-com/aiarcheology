@@ -22,6 +22,8 @@
 	</array>
 	<key>SentryDSN</key>
 	<string>$(SENTRY_DSN)</string>
+	<key>BackendEnvironment</key>
+	<string>$(AIA_BACKEND_ENVIRONMENT)</string>
 	<key>ClerkPublishableKey</key>
 	<string>$(CLERK_PUBLISHABLE_KEY)</string>
 	<key>ClerkPublishableKeyLive</key>
@@ -32,6 +34,23 @@
 	<string>$(CONFIGCAT_SDK_KEY_LIVE)</string>
 	<key>TelemetryDeckAppID</key>
 	<string>$(TELEMETRYDECK_APP_ID)</string>
+	<!-- Support-log sealing (AIA-0643). A literal, NOT an xcconfig substitution, and NOT a secret:
+	     it is a PUBLIC key that ships readable in every binary, and extracting it lets someone
+	     encrypt a log TO us, which is the feature. Routing it through the secrets lane would only
+	     mean every build without 1Password access had a different feature set — and would have
+	     shipped keyless Xcode Cloud builds, since ci_pre_xcodebuild.sh generates Secrets.xcconfig
+	     from an allowlist of env vars.
+	     The matching PRIVATE key lives only in 1Password ("Support Log Decryption Key") and must
+	     never appear here, in an xcconfig, in CI, or anywhere in the repo.
+	     Rotating: mint with `ProjectTool support-log keygen`, raise SupportLogKeyID, replace both
+	     values below, and keep the retired private key on the same 1Password item so exports from
+	     older builds still open. Each key is declared exactly once; if a second copy ever appears,
+	     Apple's parser keeps the LAST one and a rotation can silently ship the retired key. Do not
+	     obfuscate or split this value; there is no threat model behind it. -->
+	<key>SupportLogPublicKey</key>
+	<string>KHcmYBs-4-zm47IbPUSRL5aUdm0b_PAS2u18e0KSpTw</string>
+	<key>SupportLogKeyID</key>
+	<string>1</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -65,6 +84,29 @@
 	</array>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
+		<!-- A compiled Core ML bundle is a directory that iOS does not type, so without this the Files
+		     picker shows an .mlmodelc as a browsable folder and it can never be chosen; the package
+		     conformance makes it one selectable item, like .aiagraph above (AIA-0844). The identifier
+		     is the one Xcode exports for the same extension: on a Mac with Xcode installed that
+		     declaration wins and types the folder, and the picker must recognise that type, so both
+		     platforms agree on one identifier rather than each seeing a different one. -->
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.apple.coreml.mlmodelc</string>
+			<key>UTTypeDescription</key>
+			<string>Compiled Core ML model</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>com.apple.package</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mlmodelc</string>
+				</array>
+			</dict>
+		</dict>
 		<dict>
 			<key>UTTypeIdentifier</key>
 			<string>com.aiarcheology.onnx-model</string>
@@ -83,5 +125,32 @@
 			</dict>
 		</dict>
 	</array>
+	<!-- Single-window on purpose (AIA-0798).
+
+	     `UIApplicationSupportsMultipleScenes = true` is what puts File > New Window in the menu bar
+	     of the Mac (Designed for iPad) build, so this manifest turns it off.
+
+	     It has to live here, and generation has to stay off for it to survive. Xcode's
+	     INFOPLIST_KEY_UIApplicationSceneManifest_Generation SYNTHESISES this whole manifest with
+	     multiple scenes enabled and overwrites whatever this file declares — with it set to YES the
+	     key below was silently discarded and the built bundle shipped `true` while the source said
+	     `false`. It is therefore set to NO in both configurations, which makes this the only
+	     manifest and this file the authority. Turning generation back on re-breaks this, invisibly:
+	     the source keeps reading correctly and only the built Info.plist disagrees.
+
+	     SwiftUI's `.commands { CommandGroup(replacing: .newItem) { } }` does NOT remove it: that API
+	     is macOS-native and a Designed-for-iPad app never honours it. The menu comes from the scene
+	     system, so the scene manifest is where it has to be answered.
+
+	     Everything a second window would need is app-wide and singular here — AppState, the driver
+	     registry, the detection session and its snapshot timer, the findings store — so two windows
+	     are the same app twice, sharing one timer and one overlay. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict/>
+	</dict>
 </dict>
 </plist>
