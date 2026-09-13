@@ -473,9 +473,9 @@ paths are named:
 | Images under `ios/MLBrowser/iOS/Gallery/`, `WelcomeBackground`, `ExampleScreenshot.jpg` | Provenance not yet established; no representation is made about rights in them |
 
 **The detection models are included in the grant.** `AIArcheology.mlpackage` and
-`HroudaDetector15.mlpackage` are first-party weights, trained from scratch by this project and not
-fine-tuned from the CC-BY-SA-4.0 ADAF checkpoints, so they carry the same Apache-2.0 licence as the
-code. For a repository whose point is on-device detection, weights under a different licence to the
+`HroudaDetector15.mlpackage` are first-party weights — trained by this project on its own data, from
+scratch rather than fine-tuned from the CC-BY-SA-4.0 ADAF checkpoints — so they carry the same
+Apache-2.0 licence as the code. For a repository whose point is on-device detection, weights under a different licence to the
 code would be the asterisk that mattered, so it is stated rather than left to be inferred.
 
 [NOTICE](NOTICE) is the full attribution record for all of the above. "AI Archeology", the

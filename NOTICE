@@ -19,14 +19,20 @@ per-directory licence files it names.
     ios/MLBrowser/iOS/Drivers/Demo Models/AIArcheology.mlpackage
     ios/MLBrowser/iOS/Drivers/Demo Models/HroudaDetector15.mlpackage
 
-These are first-party trained weights, produced by this project from scratch,
-and they ARE licensed under Apache-2.0 along with the source code.
+These are first-party trained weights and they ARE licensed under Apache-2.0
+along with the source code.
 
-They were not fine-tuned from the CC-BY-SA-4.0 ADAF checkpoints excerpted in
-Tests/NativeModelConverterTests/Fixtures/ADAF/, so that licence's ShareAlike
-term does not reach them. Recorded here because it is the question a downstream
-user would otherwise have to ask, and because a permissive grant over trained
-weights is only as good as the provenance behind it.
+Both halves of their provenance are accounted for, which is what a grant over
+trained weights actually rests on:
+
+  * Training data — the project's own.
+  * Base model — none. They were trained from scratch, not fine-tuned from the
+    CC-BY-SA-4.0 ADAF checkpoints excerpted in
+    Tests/NativeModelConverterTests/Fixtures/ADAF/, so that licence's ShareAlike
+    term does not reach them or anything built on them.
+
+Recorded explicitly because it is the one question a downstream user cannot
+answer for themselves by reading this repository.
 
 See ios/MLBrowser/iOS/Drivers/Demo Models/LICENSE.md
 
