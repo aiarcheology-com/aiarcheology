@@ -7,7 +7,7 @@ and retracts them from the ConfigCat dashboard.
 Messages ride the **existing feature-flag config pipeline** (see
 [`FEATUREFLAGS.md`](./FEATUREFLAGS.md)). There is no separate backend: the whole campaign is a
 single JSON array served from one ConfigCat text setting. Client rules live in
-[`ios/AGENTS.md`](./ios/AGENTS.md) §3; the on-device privacy invariant is §10.
+[`ios/AGENTS.md`](../ios/AGENTS.md) §3; the on-device privacy invariant is §10.
 
 Master switch: **`isAppMessagingEnabled`** (ConfigCat, live, compiled default `true`). Off ⇒
 every message disappears on the next poll.
@@ -315,13 +315,13 @@ reach for it only when the in-payload map genuinely cannot express what you need
 
 ### Ready-made payloads
 
-Two fixtures live in [`fixtures/app-messages/`](./fixtures/app-messages), both verified against
+Two fixtures live in [`fixtures/app-messages/`](../fixtures/app-messages), both verified against
 the real decoder (`AppMessage.decodeMessages`) rather than by inspection:
 
 | File | Contents |
 |-|-|
-| [`showcase.json`](./fixtures/app-messages/showcase.json) | 10 messages, **all 10 decode**. One per surface plus a 3-button interactive prompt, an inline-Markdown demo, a scheduled `activeFrom`/`expiresAt` window, and a version-bounded message. Two cover localization: `localized-maintenance` (full `cs` override, `de` title only — watch the body stay English) and `localized-chinese-variants` (`zh-Hans` / `zh-Hant` / `zh-HK` keyed separately, each body naming the key that matched, so you can see which one resolved). Override copy is illustrative, not translator-reviewed. |
-| [`decoder-rejects.json`](./fixtures/app-messages/decoder-rejects.json) | 9 deliberately-malformed elements; **7 drop**. Only `keeper` (first of a duplicate pair) and `notify-inline-only` survive — the latter decodes fine but is never notified, since no alert surface can present it. |
+| [`showcase.json`](../fixtures/app-messages/showcase.json) | 10 messages, **all 10 decode**. One per surface plus a 3-button interactive prompt, an inline-Markdown demo, a scheduled `activeFrom`/`expiresAt` window, and a version-bounded message. Two cover localization: `localized-maintenance` (full `cs` override, `de` title only — watch the body stay English) and `localized-chinese-variants` (`zh-Hans` / `zh-Hant` / `zh-HK` keyed separately, each body naming the key that matched, so you can see which one resolved). Override copy is illustrative, not translator-reviewed. |
+| [`decoder-rejects.json`](../fixtures/app-messages/decoder-rejects.json) | 9 deliberately-malformed elements; **7 drop**. Only `keeper` (first of a duplicate pair) and `notify-inline-only` survive — the latter decodes fine but is never notified, since no alert surface can present it. |
 
 Paste either into the `appMessages` setting with `isAppMessagingEnabled` on. Three things that
 otherwise waste an afternoon: **seen/replied marks persist per account**, so re-testing needs a
@@ -375,4 +375,4 @@ once you raise `minAppVersion` past it.
 
 - [`FEATUREFLAGS.md`](./FEATUREFLAGS.md) — the ConfigCat pipeline this rides on
 - [`ANALYTICS.md`](./ANALYTICS.md) — why messaging sends no analytics
-- [`ios/AGENTS.md`](./ios/AGENTS.md) §3 (architecture rules), §10 (privacy)
+- [`ios/AGENTS.md`](../ios/AGENTS.md) §3 (architecture rules), §10 (privacy)

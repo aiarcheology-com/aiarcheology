@@ -3,7 +3,7 @@
 This document covers first-time project setup, the `ProjectTool` CLI, pinned
 developer tools, helper scripts, and secrets management. For what the app is
 and an overview of the repository, see the [root README](../../README.md). For suite selection,
-commands, fixtures, and test-result interpretation, see [TESTING.md](../../TESTING.md).
+commands, fixtures, and test-result interpretation, see [TESTING.md](../../specification/TESTING.md).
 
 ## 🛠️ Initial project setup (required)
 

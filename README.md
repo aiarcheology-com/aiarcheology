@@ -54,7 +54,7 @@ neural network cannot express suppression, whose output row count depends on the
 ### Conversion parity evidence
 
 Each model below converts on-device and reproduces the predictions of an independent
-**onnxruntime** oracle; see [NATIVE_MODEL_CONVERSION.md](NATIVE_MODEL_CONVERSION.md) and
+**onnxruntime** oracle; see [NATIVE_MODEL_CONVERSION.md](specification/NATIVE_MODEL_CONVERSION.md) and
 `Tests/NativeModelConverterTests/Fixtures/ONNXConversionModels.json`.
 
 | Model | Task | Asserted against the oracle |
@@ -126,7 +126,7 @@ first.
 
 The API guide is available in Xcode's documentation browser as **Native Model Converter**. The
 format, supported operators, validation policy, test harness, and current parity evidence are
-maintained in [NATIVE_MODEL_CONVERSION.md](NATIVE_MODEL_CONVERSION.md).
+maintained in [NATIVE_MODEL_CONVERSION.md](specification/NATIVE_MODEL_CONVERSION.md).
 
 ## Prerequisites
 
@@ -233,7 +233,7 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser \
 
 Do not pass `CODE_SIGNING_REQUIRED=NO` to get around it: the Keychain tests need the embedded
 entitlements, so an unsigned simulator build fails them for an unrelated reason. See
-[TESTING.md](TESTING.md).
+[TESTING.md](specification/TESTING.md).
 
 Running on a **physical device** additionally needs your own bundle identifier and the entitlements
 trimmed to what your account can sign. That is not a supported contributor path today.
@@ -385,9 +385,9 @@ mistake here:
 
 | Tool | Answers | Status |
 |-|-|-|
-| **ConfigCat** | *Should this feature be on?* — remote feature flags, flippable without an App Store release | **live** — see [FEATUREFLAGS.md](FEATUREFLAGS.md) |
-| **Sentry** | *Did something break?* — crashes, errors, diagnostics | live — see [LOGGING_GUIDE.md](LOGGING_GUIDE.md) |
-| **TelemetryDeck** | *Is the feature used?* — product analytics (DAU/MAU, retention, funnels) | **implemented in the client**, and inert until both the ConfigCat feature and the user's own opt-in allow it; policy and release review still outstanding — see [ANALYTICS.md](ANALYTICS.md) |
+| **ConfigCat** | *Should this feature be on?* — remote feature flags, flippable without an App Store release | **live** — see [FEATUREFLAGS.md](specification/FEATUREFLAGS.md) |
+| **Sentry** | *Did something break?* — crashes, errors, diagnostics | live — see [LOGGING_GUIDE.md](specification/LOGGING_GUIDE.md) |
+| **TelemetryDeck** | *Is the feature used?* — product analytics (DAU/MAU, retention, funnels) | **implemented in the client**, and inert until both the ConfigCat feature and the user's own opt-in allow it; policy and release review still outstanding — see [ANALYTICS.md](specification/ANALYTICS.md) |
 
 Sentry is **not** product analytics and does not overlap TelemetryDeck. Neither measures
 battery or performance attribution — that's Xcode Organizer / MetricKit / Sentry profiling.
@@ -487,11 +487,11 @@ Contributing: [CONTRIBUTING.md](.github/CONTRIBUTING.md) ·
 | [LICENSE](LICENSE) · [NOTICE](NOTICE) | Apache-2.0 for the source code, and the per-asset attribution record for everything it does not cover |
 | [AGENTS.md](AGENTS.md) | Repository-wide scope, privacy, verification, Git, review, and delivery rules. **Read before contributing** |
 | [ios/AGENTS.md](ios/AGENTS.md) | Additional app rules: architecture/state, concurrency, persistence, localization, and ownership |
-| [TESTING.md](TESTING.md) | Current suites, relevant-test selection, commands, fixture gates, and trustworthy results |
+| [TESTING.md](specification/TESTING.md) | Current suites, relevant-test selection, commands, fixture gates, and trustworthy results |
 | [ios/ARCHITECTURE.md](ios/ARCHITECTURE.md) | Codebase map: layering, composition root, app entry & gating, the detection pipeline, persistence |
 | [ios/MLBrowser/README.md](ios/MLBrowser/README.md) | Project setup, `ProjectTool` reference, pinned tools, secrets via 1Password, Xcode Cloud notes |
-| [FEATUREFLAGS.md](FEATUREFLAGS.md) | Remote feature flags (ConfigCat): the current flags, live vs launch-only application, fail-open limits, environments, and how to add a flag |
-| [ANALYTICS.md](ANALYTICS.md) | Product analytics (TelemetryDeck) — **implemented in the client, not yet enabled for release**: event set, the notice-before-gates requirement, and what is/isn't collected |
-| [RATING.md](RATING.md) | The native App Store rating prompt: which moments trigger it, the request policy, where it never appears (TestFlight included), and how to test it by hand |
-| [LOGGING_GUIDE.md](LOGGING_GUIDE.md) | OSLog categories, log levels, privacy annotations, Sentry breadcrumb/quota policy |
+| [FEATUREFLAGS.md](specification/FEATUREFLAGS.md) | Remote feature flags (ConfigCat): the current flags, live vs launch-only application, fail-open limits, environments, and how to add a flag |
+| [ANALYTICS.md](specification/ANALYTICS.md) | Product analytics (TelemetryDeck) — **implemented in the client, not yet enabled for release**: event set, the notice-before-gates requirement, and what is/isn't collected |
+| [RATING.md](specification/RATING.md) | The native App Store rating prompt: which moments trigger it, the request policy, where it never appears (TestFlight included), and how to test it by hand |
+| [LOGGING_GUIDE.md](specification/LOGGING_GUIDE.md) | OSLog categories, log levels, privacy annotations, Sentry breadcrumb/quota policy |
 | [cloudflare/README.md](cloudflare/README.md) | Sentry → GitHub Issues relay worker: architecture, setup, configuration |

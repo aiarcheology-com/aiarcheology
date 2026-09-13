@@ -1,7 +1,7 @@
 # Testing and verification
 
 Run commands from the repository root unless a different directory is shown. The selection policy
-lives in [AGENTS.md](AGENTS.md#verification): verify each changed revision and its affected consumers.
+lives in [AGENTS.md](../AGENTS.md#verification): verify each changed revision and its affected consumers.
 Include resources, fixtures, build configuration, and dependency changes when assessing impact.
 Issue [#850](https://github.com/aiarcheology-com/aiarcheology/issues/850) proposes an impact selector;
 it is not implemented. Selection today is manual and does not replace existing required gates.
@@ -55,13 +55,13 @@ Keep simulator code signing enabled: Keychain tests need the embedded entitlemen
 Harmonize and catalog-stability builds are not templates for running app tests. Do not assume a
 simulator pass covers physical-device-only assertions.
 
-Map integration uses bundled [MapHarness fixtures](ios/MLBrowserUnitTests/Fixtures/MapHarness) resources, including real
+Map integration uses bundled [MapHarness fixtures](../ios/MLBrowserUnitTests/Fixtures/MapHarness) resources, including real
 Leaflet/OpenLayers harnesses. Resource-only changes can require these tests. A missing-fixture skip
 is not evidence of working integration. Live-site tests are opt-in (`MAP_LIVE_TESTS`); follow
 [MAP_LOCATION.md](MAP_LOCATION.md) for environment forwarding and network expectations.
 
 For migration changes, run `FindingMigrationTests` with the current explicit mappings and inference
-disabled. The [release baseline](README.md#release-baseline) defines every supported shipped source;
+disabled. The [release baseline](../README.md#release-baseline) defines every supported shipped source;
 1.0.8 shipped `0.0.2`, so both 0.0.0 → 0.0.2 and 0.0.1 → 0.0.2 must keep working; once a
 schema change creates `0.0.3`, all three live sources need a mapping to it. Do not replace SQLite
 migration evidence with an in-memory store or a successful Debug/TestFlight launch.
@@ -105,7 +105,7 @@ after concurrent builds is a build failure, not a test result.
 The Worker local suite runs against its test environment for D1/R2 and authentication boundaries.
 `npm run test:e2e` is separate: it needs the documented staging deployment, test credentials, and
 fixtures and performs remote operations. Read the
-[Worker README](cloudflare/findings-worker/README.md) before using it; do not substitute production.
+[Worker README](../cloudflare/findings-worker/README.md) before using it; do not substitute production.
 
 Physical-device converter/performance gates require the documented assets, environment, and
 hardware. Their opt-ins include `NATIVE_MODEL_CONVERSION_DEVICE_BENCHMARK`,
@@ -132,7 +132,7 @@ identifiers cannot prove. App Store metadata and release-service state need thei
   process failure. Inspect the framework-specific results and selected identifiers.
 - Localization has separate evidence: Python catalog/parity checks, Swift catalog assertions in
   Harmonize, and Xcode's build-stability check. None alone proves translated meaning or visual fit.
-- Keep compatible incremental products; follow [build cache troubleshooting](ios/MLBrowser/README.md#build-caches)
+- Keep compatible incremental products; follow [build cache troubleshooting](../ios/MLBrowser/README.md#build-caches)
   instead of deleting all caches after a ticket.
 
 ## Automation boundaries
