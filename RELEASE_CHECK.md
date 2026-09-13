@@ -122,6 +122,21 @@ broken feature.** That is the trade this file exists to catch.
       delete ordering is untouched, but a failed deletion now shows one of three stage-specific
       messages that the pass never saw. What was accepted here is the behaviour, not that copy.
 
+## 1.0.9
+
+- [ ] **Disable the old Sentry client key.** The DSN that reached a public commit (`2d0d3638`,
+      removed in `8738cc7e`) was rotated during AIA-0898, and the old key was deliberately left
+      enabled so the 1.0.8 builds already in the field keep reporting crashes. Once 1.0.9 is
+      shipping, delete that key in the Sentry project's client-keys settings.
+
+      Judgement call rather than a mechanical step: on the day 1.0.9 goes live most users are
+      still on 1.0.8, and removing the key stops their crash reports — exactly the data a bad
+      rollout needs. Prefer waiting until 1.0.9 adoption is the majority, unless the old key is
+      attracting junk ingest.
+
+      The new key needs no action; it is already in 1Password, the Xcode Cloud environment, and
+      every build cut since. See [.github/SECURITY.md](.github/SECURITY.md).
+
 ## 1.0.8
 
 **Verified read-only against App Store Connect, 2026-09-01.** The version exists

@@ -11,3 +11,7 @@ asc.auth*/
 
 # Generated files
 MLBrowser/iOS/Resources/Localizable.strings
+
+### Demo-model restore staging (scripts/fetch_demo_models.sh); never a durable artefact
+.*.mlpackage.incoming
+.*.mlpackage.backup
