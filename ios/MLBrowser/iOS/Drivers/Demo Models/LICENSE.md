@@ -4,8 +4,9 @@ The files in this directory are **not** covered by the repository's Apache-2.0 l
 (`/LICENSE`). Each has its own terms, set out below.
 
 This file sits beside the `.mlpackage` bundles rather than inside them: an `.mlpackage` is a
-sealed directory described by its own `Manifest.json`, and adding a stray file would contradict
-that manifest and break the Core ML build.
+directory described by its own `Manifest.json`, and the point of `scripts/fetch_demo_models.sh` is
+to prove each one still matches Apple's published contents exactly — which a file added inside it
+would defeat, whether or not Core ML happens to object.
 
 ## `AIArcheology.mlpackage`, `HroudaDetector15.mlpackage` — first-party weights
 

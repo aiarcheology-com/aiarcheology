@@ -62,7 +62,8 @@ is not evidence of working integration. Live-site tests are opt-in (`MAP_LIVE_TE
 
 For migration changes, run `FindingMigrationTests` with the current explicit mappings and inference
 disabled. The [release baseline](README.md#release-baseline) defines every supported shipped source;
-for the pending 1.0.8 release, both 0.0.0 → 0.0.2 and 0.0.1 → 0.0.2 must work. Do not replace SQLite
+1.0.8 shipped `0.0.2`, so both 0.0.0 → 0.0.2 and 0.0.1 → 0.0.2 must keep working; once a
+schema change creates `0.0.3`, all three live sources need a mapping to it. Do not replace SQLite
 migration evidence with an in-memory store or a successful Debug/TestFlight launch.
 
 ## Converter fixtures and parity

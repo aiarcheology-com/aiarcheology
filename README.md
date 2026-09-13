@@ -193,7 +193,8 @@ EOF
 Two traps worth naming:
 
 - **Do not copy `ios/Secrets.template.xcconfig` into place.** It holds `op://` vault *references*,
-  not values, and the build would embed the literal string `op://…` as your DSN.
+  not values. It will not even survive as a literal: `//` starts a comment in an xcconfig, so each
+  reference is truncated and you get invalid build settings rather than an obvious error.
 - If you ever do supply a real URL-shaped value, escape `://` as `:$()/$()/` — a bare `//` starts a
   comment in an xcconfig. `ios/ci_scripts/ci_pre_xcodebuild.sh` does exactly this when it generates
   the same file on CI.
@@ -243,8 +244,8 @@ All three demo models are committed, so there is nothing to download. One of the
 FastViT classifier — has a published upstream, so its bytes can be checked against it:
 
 ```bash
-./scripts/fetch_demo_models.sh              # verify FastViT against Apple's published digests
-./scripts/fetch_demo_models.sh --restore    # re-download and reinstall it if damaged
+./scripts/fetch_demo_models.sh              # verify FastViT against the repo-recorded digests
+./scripts/fetch_demo_models.sh --restore    # re-download from Apple and reinstall if it differs
 ```
 
 This covers FastViT only. The two first-party detectors have no upstream to verify against, so
@@ -386,7 +387,7 @@ mistake here:
 |-|-|-|
 | **ConfigCat** | *Should this feature be on?* — remote feature flags, flippable without an App Store release | **live** — see [FEATUREFLAGS.md](FEATUREFLAGS.md) |
 | **Sentry** | *Did something break?* — crashes, errors, diagnostics | live — see [LOGGING_GUIDE.md](LOGGING_GUIDE.md) |
-| **TelemetryDeck** | *Is the feature used?* — product analytics (DAU/MAU, retention, funnels) | **designed, not implemented** — see [ANALYTICS.md](ANALYTICS.md) |
+| **TelemetryDeck** | *Is the feature used?* — product analytics (DAU/MAU, retention, funnels) | **implemented in the client**, and inert until both the ConfigCat feature and the user's own opt-in allow it; policy and release review still outstanding — see [ANALYTICS.md](ANALYTICS.md) |
 
 Sentry is **not** product analytics and does not overlap TelemetryDeck. Neither measures
 battery or performance attribution — that's Xcode Organizer / MetricKit / Sentry profiling.
@@ -490,7 +491,7 @@ Contributing: [CONTRIBUTING.md](.github/CONTRIBUTING.md) ·
 | [ios/ARCHITECTURE.md](ios/ARCHITECTURE.md) | Codebase map: layering, composition root, app entry & gating, the detection pipeline, persistence |
 | [ios/MLBrowser/README.md](ios/MLBrowser/README.md) | Project setup, `ProjectTool` reference, pinned tools, secrets via 1Password, Xcode Cloud notes |
 | [FEATUREFLAGS.md](FEATUREFLAGS.md) | Remote feature flags (ConfigCat): the current flags, live vs launch-only application, fail-open limits, environments, and how to add a flag |
-| [ANALYTICS.md](ANALYTICS.md) | Product analytics (TelemetryDeck) — **designed, not yet implemented**: event set, the notice-before-gates requirement, and what is/isn't collected |
+| [ANALYTICS.md](ANALYTICS.md) | Product analytics (TelemetryDeck) — **implemented in the client, not yet enabled for release**: event set, the notice-before-gates requirement, and what is/isn't collected |
 | [RATING.md](RATING.md) | The native App Store rating prompt: which moments trigger it, the request policy, where it never appears (TestFlight included), and how to test it by hand |
 | [LOGGING_GUIDE.md](LOGGING_GUIDE.md) | OSLog categories, log levels, privacy annotations, Sentry breadcrumb/quota policy |
 | [cloudflare/README.md](cloudflare/README.md) | Sentry → GitHub Issues relay worker: architecture, setup, configuration |

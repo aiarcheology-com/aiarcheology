@@ -12,10 +12,11 @@
 #
 # Usage:
 #   scripts/fetch_demo_models.sh              # verify committed copies against recorded SHA-256
-#   scripts/fetch_demo_models.sh --restore    # re-download and reinstall anything missing/corrupt
+#   scripts/fetch_demo_models.sh --restore    # re-download and reinstall anything that differs
 #   scripts/fetch_demo_models.sh --help
 #
-# Exit status: 0 = every covered model matches; 1 = a mismatch or a missing file remains.
+# Exit status: 0 = every covered model matches; 1 = a difference remains, or a check could not
+# be completed. It never reports success for a check it did not actually run.
 #
 set -euo pipefail
 
@@ -23,7 +24,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MANIFEST="$REPO_ROOT/scripts/demo_models.json"
 RESTORE=0
 
-usage() { sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's|^#||; s|^ ||'; }
+usage() { sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's|^#||; s|^ ||'; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -35,23 +36,36 @@ done
 
 [ -f "$MANIFEST" ] || { echo "✗ manifest not found: $MANIFEST" >&2; exit 1; }
 
+WORK="$(mktemp -d)"
+RESTORE_TMP=""
+trap 'rm -rf "$WORK"; [ -n "$RESTORE_TMP" ] && rm -rf "$RESTORE_TMP"' EXIT
+
 sha_of() { shasum -a 256 "$1" | awk '{print $1}'; }
 
 # The manifest path is passed to Python as an argument, never interpolated into its source: a
 # checkout path containing a quote would otherwise be a syntax error at best, an injection point
 # at worst.
 
-# One tab-separated line per file: model, installPath, url, archiveSha256, archiveMember,
-# relative path within the package, expected sha256.
-read_manifest() {
+# Model names, one per line.
+model_names() {
   python3 -c "
 import json, sys
 m = json.load(open(sys.argv[1]))
 for model in m['models']:
-    for rel, sha in model['files'].items():
-        print('\t'.join([model['name'], model['installPath'], model['url'],
-                         model['archiveSha256'], model['archiveMember'], rel, sha]))
+    print(model['name'])
 " "$MANIFEST"
+}
+
+# One tab-separated line: installPath, url, archiveSha256, archiveMember.
+model_meta() {
+  python3 -c "
+import json, sys
+m = json.load(open(sys.argv[1]))
+for model in m['models']:
+    if model['name'] == sys.argv[2]:
+        print('\t'.join([model['installPath'], model['url'],
+                         model['archiveSha256'], model['archiveMember']]))
+" "$MANIFEST" "$1"
 }
 
 # One tab-separated line per file in one model: relative path, expected sha256.
@@ -66,32 +80,73 @@ for model in m['models']:
 " "$MANIFEST" "$1"
 }
 
-# The installPath of one model.
-install_path_for() {
-  python3 -c "
-import json, sys
-m = json.load(open(sys.argv[1]))
-for model in m['models']:
-    if model['name'] == sys.argv[2]:
-        print(model['installPath'])
-" "$MANIFEST" "$1"
+# Compares a directory tree against a model's manifest entry. Prints one human-readable
+# difference per line; prints nothing when the tree matches exactly.
+#
+# Deliberately BIDIRECTIONAL. Checking only that every listed file is present and correct would
+# say nothing about a file that was ADDED inside the package, and NOTICE claims these bytes are
+# identical to Apple's published download — a claim a one-directional check cannot support.
+diff_tree_against_manifest() {
+  local name="$1" root="$2" listed="$WORK/listed.$$" present="$WORK/present.$$"
+  local rel expected got
+
+  if ! expected_files_for "$name" > "$WORK/exp.$$" || [ ! -s "$WORK/exp.$$" ]; then
+    echo "could not read the file list for $name from the manifest"
+    return 0
+  fi
+
+  while IFS=$'\t' read -r rel expected; do
+    if [ -L "$root/$rel" ]; then
+      # -f follows symlinks, so without this a symlink pointing at correct bytes would pass.
+      echo "$rel is a symlink, not a regular file"
+    elif [ ! -f "$root/$rel" ]; then
+      echo "$rel is missing"
+    else
+      got="$(sha_of "$root/$rel")"
+      [ "$got" = "$expected" ] || echo "$rel sha256 mismatch: expected $expected, got $got"
+    fi
+  done < "$WORK/exp.$$"
+
+  cut -f1 < "$WORK/exp.$$" | LC_ALL=C sort > "$listed"
+  # `! -type d` rather than `-type f`: a symlink added inside the package — including a dangling
+  # one — would be invisible to a regular-files-only inventory, and could carry content past a
+  # check whose whole purpose is to prove the tree is exactly upstream's.
+  ( cd "$root" && find . ! -type d ) | sed 's|^\./||' | LC_ALL=C sort > "$present"
+  # comm's status is checked rather than swallowed with `|| true`: a failure here must not read
+  # as "no extra files".
+  if ! comm -13 "$listed" "$present" > "$WORK/extra.$$"; then
+    echo "could not compare the file list for $name"
+    return 0
+  fi
+  # Read line by line: an unquoted expansion would word-split a filename containing a space.
+  while IFS= read -r rel; do
+    [ -n "$rel" ] && echo "$rel is not listed in the manifest"
+  done < "$WORK/extra.$$"
 }
 
-# Downloads the archive, verifies it whole, verifies every member against the manifest, and only
-# then swaps it into place. Nothing touches the destination until all of that has passed, so a
-# refused restore leaves the existing copy exactly as it was.
+# Downloads the archive, verifies the whole thing against the manifest in a temp directory, and
+# only then swaps it in — keeping the previous package until the new one is in place, so a failed
+# swap restores what was there rather than leaving nothing.
 restore_model() {
   local name="$1" install_path="$2" url="$3" archive_sha="$4" member="$5"
   local dest="$REPO_ROOT/$install_path"
-  local tmp; tmp="$(mktemp -d)"
+  local tmp
+  # Checked explicitly: errexit is suspended in this function, so an unchecked failure would
+  # leave $tmp empty and send every path below to /archive.zip and /unpacked.
+  if ! tmp="$(mktemp -d)" || [ -z "$tmp" ] || [ ! -d "$tmp" ]; then
+    echo "  ✗ $name: could not create a temporary directory" >&2
+    return 1
+  fi
+  # Also recorded globally: the RETURN trap covers a normal return, but not the shell being
+  # killed mid-download, and the EXIT trap is what runs then.
+  RESTORE_TMP="$tmp"
   # shellcheck disable=SC2064  # expand $tmp now: the trap must survive the variable going away.
-  trap "rm -rf '$tmp'" RETURN
+  trap "rm -rf '$tmp'; RESTORE_TMP=''" RETURN
 
   echo "  ↓ downloading $name"
-  # Every step below is status-checked explicitly. This function is called from an `if`, which
-  # suspends `set -e` for its whole body, so an unchecked failure would fall through to the next
-  # line — which, at the swap, would mean deleting a good copy and installing a broken one while
-  # reporting success.
+  # Every step is status-checked explicitly. This function is called from a context that suspends
+  # `set -e` for its whole body, so an unchecked failure would fall through to the next line —
+  # which, around the swap, would mean destroying a good copy on the way to reporting success.
   if ! curl -fsSL --retry 3 --retry-connrefused --retry-delay 2 -o "$tmp/archive.zip" "$url"; then
     echo "  ✗ $name download failed" >&2
     return 1
@@ -113,133 +168,113 @@ restore_model() {
     return 1
   fi
 
-  # Materialised rather than piped from a process substitution, whose exit status is not
-  # observable: a reader that died would otherwise yield an empty loop and look like success.
-  local members="$tmp/members.tsv"
-  if ! expected_files_for "$name" > "$members" || [ ! -s "$members" ]; then
-    echo "  ✗ $name: could not read the file list from the manifest" >&2
+  # Validate what we are about to install BEFORE touching $dest — including the extra-file
+  # direction. Doing this afterwards would install an unlisted file and only then report the
+  # failure, leaving a package the manifest rejects.
+  local problems; problems="$(diff_tree_against_manifest "$name" "$tmp/unpacked/$member")"
+  if [ -n "$problems" ]; then
+    echo "  ✗ $name: the downloaded package does not match the manifest — not installing:" >&2
+    printf '      %s\n' "$problems" >&2
     return 1
   fi
 
-  local rel expected got
-  while IFS=$'\t' read -r rel expected; do
-    if [ ! -f "$tmp/unpacked/$member/$rel" ]; then
-      echo "  ✗ $name: extracted archive is missing $rel" >&2
-      return 1
-    fi
-    got="$(sha_of "$tmp/unpacked/$member/$rel")"
-    if [ "$got" != "$expected" ]; then
-      echo "  ✗ $name: extracted $rel sha256 mismatch: expected $expected, got $got" >&2
-      return 1
-    fi
-  done < "$members"
+  # Staged and backed up beside $dest: `mv` is only a rename — and so only atomic — within one
+  # filesystem. Both names are dot-prefixed and gitignored so an interrupted run leaves nothing
+  # visible in the working tree. __MACOSX resource forks from Apple's zip stay behind in $tmp.
+  local dir; dir="$(dirname "$dest")"
+  local staging="$dir/.$(basename "$dest").incoming"
+  local backup="$dir/.$(basename "$dest").backup"
 
-  # Staged beside the destination, because the `mv` below is only a rename — and therefore only
-  # atomic — within one filesystem. The name is dot-prefixed and gitignored so an interrupted run
-  # does not leave visible debris in the working tree. __MACOSX resource forks that Apple's zip
-  # carries stay behind in $tmp.
-  local staging; staging="$(dirname "$dest")/.$(basename "$dest").incoming"
-  if ! mkdir -p "$(dirname "$dest")"; then
+  if ! mkdir -p "$dir"; then
     echo "  ✗ $name: could not create the destination directory" >&2
     return 1
   fi
-  rm -rf "$staging"
+  if ! rm -rf "$staging" || ! rm -rf "$backup"; then
+    echo "  ✗ $name: could not clear previous staging directories" >&2
+    return 1
+  fi
   if ! cp -R "$tmp/unpacked/$member" "$staging"; then
     echo "  ✗ $name: could not stage the restored package" >&2
     rm -rf "$staging"
     return 1
   fi
-  if ! rm -rf "$dest"; then
-    echo "  ✗ $name: could not remove the old package" >&2
+
+  # Move the old package aside rather than deleting it, so the swap is reversible.
+  if [ -e "$dest" ] && ! mv "$dest" "$backup"; then
+    echo "  ✗ $name: could not set the existing package aside" >&2
     rm -rf "$staging"
     return 1
   fi
   if ! mv "$staging" "$dest"; then
     echo "  ✗ $name: could not move the restored package into place" >&2
+    if [ -e "$backup" ] && mv "$backup" "$dest"; then
+      echo "    the previous package was put back" >&2
+    else
+      echo "    WARNING: could not put the previous package back; it is at $backup" >&2
+    fi
     rm -rf "$staging"
     return 1
   fi
+  rm -rf "$backup"
   echo "  ✓ $name restored"
   return 0
 }
 
-status=0
-# Models a restore has been ATTEMPTED for — not models it succeeded for. Recording only successes
-# would re-download the whole archive once per remaining file of a model whose restore failed.
-attempted=""
-
-# The manifest is read into a file, not piped straight into the loop. A process substitution
-# hides the producer's exit status, so a manifest that failed to parse would feed the loop zero
-# rows, skip every check, and still report "all match" — a silent pass, which is the one outcome
-# a verification tool must never produce.
-ROWS="$(mktemp)"
-trap 'rm -f "$ROWS"' EXIT
-if ! read_manifest > "$ROWS"; then
+MODELS="$WORK/models"
+if ! model_names > "$MODELS"; then
   echo "✗ could not read $MANIFEST" >&2
   exit 1
 fi
-if [ ! -s "$ROWS" ]; then
-  echo "✗ $MANIFEST listed no files to verify — refusing to report success" >&2
+if [ ! -s "$MODELS" ]; then
+  echo "✗ $MANIFEST lists no models — refusing to report success" >&2
   exit 1
 fi
 
+status=0
 checked=0
-models=""
-while IFS=$'\t' read -r name install_path url archive_sha member rel expected; do
-  checked=$((checked + 1))
-  case " $models " in *" $name "*) ;; *) models="$models $name" ;; esac
-  file="$REPO_ROOT/$install_path/$rel"
 
-  # Restore is attempted at most once per model, and its result is NOT the verdict — the single
-  # check below is. So a transient failure on one file that a later successful restore repairs
-  # leaves no stale failure behind, and a permanent failure is not retried once per file.
-  if [ ! -f "$file" ] || [ "$(sha_of "$file" 2>/dev/null || echo missing)" != "$expected" ]; then
-    if [ "$RESTORE" = 1 ]; then
-      case " $attempted " in
-        *" $name "*) ;;
-        *)
-          attempted="$attempted $name"
-          echo "✗ $name/$rel needs restoring"
-          restore_model "$name" "$install_path" "$url" "$archive_sha" "$member" || true
-          ;;
-      esac
+while IFS= read -r name; do
+  [ -n "$name" ] || continue
+  meta="$(model_meta "$name")"
+  IFS=$'\t' read -r install_path url archive_sha member <<EOF
+$meta
+EOF
+  pkg="$REPO_ROOT/$install_path"
+
+  # One diff decides everything: whether a restore is warranted, and — recomputed afterwards —
+  # whether the model passes. A restore's own exit status is never the verdict, so a transient
+  # failure that a retry repairs leaves no stale failure behind, and a package whose only damage
+  # is an ADDED file is still repaired rather than merely reported.
+  if [ -d "$pkg" ]; then
+    problems="$(diff_tree_against_manifest "$name" "$pkg")"
+  else
+    problems="the package directory is missing"
+  fi
+
+  if [ -n "$problems" ] && [ "$RESTORE" = 1 ]; then
+    echo "✗ $name differs — restoring"
+    restore_model "$name" "$install_path" "$url" "$archive_sha" "$member" || true
+    if [ -d "$pkg" ]; then
+      problems="$(diff_tree_against_manifest "$name" "$pkg")"
+    else
+      problems="the package directory is missing"
     fi
   fi
 
-  if [ ! -f "$file" ]; then
-    echo "✗ $name/$rel missing" >&2
-    [ "$RESTORE" = 1 ] || echo "    re-run with --restore" >&2
-    status=1
-    continue
-  fi
-  actual="$(sha_of "$file")"
-  if [ "$actual" = "$expected" ]; then
-    echo "✓ $name/$rel"
+  if [ -z "$problems" ]; then
+    n="$(expected_files_for "$name" | wc -l | tr -d ' ')"
+    checked=$((checked + n))
+    echo "✓ $name ($n files)"
   else
-    echo "✗ $name/$rel sha256 mismatch: expected $expected, got $actual" >&2
+    echo "✗ $name:" >&2
+    printf '    %s\n' "$problems" >&2
+    [ "$RESTORE" = 1 ] || echo "    re-run with --restore to repair" >&2
     status=1
   fi
-done < "$ROWS"
-
-# The check above is one-directional: it proves every file the manifest lists is correct, but says
-# nothing about a file that was ADDED inside the package. NOTICE claims these bytes are identical
-# to Apple's published download, so the other direction has to be checked too or that claim is
-# broader than the evidence.
-for name in $models; do
-  pkg="$REPO_ROOT/$(install_path_for "$name")"
-  [ -d "$pkg" ] || continue
-  listed="$(expected_files_for "$name" | cut -f1 | sort)"
-  present="$(cd "$pkg" && find . -type f | sed 's|^\./||' | sort)"
-  extra="$(comm -13 <(printf '%s\n' "$listed") <(printf '%s\n' "$present") || true)"
-  if [ -n "$extra" ]; then
-    echo "✗ $name contains files the manifest does not list:" >&2
-    printf '    %s\n' $extra >&2
-    status=1
-  fi
-done
+done < "$MODELS"
 
 echo ""
-if [ "$checked" -eq 0 ]; then
+if [ "$checked" -eq 0 ] && [ "$status" -eq 0 ]; then
   echo "✗ no files were checked — refusing to report success" >&2
   exit 1
 fi
