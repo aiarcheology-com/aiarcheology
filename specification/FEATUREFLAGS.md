@@ -1,7 +1,7 @@
 # Feature Flags (ConfigCat)
 
 How ML Browser's remote feature flags work, and how to add one. Introduced in AIA-0350;
-rules live in [`ios/AGENTS.md`](./ios/AGENTS.md) §3.
+rules live in [`ios/AGENTS.md`](../ios/AGENTS.md) §3.
 
 Flags are **remote**: they can be flipped from the ConfigCat dashboard without an App
 Store release. Every flag also has a **compiled default** used whenever remote config
@@ -15,7 +15,7 @@ cannot be consulted.
 ## The current flags
 
 The keys and compiled defaults are defined in
-[FeatureFlagKey](ios/MLBrowser/iOS/State/FeatureFlags.swift). Assess independent rollout, recovery,
+[FeatureFlagKey](../ios/MLBrowser/iOS/State/FeatureFlags.swift). Assess independent rollout, recovery,
 or user-control needs before adding a flag; reuse one only when its meaning and lifecycle match.
 
 | Key | Default | Applies | Gates |
@@ -193,5 +193,5 @@ the app actually connected.
 ## Related
 
 - [`ANALYTICS.md`](./ANALYTICS.md) — product analytics (TelemetryDeck)
-- [`ios/AGENTS.md`](./ios/AGENTS.md) §3 — feature-flag rules
+- [`ios/AGENTS.md`](../ios/AGENTS.md) §3 — feature-flag rules
 - Free tier: 5M config-JSON downloads + 20 GB/month (far above our needs)

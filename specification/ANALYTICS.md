@@ -284,4 +284,4 @@ verify the integration from a simulator without shipping.
 ## Related
 
 - [`FEATUREFLAGS.md`](./FEATUREFLAGS.md) — remote feature flags (ConfigCat, shipped)
-- [`ios/AGENTS.md`](./ios/AGENTS.md) §10 — security, privacy, secrets
+- [`ios/AGENTS.md`](../ios/AGENTS.md) §10 — security, privacy, secrets

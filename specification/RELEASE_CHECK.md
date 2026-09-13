@@ -135,7 +135,7 @@ broken feature.** That is the trade this file exists to catch.
       attracting junk ingest.
 
       The new key needs no action; it is already in 1Password, the Xcode Cloud environment, and
-      every build cut since. See [.github/SECURITY.md](.github/SECURITY.md).
+      every build cut since. See [.github/SECURITY.md](../.github/SECURITY.md).
 
 ## 1.0.8
 

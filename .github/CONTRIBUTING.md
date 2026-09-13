@@ -76,7 +76,7 @@ All three from the repository root:
 digests, and `--restore` repairs a damaged copy. The first-party detectors have no upstream, so
 nothing checks them.
 
-[TESTING.md](../TESTING.md) has the full picture, including the UI suite and how to run a subset.
+[TESTING.md](../specification/TESTING.md) has the full picture, including the UI suite and how to run a subset.
 A green local run is what makes a review worth someone's time; CI is paid, so please do not use it
 as your first test run.
 
