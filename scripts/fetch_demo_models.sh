@@ -70,11 +70,21 @@ for i, model in enumerate(models):
     if not model.get('files'):
         problems.append('%s lists no files' % name)
     path = model.get('installPath', '')
-    if not path:
-        problems.append('%s has no installPath' % name)
-    elif path in seen_paths:
+    member = model.get('archiveMember', '')
+    # Both values are used to build filesystem paths -- \$REPO_ROOT/\$installPath and
+    # \$tmp/unpacked/\$archiveMember -- so an absolute path or a '..' component would let a
+    # manifest edit make --restore write outside the checkout, or copy arbitrary local data
+    # into the model destination. Contain them here, before anything uses them.
+    for label, value in (('installPath', path), ('archiveMember', member)):
+        if not value:
+            problems.append('%s has no %s' % (name, label)); continue
+        if value.startswith('/') or value.startswith('~'):
+            problems.append('%s %s must be relative: %s' % (name, label, value))
+        if '..' in value.split('/'):
+            problems.append('%s %s must not contain \'..\': %s' % (name, label, value))
+    if path and path in seen_paths:
         problems.append('%s and %s share installPath %s' % (seen_paths[path], name, path))
-    else:
+    elif path:
         seen_paths[path] = name
 if problems:
     sys.exit('; '.join(problems))
@@ -124,6 +134,14 @@ for model in m['models']:
 diff_tree_against_manifest() {
   local name="$1" root="$2" listed="$WORK/listed.$$" present="$WORK/present.$$"
   local rel expected got
+
+  # The per-file symlink checks below cannot catch a symlinked ROOT: replacing the package
+  # directory with a link to a matching tree elsewhere would otherwise verify clean, and would
+  # point --restore at a directory outside the checkout.
+  if [ -L "$root" ]; then
+    echo "the package directory is a symlink, not a real directory"
+    return 0
+  fi
 
   if ! expected_files_for "$name" > "$WORK/exp.$$" || [ ! -s "$WORK/exp.$$" ]; then
     echo "could not read the file list for $name from the manifest"
@@ -211,6 +229,10 @@ restore_model() {
     echo "  ✗ $name: archive could not be extracted" >&2
     return 1
   fi
+  if [ -L "$tmp/unpacked/$member" ]; then
+    echo "  ✗ $name: '$member' is a symlink inside the archive — refusing to follow it" >&2
+    return 1
+  fi
   if [ ! -d "$tmp/unpacked/$member" ]; then
     echo "  ✗ $name: archive does not contain '$member'" >&2
     return 1
@@ -277,7 +299,13 @@ restore_model() {
     rm -rf "$staging"
     return 1
   fi
-  rm -rf "$backup"
+  # Checked like every other step: an unchecked failure here would be masked by the trailing
+  # echo, the function would return success, and a stale backup would sit in the tree while
+  # later runs kept reporting a clean result.
+  if ! rm -rf "$backup"; then
+    echo "  ✗ $name: restored, but the old copy could not be removed from $backup" >&2
+    return 1
+  fi
   echo "  ✓ $name restored"
   return 0
 }
