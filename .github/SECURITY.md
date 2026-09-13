@@ -43,9 +43,8 @@ references, not values.
 
 One credential did reach a public commit historically: the **Sentry DSN**, added in `2d0d3638` and
 removed in `8738cc7e`. **It has been rotated**: a new client key was issued and is what current
-builds carry. The old key stays enabled for now, because every copy of 1.0.8 already in the field
-has it compiled in and would otherwise stop reporting crashes; it will be disabled once that
-version's adoption drops.
+builds carry. The old key stays enabled alongside it until 1.0.9 ships, because every copy of
+1.0.8 already in the field has the old DSN compiled in and would otherwise stop reporting crashes.
 
 Note what a Sentry DSN is, so the severity is neither overstated nor understated: it is a
 write-only ingest endpoint that ships inside every copy of the application binary, so it is not
