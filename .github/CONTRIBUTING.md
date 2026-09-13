@@ -33,11 +33,11 @@ The **source code** is Apache-2.0 (see [LICENSE](../LICENSE)); contributions are
 same terms. You must have the right to contribute what you submit — if your employer owns your
 work, get their sign-off first.
 
-The **demo models** in `ios/MLBrowser/iOS/Drivers/Demo Models/` are **not** Apache-2.0, and they
-do not all sit under the same terms. For the two first-party detectors (`AIArcheology`,
-`HroudaDetector15`) you are free to use them to build and test the project, including in a fork and
-a pull request, and no other rights are granted. `FastViTT8F16` is **Apple's**, and this project
-grants nothing over it — its terms are Apple's and have not yet been established here. See
+The two first-party detectors in `ios/MLBrowser/iOS/Drivers/Demo Models/` (`AIArcheology`,
+`HroudaDetector15`) are **Apache-2.0 like the code** — trained from scratch by this project, with no
+ADAF lineage, so nothing propagates into work built on them. `FastViTT8F16` is different: it is
+**Apple's**, this project grants nothing over it, and its terms have not yet been established here.
+See
 [that directory's LICENSE.md](../ios/MLBrowser/iOS/Drivers/Demo%20Models/LICENSE.md) and the root
 [NOTICE](../NOTICE), which records every asset that sits outside the repository licence.
 
