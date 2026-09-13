@@ -37,9 +37,11 @@ Tracking issue: <https://github.com/aiarcheology-com/aiarcheology/issues/898>
 This asset is Apple's. It is a development and test asset only and is excluded from Release builds
 (`EXCLUDED_SOURCE_FILE_NAMES` in the Xcode project), so it is not part of the shipped application.
 
-The copy here is byte-for-byte identical to Apple's published Core ML model gallery download;
-`scripts/fetch_demo_models.sh` verifies that and can restore it. Source URL and SHA-256 digests are
-recorded in `/NOTICE`.
+The copy here is byte-for-byte identical to Apple's published Core ML model gallery download. The
+source URL and the SHA-256 of the archive and of every file inside it are recorded in `/NOTICE` and
+in `scripts/demo_models.json`, so the claim can be rechecked rather than taken on trust.
+`scripts/fetch_demo_models.sh` verifies the tree against those recorded digests, and `--restore`
+re-downloads from Apple.
 
 The terms under which Apple publishes this gallery asset have not been established by this project.
 Until they are, no representation is made about redistribution rights in it.

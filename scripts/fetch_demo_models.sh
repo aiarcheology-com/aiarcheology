@@ -6,9 +6,12 @@
 # Unlike its siblings (fetch_native_test_models.sh, fetch_adaf_checkpoints.sh) this script does
 # NOT fetch by default. The models it covers are committed and are build inputs: the Debug build
 # fails with "Build input file cannot be found" if one is missing, so there is no lazy-fetch
-# story to tell. What this script adds is provenance you can check rather than trust — proof that
-# the committed FastViT bytes are exactly Apple's published bytes — plus a way back if a working
-# copy gets damaged.
+# story to tell. What this script adds is provenance you can check rather than trust, plus a way
+# back if a working copy gets damaged.
+#
+# Be precise about what a default run proves: that the tree matches the digests recorded in
+# scripts/demo_models.json. Those digests were taken from Apple's published archive, but this mode
+# does not contact Apple — only --restore downloads, and only once a difference has been found.
 #
 # Usage:
 #   scripts/fetch_demo_models.sh              # verify committed copies against recorded SHA-256
@@ -219,7 +222,8 @@ restore_model() {
   local problems; problems="$(diff_tree_against_manifest "$name" "$tmp/unpacked/$member")"
   if [ -n "$problems" ]; then
     echo "  ✗ $name: the downloaded package does not match the manifest — not installing:" >&2
-    printf '      %s\n' "$problems" >&2
+    # Indent every line: a single printf with a multi-line argument indents only the first.
+    printf '%s\n' "$problems" | while IFS= read -r line; do echo "      $line" >&2; done
     return 1
   fi
 
@@ -330,7 +334,7 @@ EOF
     echo "✓ $name ($n files)"
   else
     echo "✗ $name:" >&2
-    printf '    %s\n' "$problems" >&2
+    printf '%s\n' "$problems" | while IFS= read -r line; do echo "    $line" >&2; done
     [ "$RESTORE" = 1 ] || echo "    re-run with --restore to repair" >&2
     status=1
   fi
@@ -342,7 +346,7 @@ if [ "$checked" -eq 0 ] && [ "$status" -eq 0 ]; then
   exit 1
 fi
 if [ "$status" = 0 ]; then
-  echo "All covered demo models match their recorded upstream digests ($checked files)."
+  echo "All covered demo models match the digests recorded in the manifest ($checked files)."
 else
   echo "Some demo models do not match. See scripts/demo_models.json for the expected digests." >&2
 fi

@@ -182,8 +182,9 @@ direnv allow
 > **Maintainers only.** This section describes the vault-backed workflow. Contributors without the
 > project vault should follow
 > [Building without the project vault](../../README.md#building-without-the-project-vault)
-> instead, and should not run `secrets generate` or `secrets refresh` — `refresh` overwrites a
-> hand-written `Secrets.xcconfig` with values it cannot resolve.
+> instead, and should not need `secrets generate` or `secrets refresh`. Neither will damage a
+> hand-written `Secrets.xcconfig`: `generate` is a no-op when the file already exists, and `refresh`
+> fails on the `op` lookup before it writes anything.
 
 Secrets are stored in 1Password and injected into local config files. Template files are committed; generated files are gitignored.
 
