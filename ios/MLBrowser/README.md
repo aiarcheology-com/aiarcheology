@@ -13,7 +13,15 @@ From the repository root:
 swift run --package-path Tools ProjectTool setup
 ```
 
-This installs required tools and configures git.
+This installs required tools and configures git. It installs the pinned tools to
+`/usr/local/bin`; if that fails on permissions, take ownership of the directory
+(`sudo chown -R "$(whoami)" /usr/local/bin`) or re-run with `sudo`.
+
+You also need `ios/Secrets.xcconfig` before anything will build — it is the
+`baseConfigurationReference` for both configurations. **Without the project's
+1Password vault**, write it by hand with empty values: see
+[Building without the project vault](../../README.md#building-without-the-project-vault)
+in the root README. The rest of this document assumes you have the vault.
 
 Then open the project:
 
@@ -170,6 +178,12 @@ direnv allow
 ```
 
 ## 🔐 Secrets management (local) via 1Password
+
+> **Maintainers only.** This section describes the vault-backed workflow. Contributors without the
+> project vault should follow
+> [Building without the project vault](../../README.md#building-without-the-project-vault)
+> instead, and should not run `secrets generate` or `secrets refresh` — `refresh` overwrites a
+> hand-written `Secrets.xcconfig` with values it cannot resolve.
 
 Secrets are stored in 1Password and injected into local config files. Template files are committed; generated files are gitignored.
 

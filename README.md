@@ -132,7 +132,9 @@ maintained in [NATIVE_MODEL_CONVERSION.md](NATIVE_MODEL_CONVERSION.md).
 
 - **macOS with Xcode** (the team currently builds with Xcode 26.x; an iPhone simulator runtime is required for tests)
 - **Swift toolchain** (ships with Xcode) — needed to run `ProjectTool`
-- **1Password CLI** (`op`), signed in — local secrets are generated from 1Password
+- *Maintainers only:* **1Password CLI** (`op`), signed in — the project vault holds the service
+  keys. **Contributors do not need it**: see
+  [Building without the project vault](#building-without-the-project-vault).
 - *Optional:* **Homebrew** — only if you opt into [direnv command aliases](ios/MLBrowser/README.md#directory-aliases-via-direnv) during setup
 
 ## Getting started
@@ -144,14 +146,107 @@ cd aiarcheology
 # 1. Install pinned tools, configure git hooks (one-time)
 swift run --package-path Tools ProjectTool setup
 
-# 2. Generate local secrets from 1Password (one-time)
+# 2. Provide ios/Secrets.xcconfig — the build will not start without it. Pick ONE:
+#    (a) maintainers, with the project vault:
 swift run --package-path Tools ProjectTool secrets generate
+#    (b) everyone else: see "Building without the project vault" below.
 
 # 3. Open the workspace and run the MLBrowser scheme
 open ios/MLBrowser.xcworkspace
 ```
 
+`ProjectTool setup` installs the pinned tools to `/usr/local/bin`. On a stock macOS install that
+directory may need creating or may not be writable by your user — if the step fails on permissions,
+either take ownership of it (`sudo chown -R "$(whoami)" /usr/local/bin`) or re-run that one command
+with `sudo`.
+
 The full setup reference — every `ProjectTool` command, pinned tooling, secrets lifecycle, and the optional shell aliases — lives in **[ios/MLBrowser/README.md](ios/MLBrowser/README.md)**.
+
+## Building without the project vault
+
+The app builds, runs, and passes its unit suite on the simulator with **no 1Password vault, no
+accounts, and no production services**. This is the supported path for contributors, and the rest
+of this section is the whole of it.
+
+### 1. Create `ios/Secrets.xcconfig`
+
+This file is not optional. It is the `baseConfigurationReference` for **both** the Debug and
+Release configurations, so the build cannot start without it. It is gitignored, so your copy stays
+yours.
+
+Create it with every key present and empty:
+
+```bash
+cat > ios/Secrets.xcconfig <<'EOF'
+// Local build configuration. No secrets. Gitignored.
+SENTRY_DSN =
+CLERK_PUBLISHABLE_KEY =
+CLERK_PUBLISHABLE_KEY_LIVE =
+CONFIGCAT_SDK_KEY =
+CONFIGCAT_SDK_KEY_LIVE =
+TELEMETRYDECK_APP_ID =
+EOF
+```
+
+Two traps worth naming:
+
+- **Do not copy `ios/Secrets.template.xcconfig` into place.** It holds `op://` vault *references*,
+  not values, and the build would embed the literal string `op://…` as your DSN.
+- If you ever do supply a real URL-shaped value, escape `://` as `:$()/$()/` — a bare `//` starts a
+  comment in an xcconfig. `ios/ci_scripts/ci_pre_xcodebuild.sh` does exactly this when it generates
+  the same file on CI.
+
+`ProjectTool secrets refresh` regenerates this file *from the vault*. Without one it will fail
+rather than help, and it would overwrite the file you just wrote — there is no reason to run it.
+
+### 2. What degrades without keys
+
+| Service | Behaviour with no key |
+|-|-|
+| **Clerk** (sign-in) | Debug builds use an in-memory mock and you are signed in automatically — `DependencyContainer.swift` `usesMockAuth` |
+| **ConfigCat** (feature flags) | Falls back to the compiled defaults in `ios/MLBrowser/iOS/State/FeatureFlags.swift` |
+| **Sentry** | Not initialised; no crash reporting |
+| **TelemetryDeck** | Designed but not implemented; nothing to configure |
+
+Everything the app is actually for — browsing, importing a model, on-device detection, saving and
+exporting findings — works untouched.
+
+**This path is Debug and simulator only.** The auth mock is inside `#if DEBUG`, and a Release build
+with no publishable key reaches an unconfigured `Clerk.shared` and traps. Do not try to archive
+without keys.
+
+### 3. Code signing
+
+`project.pbxproj` commits `DEVELOPMENT_TEAM = ZLR4X4U8UQ`, and `ios/MLBrowser/MLBrowser.entitlements`
+requests Sign in with Apple, associated domains, and the increased memory limit — capabilities a
+free Apple ID cannot sign. For simulator work, override the team with your own rather than turning
+signing off:
+
+```bash
+xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser \
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  DEVELOPMENT_TEAM=YOUR_TEAM_ID build
+```
+
+Do not pass `CODE_SIGNING_REQUIRED=NO` to get around it: the Keychain tests need the embedded
+entitlements, so an unsigned simulator build fails them for an unrelated reason. See
+[TESTING.md](TESTING.md).
+
+Running on a **physical device** additionally needs your own bundle identifier and the entitlements
+trimmed to what your account can sign. That is not a supported contributor path today.
+
+### 4. Demo models
+
+The two detector demos and the FastViT classifier are committed, so there is nothing to download.
+To check they are intact — or repair one — run:
+
+```bash
+./scripts/fetch_demo_models.sh              # verify against recorded upstream digests
+./scripts/fetch_demo_models.sh --restore    # re-download and reinstall a damaged copy
+```
+
+Note the demo model weights are **not** covered by this repository's licence; see
+[Licence](#licence).
 
 ## Day-to-day commands
 
@@ -314,22 +409,23 @@ environment, Release uses **Production**. Tests and previews never touch the net
 
 ### Release baseline
 
-**In production: app `1.0.7`, Core Data model `0.0.1`.**
+**In production: app `1.0.8`, Core Data model `0.0.2`.**
 
-`1.0.8` is in preparation and carries model `0.0.2`. Keep both figures current — they are what
-tells you whether a migration is required, whether a stored format may still change freely, and
-which build a bug report is actually about. Updating them is part of shipping a release; see
-[AGENTS.md](AGENTS.md#review-and-delivery).
+Keep both figures current — they are what tells you whether a migration is required, whether a
+stored format may still change freely, and which build a bug report is actually about. Updating
+them is part of shipping a release; see [AGENTS.md](AGENTS.md#review-and-delivery).
 
-**Two source models are live at once**, because `1.0.6` shipped `0.0.0` and `1.0.7` shipped `0.0.1`,
-and a user on `1.0.6` can update straight to `1.0.8` without ever installing `1.0.7`.
+**Three source models are now live at once**, because `1.0.6` shipped `0.0.0`, `1.0.7` shipped
+`0.0.1`, and `1.0.8` shipped `0.0.2` — and a user may update from any of them straight to the next
+release without installing the ones in between.
 
 | State | Model version | Migration rule |
 |-|-|-|
-| Live release | `0.0.1` (`MLBrowser_0.0.1.xcdatamodel`) | Shipped in `1.0.7`. Frozen — never edit in place. |
-| Still in the field | `0.0.0` (`MLBrowser.xcdatamodel`) | Shipped in `1.0.6`; any install that skipped `1.0.7` is still here. |
-| Development target | `0.0.2` (`MLBrowser_0.0.2.xcdatamodel`) | Unreleased; changes belong here until it ships. |
-| Required release paths | `0.0.0 → 0.0.2` **and** `0.0.1 → 0.0.2` | One mapping model per live source, each covered by its own `FindingMigrationTests` case. |
+| Live release | `0.0.2` (`MLBrowser_0.0.2.xcdatamodel`) | Shipped in `1.0.8`. **Frozen — never edit in place.** |
+| Still in the field | `0.0.1` (`MLBrowser_0.0.1.xcdatamodel`) | Shipped in `1.0.7`. Frozen. |
+| Still in the field | `0.0.0` (`MLBrowser.xcdatamodel`) | Shipped in `1.0.6`. Frozen. |
+| Development target | *none — the next schema change creates `0.0.3`* | `0.0.2` shipped, so it is no longer a free-to-edit destination. |
+| Required release paths | `0.0.0 → 0.0.3`, `0.0.1 → 0.0.3` **and** `0.0.2 → 0.0.3` | One mapping model per live source, each covered by its own `FindingMigrationTests` case. |
 
 **Migration is single-hop — this is the part that is easy to get wrong.** Core Data matches *one*
 mapping model to the (store's version hashes, current model) pair; it never chains through
@@ -350,13 +446,38 @@ destination without mappings may be edited in place. Once mappings exist, treat 
 and its mapping artifacts as one unit: each `.xcmappingmodel` embeds an archived destination model.
 An intentional edit to an unreleased destination requires regenerating every affected mapping
 with Xcode and running inference-disabled migration tests from every supported shipped source.
-For 1.0.8, preserve and verify both direct upgrade paths above; a successful inferred migration in
-a test helper or TestFlight does not establish App Store compatibility.
+For the next release, preserve and verify all three direct upgrade paths above; a successful
+inferred migration in a test helper or TestFlight does not establish App Store compatibility.
+
+## Licence
+
+The **source code** in this repository is licensed under the Apache License, Version 2.0 — see
+[LICENSE](LICENSE).
+
+That grant does **not** extend to everything in the tree. Apache-2.0 section 4(d) is explicit that
+a `NOTICE` file cannot modify the licence, so the carve-outs are stated here, and the excluded
+paths are named:
+
+| Not covered by LICENSE | Terms |
+|-|-|
+| `ios/MLBrowser/iOS/Drivers/Demo Models/AIArcheology.mlpackage`, `HroudaDetector15.mlpackage` | First-party trained weights. Usable to build, run and test this project — including in a fork or a pull request — and nothing further. Rights otherwise reserved pending a provenance review. [Terms](ios/MLBrowser/iOS/Drivers/Demo%20Models/LICENSE.md) |
+| `ios/MLBrowser/iOS/Drivers/Demo Models/FastViTT8F16.mlpackage` | Apple's, from the Core ML model gallery. Development and test asset only; excluded from Release builds. Apple's terms apply and have not yet been established by this project. |
+| `Tests/NativeModelConverterTests/Fixtures/ADAF/*` | CC-BY-SA-4.0 — ShareAlike. [Attribution](Tests/NativeModelConverterTests/Fixtures/ADAF/NOTICE.md) |
+| `ios/MLBrowserUnitTests/Fixtures/MapHarness/*.js` | Leaflet and OpenLayers, BSD-2-Clause |
+| Images under `ios/MLBrowser/iOS/Gallery/`, `WelcomeBackground`, `ExampleScreenshot.jpg` | Provenance not yet established; no representation is made about rights in them |
+
+[NOTICE](NOTICE) is the full attribution record for all of the above. "AI Archeology", the
+ML Browser name and the app artwork are trademarks and are not licensed by LICENSE.
+
+Contributing: [CONTRIBUTING.md](.github/CONTRIBUTING.md) ·
+[Code of Conduct](.github/CODE_OF_CONDUCT.md) · [Security policy](.github/SECURITY.md).
 
 ## Further reading
 
 | Document | What it covers |
 |-|-|
+| [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | How to propose a change: issues, branches, commits, the local gates, and what makes a reviewable PR |
+| [LICENSE](LICENSE) · [NOTICE](NOTICE) | Apache-2.0 for the source code, and the per-asset attribution record for everything it does not cover |
 | [AGENTS.md](AGENTS.md) | Repository-wide scope, privacy, verification, Git, review, and delivery rules. **Read before contributing** |
 | [ios/AGENTS.md](ios/AGENTS.md) | Additional app rules: architecture/state, concurrency, persistence, localization, and ownership |
 | [TESTING.md](TESTING.md) | Current suites, relevant-test selection, commands, fixture gates, and trustworthy results |
