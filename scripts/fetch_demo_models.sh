@@ -89,8 +89,14 @@ for i, model in enumerate(models):
             problems.append('%s has no %s' % (name, label)); continue
         if value.startswith('/') or value.startswith('~'):
             problems.append('%s %s must be relative: %s' % (name, label, value))
-        if '..' in value.split('/'):
+        parts = value.split('/')
+        if '..' in parts:
             problems.append('%s %s must not contain \'..\': %s' % (name, label, value))
+        # '.' and empty components are rejected as well. An installPath of '.' resolves to the
+        # checkout root itself, and the swap would then move the whole repository aside.
+        if '.' in parts or '' in parts:
+            problems.append('%s %s must not contain empty or \'.\' components: %s'
+                            % (name, label, value))
     if path and path in seen_paths:
         problems.append('%s and %s share installPath %s' % (seen_paths[path], name, path))
     elif path:
@@ -214,7 +220,9 @@ while not os.path.lexists(probe) and probe != os.path.dirname(probe):
 real = os.path.realpath(probe)
 rest = '' if probe == target else os.path.relpath(target, probe)
 final = os.path.normpath(os.path.join(real, rest)) if rest else real
-print(final if (final == root or final.startswith(root + os.sep)) else '')
+# Strictly below the root: 'final == root' would make the destination the checkout itself, and
+# the caller would move the entire repository into its .backup.
+print(final if final.startswith(root + os.sep) else '')
 " "$REPO_ROOT" "$1"
 }
 
