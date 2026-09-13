@@ -31,7 +31,6 @@ The application organizes logs into logical categories:
 | **State** | State management | AppState, DeepState operations |
 | **Networking** | Network & downloads | Model downloads, network errors |
 | **UI** | User interface events | User actions, view lifecycle |
-| **Gallery** | Gallery module | Photo picker, file operations |
 
 ## Timestamps
 

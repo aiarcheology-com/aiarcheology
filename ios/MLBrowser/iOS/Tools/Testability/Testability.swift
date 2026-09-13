@@ -303,8 +303,6 @@ extension TestabilityIdentification {
 		// Onboarding Tour
 		case tourSkip
 		case tourNext
-		// Grid View
-		case gridViewRemoveItem
 		// Dismiss
 		case appDescriptionDismiss
 	}
@@ -407,8 +405,6 @@ extension TestabilityIdentification {
 		case appDescriptionReportProblem
 		// Downloader
 		case downloaderListItem
-		// Grid View
-		case gridViewDetailItem
 	}
 	
 	enum Label: String, TestabilityIdentification {
@@ -475,10 +471,6 @@ extension TestabilityIdentification {
 		case findingDetailPage
 	}
 	
-	enum Stepper: String, TestabilityIdentification {
-		case gridViewColumnStepper
-	}
-	
 	enum ProgressView: String, TestabilityIdentification {
 		case downloadDetailProgress
 		case listItemProgress
@@ -488,7 +480,6 @@ extension TestabilityIdentification {
 		case sideMenuConfigurationList
 		case downloaderList
 		case browsingHistoryList
-		case gridViewList
 		case catalogResults
 	}
 	

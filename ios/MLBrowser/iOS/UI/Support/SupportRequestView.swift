@@ -146,9 +146,7 @@ struct SupportRequestView: View {
 				Section {
 					// `PhotosPicker` runs out-of-process, so it needs no photo-library permission
 					// and no NSPhotoLibraryUsageDescription: the app only ever receives the single
-					// image the user hands it. Notably NOT `Gallery/PhotoPicker.swift`, which is a
-					// gallery importer — it copies the pick into Documents and appends it to the
-					// user's gallery, which filing a bug report must not do.
+					// image the user hands it. The attachment is used only for this support request.
 					// Read once here, on the main actor, and capture the result. `attachment` is
 					// `@State` and therefore main-actor isolated, while `PhotosPicker`'s label
 					// closure is `@Sendable` — reading it inside warns today and is an error under

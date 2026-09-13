@@ -1345,8 +1345,6 @@ internal enum L10n {
     internal static let rectangle = L10n.tr("Localizable", "symbol.rectangle", fallback: "Rectangle")
   }
   internal enum Tab {
-    /// Examples
-    internal static let examples = L10n.tr("Localizable", "tab.examples", fallback: "Examples")
     /// Web
     internal static let web = L10n.tr("Localizable", "tab.web", fallback: "Web")
   }

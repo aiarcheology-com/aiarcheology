@@ -470,7 +470,7 @@ paths are named:
 | `ios/MLBrowser/iOS/Drivers/Demo Models/FastViTT8F16.mlpackage` | Apple's, from the Core ML model gallery. Development and test asset only; excluded from Release builds. Apple's terms apply and have not yet been established by this project. |
 | `Tests/NativeModelConverterTests/Fixtures/ADAF/*` | CC-BY-SA-4.0 — ShareAlike. [Attribution](Tests/NativeModelConverterTests/Fixtures/ADAF/NOTICE.md) |
 | `ios/MLBrowserUnitTests/Fixtures/MapHarness/*.js` | Leaflet and OpenLayers, BSD-2-Clause |
-| Images under `ios/MLBrowser/iOS/Gallery/`, `WelcomeBackground`, `ExampleScreenshot.jpg` | Provenance not yet established; no representation is made about rights in them |
+| `WelcomeBackground`, `ExampleScreenshot.jpg` | Provenance not yet established; no representation is made about rights in them |
 
 **The detection models are included in the grant.** `AIArcheology.mlpackage` and
 `HroudaDetector15.mlpackage` are first-party weights — trained by this project on its own data, from

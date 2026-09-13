@@ -161,14 +161,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 5. Photographic assets — provenance not yet established
 ================================================================================
 
-    ios/MLBrowser/iOS/Gallery/Images/*.jpg
     ios/MLBrowser/iOS/Assets/Assets.xcassets/WelcomeBackground.imageset/*
     ExampleScreenshot.jpg
 
-These images ship inside the application. No attribution or licence record for
+WelcomeBackground ships inside the application; ExampleScreenshot.jpg is a
+repository screenshot. No attribution or licence record for
 them exists in this repository. Their provenance is being established; until it
 is, they are NOT covered by the Apache-2.0 grant and no representation is made
 about rights in them. See issue #898.
+
+The 22 photographs formerly under ios/MLBrowser/iOS/Gallery/Images/ were
+removed with the unreachable gallery in AIA-0898. They remain in Git history;
+removal does not establish their provenance or grant rights in historical copies.
 
 ================================================================================
 6. Cloudflare Worker dependencies

@@ -13,8 +13,6 @@ struct Screens {
         switch mode {
         case .web:
             WebScreen.content()
-        case .gallery:
-            GalleryScreen.content()
         }
     }
 
@@ -23,8 +21,6 @@ struct Screens {
         switch mode {
         case .web:
             WebScreen.barItems(position: position)
-        case .gallery:
-            GalleryScreen.barItems(position: position)
         }
     }
 
@@ -33,8 +29,6 @@ struct Screens {
         switch mode {
         case .web:
             WebScreen.tabItem(selection: selection)
-        case .gallery:
-            GalleryScreen.tabItem(selection: selection)
         }
     }
 }

@@ -15,6 +15,11 @@ final class LocalPageUITests: UITestCase {
     func testLocalFixture_loadsOfflineAndBecomesLivePage() {
         launch(LaunchConfig(pageScenario: .localFixture, fixtureName: "uitest_page"))
 
+        XCTAssertTrue(
+            waitForCheckpoint(AID.cpAppMode, equals: "web"),
+            "The rendered browser must report web mode"
+        )
+
         // 1) The app decided to load the local fixture (not a network home page).
         XCTAssertTrue(
             waitForCheckpoint(AID.cpIntendedPageKind, equals: "localFixture"),
