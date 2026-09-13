@@ -134,4 +134,4 @@ First actions on suspicion: rotate the Cloudflare API tokens and the Clerk webho
 
 ---
 
-See [`DPIA-CLOUD-FINDINGS.md`](DPIA-CLOUD-FINDINGS.md) for the risk assessment, and [`../../USER_DATA_PERSISTENCE.md`](../../specification/USER_DATA_PERSISTENCE.md) for what the system actually does.
+See [`DPIA-CLOUD-FINDINGS.md`](DPIA-CLOUD-FINDINGS.md) for the risk assessment, and [`../../specification/USER_DATA_PERSISTENCE.md`](../../specification/USER_DATA_PERSISTENCE.md) for what the system actually does.

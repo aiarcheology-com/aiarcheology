@@ -1,7 +1,7 @@
 # Logging Guide
 
-Moved: the maintained logging guide lives at the repository root —
-see [../../LOGGING_GUIDE.md](../../specification/LOGGING_GUIDE.md).
+Moved: the maintained logging guide lives in `specification/` —
+see [../../specification/LOGGING_GUIDE.md](../../specification/LOGGING_GUIDE.md).
 
 This file previously held an older copy that had drifted from the
 maintained one (it predated the timestamped `log*` helpers); it was
