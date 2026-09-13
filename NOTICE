@@ -19,10 +19,16 @@ per-directory licence files it names.
     ios/MLBrowser/iOS/Drivers/Demo Models/AIArcheology.mlpackage
     ios/MLBrowser/iOS/Drivers/Demo Models/HroudaDetector15.mlpackage
 
-These are first-party trained weights and are NOT licensed under Apache-2.0.
-Their terms are in:
+These are first-party trained weights, produced by this project from scratch,
+and they ARE licensed under Apache-2.0 along with the source code.
 
-    ios/MLBrowser/iOS/Drivers/Demo Models/LICENSE.md
+They were not fine-tuned from the CC-BY-SA-4.0 ADAF checkpoints excerpted in
+Tests/NativeModelConverterTests/Fixtures/ADAF/, so that licence's ShareAlike
+term does not reach them. Recorded here because it is the question a downstream
+user would otherwise have to ask, and because a permissive grant over trained
+weights is only as good as the provenance behind it.
+
+See ios/MLBrowser/iOS/Drivers/Demo Models/LICENSE.md
 
 ================================================================================
 2. FastViT-T8 — Apple Core ML model gallery

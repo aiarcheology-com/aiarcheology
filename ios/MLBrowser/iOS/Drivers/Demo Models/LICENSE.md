@@ -10,27 +10,19 @@ would defeat, whether or not Core ML happens to object.
 
 ## `AIArcheology.mlpackage`, `HroudaDetector15.mlpackage` — first-party weights
 
-Copyright 2023-2026 AI Archeology. All rights reserved.
+Copyright 2023-2026 AI Archeology.
 
-These are trained detector weights produced by this project. They are **not** licensed under
-Apache-2.0.
+**Licensed under Apache-2.0**, the same terms as the source code — see `/LICENSE`. You may use,
+modify and redistribute them, including commercially, subject to that licence.
 
-**What you may do with them.** You are granted permission to use these files solely to build,
-run, and test this project, including in a fork or a pull request. That permission exists so the
-repository is usable as an open-source project — you can clone it and everything builds.
+These are trained detector weights produced by this project from scratch. They were **not**
+fine-tuned from the CC-BY-SA-4.0 ADAF checkpoints excerpted in
+`Tests/NativeModelConverterTests/Fixtures/ADAF/`, so that licence's ShareAlike term does not reach
+them and does not propagate to anything built on them.
 
-**What you may not do.** No other rights are granted. In particular there is no permission to
-redistribute the weights on their own, to use them in another product, or to use them to train or
-derive other models.
-
-**Why this is not simply Apache-2.0.** The training-data and base-model provenance review for
-these weights is not finished — in particular, confirming they derive in no part from the
-CC-BY-SA-4.0 ADAF checkpoints, whose ShareAlike term would otherwise propagate into anything built
-on them. That question is unresolved, and the project would rather say so than publish a grant it
-has not yet checked it is in a position to give. The intent is to license them openly once the
-review concludes.
-
-Tracking issue: <https://github.com/aiarcheology-com/aiarcheology/issues/898>
+That distinction is stated rather than left implicit because it is the one question a downstream
+user cannot answer for themselves by reading the repository: a permissive licence over trained
+weights is only worth as much as the provenance behind it.
 
 ## `FastViTT8F16.mlpackage` — Apple
 
