@@ -46,6 +46,38 @@ sha_of() { shasum -a 256 "$1" | awk '{print $1}'; }
 # checkout path containing a quote would otherwise be a syntax error at best, an injection point
 # at worst.
 
+# Rejects a manifest that would let a model escape verification: a blank or duplicated name, an
+# empty file list, or two models writing to the same destination (where restoring the second would
+# silently invalidate the first, which is only rechecked before that happens).
+validate_manifest() {
+  python3 -c "
+import json, sys
+m = json.load(open(sys.argv[1]))
+models = m.get('models')
+if not isinstance(models, list) or not models:
+    sys.exit('manifest lists no models')
+seen_names, seen_paths, problems = set(), {}, []
+for i, model in enumerate(models):
+    name = model.get('name', '')
+    if not isinstance(name, str) or not name.strip():
+        problems.append('model %d has a blank name' % i); continue
+    if name in seen_names:
+        problems.append('duplicate model name: %s' % name)
+    seen_names.add(name)
+    if not model.get('files'):
+        problems.append('%s lists no files' % name)
+    path = model.get('installPath', '')
+    if not path:
+        problems.append('%s has no installPath' % name)
+    elif path in seen_paths:
+        problems.append('%s and %s share installPath %s' % (seen_paths[path], name, path))
+    else:
+        seen_paths[path] = name
+if problems:
+    sys.exit('; '.join(problems))
+" "$MANIFEST"
+}
+
 # Model names, one per line.
 model_names() {
   python3 -c "
@@ -107,11 +139,24 @@ diff_tree_against_manifest() {
     fi
   done < "$WORK/exp.$$"
 
-  cut -f1 < "$WORK/exp.$$" | LC_ALL=C sort > "$listed"
+  # Both inventories are status-checked. Bash 3.2 disables errexit inside command substitutions,
+  # so a `find` that died would otherwise leave an empty inventory — which `comm -13` happily
+  # reports as "no extra files", turning a broken check into a pass.
+  if ! cut -f1 < "$WORK/exp.$$" | LC_ALL=C sort > "$listed"; then
+    echo "could not list the expected files for $name"
+    return 0
+  fi
   # `! -type d` rather than `-type f`: a symlink added inside the package — including a dangling
   # one — would be invisible to a regular-files-only inventory, and could carry content past a
   # check whose whole purpose is to prove the tree is exactly upstream's.
-  ( cd "$root" && find . ! -type d ) | sed 's|^\./||' | LC_ALL=C sort > "$present"
+  if ! ( cd "$root" && find . ! -type d ) > "$WORK/raw.$$"; then
+    echo "could not inventory the files in $name"
+    return 0
+  fi
+  if ! sed 's|^\./||' < "$WORK/raw.$$" | LC_ALL=C sort > "$present"; then
+    echo "could not inventory the files in $name"
+    return 0
+  fi
   # comm's status is checked rather than swallowed with `|| true`: a failure here must not read
   # as "no extra files".
   if ! comm -13 "$listed" "$present" > "$WORK/extra.$$"; then
@@ -189,9 +234,22 @@ restore_model() {
     echo "  ✗ $name: could not create the destination directory" >&2
     return 1
   fi
-  if ! rm -rf "$staging" || ! rm -rf "$backup"; then
-    echo "  ✗ $name: could not clear previous staging directories" >&2
+  if ! rm -rf "$staging"; then
+    echo "  ✗ $name: could not clear the previous staging directory" >&2
     return 1
+  fi
+  # A backup left by an interrupted run is the ONLY copy when the destination is gone. Deleting it
+  # here and then failing to stage would destroy the last recoverable bytes, so put it back first.
+  if [ -e "$backup" ]; then
+    if [ ! -e "$dest" ]; then
+      if ! mv "$backup" "$dest"; then
+        echo "  ✗ $name: a previous run left its only copy at $backup and it could not be restored" >&2
+        return 1
+      fi
+    elif ! rm -rf "$backup"; then
+      echo "  ✗ $name: could not clear the stale backup directory" >&2
+      return 1
+    fi
   fi
   if ! cp -R "$tmp/unpacked/$member" "$staging"; then
     echo "  ✗ $name: could not stage the restored package" >&2
@@ -219,6 +277,11 @@ restore_model() {
   echo "  ✓ $name restored"
   return 0
 }
+
+if ! validate_manifest; then
+  echo "✗ $MANIFEST is not usable — refusing to report success" >&2
+  exit 1
+fi
 
 MODELS="$WORK/models"
 if ! model_names > "$MODELS"; then
