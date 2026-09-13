@@ -67,8 +67,17 @@ for i, model in enumerate(models):
     if name in seen_names:
         problems.append('duplicate model name: %s' % name)
     seen_names.add(name)
-    if not model.get('files'):
+    files = model.get('files')
+    if not files:
         problems.append('%s lists no files' % name)
+    else:
+        # Each key becomes \$root/\$rel, so an unvalidated '../outside' would hash a file outside
+        # the package -- and make a missing in-package member look verified.
+        for rel in files:
+            if not rel or rel.startswith('/') or rel.startswith('~'):
+                problems.append('%s file path must be relative: %r' % (name, rel))
+            elif '..' in rel.split('/'):
+                problems.append('%s file path must not contain \'..\': %r' % (name, rel))
     path = model.get('installPath', '')
     member = model.get('archiveMember', '')
     # Both values are used to build filesystem paths -- \$REPO_ROOT/\$installPath and
@@ -190,12 +199,35 @@ diff_tree_against_manifest() {
   done < "$WORK/extra.$$"
 }
 
+# Resolves an install path and refuses it unless it really lands inside the checkout. The
+# manifest validator's absolute/'..' rules are purely lexical, so a path whose PARENT is a symlink
+# ("models/link/x.mlpackage") passes them and still escapes: mkdir -p, the staging copy and the
+# swap all follow that link. Canonicalising the deepest existing ancestor catches it.
+resolved_dest() {
+  python3 -c "
+import os, sys
+root = os.path.realpath(sys.argv[1])
+target = os.path.abspath(os.path.join(root, sys.argv[2]))
+probe = target
+while not os.path.lexists(probe) and probe != os.path.dirname(probe):
+    probe = os.path.dirname(probe)
+real = os.path.realpath(probe)
+rest = '' if probe == target else os.path.relpath(target, probe)
+final = os.path.normpath(os.path.join(real, rest)) if rest else real
+print(final if (final == root or final.startswith(root + os.sep)) else '')
+" "$REPO_ROOT" "$1"
+}
+
 # Downloads the archive, verifies the whole thing against the manifest in a temp directory, and
 # only then swaps it in — keeping the previous package until the new one is in place, so a failed
 # swap restores what was there rather than leaving nothing.
 restore_model() {
   local name="$1" install_path="$2" url="$3" archive_sha="$4" member="$5"
-  local dest="$REPO_ROOT/$install_path"
+  local dest; dest="$(resolved_dest "$install_path")"
+  if [ -z "$dest" ]; then
+    echo "  ✗ $name: $install_path resolves outside the checkout — refusing to restore" >&2
+    return 1
+  fi
   local tmp
   # Checked explicitly: errexit is suspended in this function, so an unchecked failure would
   # leave $tmp empty and send every path below to /archive.zip and /unpacked.
@@ -346,14 +378,22 @@ EOF
     problems="the package directory is missing"
   fi
 
+  restore_failed=0
   if [ -n "$problems" ] && [ "$RESTORE" = 1 ]; then
     echo "✗ $name differs — restoring"
-    restore_model "$name" "$install_path" "$url" "$archive_sha" "$member" || true
+    # The status is kept, not discarded. A restore can install the package correctly and still
+    # fail afterwards -- leaving a stale .backup behind -- and the destination-only diff below
+    # cannot see that, so on its own it would report a clean ✓ and exit 0.
+    restore_model "$name" "$install_path" "$url" "$archive_sha" "$member" || restore_failed=1
     if [ -d "$pkg" ]; then
       problems="$(diff_tree_against_manifest "$name" "$pkg")"
     else
       problems="the package directory is missing"
     fi
+  fi
+
+  if [ -z "$problems" ] && [ "$restore_failed" = 1 ]; then
+    problems="the package now matches, but the restore reported a failure (see above)"
   fi
 
   if [ -z "$problems" ]; then
