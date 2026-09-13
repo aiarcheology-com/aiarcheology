@@ -116,7 +116,7 @@ jobs:
               .replace(/^-+|-+$/g, '')
               .replace(/-+/g, '-');
 
-            const branch = `${branchPrefix}/${key}-${slug}`.slice(0, 120);
+            const branch = `${branchPrefix}/${key}/${slug}`.slice(0, 120);
             const url = `https://github.com/${context.repo.owner}/${context.repo.repo}/issues/${n}`;
 
             // Build the target comment body with a stable hidden marker
