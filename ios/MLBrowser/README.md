@@ -13,9 +13,9 @@ From the repository root:
 swift run --package-path Tools ProjectTool setup
 ```
 
-This installs required tools and configures git. It installs the pinned tools to
-`/usr/local/bin`; if that fails on permissions, take ownership of the directory
-(`sudo chown -R "$(whoami)" /usr/local/bin`) or re-run with `sudo`.
+This installs required tools and configures git. Tools go to `/usr/local/bin` when it is
+writable, otherwise to `~/.local/bin`, which `ProjectTool` creates and then reminds you to put on
+your `PATH`. Never run it under `sudo` — that leaves root-owned artefacts in `Tools/.build`.
 
 You also need `ios/Secrets.xcconfig` before anything will build — it is the
 `baseConfigurationReference` for both configurations. **Without the project's

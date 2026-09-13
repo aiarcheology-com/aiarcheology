@@ -155,10 +155,12 @@ swift run --package-path Tools ProjectTool secrets generate
 open ios/MLBrowser.xcworkspace
 ```
 
-`ProjectTool setup` installs the pinned tools to `/usr/local/bin`. On a stock macOS install that
-directory may need creating or may not be writable by your user — if the step fails on permissions,
-either take ownership of it (`sudo chown -R "$(whoami)" /usr/local/bin`) or re-run that one command
-with `sudo`.
+`ProjectTool setup` installs the pinned tools to `/usr/local/bin` **if that is writable**, and
+otherwise creates and uses `~/.local/bin` — it does not fail on permissions. If it takes the second
+path it prints a note, and you need `~/.local/bin` on your `PATH` or the later `./scripts/*.sh`
+wrappers will not find `swiftlint`/`swiftgen`. **Do not run `ProjectTool` under `sudo`** to force
+the system directory: it leaves root-owned build artefacts in `Tools/.build` that break every
+later `swift run`.
 
 The full setup reference — every `ProjectTool` command, pinned tooling, secrets lifecycle, and the optional shell aliases — lives in **[ios/MLBrowser/README.md](ios/MLBrowser/README.md)**.
 
