@@ -206,7 +206,7 @@ rather than help, and it would overwrite the file you just wrote — there is no
 | **Clerk** (sign-in) | Debug builds use an in-memory mock and you are signed in automatically — `DependencyContainer.swift` `usesMockAuth` |
 | **ConfigCat** (feature flags) | Falls back to the compiled defaults in `ios/MLBrowser/iOS/State/FeatureFlags.swift` |
 | **Sentry** | Not initialised; no crash reporting |
-| **TelemetryDeck** | Designed but not implemented; nothing to configure |
+| **TelemetryDeck** | Optional product analytics stay disabled |
 
 Everything the app is actually for — browsing, importing a model, on-device detection, saving and
 exporting findings — works untouched.
@@ -237,16 +237,18 @@ trimmed to what your account can sign. That is not a supported contributor path 
 
 ### 4. Demo models
 
-The two detector demos and the FastViT classifier are committed, so there is nothing to download.
-To check they are intact — or repair one — run:
+All three demo models are committed, so there is nothing to download. One of them — Apple's
+FastViT classifier — has a published upstream, so its bytes can be checked against it:
 
 ```bash
-./scripts/fetch_demo_models.sh              # verify against recorded upstream digests
-./scripts/fetch_demo_models.sh --restore    # re-download and reinstall a damaged copy
+./scripts/fetch_demo_models.sh              # verify FastViT against Apple's published digests
+./scripts/fetch_demo_models.sh --restore    # re-download and reinstall it if damaged
 ```
 
-Note the demo model weights are **not** covered by this repository's licence; see
-[Licence](#licence).
+This covers FastViT only. The two first-party detectors have no upstream to verify against, so
+there is nothing to check them, or restore them, from.
+
+Note the demo models are **not** covered by this repository's licence; see [Licence](#licence).
 
 ## Day-to-day commands
 
@@ -425,7 +427,8 @@ release without installing the ones in between.
 | Still in the field | `0.0.1` (`MLBrowser_0.0.1.xcdatamodel`) | Shipped in `1.0.7`. Frozen. |
 | Still in the field | `0.0.0` (`MLBrowser.xcdatamodel`) | Shipped in `1.0.6`. Frozen. |
 | Development target | *none — the next schema change creates `0.0.3`* | `0.0.2` shipped, so it is no longer a free-to-edit destination. |
-| Required release paths | `0.0.0 → 0.0.3`, `0.0.1 → 0.0.3` **and** `0.0.2 → 0.0.3` | One mapping model per live source, each covered by its own `FindingMigrationTests` case. |
+| Required **today** | `0.0.0 → 0.0.2` **and** `0.0.1 → 0.0.2` | The paths 1.0.8 ships. They must keep working. |
+| Required **once `0.0.3` exists** | `0.0.0 → 0.0.3`, `0.0.1 → 0.0.3` **and** `0.0.2 → 0.0.3` | One mapping model per live source, each covered by its own `FindingMigrationTests` case. |
 
 **Migration is single-hop — this is the part that is easy to get wrong.** Core Data matches *one*
 mapping model to the (store's version hashes, current model) pair; it never chains through
@@ -446,8 +449,9 @@ destination without mappings may be edited in place. Once mappings exist, treat 
 and its mapping artifacts as one unit: each `.xcmappingmodel` embeds an archived destination model.
 An intentional edit to an unreleased destination requires regenerating every affected mapping
 with Xcode and running inference-disabled migration tests from every supported shipped source.
-For the next release, preserve and verify all three direct upgrade paths above; a successful
-inferred migration in a test helper or TestFlight does not establish App Store compatibility.
+Until a schema change introduces `0.0.3`, the two shipped paths above are what must be preserved
+and verified; the moment it does, that becomes three. A successful inferred migration in a test
+helper or TestFlight does not establish App Store compatibility.
 
 ## Licence
 

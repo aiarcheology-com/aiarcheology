@@ -14,16 +14,19 @@ problem, and what an attacker gets out of it. A first response should come withi
 
 ## What is in scope
 
-This repository is an iOS application, a Swift package that converts models on-device, and a
-Cloudflare Worker that relays crash reports into GitHub issues.
+This repository is an iOS application, a Swift package that converts models on-device, and two
+Cloudflare Workers: `cloudflare/findings-worker`, the authenticated backend that stores saved
+findings and their images in R2/D1 under a per-account quota, and a small relay that turns Sentry
+issues into GitHub issues.
 
 The things most worth your attention:
 
-- **Anything that gets image or page data off the device.** Detection runs on-device by design, and
-  transient page snapshots are never uploaded. A path that breaks that is the highest-severity
-  finding this project can have.
-- **Anything that lets one account reach another account's findings**, locally or through the sync
-  backend.
+- **Anything that gets a transient page snapshot off the device.** Detection runs on-device by
+  design and those snapshots are never uploaded. A path that breaks that is the highest-severity
+  finding this project can have. Saved findings are different: they may sync or be shared with the
+  user's authorisation — the bug there would be doing it *without* that authorisation.
+- **Anything that lets one account reach another account's findings**, locally or through
+  `findings-worker` — including a quota or ownership check that can be bypassed.
 - **Model loading.** The app loads user-supplied Core ML and ONNX models. Memory-safety or
   resource-exhaustion problems reachable from a malicious model file are in scope.
 - **The Worker's request handling** under `cloudflare/findings-worker/`.

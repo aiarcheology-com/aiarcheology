@@ -33,9 +33,11 @@ The **source code** is Apache-2.0 (see [LICENSE](../LICENSE)); contributions are
 same terms. You must have the right to contribute what you submit — if your employer owns your
 work, get their sign-off first.
 
-The **model weights** in `ios/MLBrowser/iOS/Drivers/Demo Models/` are **not** Apache-2.0. You are
-free to use them to build and test the project, including in a fork and a pull request, but no
-other rights are granted. See
+The **demo models** in `ios/MLBrowser/iOS/Drivers/Demo Models/` are **not** Apache-2.0, and they
+do not all sit under the same terms. For the two first-party detectors (`AIArcheology`,
+`HroudaDetector15`) you are free to use them to build and test the project, including in a fork and
+a pull request, and no other rights are granted. `FastViTT8F16` is **Apple's**, and this project
+grants nothing over it — its terms are Apple's and have not yet been established here. See
 [that directory's LICENSE.md](../ios/MLBrowser/iOS/Drivers/Demo%20Models/LICENSE.md) and the root
 [NOTICE](../NOTICE), which records every asset that sits outside the repository licence.
 
@@ -70,8 +72,9 @@ All three from the repository root:
 ./scripts/unittest.sh         # unit suite on a simulator
 ```
 
-`./scripts/fetch_demo_models.sh` verifies the bundled demo models against their recorded upstream
-digests, and `--restore` repairs a damaged copy.
+`./scripts/fetch_demo_models.sh` verifies Apple's bundled FastViT model against its published
+digests, and `--restore` repairs a damaged copy. The first-party detectors have no upstream, so
+nothing checks them.
 
 [TESTING.md](../TESTING.md) has the full picture, including the UI suite and how to run a subset.
 A green local run is what makes a review worth someone's time; CI is paid, so please do not use it
@@ -96,6 +99,8 @@ fine — say why. "Done" with no change is not.
 
 - Reformatting or refactoring unrelated to a stated issue.
 - New dependencies without a case for why the maintenance and security cost is worth it.
-- Anything that sends image or page data off the device. Detection is on-device by design and
-  transient page snapshots are never uploaded; see [AGENTS.md](../AGENTS.md#data-and-privacy).
+- Anything that uploads a **transient page snapshot**. Detection is on-device by design and those
+  snapshots never leave it. Note this is not a blanket rule about images: a **saved finding** may
+  leave the device through sharing or account-backed sync the user authorised. Preserve that
+  distinction rather than removing it; see [AGENTS.md](../AGENTS.md#data-and-privacy).
 - Changes that weaken App Transport Security, or that commit credentials of any kind.

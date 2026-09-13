@@ -22,12 +22,12 @@ repository is usable as an open-source project — you can clone it and everythi
 redistribute the weights on their own, to use them in another product, or to use them to train or
 derive other models.
 
-**Why this is not simply Apache-2.0.** Granting an open-source licence over trained weights means
-warranting the rights in what produced them. The training-data and base-model provenance review
-for these weights is not finished — including confirming they derive in no part from the
-CC-BY-SA-4.0 ADAF checkpoints, whose ShareAlike term would otherwise propagate. Asserting a grant
-before that review concludes would be a claim this project cannot currently back. The intent is to
-license them openly once the review is complete.
+**Why this is not simply Apache-2.0.** The training-data and base-model provenance review for
+these weights is not finished — in particular, confirming they derive in no part from the
+CC-BY-SA-4.0 ADAF checkpoints, whose ShareAlike term would otherwise propagate into anything built
+on them. That question is unresolved, and the project would rather say so than publish a grant it
+has not yet checked it is in a position to give. The intent is to license them openly once the
+review concludes.
 
 Tracking issue: <https://github.com/aiarcheology-com/aiarcheology/issues/898>
 

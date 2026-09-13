@@ -37,6 +37,18 @@ done
 
 sha_of() { shasum -a 256 "$1" | awk '{print $1}'; }
 
+# One tab-separated line per file in one model: relative path within the package, expected sha256.
+expected_files_for() {
+  python3 -c "
+import json, sys
+m = json.load(open('$MANIFEST'))
+for model in m['models']:
+    if model['name'] == sys.argv[1]:
+        for rel, sha in model['files'].items():
+            print('\t'.join([rel, sha]))
+" "$1"
+}
+
 # One tab-separated line per file: model, installPath, url, archiveSha256, archiveMember,
 # relative path within the package, expected sha256.
 read_manifest() {
@@ -64,7 +76,12 @@ restore_model() {
   echo "  ↓ downloading $name"
   # --retry-connrefused covers a refused handshake, which a bare --retry does not treat as
   # retryable; the same reasoning as ToolsConfiguration.swift's tool downloader.
-  curl -fsSL --retry 3 --retry-connrefused --retry-delay 2 -o "$tmp/archive.zip" "$url"
+  # The status is checked explicitly: this function is called from an `if`, which suspends
+  # `set -e` for its whole body, so a failing command here would otherwise fall through.
+  if ! curl -fsSL --retry 3 --retry-connrefused --retry-delay 2 -o "$tmp/archive.zip" "$url"; then
+    echo "  ✗ $name download failed" >&2
+    return 1
+  fi
 
   local actual; actual="$(sha_of "$tmp/archive.zip")"
   if [ "$actual" != "$archive_sha" ]; then
@@ -73,16 +90,50 @@ restore_model() {
     return 1
   fi
 
-  unzip -q "$tmp/archive.zip" -d "$tmp/unpacked"
+  if ! unzip -q "$tmp/archive.zip" -d "$tmp/unpacked"; then
+    echo "  ✗ $name: archive could not be extracted" >&2
+    return 1
+  fi
   if [ ! -d "$tmp/unpacked/$member" ]; then
     echo "  ✗ $name: archive does not contain '$member'" >&2
     return 1
   fi
 
+  # Verify every member BEFORE anything touches $dest. Checking only the archive digest would
+  # not be enough: it says the download was whole, not that what we are about to install is.
+  # Nothing is removed or moved until this passes, so a failure here leaves the existing copy
+  # exactly as it was.
+  # Materialised rather than piped from a process substitution, whose exit status is not
+  # observable: a reader that died would otherwise yield an empty loop and look like success.
+  local members="$tmp/members.tsv"
+  if ! expected_files_for "$name" > "$members" || [ ! -s "$members" ]; then
+    echo "  ✗ $name: could not read the file list from the manifest" >&2
+    return 1
+  fi
+
+  local rel expected got
+  while IFS=$'\t' read -r rel expected; do
+    if [ ! -f "$tmp/unpacked/$member/$rel" ]; then
+      echo "  ✗ $name: extracted archive is missing $rel" >&2
+      return 1
+    fi
+    got="$(sha_of "$tmp/unpacked/$member/$rel")"
+    if [ "$got" != "$expected" ]; then
+      echo "  ✗ $name: extracted $rel sha256 mismatch: expected $expected, got $got" >&2
+      return 1
+    fi
+  done < "$members"
+
   mkdir -p "$(dirname "$dest")"
   rm -rf "$dest.incoming"
-  # Copy, then swap. __MACOSX resource forks that Apple's zip carries are left behind in $tmp.
-  cp -R "$tmp/unpacked/$member" "$dest.incoming"
+  # Copy into place, then swap, so a copy that dies part-way cannot leave a half-written
+  # .mlpackage where the build expects a complete one. __MACOSX resource forks that Apple's
+  # zip carries are left behind in $tmp.
+  if ! cp -R "$tmp/unpacked/$member" "$dest.incoming"; then
+    echo "  ✗ $name: could not stage the restored package" >&2
+    rm -rf "$dest.incoming"
+    return 1
+  fi
   rm -rf "$dest"
   mv "$dest.incoming" "$dest"
   echo "  ✓ $name restored"
@@ -91,7 +142,24 @@ restore_model() {
 status=0
 declare -a restored_models=()
 
+# The manifest is read into a file, not piped straight into the loop. A process substitution
+# hides the producer's exit status, so a manifest that failed to parse would feed the loop zero
+# rows, skip every check, and still report "all match" -- a silent pass, which is the one
+# outcome a verification tool must never produce.
+ROWS="$(mktemp)"
+trap 'rm -f "$ROWS"' EXIT
+if ! read_manifest > "$ROWS"; then
+  echo "✗ could not read $MANIFEST" >&2
+  exit 1
+fi
+if [ ! -s "$ROWS" ]; then
+  echo "✗ $MANIFEST listed no files to verify — refusing to report success" >&2
+  exit 1
+fi
+
+checked=0
 while IFS=$'\t' read -r name install_path url archive_sha member rel expected; do
+  checked=$((checked + 1))
   file="$REPO_ROOT/$install_path/$rel"
 
   if [ ! -f "$file" ]; then
@@ -125,11 +193,15 @@ while IFS=$'\t' read -r name install_path url archive_sha member rel expected; d
 
   echo "✗ $name/$rel sha256 mismatch: expected $expected, got $actual" >&2
   status=1
-done < <(read_manifest)
+done < "$ROWS"
 
 echo ""
+if [ "$checked" -eq 0 ]; then
+  echo "✗ no files were checked — refusing to report success" >&2
+  exit 1
+fi
 if [ "$status" = 0 ]; then
-  echo "All covered demo models match their recorded upstream digests."
+  echo "All covered demo models match their recorded upstream digests ($checked files)."
 else
   echo "Some demo models do not match. See scripts/demo_models.json for the expected digests." >&2
 fi
