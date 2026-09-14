@@ -36,7 +36,8 @@ work, get their sign-off first.
 The two first-party detectors in `ios/MLBrowser/iOS/Drivers/Demo Models/` (`AIArcheology`,
 `HroudaDetector15`) are **Apache-2.0 like the code** — trained from scratch by this project, with no
 ADAF lineage, so nothing propagates into work built on them. `FastViTT8F16` is different: it is
-**Apple's**, this project grants nothing over it, and its terms have not yet been established here.
+**Apple's** and covered by its custom licence, which permits redistribution subject to retaining
+its required notices. It is not relicensed under Apache-2.0.
 See
 [that directory's LICENSE.md](../ios/MLBrowser/iOS/Drivers/Demo%20Models/LICENSE.md) and the root
 [NOTICE](../NOTICE), which records every asset that sits outside the repository licence.

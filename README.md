@@ -473,7 +473,7 @@ paths are named:
 
 | Not covered by LICENSE | Terms |
 |-|-|
-| `ios/MLBrowser/iOS/Drivers/Demo Models/FastViTT8F16.mlpackage` | Apple's, from the Core ML model gallery. Development and test asset only; excluded from Release builds. Apple's terms apply and have not yet been established by this project. |
+| `ios/MLBrowser/iOS/Drivers/Demo Models/FastViTT8F16.mlpackage` | Apple's, from the Core ML model gallery. Development and test asset only; excluded from Release builds. Apple's custom licence permits redistribution subject to its notice requirements; see the [model licence](ios/MLBrowser/iOS/Drivers/Demo%20Models/LICENSE.md#fastvitt8f16mlpackage--apple). |
 | `Tests/NativeModelConverterTests/Fixtures/ADAF/*` | CC-BY-SA-4.0 — ShareAlike. [Attribution](Tests/NativeModelConverterTests/Fixtures/ADAF/NOTICE.md) |
 | `ios/MLBrowserUnitTests/Fixtures/MapHarness/*.js` | Leaflet and OpenLayers, BSD-2-Clause |
 | `WelcomeBackground`, `ExampleScreenshot.jpg` | Provenance not yet established; no representation is made about rights in them |
