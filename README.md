@@ -240,18 +240,23 @@ trimmed to what your account can sign. That is not a supported contributor path 
 
 ### 4. Demo models
 
-All three demo models are committed, so there is nothing to download. One of them — Apple's
-FastViT classifier — has a published upstream, so its bytes can be checked against it:
+Only the two first-party demo detectors (`AIArcheology` and `HroudaDetector15`) are committed
+under `Drivers/Demo Models/`. Ordinary app builds need no Apple model download.
+
+FastViT is an on-demand test fixture, cached in the gitignored `.apple-test-fixtures/` directory:
 
 ```bash
-./scripts/fetch_demo_models.sh              # verify FastViT against the repo-recorded digests
-./scripts/fetch_demo_models.sh --restore    # re-download from Apple and reinstall if it differs
+./scripts/fetch_apple_test_models.sh           # fetch missing/corrupt fixtures; verify pinned hashes
+./scripts/fetch_apple_test_models.sh --verify  # verify the local cache without network access
 ```
 
-This covers FastViT only. The two first-party detectors have no upstream to verify against, so
-there is nothing to check them, or restore them, from.
+The unit-test wrapper fetches it automatically. For direct Xcode unit/UI test runs, fetch first
+and pass `AIA_INCLUDE_TEST_FIXTURES=YES`; see [TESTING.md](specification/TESTING.md).
+Only opted-in Debug builds embed the fixture. Ordinary builds omit it, and Release builds reject
+fixture opt-in. UI tests seed it only on explicit launch configuration; normal app launches never do.
 
-Note the demo models are **not** covered by this repository's licence; see [Licence](#licence).
+The first-party demos are Apache-2.0. Apple's separate fixture terms and notices are in
+[the fixture licence guide](ios/TestFixtures/FastViT/LICENSE.md).
 
 ## Day-to-day commands
 
@@ -473,7 +478,7 @@ paths are named:
 
 | Not covered by LICENSE | Terms |
 |-|-|
-| `ios/MLBrowser/iOS/Drivers/Demo Models/FastViTT8F16.mlpackage` | Apple's, from the Core ML model gallery. Development and test asset only; excluded from Release builds. Apple's custom licence permits redistribution subject to its notice requirements; see the [model licence](ios/MLBrowser/iOS/Drivers/Demo%20Models/LICENSE.md#fastvitt8f16mlpackage--apple). |
+| `.apple-test-fixtures/FastViTT8F16.mlpackage` (downloaded) | Apple's, from the Core ML model gallery. Test fixture only, not an app demo; excluded from Release builds. Apple's custom licence permits redistribution subject to its notice requirements; see the [model licence](ios/TestFixtures/FastViT/LICENSE.md). |
 | `Tests/NativeModelConverterTests/Fixtures/ADAF/*` | CC-BY-SA-4.0 — ShareAlike. [Attribution](Tests/NativeModelConverterTests/Fixtures/ADAF/NOTICE.md) |
 | `ios/MLBrowserUnitTests/Fixtures/MapHarness/*.js` | Leaflet and OpenLayers, BSD-2-Clause |
 | `WelcomeBackground`, `ExampleScreenshot.jpg` | Provenance not yet established; no representation is made about rights in them |

@@ -34,7 +34,6 @@
 		6C88C94F08350835F0010001 /* ReceivedFindingImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFBCA48008350835F0010002 /* ReceivedFindingImportTests.swift */; };
 		6C88C94FB6809E47259A6351 /* FindingRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFBCA480CAD7F7F6571A7824 /* FindingRepositoryTests.swift */; };
 		6E2B84F19CD3407AB5710D63 /* EffectiveAuthContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7C1D0E5B92460F8E14A2C7 /* EffectiveAuthContext.swift */; };
-		6F31DAC55F2B4ACABB5FBBE1 /* FastViTT8F16.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 58F0B2DED415479BBF3199FD /* FastViTT8F16.mlpackage */; };
 		748E3D90195FB066DA015DB7 /* DetectionSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3885A2E1FF15193BEAD07C6 /* DetectionSession.swift */; };
 		7A31E96C4D82B05F9E63A1C8 /* ClerkTheme+App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D82B0F63A17C94E20D8F5B7 /* ClerkTheme+App.swift */; };
 		7B8F569C69DC02205FDB1A21 /* SubscriptionStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D07182C65A29B05EA7B102F /* SubscriptionStateTests.swift */; };
@@ -460,7 +459,6 @@
 		4EF3491C4DB7925FFAEACDE3 /* TourBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourBubble.swift; sourceTree = "<group>"; };
 		548E8E7AA59A9B9E0C56C84C /* EntitlementTransactionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EntitlementTransactionTests.swift; sourceTree = "<group>"; };
 		584C57A0DE99705D80A9A14F /* SubscriptionPeriod+Localized.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SubscriptionPeriod+Localized.swift"; sourceTree = "<group>"; };
-		58F0B2DED415479BBF3199FD /* FastViTT8F16.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = FastViTT8F16.mlpackage; sourceTree = "<group>"; };
 		59AA37AF30504C8C9835EC19 /* uitest_classify_page.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = uitest_classify_page.html; path = iOS/Resources/UITestFixtures/uitest_classify_page.html; sourceTree = "<group>"; };
 		5D82B0F63A17C94E20D8F5B7 /* ClerkTheme+App.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ClerkTheme+App.swift"; sourceTree = "<group>"; };
 		5FB8A8D45E35FDEFDF08FD61 /* TourSpotlight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourSpotlight.swift; sourceTree = "<group>"; };
@@ -1228,7 +1226,6 @@
 			isa = PBXGroup;
 			children = (
 				8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */,
-				58F0B2DED415479BBF3199FD /* FastViTT8F16.mlpackage */,
 				8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */,
 			);
 			path = "Demo Models";
@@ -1722,6 +1719,7 @@
 				8AE0BBFC2A97B0B30086DDF9 /* Sources */,
 				8AE0BBFD2A97B0B30086DDF9 /* Frameworks */,
 				8AE0BBFE2A97B0B30086DDF9 /* Resources */,
+				A1A090600000000000000001 /* Optional test fixtures */,
 				C3216188147B480A9E50D242 /* Upload Debug Symbols to Sentry */,
 			);
 			buildRules = (
@@ -1873,7 +1871,6 @@
 				940A10022F0500010000A002 /* Localizable.xcstrings in Resources */,
 				BDE90DEA1BE01DBF4F8B3160 /* InfoPlist.xcstrings in Resources */,
 				8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */,
-				6F31DAC55F2B4ACABB5FBBE1 /* FastViTT8F16.mlpackage in Resources */,
 				8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */,
 				942B1DDB2EA66353005455F9 /* README.md in Resources */,
 				942B1DDD2EA66353005455F9 /* LOGGING_GUIDE.md in Resources */,
@@ -1905,6 +1902,18 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		A1A090600000000000000001 /* Optional test fixtures */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Optional test fixtures";
+			outputPaths = ();
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"$SRCROOT/../scripts/embed_apple_test_models.sh\"\n";
+		};
 		9407910000000000000000A7 /* Validate backend environment */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -2658,7 +2667,6 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-				EXCLUDED_SOURCE_FILE_NAMES = FastViTT8F16.mlpackage;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "MLBrowser-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";

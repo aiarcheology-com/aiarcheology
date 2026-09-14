@@ -1,12 +1,10 @@
 # Demo model licences
 
-The files in this directory are **not** covered by the repository's Apache-2.0 licence
-(`/LICENSE`). Each has its own terms, set out below.
+The two first-party demo models in this directory are covered by the repository's Apache-2.0
+licence (`/LICENSE`), as described below.
 
-This file sits beside the `.mlpackage` bundles rather than inside them: an `.mlpackage` is a
-directory described by its own `Manifest.json`, and the point of `scripts/fetch_demo_models.sh` is
-to prove each one still matches Apple's published contents exactly — which a file added inside it
-would defeat, whether or not Core ML happens to object.
+Apple's FastViT is a separately downloaded test fixture, not an app demo. Its licence and
+provenance are recorded in [the test-fixture guide](../../../../TestFixtures/FastViT/LICENSE.md).
 
 ## `AIArcheology.mlpackage`, `HroudaDetector15.mlpackage` — first-party weights
 
@@ -27,36 +25,3 @@ grant like this rests on are accounted for:
 Both are stated rather than left implicit, because they are the questions a downstream user cannot
 answer for themselves by reading the repository: a permissive licence over trained weights is only
 worth as much as the provenance behind it.
-
-## `FastViTT8F16.mlpackage` — Apple
-
-This asset is Apple's. It is a development and test asset only and is excluded from Release builds
-(`EXCLUDED_SOURCE_FILE_NAMES` in the Xcode project), so it is not part of the shipped application.
-
-The copy here is byte-for-byte identical to Apple's published Core ML model gallery download. The
-source URL and the SHA-256 of the archive and of every file inside it are recorded in `/NOTICE` and
-in `scripts/demo_models.json`, so the claim can be rechecked rather than taken on trust.
-`scripts/fetch_demo_models.sh` verifies the tree against those recorded digests, and `--restore`
-re-downloads from Apple.
-
-The model's embedded licence metadata identifies Apple's custom licence at commit
-`8af5928238cab99c45f64fc3e4e7b1516b8224ba` of `apple/ml-fastvit`:
-[upstream licence](https://github.com/apple/ml-fastvit/blob/8af5928238cab99c45f64fc3e4e7b1516b8224ba/LICENSE).
-This is a reference carried by the exact model asset, not an inference from the research code's
-licence. On 2026-09-14, all three committed model files were also compared byte-for-byte with a
-fresh download of Apple's gallery archive; its SHA-256 matched the digest recorded in `/NOTICE`.
-
-The licence permits use, reproduction, modification and redistribution in source or binary form;
-it contains no research-only or non-commercial restriction. For redistribution of the complete,
-unmodified asset, retain Apple's copyright notice, licence text and disclaimers. Apple's names and
-marks may not be used to endorse derived products without permission, and the licence makes no
-additional patent grant. Apple's terms apply to this asset; it is not relicensed under Apache-2.0.
-
-Unmodified copies of the upstream texts from that pinned commit accompany the model:
-
-- [Apple licence](FastViT-LICENSE.txt)
-- [Referenced component acknowledgements](FastViT-ACKNOWLEDGEMENTS.txt)
-
-Keep both texts with redistributions of this model, including distributions containing historical
-copies. They are stored beside the package so the verified `.mlpackage` contents remain unchanged.
-See issue #906, A1.

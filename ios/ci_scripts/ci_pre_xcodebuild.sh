@@ -48,6 +48,11 @@ echo "   CI_PRIMARY_REPOSITORY_PATH: ${CI_PRIMARY_REPOSITORY_PATH}"
 cd "${CI_PRIMARY_REPOSITORY_PATH}/ios"
 echo "   Working directory: $(pwd)"
 
+# Download only for test build actions; archives and ordinary builds stay fixture-free.
+if [[ "${CI_XCODEBUILD_ACTION:-}" == "build-for-testing" ]]; then
+    "${CI_PRIMARY_REPOSITORY_PATH}/scripts/fetch_apple_test_models.sh"
+fi
+
 # --- Generate Secrets.xcconfig ---
 
 SECRETS_FILE="Secrets.xcconfig"
@@ -131,6 +136,10 @@ ${CLERK_LINES}
 ${CONFIGCAT_LINES}
 ${TELEMETRYDECK_LINES}
 EOF
+
+if [[ "${CI_XCODEBUILD_ACTION:-}" == "build-for-testing" ]]; then
+    echo "AIA_INCLUDE_TEST_FIXTURES = YES" >> "$SECRETS_FILE"
+fi
 
 echo "   ✅ Created $SECRETS_FILE"
 

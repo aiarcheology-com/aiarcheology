@@ -1,7 +1,7 @@
 {
   "_comment": [
-    "Provenance record for demo models that this repository did not produce.",
-    "Used by scripts/fetch_demo_models.sh to verify the committed copies against",
+    "Provenance record for Apple models downloaded on demand for tests.",
+    "Used by scripts/fetch_apple_test_models.sh to verify cached copies against",
     "their published source, and to restore one if it is missing or corrupt.",
     "First-party weights (AIArcheology, HroudaDetector15) are deliberately absent:",
     "they have no upstream to verify against. See ios/MLBrowser/iOS/Drivers/Demo Models/LICENSE.md"
@@ -9,7 +9,7 @@
   "models": [
     {
       "name": "FastViTT8F16",
-      "installPath": "ios/MLBrowser/iOS/Drivers/Demo Models/FastViTT8F16.mlpackage",
+      "installPath": ".apple-test-fixtures/FastViTT8F16.mlpackage",
       "url": "https://ml-assets.apple.com/coreml/models/Image/ImageClassification/FastViT/FastViTT8F16.mlpackage.zip",
       "archiveBytes": 7467627,
       "archiveSha256": "156df7e15dd384af30727f1eee4982602924b7e8ae37a65cefa1cfb325261508",

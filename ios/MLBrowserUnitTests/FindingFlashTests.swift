@@ -440,8 +440,8 @@ final class RealClassifierDemoModelTests: XCTestCase {
 
     private func demoModelURL() throws -> URL {
         try XCTUnwrap(
-            Bundle.main.url(forResource: DemoDataManager.DemoModelResource.fastViT, withExtension: "mlmodelc"),
-            "FastViT-T8 demo model missing from the app bundle"
+            Bundle.main.url(forResource: DemoDataManager.TestModelResource.fastViT, withExtension: "mlmodelc"),
+            "FastViT fixture missing: fetch Apple test fixtures and build with AIA_INCLUDE_TEST_FIXTURES=YES"
         )
     }
 
@@ -490,7 +490,7 @@ final class RealClassifierDemoModelTests: XCTestCase {
 final class FixturePatternQualificationTests: XCTestCase {
 
     func testMazePattern_QualifiesOnDemoModel() async throws {
-        let url = try XCTUnwrap(Bundle.main.url(forResource: DemoDataManager.DemoModelResource.fastViT, withExtension: "mlmodelc"))
+        let url = try XCTUnwrap(Bundle.main.url(forResource: DemoDataManager.TestModelResource.fastViT, withExtension: "mlmodelc"))
         let classificator = Classificator(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model", file: url))
         try await classificator.loadFile()
 

@@ -19,6 +19,7 @@ it is not implemented. Selection today is manual and does not replace existing r
 | Credential-delivery shell logic | `./scripts/test_deliver_credentials.sh` uses its hermetic test harness. |
 | Architecture and source/resource invariants | `./scripts/harmonize.sh` uses the macOS `MLBrowserArchitectureTests` scheme and `MLBrowserUnitTestsHarmonize` plan. It reads repository files from disk. |
 | Localization parity and catalog validation | `./scripts/localization.sh` runs Python strict parity and checks both catalogs. This also runs in GitHub CI; it is not merely an optional editor helper. |
+| Apple test-fixture setup | `python3 scripts/test_apple_test_models.py` checks cache repair, offline reuse, fail-closed opt-in, notice embedding, and ordinary-build cleanup without network or Xcode. Runs in the unit wrapper and Harmonize CI. |
 | Xcode catalog stability | `./scripts/check_localization_build.sh` builds and checks that both catalogs remain unchanged. This is separate from semantic validation and does not execute app tests. |
 | Swift style | `./scripts/swiftlint.sh` lints `ios/`. For a file, pass an absolute path after `lint`, since the wrapper changes directory. Preserve required hook/CI scope. |
 | Catalog/ONNX manifest consistency | `./scripts/verify_catalog_onnx_sync.sh`; relevant to catalog entries and converter fixture manifests. |
@@ -31,15 +32,27 @@ often affect several rows. If the consumer set is unclear, broaden coverage.
 ## App unit and UI execution
 
 Use `xcrun simctl list devices available` to choose a simulator compatible with the active Xcode
-and deployment target. Set `TEST_SIMULATOR_ID` to its UUID before these examples:
+and deployment target. Set `TEST_SIMULATOR_ID` to its UUID before these examples.
+
+FastViT is an on-demand Apple test fixture, not a demo model. Run
+`./scripts/fetch_apple_test_models.sh` before direct unit/UI test builds (or before testing in Xcode
+with the custom build setting below). It verifies the archive and package hashes and reuses the
+ignored `.apple-test-fixtures/` cache. `./scripts/unittest.sh` handles fetching and opt-in automatically;
+Xcode Cloud fetches for `build-for-testing` and includes the fixture in its prebuilt test app.
+Ordinary builds do not fetch or embed it. Missing/corrupt fixtures fail opted-in builds instead of
+silently skipping real-model tests. Release builds reject opt-in.
+
+Direct test commands:
 
 ```bash
 xcodebuild test -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser \
+  AIA_INCLUDE_TEST_FIXTURES=YES \
   -testPlan MLBrowserUnitTests \
   -destination "platform=iOS Simulator,id=${TEST_SIMULATOR_ID}" \
   -derivedDataPath "$PWD/.deriveddata"
 
 xcodebuild test -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser \
+  AIA_INCLUDE_TEST_FIXTURES=YES \
   -testPlan MLBrowserUITests \
   -destination "platform=iOS Simulator,id=${TEST_SIMULATOR_ID}" \
   -derivedDataPath "$PWD/.deriveddata"

@@ -66,7 +66,7 @@ final class DemoDataManager {
         
         await loadModelOne()
         await loadModelTwo()
-        await loadModelThree()
+        await loadClassifierTestFixture()
         await createBrowsingHistoryIfNeeded()
         
         LoggingPolicy.info("Demo data creation complete", logger: .configuration)
@@ -174,6 +174,10 @@ final class DemoDataManager {
     enum DemoModelResource {
         static let aiArcheology = "AIArcheology"
         static let hroudaDetector = "HroudaDetector15"
+    }
+
+    /// Resource available only in explicitly opted-in test builds. Never a user-facing demo.
+    enum TestModelResource {
         static let fastViT = "FastViTT8F16"
     }
 
@@ -195,16 +199,12 @@ final class DemoDataManager {
         await loadDemoModel(resourceName: DemoModelResource.hroudaDetector)
     }
 
-    private func loadModelThree() async {
-        // FastViT-T8 (Apple's model gallery, F16, ~8 MB) is a TEST-ONLY asset
-        // (owner decision, AIA-0374): it ships under Apple's custom ML license and
-        // must not be part of the installation package. The resource is excluded
-        // from Release builds (EXCLUDED_SOURCE_FILE_NAMES) and seeds only when a
-        // UI test requests it via launch config — production (and normal Debug
-        // runs) never see it. Unit tests load it from the bundle directly.
+    private func loadClassifierTestFixture() async {
+        // Downloaded on demand and embedded only with AIA_INCLUDE_TEST_FIXTURES=YES in Debug.
+        // UI tests seed it only on explicit request; unit tests load it directly from the bundle.
         guard AppEnvironment.isRunningUITests,
               UITestLaunchConfiguration.fromEnvironment?.enableClassifyDemo == true else { return }
-        await loadDemoModel(resourceName: DemoModelResource.fastViT, enabled: true)
+        await loadDemoModel(resourceName: TestModelResource.fastViT, enabled: true)
     }
 
     /// Loads a demo model and creates a Core Data configuration for it.
