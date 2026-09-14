@@ -482,7 +482,7 @@ paths are named:
 | `ios/TestFixtures/FastViT/FastViT-LICENSE.txt`, `FastViT-ACKNOWLEDGEMENTS.txt` in that directory | Verbatim Apple and component notices, retained under their original terms; see the [fixture licence guide](ios/TestFixtures/FastViT/LICENSE.md). |
 | `Tests/NativeModelConverterTests/Fixtures/ADAF/*` | CC-BY-SA-4.0 — ShareAlike. [Attribution](Tests/NativeModelConverterTests/Fixtures/ADAF/NOTICE.md) |
 | `ios/MLBrowserUnitTests/Fixtures/MapHarness/*.js` | Leaflet and OpenLayers, BSD-2-Clause |
-| `WelcomeBackground`, `ExampleScreenshot.jpg` | Provenance not yet established; no representation is made about rights in them |
+| `ios/MLBrowser/iOS/Assets/Assets.xcassets/WelcomeBackground.imageset/*`, `ExampleScreenshot.jpg` | Ownership confirmed by the repository owner on 2026-09-14 in #906. These remain excluded from the source-code grant; no separate reuse licence is recorded. See [NOTICE](NOTICE), section 5. |
 
 **The detection models are included in the grant.** `AIArcheology.mlpackage` and
 `HroudaDetector15.mlpackage` are first-party weights — trained by this project on its own data, from
@@ -492,6 +492,14 @@ code would be the asterisk that mattered, so it is stated rather than left to be
 
 [NOTICE](NOTICE) is the full attribution record for all of the above. "AI Archeology", the
 ML Browser name and the app artwork are trademarks and are not licensed by LICENSE.
+
+The 22 former gallery photographs came from Apple's Image Gallery sample. The owner chose
+removal, and the corrected `main` and `develop` histories contain none of those photo blobs or
+paths. **Repository-wide cleanup remains incomplete:** the retained `main-old` / `develop-old`
+branches, release tags `1.0.7` / `1.0.8`, and historical PR references retain copies. The
+`main-public` / `develop-public` branches retain the first cleaned revisions. See [NOTICE](NOTICE),
+section 5, and [#906, A2](https://github.com/aiarcheology-com/aiarcheology/issues/906) for the
+remaining publication work. Removal does not grant rights to historical copies.
 
 Contributing: [CONTRIBUTING.md](.github/CONTRIBUTING.md) ·
 [Code of Conduct](.github/CODE_OF_CONDUCT.md) · [Security policy](.github/SECURITY.md).

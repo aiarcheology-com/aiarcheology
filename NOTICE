@@ -173,21 +173,38 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-5. Photographic assets — provenance not yet established
+5. Photographic assets — owner-confirmed images and gallery history
 ================================================================================
 
     ios/MLBrowser/iOS/Assets/Assets.xcassets/WelcomeBackground.imageset/*
     ExampleScreenshot.jpg
 
-WelcomeBackground ships inside the application; ExampleScreenshot.jpg is a
-repository screenshot. No attribution or licence record for
-them exists in this repository. Their provenance is being established; until it
-is, they are NOT covered by the Apache-2.0 grant and no representation is made
-about rights in them. See issue #898.
+On 2026-09-14, the repository owner confirmed ownership of both images in
+issue #906, A2. WelcomeBackground is an app asset; ExampleScreenshot.jpg is a
+repository screenshot, not established as an asset shipped in the application.
+This confirmation resolves their ownership provenance. It does not grant a new
+asset licence: both remain excluded from the source-code Apache-2.0 grant in
+README.md, and no separate reuse licence is recorded here.
 
 The 22 photographs formerly under ios/MLBrowser/iOS/Gallery/Images/ were
-removed with the unreachable gallery in AIA-0898. They remain in Git history;
-removal does not establish their provenance or grant rights in historical copies.
+identified as copies of Apple's Image Gallery sample photographs; all 22 matched
+the sample archive byte-for-byte. The owner chose removal rather than pursuing
+redistribution rights. The sample is available at:
+    https://developer.apple.com/tutorials/sample-apps/imagegallery
+
+On 2026-09-14, the main and develop histories were rewritten to remove those
+photographs, preserving the branches' divergence. Verification found none of
+the 22 photo blobs or their paths reachable from either corrected branch.
+Obsolete Xcode resource references were also removed from main.
+
+This is not yet repository-wide removal. As of 2026-09-15, main-old and
+develop-old retain the original histories; release tags 1.0.7 and 1.0.8 and
+historical pull-request references also retain copies. The first cleaned
+revisions remain on main-public and develop-public. Remaining GitHub copies
+and references still need to be addressed before publication. Private recovery
+bundles are retained outside the tracked tree and must not be published.
+Issue #906, A2 tracks the remaining cleanup. No rights to the Apple photographs
+are granted by their previous inclusion or by this removal.
 
 ================================================================================
 6. Cloudflare Worker dependencies
