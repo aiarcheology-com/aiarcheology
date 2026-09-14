@@ -1,15 +1,12 @@
 name: SwiftLint
 
 on:
+  # Report on every PR into the protected branches, including documentation-only changes.
+  # Path filters would leave future required checks pending (AIA-0900).
   pull_request:
-    branches-ignore:
-      - "copilot/**"
-    paths:
-      - "ios/**"
-      - ".swiftlint.yml"
-      - ".github/workflows/swiftlint.yml"
-      - "Tests/NativeModelConverterTests/Fixtures/ONNXConversionModels.json"
-      - "scripts/verify_catalog_onnx_sync.sh"
+    branches:
+      - develop
+      - main
   workflow_dispatch:
 
 concurrency:

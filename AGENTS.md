@@ -69,7 +69,12 @@ resources, Xcode configuration, and iOS tests. Load references only when relevan
 - Never commit or push directly to `develop` or `main`. Never push without explicit user consent;
   consent already given in the session remains valid. Never force-push unless explicitly requested.
   Do not amend commits without asking or add co-author footers.
-- Pull requests target `develop`. Closing keywords do not auto-close issues merged into this
+- Branch normal work from `develop` and target `develop` with its pull requests. Promote reviewed
+  work to `main` through a disposable `release/*` branch cut from `develop`, with a PR into `main`.
+  Never use `develop` as a PR source (head): automatic head-branch deletion can remove it when
+  an administrator bypasses its deletion protection. Keep automatic branch deletion enabled.
+  Pushing `release/*` triggers paid Xcode Cloud work; follow the release guidance below.
+- Closing keywords do not auto-close issues merged into `develop`, the
   non-default branch. Close the issue and move its project status to **Done** after verified
   completion within the user's requested delivery scope; record any unmerged or local-only work.
 

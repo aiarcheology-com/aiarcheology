@@ -8,8 +8,8 @@ name: Native Model Converter
 # probe labels, metadata provenance) are gated on `NATIVE_MODEL_ONNX_DIRECTORY`, which nothing in
 # CI ever set. A skipped test reports green, so nothing would have told us if conversion started
 # producing wrong numbers. The app plan's copy therefore cost time on every unrelated PR while
-# proving strictly less than this job, and it was removed; the `paths:` filter below is now what
-# decides whether the suite runs.
+# proving strictly less than this job, and it was removed. This workflow runs on every PR into
+# develop and main so its result is available for required-check enforcement (AIA-0900).
 #
 # This workflow supplies both fixture sets, so the suite runs with zero skips among the suites it
 # selects. It is not the whole package: `test_native_model_converter.sh` passes
@@ -19,24 +19,12 @@ name: Native Model Converter
 # Runs on macOS because the conversion path compiles real CoreML models.
 
 on:
+  # Report on every PR into the protected branches, including documentation-only changes.
+  # Path filters would leave future required checks pending (AIA-0900).
   pull_request:
-    branches-ignore:
-      - "copilot/**"
-    paths:
-      - "Sources/NativeModelConverter/**"
-      - "Sources/NativeModelConverterCLI/**"
-      - "Sources/NativeModelEvaluatorCLI/**"
-      - "Tests/NativeModelConverterTests/**"
-      # SupportLogFormat is the package's other library (Package.swift), and `swift test` runs its
-      # suite too. Without these two paths a support-log-only PR got no package test run anywhere in
-      # CI — this workflow is the only place `swift test` runs.
-      - "Sources/SupportLogFormat/**"
-      - "Tests/SupportLogFormatTests/**"
-      - "Package.swift"
-      - "Package.resolved"
-      - "scripts/test_native_model_converter.sh"
-      - "scripts/fetch_native_test_models.sh"
-      - ".github/workflows/native-model-converter.yml"
+    branches:
+      - develop
+      - main
   workflow_dispatch:
 
 concurrency:

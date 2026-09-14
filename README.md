@@ -330,6 +330,12 @@ local `.p8` instead of 1Password if you prefer. Store the key with the **App Man
 This is **Plan B** for the Xcode Cloud **"Release"** workflow, which archives + distributes from
 `release/*` branches. The local lane keys off the same branches, so releasing is identical either way:
 
+Cut the release branch from `develop`. Pushing it triggers paid Xcode Cloud work. To promote the
+reviewed state to `main`, open a PR with that disposable `release/*` branch as the source and
+`main` as the target. Never use `develop` as a PR source: automatic head-branch deletion can remove
+it when an administrator bypasses deletion protection. Keep automatic branch deletion enabled
+so merged feature and release branches are cleaned up.
+
 ```sh
 # 0. Cut the release branch from develop (the same trigger the Xcode Cloud Release workflow uses).
 git checkout develop && git pull
@@ -408,7 +414,7 @@ environment, Release uses **Production**. Tests and previews never touch the net
 
 ## Conventions
 
-- **Branches**: `<type>/AIA-XXXX/description`, with `feature`, `fix`, `doc`, or `test`; pull requests target `develop`. Never commit directly to `develop` or `main`. See [AGENTS.md](AGENTS.md#issues-and-git) for the repository workflow.
+- **Branches**: branch normal work from `develop` as `<type>/AIA-XXXX/description`, with `feature`, `fix`, `doc`, or `test`, and target `develop` with its PRs. Release promotion uses a disposable `release/*` branch cut from `develop`, with a PR into `main`. Never use `develop` as a PR source or commit directly to `develop` or `main`. See [AGENTS.md](AGENTS.md#issues-and-git) for the repository workflow.
 - **Commits**: imperative summary prefixed with the issue key — `[AIA-XXXX] Fix crash when…`.
 - **Issues**: GitHub Issues carry `AIA-####` keys (normalized automatically by the `auto-issue-key` workflow); production crashes arrive as issues via Sentry → Cloudflare relay.
 
