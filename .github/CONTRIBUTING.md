@@ -35,10 +35,13 @@ work, get their sign-off first.
 
 The two first-party detectors in `ios/MLBrowser/iOS/Drivers/Demo Models/` (`AIArcheology`,
 `HroudaDetector15`) are **Apache-2.0 like the code** — trained from scratch by this project, with no
-ADAF lineage, so nothing propagates into work built on them. `FastViTT8F16` is different: it is
-**Apple's**, this project grants nothing over it, and its terms have not yet been established here.
+ADAF lineage, so nothing propagates into work built on them. `FastViTT8F16` is a test fixture,
+not an app demo; it is downloaded into a gitignored cache only for tests. It is
+**Apple's** and covered by its custom licence, which permits redistribution subject to retaining
+its required notices. It is not relicensed under Apache-2.0.
 See
-[that directory's LICENSE.md](../ios/MLBrowser/iOS/Drivers/Demo%20Models/LICENSE.md) and the root
+[the demo licence](../ios/MLBrowser/iOS/Drivers/Demo%20Models/LICENSE.md),
+[the Apple fixture licence](../ios/TestFixtures/FastViT/LICENSE.md), and the root
 [NOTICE](../NOTICE), which records every asset that sits outside the repository licence.
 
 ## Branches and commits
@@ -79,9 +82,9 @@ All three from the repository root:
 ./scripts/unittest.sh         # unit suite on a simulator
 ```
 
-`./scripts/fetch_demo_models.sh` verifies Apple's bundled FastViT model against its published
-digests, and `--restore` repairs a damaged copy. The first-party detectors have no upstream, so
-nothing checks them.
+`./scripts/fetch_apple_test_models.sh` downloads missing or corrupt FastViT test fixtures and
+verifies their pinned hashes. Use `--verify` for an offline cache check. The first-party detectors
+have no published upstream against which to verify their provenance.
 
 [TESTING.md](../specification/TESTING.md) has the full picture, including the UI suite and how to run a subset.
 A green local run is what makes a review worth someone's time; CI is paid, so please do not use it

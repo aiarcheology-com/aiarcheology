@@ -51,6 +51,8 @@ done
 
 cd "${REPO_ROOT}"
 
+python3 scripts/test_apple_test_models.py
+
 # ProjectTool's own tests run first: they are pure host-side Swift (no simulator, well under a
 # second), so a failure here should not cost a full simulator boot to discover. Without this the
 # Tools package has no test coverage in either the pre-push sweep or CI.
@@ -150,6 +152,8 @@ if [[ -z "${SIMULATOR_NAME}" ]]; then
     SIMULATOR_NAME="Unknown iOS Simulator"
 fi
 
+./scripts/fetch_apple_test_models.sh
+
 echo "Running MLBrowser unit tests..."
 echo "Destination: ${SIMULATOR_NAME} (${SIMULATOR_ID})"
 echo ""
@@ -179,6 +183,7 @@ XCODEBUILD_ARGS=(
     test
     -workspace ios/MLBrowser.xcworkspace
     -scheme MLBrowser
+    AIA_INCLUDE_TEST_FIXTURES=YES
     -testPlan MLBrowserUnitTests
     -destination "platform=iOS Simulator,id=${SIMULATOR_ID}"
     -derivedDataPath "${DERIVED_DATA}"

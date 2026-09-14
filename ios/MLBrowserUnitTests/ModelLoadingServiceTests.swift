@@ -411,9 +411,10 @@ final class ModelLoadingServiceTests: XCTestCase {
     }
 
     func test_inferType_classifierFixture_returnsClassificator() async throws {
-        guard let url = Bundle.main.url(forResource: "FastViTT8F16", withExtension: "mlmodelc") else {
-            throw XCTSkip("Classifier demo model not available in test bundle")
-        }
+        let url = try XCTUnwrap(
+            Bundle.main.url(forResource: DemoDataManager.TestModelResource.fastViT, withExtension: "mlmodelc"),
+            "Fetch Apple test fixtures and build with AIA_INCLUDE_TEST_FIXTURES=YES"
+        )
         let model = try await MLModel.load(contentsOf: url, configuration: MLModelConfiguration())
         XCTAssertEqual(ModelLoadingService.inferType(from: model.modelDescription), .classificator,
                        "A model exposing a predicted-feature name should infer as a classifier")
@@ -772,8 +773,7 @@ final class ModelLoadMemoryPreflightTests: XCTestCase {
         let conservativeFloor: UInt64 = 512 * 1024 * 1024
         let names = [
             DemoDataManager.DemoModelResource.aiArcheology,
-            DemoDataManager.DemoModelResource.hroudaDetector,
-            DemoDataManager.DemoModelResource.fastViT
+            DemoDataManager.DemoModelResource.hroudaDetector
         ]
 
         for name in names {

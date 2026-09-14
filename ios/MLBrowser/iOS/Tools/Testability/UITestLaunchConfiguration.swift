@@ -74,9 +74,9 @@ struct UITestLaunchConfiguration: Codable {
 	/// Route model downloads through `StubDownloadURLProtocol` (AIA-0318) so tests never hit the
 	/// network. `nil`/`false` keeps the real network path.
 	var stubDownloads: Bool?
-	/// Seed the bundled FastViT classify demo ENABLED (AIA-0375), so classification
+	/// Seed the downloaded FastViT test fixture ENABLED (AIA-0375), so classification
 	/// tests exercise the real model without scripting the drawer. `nil`/`false`
-	/// keeps the baseline (all demos disabled).
+	/// keeps the baseline (only the two first-party demos, both disabled).
 	var enableClassifyDemo: Bool?
 	/// Auto-open the first seeded model's settings in post-import **type-review** mode on the
 	/// drawer's first appearance (AIA-0402), so UI tests can exercise the confirmation banner /

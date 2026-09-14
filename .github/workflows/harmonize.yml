@@ -21,6 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Verify Apple test-fixture setup
+        run: python3 scripts/test_apple_test_models.py
+
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:

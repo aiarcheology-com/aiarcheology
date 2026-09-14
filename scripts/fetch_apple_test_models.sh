@@ -1,37 +1,26 @@
 #!/usr/bin/env bash
 #
-# Verifies — and can restore — the demo models this repository did not produce, against the
-# published sources recorded in scripts/demo_models.json.
-#
-# Unlike its siblings (fetch_native_test_models.sh, fetch_adaf_checkpoints.sh) this script does
-# NOT fetch by default. The models it covers are committed and are build inputs: the Debug build
-# fails with "Build input file cannot be found" if one is missing, so there is no lazy-fetch
-# story to tell. What this script adds is provenance you can check rather than trust, plus a way
-# back if a working copy gets damaged.
-#
-# Be precise about what a default run proves: that the tree matches the digests recorded in
-# scripts/demo_models.json. Those digests were taken from Apple's published archive, but this mode
-# does not contact Apple — only --restore downloads, and only once a difference has been found.
+# Download and verify the Apple models used only by tests. Reuse a verified local cache;
+# never download during an ordinary app build. URLs and hashes are pinned in apple_test_models.json.
 #
 # Usage:
-#   scripts/fetch_demo_models.sh              # verify committed copies against recorded SHA-256
-#   scripts/fetch_demo_models.sh --restore    # re-download and reinstall anything that differs
-#   scripts/fetch_demo_models.sh --help
+#   scripts/fetch_apple_test_models.sh           # fetch missing/corrupt fixtures into .apple-test-fixtures
+#   scripts/fetch_apple_test_models.sh --verify  # verify cached fixtures offline; fail if missing/corrupt
+#   scripts/fetch_apple_test_models.sh --help
 #
-# Exit status: 0 = every covered model matches; 1 = a difference remains, or a check could not
-# be completed. It never reports success for a check it did not actually run.
+# Test builds opt in separately with AIA_INCLUDE_TEST_FIXTURES=YES. The models are not committed.
 #
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MANIFEST="$REPO_ROOT/scripts/demo_models.json"
-RESTORE=0
+MANIFEST="$REPO_ROOT/scripts/apple_test_models.json"
+RESTORE=1
 
-usage() { sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's|^#||; s|^ ||'; }
+usage() { sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's|^#||; s|^ ||'; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --restore) RESTORE=1; shift ;;
+    --verify) RESTORE=0; shift ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -82,7 +71,7 @@ for i, model in enumerate(models):
     member = model.get('archiveMember', '')
     # Both values are used to build filesystem paths -- \$REPO_ROOT/\$installPath and
     # \$tmp/unpacked/\$archiveMember -- so an absolute path or a '..' component would let a
-    # manifest edit make --restore write outside the checkout, or copy arbitrary local data
+    # manifest edit make the fetcher write outside the checkout, or copy arbitrary local data
     # into the model destination. Contain them here, before anything uses them.
     for label, value in (('installPath', path), ('archiveMember', member)):
         if not value:
@@ -152,7 +141,7 @@ diff_tree_against_manifest() {
 
   # The per-file symlink checks below cannot catch a symlinked ROOT: replacing the package
   # directory with a link to a matching tree elsewhere would otherwise verify clean, and would
-  # point --restore at a directory outside the checkout.
+  # point the fetcher at a directory outside the checkout.
   if [ -L "$root" ]; then
     echo "the package directory is a symlink, not a real directory"
     return 0
@@ -411,7 +400,7 @@ EOF
   else
     echo "✗ $name:" >&2
     printf '%s\n' "$problems" | while IFS= read -r line; do echo "    $line" >&2; done
-    [ "$RESTORE" = 1 ] || echo "    re-run with --restore to repair" >&2
+    [ "$RESTORE" = 1 ] || echo "    re-run without --verify to download or repair" >&2
     status=1
   fi
 done < "$MODELS"
@@ -422,8 +411,8 @@ if [ "$checked" -eq 0 ] && [ "$status" -eq 0 ]; then
   exit 1
 fi
 if [ "$status" = 0 ]; then
-  echo "All covered demo models match the digests recorded in the manifest ($checked files)."
+  echo "All Apple test fixtures match the digests recorded in the manifest ($checked files)."
 else
-  echo "Some demo models do not match. See scripts/demo_models.json for the expected digests." >&2
+  echo "Some Apple test fixtures do not match. See scripts/apple_test_models.json for the expected digests." >&2
 fi
 exit "$status"

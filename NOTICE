@@ -40,15 +40,18 @@ See ios/MLBrowser/iOS/Drivers/Demo Models/LICENSE.md
 2. FastViT-T8 — Apple Core ML model gallery
 ================================================================================
 
-    ios/MLBrowser/iOS/Drivers/Demo Models/FastViTT8F16.mlpackage
+    .apple-test-fixtures/FastViTT8F16.mlpackage (downloaded, not committed)
 
 This asset is Apple's, not AI Archeology's, and is NOT licensed under
-Apache-2.0. It is a development and test asset only: the Xcode project excludes
-it from Release builds (EXCLUDED_SOURCE_FILE_NAMES), so it is not part of the
-shipped application.
+Apache-2.0. It is a test fixture, not an app demo. Unit tests load it directly;
+UI tests seed it only when explicitly requested through their launch configuration.
+Normal app launches (including normal Debug runs) do not seed it. The Xcode
+build embeds it only with AIA_INCLUDE_TEST_FIXTURES=YES in Debug; Release
+builds reject fixture opt-in. It is not part of the shipped application. The
+previous committed copy under Drivers/Demo Models/ remains in Git history.
 
-Provenance, recorded so it can be checked rather than trusted — the copy in this
-repository is byte-for-byte identical to Apple's published download:
+Provenance for the downloaded fixture and its historical committed copy:
+the fetcher requires byte-for-byte agreement with Apple's published download:
 
     Source:  https://ml-assets.apple.com/coreml/models/Image/
              ImageClassification/FastViT/FastViTT8F16.mlpackage.zip
@@ -62,12 +65,24 @@ repository is byte-for-byte identical to Apple's published download:
     Data/com.apple.CoreML/weights/weight.bin
              sha256 a6aaba06b9664717edeeaa30cc0f72bdf90a481cea9eb573e217b8d3b2c99410
 
-    Verify or restore with: scripts/fetch_demo_models.sh
+    Fetch or verify with: scripts/fetch_apple_test_models.sh
     Upstream research code:  https://github.com/apple/ml-fastvit
 
-The terms under which Apple publishes this gallery asset have NOT been
-established by this project. Until they are, no representation is made about
-redistribution rights in it. See issue #898.
+The model's embedded licence metadata links directly to Apple's custom licence:
+    https://github.com/apple/ml-fastvit/blob/8af5928238cab99c45f64fc3e4e7b1516b8224ba/LICENSE
+
+Verified on 2026-09-14: the current Apple archive matches the recorded SHA-256,
+and all three then-committed model files matched its contents byte-for-byte. The
+licence permits redistribution and has no research-only restriction. Retain
+Apple's copyright notice, licence text and disclaimers when redistributing
+the complete, unmodified model. Apple's terms, not Apache-2.0, cover this asset.
+
+Unmodified upstream licence and referenced acknowledgements are included at:
+    ios/TestFixtures/FastViT/FastViT-LICENSE.txt
+    ios/TestFixtures/FastViT/FastViT-ACKNOWLEDGEMENTS.txt
+
+Keep these texts with distributions containing the model, including historical
+copies. See that directory's LICENSE.md and issue #906, A1.
 
 ================================================================================
 3. ADAF checkpoint test fixtures — CC-BY-SA-4.0
