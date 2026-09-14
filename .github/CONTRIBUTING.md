@@ -82,9 +82,9 @@ All three from the repository root:
 ./scripts/unittest.sh         # unit suite on a simulator
 ```
 
-`./scripts/fetch_apple_test_models.sh` downloads and verifies Apple's FastViT test fixture against its published
-digests, and `--restore` repairs a damaged copy. The first-party detectors have no upstream, so
-nothing checks them.
+`./scripts/fetch_apple_test_models.sh` downloads missing or corrupt FastViT test fixtures and
+verifies their pinned hashes. Use `--verify` for an offline cache check. The first-party detectors
+have no published upstream against which to verify their provenance.
 
 [TESTING.md](../specification/TESTING.md) has the full picture, including the UI suite and how to run a subset.
 A green local run is what makes a review worth someone's time; CI is paid, so please do not use it

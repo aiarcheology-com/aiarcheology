@@ -58,6 +58,3 @@ STILL WORTH RETESTING FROM THE PREVIOUS BUILD
 
 - KNOWN GAP: on atlas.bayern.de, reopening the app straight onto the page and saving a finding
   without panning first may still store the wrong address. Please report whether that reproduces.
-
-Automated tests: use scripts/unittest.sh, or fetch_apple_test_models.sh plus
-AIA_INCLUDE_TEST_FIXTURES=YES for direct Debug tests. Normal builds retain only the two original demos.
