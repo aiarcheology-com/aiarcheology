@@ -59,8 +59,15 @@ Use the body to explain *why*, and to record any tradeoff a reviewer would other
 reconstruct. Keep a change traceable to its issue — if you spot something unrelated on the way,
 mention it rather than fixing it in the same branch.
 
-Pull requests target **`develop`**. Note that GitHub's `Closes #NNN` keyword does not fire on a
+Normal pull requests target **`develop`**. Note that GitHub's `Closes #NNN` keyword does not fire on a
 merge into `develop`, because it is not the default branch — the issue is closed by hand.
+
+For release promotion, cut a disposable `release/*` branch (for example, `release/1.0.8`) from
+`develop` and open its PR into **`main`**. Never use `develop` as a PR source (head): automatic
+head-branch deletion can remove it when an administrator bypasses deletion protection. Keep
+automatic branch deletion enabled so merged feature and release branches are cleaned up.
+Pushing `release/*` triggers paid Xcode Cloud work; follow the
+[release delivery instructions](../README.md#-emergency-delivery-lane-xcode-cloud-fallback).
 
 ## Run the checks before you open the PR
 

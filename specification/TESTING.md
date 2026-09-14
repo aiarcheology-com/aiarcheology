@@ -139,8 +139,10 @@ identifiers cannot prove. App Store metadata and release-service state need thei
 
 The pre-commit hook lints staged Swift files. The pre-push hook invokes the catalog-stability build
 for branch pushes. `deliver.sh` runs lint, localization, Harmonize, and the unit wrapper; it does not
-establish UI or converter parity coverage. Existing GitHub workflows have separate path filters
-and gates; a skipped workflow is not proof that all consumers were checked. Xcode Cloud workflow
+establish UI or converter parity coverage. SwiftLint, Harmonize, and Native Model Converter run
+on every PR into `develop` or `main`, without path filters; Localization also runs without path
+filters. Other GitHub workflows retain their own triggers and gates; a skipped workflow is not
+proof that all consumers were checked. Xcode Cloud workflow
 configuration is partly external to the repository and must be inspected before changing claims
 about its coverage or costs.
 
