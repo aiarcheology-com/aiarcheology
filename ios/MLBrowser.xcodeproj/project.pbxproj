@@ -1987,6 +1987,7 @@
 			name = "Stage Device Parity Assets";
 			shellPath = /bin/sh;
 			shellScript = (
+				"set -eu",
 				"if [ -n \"${AIA_DEVICE_PARITY_ASSETS:-}\" ]; then",
 				"    for fixture in AOBarrowDetector.mlmodelc AOBarrowCanvas.ppm AOBarrowOracle.json AOBarrowSource.ppm; do",
 				"    if [ \"${fixture}\" = \"AOBarrowDetector.mlmodelc\" ]; then fixture_test=\"-d\"; else fixture_test=\"-f\"; fi",
@@ -2700,6 +2701,8 @@
 		8AE0BC2E2A97B0B40086DDF9 /* Debug configuration for PBXNativeTarget "MLBrowserUnitTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				/* The fixture phase copies Core ML trees whose nested outputs vary by SDK. */
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -2720,6 +2723,8 @@
 		8AE0BC2F2A97B0B40086DDF9 /* Release configuration for PBXNativeTarget "MLBrowserUnitTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				/* The fixture phase copies Core ML trees whose nested outputs vary by SDK. */
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

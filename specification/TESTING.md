@@ -162,3 +162,17 @@ about its coverage or costs.
 Until #850 introduces and validates a selector, preserve these gates and use the suite map to make
 local verification relevant. Documentation-only changes need checks of links, commands, and
 consistency, without launching app tests solely for prose.
+
+## Opt-in coverage pitfalls
+
+The live-map harness hosts its web views in the test app window so map SDKs can finish rendering.
+A finished navigation in an offscreen web view is not evidence that its map initialized. OpenLayers'
+module-scoped example must return a labelled Web Mercator position; the harness does not require or
+invent a latitude/longitude conversion. Its offline animation-frame test runs in the ordinary unit plan.
+
+The `Stage Device Parity Assets` phase copies SDK-generated Core ML directory trees. Xcode cannot
+represent unknown recursive script outputs, so `MLBrowserUnitTests` disables user-script sandboxing
+for its sole script phase. App and other test targets retain their existing settings. The phase exits
+on validation or copy errors, including benchmark fixture copies, so an explicitly supplied fixture directory cannot silently produce a skipped
+test. Supply `AIA_DEVICE_PARITY_ASSETS` or `AIA_ADAF_CONVERSION_BENCHMARK_ASSETS` only for the corresponding
+opt-in run; no models are downloaded or staged by this phase when both are unset.
