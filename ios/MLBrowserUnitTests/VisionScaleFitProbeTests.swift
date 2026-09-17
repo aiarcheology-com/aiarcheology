@@ -156,7 +156,10 @@ final class VisionScaleFitProbeTests: XCTestCase {
 
 	// MARK: - The measurement
 
-	func testScaleFit_isMeasuredAtMatchedSizeAndTheProbeIsNotBlind() throws {
+	func testScaleFit_isMeasuredAtMatchedSizeAndTheProbeIsNotBlind() async throws {
+		let systemDescription = await MainActor.run {
+			"\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)"
+		}
 		let model = try loadProbeModel()
 		let (image, planar) = try makeImage(side: Self.side)
 
@@ -178,8 +181,7 @@ final class VisionScaleFitProbeTests: XCTestCase {
 
 		print(
 			"""
-			[AIA-0680] Vision .scaleFit probe, iOS simulator, \(UIDevice.current.systemName) \
-			\(UIDevice.current.systemVersion), sRGB source, pixel format \
+			[AIA-0680] Vision .scaleFit probe, iOS simulator, \(systemDescription), sRGB source, pixel format \
 			\(model.modelDescription.inputDescriptionsByName["image"]?.imageConstraint?.pixelFormatType ?? 0):
 			  (a) conversion floor, CIContext render + MLModel.prediction : \(floor)
 			  (b) Vision .scaleFit at matched \(Self.side)×\(Self.side)      : \(visionMatched)
