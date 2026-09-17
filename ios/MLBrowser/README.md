@@ -3,7 +3,7 @@
 This document covers first-time project setup, the `ProjectTool` CLI, pinned
 developer tools, helper scripts, and secrets management. For what the app is
 and an overview of the repository, see the [root README](../../README.md). For suite selection,
-commands, fixtures, and test-result interpretation, see [TESTING.md](../../TESTING.md).
+commands, fixtures, and test-result interpretation, see [TESTING.md](../../specification/TESTING.md).
 
 ## 🛠️ Initial project setup (required)
 
@@ -13,7 +13,15 @@ From the repository root:
 swift run --package-path Tools ProjectTool setup
 ```
 
-This installs required tools and configures git.
+This installs required tools and configures git. Tools go to `/usr/local/bin` when it is
+writable, otherwise to `~/.local/bin`, which `ProjectTool` creates and then reminds you to put on
+your `PATH`. Never run it under `sudo` — that leaves root-owned artefacts in `Tools/.build`.
+
+You also need `ios/Secrets.xcconfig` before anything will build — it is the
+`baseConfigurationReference` for both configurations. **Without the project's
+1Password vault**, write it by hand with empty values: see
+[Building without the project vault](../../README.md#building-without-the-project-vault)
+in the root README. The rest of this document assumes you have the vault.
 
 Then open the project:
 
@@ -170,6 +178,13 @@ direnv allow
 ```
 
 ## 🔐 Secrets management (local) via 1Password
+
+> **Maintainers only.** This section describes the vault-backed workflow. Contributors without the
+> project vault should follow
+> [Building without the project vault](../../README.md#building-without-the-project-vault)
+> instead, and should not need `secrets generate` or `secrets refresh`. Neither will damage a
+> hand-written `Secrets.xcconfig`: `generate` is a no-op when the file already exists, and `refresh`
+> fails on the `op` lookup before it writes anything.
 
 Secrets are stored in 1Password and injected into local config files. Template files are committed; generated files are gitignored.
 

@@ -107,18 +107,10 @@ final class AppModeTests: XCTestCase {
         XCTAssertEqual(AppMode.web.rawValue, 0)
     }
     
-    func testGalleryRawValue() {
-        XCTAssertEqual(AppMode.gallery.rawValue, 1)
-    }
-    
     // MARK: - Identifiable Tests
     
     func testWebId() {
         XCTAssertEqual(AppMode.web.id, .web)
-    }
-    
-    func testGalleryId() {
-        XCTAssertEqual(AppMode.gallery.id, .gallery)
     }
     
     // MARK: - TabOrder Tests
@@ -132,9 +124,12 @@ final class AppModeTests: XCTestCase {
         XCTAssertTrue(AppMode.tabOrder.contains(.web))
     }
     
-    func testTabOrderDoesNotContainGallery() {
-        // Based on current implementation, gallery is not in tabOrder
-        XCTAssertFalse(AppMode.tabOrder.contains(.gallery))
+    /// `tabOrder` is what `ContentView` iterates, so anything absent from it never renders.
+    /// AIA-0898 removed the gallery case precisely because it had always been absent here; this
+    /// asserts the list stays deliberate rather than growing a case that would surface untested UI.
+    func testTabOrderIsExactlyTheRenderedTabs() {
+        XCTAssertEqual(AppMode.tabOrder, AppMode.allCases,
+                       "every AppMode case must render; a case outside tabOrder is unreachable UI")
     }
     
     // MARK: - Codable Tests
@@ -146,34 +141,27 @@ final class AppModeTests: XCTestCase {
         XCTAssertEqual(decoded, original)
     }
     
-    func testEncodeDecode_Gallery() throws {
-        let original = AppMode.gallery
-        let encoded = try JSONEncoder().encode(original)
-        let decoded = try JSONDecoder().decode(AppMode.self, from: encoded)
-        XCTAssertEqual(decoded, original)
-    }
-    
     // MARK: - Hashable Tests
     
     func testHashable() {
         var set: Set<AppMode> = []
         set.insert(.web)
-        set.insert(.gallery)
         set.insert(.web) // Duplicate
-        
-        XCTAssertEqual(set.count, 2)
+
+        XCTAssertEqual(set.count, 1)
         XCTAssertTrue(set.contains(.web))
-        XCTAssertTrue(set.contains(.gallery))
     }
     
     // MARK: - Init from RawValue Tests
     
     func testInitFromRawValue_Valid() {
         XCTAssertEqual(AppMode(rawValue: 0), .web)
-        XCTAssertEqual(AppMode(rawValue: 1), .gallery)
     }
     
     func testInitFromRawValue_Invalid() {
+        // 1 was `.gallery`, removed in AIA-0898. AppMode is held in memory only
+        // (`AppChromeState.mode`) and never persisted, so no stored value decodes to it.
+        XCTAssertNil(AppMode(rawValue: 1))
         XCTAssertNil(AppMode(rawValue: 999))
         XCTAssertNil(AppMode(rawValue: -1))
     }

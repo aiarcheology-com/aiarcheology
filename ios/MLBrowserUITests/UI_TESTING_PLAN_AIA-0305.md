@@ -55,7 +55,7 @@ Shipped **13 passing** UI tests across the four suites (Settings 7, AddressBar 3
 Also fixed a real testability bug in passing: `BrowsingHistoryView`'s `List` carried a
 `.testability` identifier that SwiftUI propagates onto every row, clobbering the per-row and
 button identifiers. Removed it; the screen is now anchored by its navigation title. The same
-propagation pattern also affects `downloaderList` and `gridViewList` (out of scope here).
+propagation pattern also affects `downloaderList` (out of scope here).
 
 ## Deferred (named tradeoff — require network or a new harness; no CI to shake out flakiness)
 

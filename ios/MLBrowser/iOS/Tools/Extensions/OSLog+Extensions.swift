@@ -34,7 +34,6 @@ extension Logger {
     
     // MARK: - UI
     static let ui = Logger(subsystem: subsystem, category: "UI")
-    static let gallery = Logger(subsystem: subsystem, category: "Gallery")
         
     // MARK: - Logging Methods
     //

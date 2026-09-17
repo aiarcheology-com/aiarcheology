@@ -58,7 +58,7 @@ already on the device. Sign-in stays a sheet, never a gate (AIA-0536).
 Turning backup off suppresses uploads; it does not disable cloud pulls or pending remote deletions.
 Signing out stops account-backed sync and leaves local data untouched. A user who never signs in
 does not upload findings through this sync service; explicit sharing/export is a separate action.
-The [repository privacy boundary](AGENTS.md#data-and-privacy) distinguishes saved-finding sync from
+The [repository privacy boundary](../AGENTS.md#data-and-privacy) distinguishes saved-finding sync from
 transient detection frames, which are never uploaded.
 
 ## 3. Whose findings are these

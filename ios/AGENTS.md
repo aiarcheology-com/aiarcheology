@@ -12,11 +12,11 @@ scope. Prefer a focused behavior fix; do not add adjacent cleanup to satisfy a s
 ## 2. Relevant documentation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md): composition root, app entry/gating, detection, and persistence.
-- [TESTING.md](../TESTING.md): suite selection, commands, fixtures, and result interpretation.
+- [TESTING.md](../specification/TESTING.md): suite selection, commands, fixtures, and result interpretation.
 - [MLBrowser/README.md](MLBrowser/README.md): setup, pinned tools, secrets, and cache troubleshooting.
-- Read [MAP_LOCATION.md](../MAP_LOCATION.md), [USER_DATA_PERSISTENCE.md](../USER_DATA_PERSISTENCE.md),
-  [AUTH-SUBSCRIPTION.md](../AUTH-SUBSCRIPTION.md), [FEATUREFLAGS.md](../FEATUREFLAGS.md),
-  [USERMESSAGING.md](../USERMESSAGING.md), or [LOGGING_GUIDE.md](../LOGGING_GUIDE.md) when touching
+- Read [MAP_LOCATION.md](../specification/MAP_LOCATION.md), [USER_DATA_PERSISTENCE.md](../specification/USER_DATA_PERSISTENCE.md),
+  [AUTH-SUBSCRIPTION.md](../specification/AUTH-SUBSCRIPTION.md), [FEATUREFLAGS.md](../specification/FEATUREFLAGS.md),
+  [USERMESSAGING.md](../specification/USERMESSAGING.md), or [LOGGING_GUIDE.md](../specification/LOGGING_GUIDE.md) when touching
   that domain. A domain-specific `ARCHITECTURE.md` is additional context for its code.
 
 ## 3. Architecture and state
@@ -41,7 +41,7 @@ scope. Prefer a focused behavior fix; do not add adjacent cleanup to satisfy a s
   do not assume all flags fail open. Never block launch on remote config.
 - Decide live versus launch-captured behavior explicitly. Root gating such as `isPaymentsEnabled`
   uses `LaunchCapturedFlags` through the composition root, not an early live snapshot. See
-  [FEATUREFLAGS.md](../FEATUREFLAGS.md) for observation behavior and verification.
+  [FEATUREFLAGS.md](../specification/FEATUREFLAGS.md) for observation behavior and verification.
 - New views should have lightweight previews for representative states without real network/stores.
 
 ## 4. Concurrency and threading
@@ -54,7 +54,7 @@ scope. Prefer a focused behavior fix; do not add adjacent cleanup to satisfy a s
 
 ## 5. Logging and errors
 
-- Follow [LOGGING_GUIDE.md](../LOGGING_GUIDE.md) and use existing logging helpers/categories.
+- Follow [LOGGING_GUIDE.md](../specification/LOGGING_GUIDE.md) and use existing logging helpers/categories.
 - Handle recoverable errors explicitly. Use the project's assertion/critical-failure policy for
   invariants; do not swallow errors or turn expected external failures into crashes.
 - Keep account identifiers, full URLs, precise locations, images, and other private data out of
@@ -82,7 +82,7 @@ scope. Prefer a focused behavior fix; do not add adjacent cleanup to satisfy a s
   a shipping migration works and must not justify resetting user data.
 - Select a destination supported by the active Xcode, deployment target, and test requirements.
   Keep simulator signing for Keychain entitlements. Physical-device tests need physical-device
-  evidence; a simulator skip is not a pass. See [TESTING.md](../TESTING.md).
+  evidence; a simulator skip is not a pass. See [TESTING.md](../specification/TESTING.md).
 
 ## 7. Harmonize
 
@@ -145,7 +145,7 @@ images, and fonts. Resource changes are test inputs, including model fixtures an
 ## 13. Workflow and verification references
 
 Use [root AGENTS.md](../AGENTS.md) for issues/project status, Git, review, TestFlight notes, and release
-rules. Use [TESTING.md](../TESTING.md) for unit/UI/converter commands, fixture gates, build reuse, and
+rules. Use [TESTING.md](../specification/TESTING.md) for unit/UI/converter commands, fixture gates, build reuse, and
 result interpretation. Preserve required gates until #850's selector is implemented and validated.
 Caches are preserved or selectively invalidated, not deleted after every ticket.
 

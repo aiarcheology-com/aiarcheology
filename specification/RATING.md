@@ -4,7 +4,7 @@ How the native rating request is triggered, and how to test it by hand.
 
 Apple's own sheet is the only UI — the app never draws a custom rating control (App Review
 requires the system sheet). Implementation lives in
-[`ios/MLBrowser/iOS/State/ReviewPrompt.swift`](ios/MLBrowser/iOS/State/ReviewPrompt.swift).
+[`ios/MLBrowser/iOS/State/ReviewPrompt.swift`](../ios/MLBrowser/iOS/State/ReviewPrompt.swift).
 
 ## When it fires
 

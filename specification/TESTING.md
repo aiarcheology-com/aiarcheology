@@ -1,7 +1,7 @@
 # Testing and verification
 
 Run commands from the repository root unless a different directory is shown. The selection policy
-lives in [AGENTS.md](AGENTS.md#verification): verify each changed revision and its affected consumers.
+lives in [AGENTS.md](../AGENTS.md#verification): verify each changed revision and its affected consumers.
 Include resources, fixtures, build configuration, and dependency changes when assessing impact.
 Issue [#850](https://github.com/aiarcheology-com/aiarcheology/issues/850) proposes an impact selector;
 it is not implemented. Selection today is manual and does not replace existing required gates.
@@ -19,6 +19,7 @@ it is not implemented. Selection today is manual and does not replace existing r
 | Credential-delivery shell logic | `./scripts/test_deliver_credentials.sh` uses its hermetic test harness. |
 | Architecture and source/resource invariants | `./scripts/harmonize.sh` uses the macOS `MLBrowserArchitectureTests` scheme and `MLBrowserUnitTestsHarmonize` plan. It reads repository files from disk. |
 | Localization parity and catalog validation | `./scripts/localization.sh` runs Python strict parity and checks both catalogs. This also runs in GitHub CI; it is not merely an optional editor helper. |
+| Apple test-fixture setup | `python3 scripts/test_apple_test_models.py` checks cache repair, offline reuse, fail-closed opt-in, notice embedding, and ordinary-build cleanup without network or Xcode. Runs in the unit wrapper and Harmonize CI. |
 | Xcode catalog stability | `./scripts/check_localization_build.sh` builds and checks that both catalogs remain unchanged. This is separate from semantic validation and does not execute app tests. |
 | Swift style | `./scripts/swiftlint.sh` lints `ios/`. For a file, pass an absolute path after `lint`, since the wrapper changes directory. Preserve required hook/CI scope. |
 | Catalog/ONNX manifest consistency | `./scripts/verify_catalog_onnx_sync.sh`; relevant to catalog entries and converter fixture manifests. |
@@ -31,15 +32,27 @@ often affect several rows. If the consumer set is unclear, broaden coverage.
 ## App unit and UI execution
 
 Use `xcrun simctl list devices available` to choose a simulator compatible with the active Xcode
-and deployment target. Set `TEST_SIMULATOR_ID` to its UUID before these examples:
+and deployment target. Set `TEST_SIMULATOR_ID` to its UUID before these examples.
+
+FastViT is an on-demand Apple test fixture, not a demo model. Run
+`./scripts/fetch_apple_test_models.sh` before direct unit/UI test builds (or before testing in Xcode
+with the custom build setting below). It verifies the archive and package hashes and reuses the
+ignored `.apple-test-fixtures/` cache. `./scripts/unittest.sh` handles fetching and opt-in automatically;
+Xcode Cloud fetches for `build-for-testing` and includes the fixture in its prebuilt test app.
+Ordinary builds do not fetch or embed it. Missing/corrupt fixtures fail opted-in builds instead of
+silently skipping real-model tests. Release builds reject opt-in.
+
+Direct test commands:
 
 ```bash
 xcodebuild test -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser \
+  AIA_INCLUDE_TEST_FIXTURES=YES \
   -testPlan MLBrowserUnitTests \
   -destination "platform=iOS Simulator,id=${TEST_SIMULATOR_ID}" \
   -derivedDataPath "$PWD/.deriveddata"
 
 xcodebuild test -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser \
+  AIA_INCLUDE_TEST_FIXTURES=YES \
   -testPlan MLBrowserUITests \
   -destination "platform=iOS Simulator,id=${TEST_SIMULATOR_ID}" \
   -derivedDataPath "$PWD/.deriveddata"
@@ -55,14 +68,15 @@ Keep simulator code signing enabled: Keychain tests need the embedded entitlemen
 Harmonize and catalog-stability builds are not templates for running app tests. Do not assume a
 simulator pass covers physical-device-only assertions.
 
-Map integration uses bundled [MapHarness fixtures](ios/MLBrowserUnitTests/Fixtures/MapHarness) resources, including real
+Map integration uses bundled [MapHarness fixtures](../ios/MLBrowserUnitTests/Fixtures/MapHarness) resources, including real
 Leaflet/OpenLayers harnesses. Resource-only changes can require these tests. A missing-fixture skip
 is not evidence of working integration. Live-site tests are opt-in (`MAP_LIVE_TESTS`); follow
 [MAP_LOCATION.md](MAP_LOCATION.md) for environment forwarding and network expectations.
 
 For migration changes, run `FindingMigrationTests` with the current explicit mappings and inference
-disabled. The [release baseline](README.md#release-baseline) defines every supported shipped source;
-for the pending 1.0.8 release, both 0.0.0 → 0.0.2 and 0.0.1 → 0.0.2 must work. Do not replace SQLite
+disabled. The [release baseline](../README.md#release-baseline) defines every supported shipped source;
+1.0.8 shipped `0.0.2`, so both 0.0.0 → 0.0.2 and 0.0.1 → 0.0.2 must keep working; once a
+schema change creates `0.0.3`, all three live sources need a mapping to it. Do not replace SQLite
 migration evidence with an in-memory store or a successful Debug/TestFlight launch.
 
 The committed ADAF checkpoint header/tail fixtures and their attribution notice are copied into
@@ -108,7 +122,7 @@ after concurrent builds is a build failure, not a test result.
 The Worker local suite runs against its test environment for D1/R2 and authentication boundaries.
 `npm run test:e2e` is separate: it needs the documented staging deployment, test credentials, and
 fixtures and performs remote operations. Read the
-[Worker README](cloudflare/findings-worker/README.md) before using it; do not substitute production.
+[Worker README](../cloudflare/findings-worker/README.md) before using it; do not substitute production.
 
 Physical-device converter/performance gates require the documented assets, environment, and
 hardware. Their opt-ins include `NATIVE_MODEL_CONVERSION_DEVICE_BENCHMARK`,
@@ -135,18 +149,34 @@ identifiers cannot prove. App Store metadata and release-service state need thei
   process failure. Inspect the framework-specific results and selected identifiers.
 - Localization has separate evidence: Python catalog/parity checks, Swift catalog assertions in
   Harmonize, and Xcode's build-stability check. None alone proves translated meaning or visual fit.
-- Keep compatible incremental products; follow [build cache troubleshooting](ios/MLBrowser/README.md#build-caches)
+- Keep compatible incremental products; follow [build cache troubleshooting](../ios/MLBrowser/README.md#build-caches)
   instead of deleting all caches after a ticket.
 
 ## Automation boundaries
 
 The pre-commit hook lints staged Swift files. The pre-push hook invokes the catalog-stability build
 for branch pushes. `deliver.sh` runs lint, localization, Harmonize, and the unit wrapper; it does not
-establish UI or converter parity coverage. Existing GitHub workflows have separate path filters
-and gates; a skipped workflow is not proof that all consumers were checked. Xcode Cloud workflow
+establish UI or converter parity coverage. SwiftLint, Harmonize, and Native Model Converter run
+on every PR into `develop` or `main`, without path filters; Localization also runs without path
+filters. Other GitHub workflows retain their own triggers and gates; a skipped workflow is not
+proof that all consumers were checked. Xcode Cloud workflow
 configuration is partly external to the repository and must be inspected before changing claims
 about its coverage or costs.
 
 Until #850 introduces and validates a selector, preserve these gates and use the suite map to make
 local verification relevant. Documentation-only changes need checks of links, commands, and
 consistency, without launching app tests solely for prose.
+
+## Opt-in coverage pitfalls
+
+The live-map harness hosts its web views in the test app window so map SDKs can finish rendering.
+A finished navigation in an offscreen web view is not evidence that its map initialized. OpenLayers'
+module-scoped example must return a labelled Web Mercator position; the harness does not require or
+invent a latitude/longitude conversion. Its offline animation-frame test runs in the ordinary unit plan.
+
+The `Stage Device Parity Assets` phase copies SDK-generated Core ML directory trees. Xcode cannot
+represent unknown recursive script outputs, so `MLBrowserUnitTests` disables user-script sandboxing
+for its sole script phase. App and other test targets retain their existing settings. The phase exits
+on validation or copy errors, including benchmark fixture copies, so an explicitly supplied fixture directory cannot silently produce a skipped
+test. Supply `AIA_DEVICE_PARITY_ASSETS` or `AIA_ADAF_CONVERSION_BENCHMARK_ASSETS` only for the corresponding
+opt-in run; no models are downloaded or staged by this phase when both are unset.

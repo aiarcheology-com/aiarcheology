@@ -9,52 +9,77 @@ import XCTest
 import CoreData
 @testable import ML_Browser
 
-// MARK: - Gallery FileManager Tests (will be removed with Gallery)
+// MARK: - Snapshot Tests
 
-final class GalleryFileManagerExtensionsTests: XCTestCase {
-    
-    var testDirectory: URL!
-    
-    override func setUp() {
-        super.setUp()
-        testDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try? FileManager.default.createDirectory(at: testDirectory, withIntermediateDirectories: true)
+final class SnapshotTests: XCTestCase {
+
+    // MARK: - Initialization Tests
+
+    func testInitialization_SetsImage() {
+        let image = UIImage(systemName: "star") ?? UIImage()
+        let snapshot = Snapshot(image: image)
+
+        XCTAssertNotNil(snapshot.image)
     }
-    
-    override func tearDown() {
-        try? FileManager.default.removeItem(at: testDirectory)
-        testDirectory = nil
-        super.tearDown()
+
+    func testInitialization_SetsDateToNow() {
+        let beforeCreation = Date()
+        let image = UIImage(systemName: "star") ?? UIImage()
+        let snapshot = Snapshot(image: image)
+        let afterCreation = Date()
+
+        XCTAssertGreaterThanOrEqual(snapshot.date, beforeCreation)
+        XCTAssertLessThanOrEqual(snapshot.date, afterCreation)
     }
-    
-    func test_getContentsOfDirectory_emptyDirectory_returnsEmptyArray() {
-        let contents = FileManager.default.getContentsOfDirectory(testDirectory)
-        XCTAssertTrue(contents.isEmpty)
+
+    func testInitialization_WithDifferentImage() {
+        let image1 = UIImage(systemName: "star") ?? UIImage()
+        let image2 = UIImage(systemName: "circle") ?? UIImage()
+
+        let snapshot1 = Snapshot(image: image1)
+        let snapshot2 = Snapshot(image: image2)
+
+        // Both should have their images set (we can't easily compare UIImages)
+        XCTAssertNotNil(snapshot1.image)
+        XCTAssertNotNil(snapshot2.image)
     }
-    
-    func test_getContentsOfDirectory_withFiles_returnsFiles() {
-        let file1 = testDirectory.appendingPathComponent("test1.txt")
-        let file2 = testDirectory.appendingPathComponent("test2.txt")
-        
-        FileManager.default.createFile(atPath: file1.path, contents: Data())
-        FileManager.default.createFile(atPath: file2.path, contents: Data())
-        
-        let contents = FileManager.default.getContentsOfDirectory(testDirectory)
-        
-        XCTAssertEqual(contents.count, 2)
+
+    // MARK: - Date Tests
+
+    func testDate_IsRecent() {
+        let image = UIImage(systemName: "star") ?? UIImage()
+        let snapshot = Snapshot(image: image)
+
+        let timeDifference = Date().timeIntervalSince(snapshot.date)
+        XCTAssertLessThan(timeDifference, 1.0, "Snapshot date should be within 1 second of creation")
     }
-    
-    func test_getContentsOfDirectory_invalidPath_returnsEmptyArray() {
-        let invalidURL = URL(fileURLWithPath: "/nonexistent/path")
-        let contents = FileManager.default.getContentsOfDirectory(invalidURL)
-        XCTAssertTrue(contents.isEmpty)
+
+    func testDate_DifferentSnapshots_HaveDifferentDates() async {
+        let image = UIImage(systemName: "star") ?? UIImage()
+        let snapshot1 = Snapshot(image: image)
+
+        // Small delay to ensure different timestamps
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+
+        let snapshot2 = Snapshot(image: image)
+
+        XCTAssertNotEqual(snapshot1.date, snapshot2.date)
     }
-    
-    func test_getContentsOfDirectory_fileNotDirectory_returnsEmptyArray() {
-        let file = testDirectory.appendingPathComponent("file.txt")
-        FileManager.default.createFile(atPath: file.path, contents: Data())
-        
-        let contents = FileManager.default.getContentsOfDirectory(file)
-        XCTAssertTrue(contents.isEmpty)
+
+    // MARK: - Image Tests
+
+    func testImage_PreservesImageReference() {
+        let originalImage = UIImage(systemName: "star") ?? UIImage()
+        let snapshot = Snapshot(image: originalImage)
+
+        // Should be the same image instance
+        XCTAssertTrue(snapshot.image === originalImage)
+    }
+
+    func testImage_WithEmptyImage() {
+        let emptyImage = UIImage()
+        let snapshot = Snapshot(image: emptyImage)
+
+        XCTAssertNotNil(snapshot.image)
     }
 }

@@ -145,7 +145,7 @@ struct ContentView: View {
         // UI-test introspection (inert outside UI tests).
         .checkpoint(.horizontalSizeClass, value: horizontalSizeClass == .regular ? "regular" : "compact")
         .checkpoint(.fullscreenFeatureEnabled, value: fullscreenFeatureEnabled ? "true" : "false")
-        .checkpoint(.appMode, value: selectedMode == .web ? "web" : "gallery")
+        .checkpoint(.appMode, value: "web")
         .checkpoint(.deviceIdiom, value: HostPlatform.current.isiPhone ? "phone" : "pad")
     }
     

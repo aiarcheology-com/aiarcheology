@@ -11,15 +11,16 @@
 //
 //  Run it when you want a number rather than an estimate:
 //
-//      MAP_LIVE_TESTS=1 xcodebuild test-without-building \
+//      TEST_RUNNER_MAP_LIVE_TESTS=1 xcodebuild test-without-building \
 //        -workspace MLBrowser.xcworkspace -scheme MLBrowser \
 //        -destination 'platform=iOS Simulator,name=ship-ticket-runner' \
 //        -only-testing:MLBrowserUnitTests/MapLocationLiveSiteHarness
 //
-//  It never fails on a site that does not resolve — that is data, not a defect. It writes a report
-//  naming what each site produced, which is what says where the next adapter should go.
+//  Failed navigations are reported separately. Reachable sites must meet their position/URL
+//  expectation; both geographic and labelled projected positions are valid evidence.
 //
 
+import UIKit
 import WebKit
 import XCTest
 @testable import ML_Browser
@@ -50,6 +51,8 @@ final class MapLocationLiveSiteHarness: XCTestCase {
 	private enum Expectation {
 		/// A coordinate must come back, from the live map or from the URL.
 		case coordinate
+		/// A live map position in its own labelled coordinate system, without inventing a projection.
+		case projected(system: String)
 		/// The map is in a module-scoped ESM bundle with no global and no DOM back-reference, so no
 		/// injected script can reach it. Only the URL is expected.
 		case urlOnly
@@ -73,7 +76,7 @@ final class MapLocationLiveSiteHarness: XCTestCase {
 		("https://ags.cuzk.cz/av/?extent=-831002.32,-1032569.72,-826473.74,-1029973.39&zvd=dmr5g", .refreshedURL),
 		// ESM bundles with no global and no DOM back-reference. These were unreachable until the
 		// `Function.prototype.bind` trap; both now resolve, confirmed in the app.
-		("https://openlayers.org/en/latest/examples/simple.html", .coordinate),
+		("https://openlayers.org/en/latest/examples/simple.html", .projected(system: "Web Mercator (EPSG:3857)")),
 		// A real MapLibre application rather than the documentation page, which embeds its map in an
 		// iframe inside a docs shell and tests the docs site more than the viewer.
 		("https://demotiles.maplibre.org/#1.5/0/0", .coordinate),
@@ -94,7 +97,7 @@ final class MapLocationLiveSiteHarness: XCTestCase {
 		var outcomes: [Outcome] = []
 		var failures: [String] = []
 		for site in Self.sites {
-			let outcome = await measure(site.url)
+			let outcome = try await measure(site.url)
 			outcomes.append(outcome)
 
 			// A site we could not reach is not a defect in this code. Everything else is judged.
@@ -104,6 +107,10 @@ final class MapLocationLiveSiteHarness: XCTestCase {
 			case .coordinate:
 				if outcome.coordinate == nil {
 					failures.append("\(site.url)\n    expected a coordinate, got none [\(outcome.source)]")
+				}
+			case let .projected(system):
+				if outcome.projected?.hasPrefix(system + ": ") != true {
+					failures.append("\(site.url)\n    expected a position in \(system), got \(outcome.projected ?? "none")")
 				}
 			case .urlOnly:
 				if outcome.resolvedURL == nil {
@@ -147,7 +154,7 @@ final class MapLocationLiveSiteHarness: XCTestCase {
 
 	/// Dumps what a single page actually exposes, so a miss can be explained instead of guessed at.
 	///
-	///     MAP_LIVE_TESTS=1 MAP_DIAGNOSE_URL='https://…' xcodebuild test-without-building … \
+	///     TEST_RUNNER_MAP_LIVE_TESTS=1 TEST_RUNNER_MAP_DIAGNOSE_URL='https://…' xcodebuild test-without-building … \
 	///       -only-testing:MLBrowserUnitTests/MapLocationLiveSiteHarness/testDiagnoseOnePage
 	@MainActor
 	func testDiagnoseOnePage() async throws {
@@ -164,6 +171,8 @@ final class MapLocationLiveSiteHarness: XCTestCase {
 			WKUserScript(source: MapProbeScript.registry, injectionTime: .atDocumentStart, forMainFrameOnly: false)
 		)
 		let webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 1024, height: 768), configuration: configuration)
+		try show(webView)
+		defer { webView.removeFromSuperview() }
 		let watcher = LoadWatcher()
 		webView.navigationDelegate = watcher
 		webView.load(URLRequest(url: url))
@@ -229,6 +238,7 @@ final class MapLocationLiveSiteHarness: XCTestCase {
 		    arcgisMapEls: tagCount('arcgis-map, arcgis-scene'),
 		    esriViewEls: tagCount('.esri-view'),
 		    canvases: tagCount('canvas'),
+		    title: document.title,
 		    iframes: tagCount('iframe'),
 		    elementsWithView: withView,
 		    esriKeys: names(/esri|arcgis/i),
@@ -247,6 +257,7 @@ final class MapLocationLiveSiteHarness: XCTestCase {
 		--- resolved ---
 		url:    \(location.sourceURL?.absoluteString ?? "NONE")
 		coord:  \(location.reading.map { MapLocationReading.formattedPair($0.coordinate) } ?? "none")
+		projected: \(location.projectedText ?? "none")
 		source: \(location.reading?.source.rawValue ?? "none")
 		libs:   \(probe.libraries.joined(separator: ", "))
 		"""
@@ -258,10 +269,42 @@ final class MapLocationLiveSiteHarness: XCTestCase {
 		add(attachment)
 	}
 
+	/// Map SDKs use animation frames and visibility to finish creating their views. An offscreen
+	/// WKWebView can finish navigation while never running that work.
+	@MainActor
+	func testVisibleWebView_RunsAnimationFrames() async throws {
+		let webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 480, height: 320))
+		try show(webView)
+		defer { webView.removeFromSuperview() }
+		let watcher = LoadWatcher()
+		webView.navigationDelegate = watcher
+		webView.loadHTMLString("<html><body><canvas></canvas></body></html>", baseURL: nil)
+		let loaded = await waitForLoad(webView, watcher: watcher)
+		XCTAssertTrue(loaded)
+		try await webView.evaluateJavaScript("requestAnimationFrame(function () { window.__rendered = true; });")
+		let deadline = Date().addingTimeInterval(5)
+		while Date() < deadline {
+			if try await webView.evaluateJavaScript("window.__rendered === true") as? Bool == true { return }
+			try await Task.sleep(for: .milliseconds(50))
+		}
+		XCTFail("The visible live-map harness must receive animation frames.")
+	}
+
+	@MainActor
+	private func show(_ webView: WKWebView) throws {
+		let window = try XCTUnwrap(
+			UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+				.flatMap(\.windows).first(where: \.isKeyWindow),
+			"Live map coverage requires a visible test-host window."
+		)
+		window.addSubview(webView)
+		webView.layoutIfNeeded()
+	}
+
 	// MARK: - One site
 
 	@MainActor
-	private func measure(_ site: String) async -> Outcome {
+	private func measure(_ site: String) async throws -> Outcome {
 		guard let url = URL(string: site) else {
 			return Outcome(url: site, resolvedURL: nil, coordinate: nil, projected: nil, source: "-", libraries: [], note: "bad URL")
 		}
@@ -271,6 +314,8 @@ final class MapLocationLiveSiteHarness: XCTestCase {
 			WKUserScript(source: MapProbeScript.registry, injectionTime: .atDocumentStart, forMainFrameOnly: false)
 		)
 		let webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 1024, height: 768), configuration: configuration)
+		try show(webView)
+		defer { webView.removeFromSuperview() }
 		let watcher = LoadWatcher()
 		webView.navigationDelegate = watcher
 		webView.load(URLRequest(url: url))
@@ -353,6 +398,7 @@ final class MapLocationLiveSiteHarness: XCTestCase {
 			lines.append(outcome.url)
 			lines.append("  url:    \(outcome.resolvedURL ?? "NONE")")
 			lines.append("  coord:  \(outcome.coordinate ?? "none")  [\(outcome.source)] \(outcome.note)")
+			if let projected = outcome.projected { lines.append("  projected: \(projected)") }
 			if outcome.libraries.isEmpty.not {
 				lines.append("  libs:   \(outcome.libraries.joined(separator: ", "))")
 			}
