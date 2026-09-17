@@ -204,11 +204,16 @@ and timestamps were preserved. A fresh fetch verified that neither tag retains
 the photo blobs or paths. The temporary main-public and develop-public branches
 were deleted after their recovery bundle was independently restored and checked.
 
-This is not yet repository-wide removal. The main-old and develop-old branches
-retain the original histories, and historical pull-request references retain
-copies. Remaining GitHub copies and references still need to be addressed before
-publication. Private recovery bundles, including the original tags and deleted
-branch tips, are retained outside the tracked tree and must not be published.
+The main-old and develop-old backup branches were also deleted on 2026-09-17,
+after their exact tips were independently restored from the private recovery
+bundle. A fresh fetch verified that main, develop and both release tags retain
+none of the 22 photo blobs or paths. Their tips and all rulesets were unchanged
+by the backup-branch deletion.
+
+This is not yet repository-wide removal: historical pull-request references
+retain copies. Remaining GitHub copies and references still need to be addressed
+before publication. Private recovery bundles, including the original tags and
+deleted branch tips, are retained outside the tracked tree and must not be published.
 Issue #906, A2 tracks the remaining cleanup. No rights to the Apple photographs
 are granted by their previous inclusion or by this removal.
 
