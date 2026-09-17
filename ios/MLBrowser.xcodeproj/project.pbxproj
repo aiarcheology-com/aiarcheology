@@ -299,6 +299,7 @@
 		A1A0817000000000000007DF /* MapCoordinateReferenceSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F7 /* MapCoordinateReferenceSystem.swift */; };
 		A1A0817000000000000007E0 /* MapFrameRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F8 /* MapFrameRegistry.swift */; };
 		A1A0821000000000000007E0 /* MapParserArming.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0821000000000000003F8 /* MapParserArming.swift */; };
+		A1A09150000000000000F002 /* ADAF in Resources */ = {isa = PBXBuildFile; fileRef = A1A09150000000000000F001 /* ADAF */; };
 		A1A08170000000000000F002 /* MapHarness in Resources */ = {isa = PBXBuildFile; fileRef = A1A08170000000000000F001 /* MapHarness */; };
 		A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */; };
 		A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */; };
@@ -743,6 +744,7 @@
 		A1A0817000000000000003F7 /* MapCoordinateReferenceSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapCoordinateReferenceSystem.swift; sourceTree = "<group>"; };
 		A1A0817000000000000003F8 /* MapFrameRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapFrameRegistry.swift; sourceTree = "<group>"; };
 		A1A0821000000000000003F8 /* MapParserArming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapParserArming.swift; sourceTree = "<group>"; };
+		A1A09150000000000000F001 /* ADAF */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ADAF; path = ../Tests/NativeModelConverterTests/Fixtures/ADAF; sourceTree = SOURCE_ROOT; };
 		A1A08170000000000000F001 /* MapHarness */ = {isa = PBXFileReference; lastKnownFileType = folder; path = MapHarness; sourceTree = "<group>"; };
 		A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingService.swift; sourceTree = "<group>"; };
 		A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingServiceTests.swift; sourceTree = "<group>"; };
@@ -1615,6 +1617,7 @@
 		94E018910000000000000007 /* Fixtures */ = {
 			isa = PBXGroup;
 			children = (
+				A1A09150000000000000F001 /* ADAF */,
 				A1A08170000000000000F001 /* MapHarness */,
 				94E018910000000000000003 /* terrain_iphone.png */,
 				94E018910000000000000005 /* terrain_ipad.png */,
@@ -1933,6 +1936,7 @@
 		8AE0BC142A97B0B40086DDF9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
+				A1A09150000000000000F002 /* ADAF in Resources */,
 				A1A08170000000000000F002 /* MapHarness in Resources */,
 				94E018910000000000000004 /* terrain_iphone.png in Resources */,
 				94E018910000000000000006 /* terrain_ipad.png in Resources */,

@@ -65,6 +65,10 @@ disabled. The [release baseline](README.md#release-baseline) defines every suppo
 for the pending 1.0.8 release, both 0.0.0 → 0.0.2 and 0.0.1 → 0.0.2 must work. Do not replace SQLite
 migration evidence with an in-memory store or a successful Debug/TestFlight launch.
 
+The committed ADAF checkpoint header/tail fixtures and their attribution notice are copied into
+`MLBrowserUnitTests.xctest/ADAF`. `ImportedCheckpointAnalyserTests` reads that bundle, so prebuilt
+simulator/device tests do not require the build machine's source checkout at runtime.
+
 ## Converter fixtures and parity
 
 The root package includes always-on structural tests and fixture-gated integration tests. A bare
