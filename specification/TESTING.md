@@ -42,6 +42,10 @@ Xcode Cloud fetches for `build-for-testing` and includes the fixture in its preb
 Ordinary builds do not fetch or embed it. Missing/corrupt fixtures fail opted-in builds instead of
 silently skipping real-model tests. Release builds reject opt-in.
 
+The committed ADAF checkpoint header/tail fixtures and their attribution notice are copied into
+`MLBrowserUnitTests.xctest/ADAF`. `ImportedCheckpointAnalyserTests` reads that bundle, so prebuilt
+simulator/device tests do not require the build machine's source checkout at runtime.
+
 Direct test commands:
 
 ```bash
