@@ -884,9 +884,9 @@ final class FindingMigrationTests: XCTestCase {
         seedContext.persistentStoreCoordinator = seedCoordinator
 
         let seededTitles = ["Legacy hillfort", "Legacy burial mound"]
-        // Captured so the assertions can demand the SAME identity back, not merely a non-nil one.
-        var seededIdentity: [String: (id: UUID, screenshot: String)] = [:]
-        try seedContext.performAndWait {
+        // Return the identities from the context queue so no mutable state crosses the closure.
+        let seededIdentity = try seedContext.performAndWait {
+            var identities: [String: (id: UUID, screenshot: String)] = [:]
             let findingEntity = sourceModel.entitiesByName["Finding"]!
             for title in seededTitles {
                 let row = NSManagedObject(entity: findingEntity, insertInto: seedContext)
@@ -896,7 +896,7 @@ final class FindingMigrationTests: XCTestCase {
                 // FindingScreenshotStore names every file "<entityId>.png", which is why the
                 // identity below is load-bearing rather than cosmetic.
                 let screenshot = "\(entityId.uuidString).png"
-                seededIdentity[title] = (entityId, screenshot)
+                identities[title] = (entityId, screenshot)
                 row.setValue(entityId, forKey: "entityId")
                 row.setValue(screenshot, forKey: "screenshotFilename")
                 row.setValue(CoreDataManageableState.ready.rawValue, forKey: "lifeCycleString")
@@ -921,6 +921,7 @@ final class FindingMigrationTests: XCTestCase {
 		configuration.setValue(URL(string: "file:///legacy-0.0.1.mlmodel"), forKey: "file_")
 		configuration.setValue("Legacy 0.0.1 model", forKey: "modelDescription")
             try seedContext.save()
+            return identities
         }
         for store in seedCoordinator.persistentStores {
             try seedCoordinator.remove(store)
@@ -1362,6 +1363,7 @@ final class FindingsListOrderingTests: XCTestCase {
 ///
 /// The case that matters is the first one: production showed "Cloud storage 97% full" while the
 /// server was refusing every upload, because 24,594 free bytes will not fit a finding.
+@MainActor
 final class FindingsStorageBandTests: XCTestCase {
 
     func testRefusedUploadsSayFull_evenWellBelowOneHundredPercent() {

@@ -683,7 +683,7 @@ extension FindingsSyncCycleTests {
 	/// An unanswered "whose findings are these?" card must survive a neutral action. `backUpNow`
 	/// clears it because pressing that button IS the answer; Synchronize is not.
 	func testSynchronizeDoesNotDismissAnUnansweredConsentPrompt() async throws {
-		try saveFindingBelongingToNobody(title: "Whose is this?")
+		_ = try saveFindingBelongingToNobody(title: "Whose is this?")
 		StubWorkerProtocol.handler = { _ in
 			(200, StubWorkerProtocol.json([
 				"findings": [], "nextCursor": NSNull(), "hasMore": false,
@@ -1266,7 +1266,7 @@ extension FindingsSyncCycleTests {
 	/// disk let that cycle's own save put the exclusions back — decline came round asking again,
 	/// and accept uploaded nothing.
 	func testDecliningTheCardSurvivesACycleThatWasAlreadyRunning() async throws {
-		try saveFindingBelongingToNobody(title: "Not mine to upload")
+		_ = try saveFindingBelongingToNobody(title: "Not mine to upload")
 		StubWorkerProtocol.handler = { _ in
 			(200, StubWorkerProtocol.json([
 				"findings": [], "nextCursor": NSNull(), "hasMore": false,
@@ -1434,7 +1434,7 @@ extension FindingsSyncCycleTests {
 		sut.answerBackupConsent(accepted: false)
 
 		// A second unclaimed finding, so the next cycle raises a card of its own.
-		try saveFindingBelongingToNobody(title: "This one is fine to upload")
+		_ = try saveFindingBelongingToNobody(title: "This one is fine to upload")
 
 		let sut = try XCTUnwrap(self.sut)
 		let auth = try XCTUnwrap(self.auth)

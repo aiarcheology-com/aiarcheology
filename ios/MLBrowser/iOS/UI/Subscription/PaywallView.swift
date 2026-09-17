@@ -435,45 +435,49 @@ struct PaywallView: View {
 		statesExpiredFreeAccess || isRootGate == false
 	}
 
+	private var paywallStack: some View {
+		VStack(spacing: 24) {
+			Spacer(minLength: 0)
+
+			Image("AppLogo")
+				.resizable()
+				.scaledToFit()
+				.frame(maxWidth: 120, maxHeight: 120)
+				.accessibilityHidden(true)
+
+			VStack(spacing: 8) {
+				Text(title)
+					.font(.title).bold()
+					.multilineTextAlignment(.center)
+				Text(addressesAReturningUser ? L10n.Paywall.headline : L10n.Paywall.headlineFirstMeeting)
+					.font(.headline)
+					.multilineTextAlignment(.center)
+				Text(description)
+					.font(.body)
+					.foregroundStyle(.secondary)
+					.multilineTextAlignment(.center)
+					.fixedSize(horizontal: false, vertical: true)
+			}
+			.padding(.horizontal, 32)
+
+			if subscriptionState.isSubscribed {
+				Label(L10n.Paywall.active, systemImage: "checkmark.seal.fill")
+					.foregroundStyle(.green)
+					.font(.headline)
+			}
+
+			Spacer(minLength: 0)
+
+			content
+				.padding(.horizontal, 32)
+				.padding(.bottom, 24)
+		}
+	}
+
 	var body: some View {
 		GeometryReader { geometry in
 			ScrollView {
-				VStack(spacing: 24) {
-					Spacer(minLength: 0)
-
-					Image("AppLogo")
-						.resizable()
-						.scaledToFit()
-						.frame(maxWidth: 120, maxHeight: 120)
-						.accessibilityHidden(true)
-
-					VStack(spacing: 8) {
-						Text(title)
-							.font(.title).bold()
-							.multilineTextAlignment(.center)
-						Text(addressesAReturningUser ? L10n.Paywall.headline : L10n.Paywall.headlineFirstMeeting)
-							.font(.headline)
-							.multilineTextAlignment(.center)
-						Text(description)
-							.font(.body)
-							.foregroundStyle(.secondary)
-							.multilineTextAlignment(.center)
-							.fixedSize(horizontal: false, vertical: true)
-					}
-					.padding(.horizontal, 32)
-
-					if subscriptionState.isSubscribed {
-						Label(L10n.Paywall.active, systemImage: "checkmark.seal.fill")
-							.foregroundStyle(.green)
-							.font(.headline)
-					}
-
-					Spacer(minLength: 0)
-
-					content
-						.padding(.horizontal, 32)
-						.padding(.bottom, 24)
-				}
+				paywallStack
 				// When the content is short, this minimum height lets the two spacers retain the
 				// centered layout. When landscape, Dynamic Type, or extra disclosures make it taller,
 				// the stack grows past the viewport and the ScrollView exposes every control instead of
