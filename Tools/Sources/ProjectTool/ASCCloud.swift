@@ -74,8 +74,7 @@ extension ASC {
                 request.setValue("application/json", forHTTPHeaderField: "Accept")
                 let data: Data
                 let response: URLResponse
-                do { (data, response) = try await session.data(for: request) }
-                catch { throw XcodeCloudError("App Store Connect network request failed; retry observation.") }
+                do { (data, response) = try await session.data(for: request) } catch { throw XcodeCloudError("App Store Connect network request failed; retry observation.") }
                 guard let http = response as? HTTPURLResponse else {
                     throw XcodeCloudError("Missing App Store Connect HTTP response.")
                 }
@@ -86,9 +85,7 @@ extension ASC {
                 return data
             }
             let selectedID: String
-            if let build { selectedID = try XcodeCloudClient.buildID(from: build) }
-            else if let branch { selectedID = try await client.latestBuild(branch: branch, product: product) }
-            else { throw ValidationError("Supply a build or branch.") }
+            if let build { selectedID = try XcodeCloudClient.buildID(from: build) } else if let branch { selectedID = try await client.latestBuild(branch: branch, product: product) } else { throw ValidationError("Supply a build or branch.") }
 
             repeat {
                 let snapshot = try await client.snapshot(buildID: selectedID)

@@ -148,8 +148,7 @@ public final class XcodeCloudClient {
 
     private func decode<T: Decodable>(_ type: T.Type, from url: URL) async throws -> T {
         let data = try await fetch(url)
-        do { return try JSONDecoder().decode(type, from: data) }
-        catch { throw XcodeCloudError("App Store Connect returned an invalid response for \(url.path).") }
+        do { return try JSONDecoder().decode(type, from: data) } catch { throw XcodeCloudError("App Store Connect returned an invalid response for \(url.path).") }
     }
 
     private func pages<T: Decodable>(_ type: T.Type, path: String) async throws -> [CloudPage<T>] {
@@ -208,8 +207,7 @@ public final class XcodeCloudClient {
             let issues = try await pages(CloudIssue.self, path: "ciBuildActions/\(actionID)/issues?limit=200").flatMap(\.data).map(\.attributes)
             var tests: [CloudTestResult]?
             if action.attributes.actionType == "TEST", action.attributes.executionProgress == "COMPLETE" {
-                if let cached = completedTests[actionID] { tests = cached }
-                else {
+                if let cached = completedTests[actionID] { tests = cached } else {
                     let results = try await pages(CloudTestResult.self, path: "ciBuildActions/\(actionID)/testResults?limit=200").flatMap(\.data).map(\.attributes)
                     tests = results
                     // Empty results can be transient while Apple publishes artifacts; retry them.

@@ -11,8 +11,14 @@ final class XcodeCloudTests: XCTestCase {
     private func page(_ rows: [[String: Any]], next: String? = nil, included: [[String: Any]] = []) -> [String: Any] {
         ["data": rows, "included": included, "links": ["next": next as Any? ?? NSNull()]]
     }
-    private func buildRun(number: Int = 1, date: String = "2026-09-20T18:14:22.656Z", ref: String = "branch",
-                     pr: Bool = false, progress: String = "RUNNING", status: String? = nil) -> [String: Any] {
+    private func buildRun(
+        number: Int = 1,
+        date: String = "2026-09-20T18:14:22.656Z",
+        ref: String = "branch",
+        pr: Bool = false,
+        progress: String = "RUNNING",
+        status: String? = nil
+    ) -> [String: Any] {
         ["id": buildID, "attributes": ["number": number, "createdDate": date, "isPullRequestBuild": pr,
           "executionProgress": progress, "completionStatus": status as Any? ?? NSNull()],
          "relationships": ["sourceBranchOrTag": ["data": ["id": ref]]]]
