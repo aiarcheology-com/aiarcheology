@@ -5,6 +5,7 @@
 //  Created by Vladimír Slavík on 17.12.23.
 //
 
+import CoreData
 import SwiftUI
 
 struct DownloaderView: View {

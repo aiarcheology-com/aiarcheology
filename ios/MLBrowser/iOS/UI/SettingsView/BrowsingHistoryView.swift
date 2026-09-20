@@ -5,6 +5,7 @@
 //  Created by Vladimír Slavík on 14.12.23.
 //
 
+import CoreData
 import SwiftUI
 
 struct BrowserHistoryView: View {

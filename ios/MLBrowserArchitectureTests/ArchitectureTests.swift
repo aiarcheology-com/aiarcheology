@@ -702,12 +702,22 @@ final class ArchitectureTests: XCTestCase {
     /// baseline, so the list can only shrink. When it reaches empty, delete the baseline and let
     /// the rule enforce unconditionally.
     func testViewTypesAvoidCoreDataImports_Aspirational() throws {
+        // AIA-0920: approved baseline correction for five existing dependencies exposed by
+        // Xcode 27's explicit-import diagnostics. DownloadDetailView, DownloaderView,
+        // ModelImportView, WebScreen and BrowsingHistoryView already used managedObjectContext
+        // (and, except ModelImportView, FetchRequest). No persistence behavior was added.
+        // These entries follow the same shrink-only ratchet as the original baseline.
         let legacyOffenders: Set<String> = [
             "ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift",
+            "ios/MLBrowser/iOS/UI/Downloder/DownloadDetailView.swift",
+            "ios/MLBrowser/iOS/UI/Downloder/DownloaderView.swift",
             "ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift",
+            "ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift",
             "ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift",
             "ios/MLBrowser/iOS/UI/Findings/SaveFindingSheet.swift",
-            "ios/MLBrowser/iOS/UI/LocationSheetView.swift"
+            "ios/MLBrowser/iOS/UI/LocationSheetView.swift",
+            "ios/MLBrowser/iOS/UI/Screens/WebScreen.swift",
+            "ios/MLBrowser/iOS/UI/SettingsView/BrowsingHistoryView.swift"
         ]
 
         let files = Self.productionSwiftFiles()

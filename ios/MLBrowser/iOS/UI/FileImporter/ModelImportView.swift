@@ -5,6 +5,7 @@
 //  Created by Vladimír Slavík.
 //
 
+import CoreData
 import SwiftUI
 import UniformTypeIdentifiers
 import OSLog

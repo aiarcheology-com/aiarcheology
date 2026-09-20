@@ -5,6 +5,7 @@
 //  Created by Vladimír Slavík on 27.12.23.
 //
 
+import CoreData
 import SwiftUI
 import OSLog
 
