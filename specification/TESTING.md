@@ -29,6 +29,43 @@ Consult test plans and target membership for the current execution scope; do not
 folder name. Shared formats, persistence, app composition, dependency changes, and build settings
 often affect several rows. If the consumer set is unclear, broaden coverage.
 
+## Observe Xcode Cloud
+
+`scripts/aia-xcode-cloud-poll.sh` is a thin wrapper around `ProjectTool asc cloud`. It makes
+read-only App Store Connect API requests; it does not start, retry, cancel, or change builds.
+Materialize the existing API credentials once with
+`swift run --package-path Tools ProjectTool asc credentials generate`. The observer requires the
+secure files in `ios/asc.auth`; it does not print tokens or fall back to an interactive sign-in.
+
+```sh
+# One snapshot of any build, including PR builds. Full App Store Connect build/action URLs work too.
+./scripts/aia-xcode-cloud-poll.sh <build-uuid-or-url>
+
+# Select the latest non-PR build of this exact branch, across the product's workflows.
+./scripts/aia-xcode-cloud-poll.sh --branch develop
+./scripts/aia-xcode-cloud-poll.sh --branch release/1.0.9 --watch --interval 60
+
+# Select a different Xcode Cloud product; the default is ML Browser.
+./scripts/aia-xcode-cloud-poll.sh --branch main --product <product-uuid>
+```
+
+Branch lookup follows all pages and compares creation times; API ordering is not assumed. The
+branch must already have a build. Use an explicit build URL when selecting a particular workflow,
+PR, or older run. Watch mode stays on the selected build even if a newer build starts, and stops
+when that run completes. Ctrl-C stops observation. HTTP/authentication failures stop with an error;
+rerun the command after resolving them.
+
+The output discovers every action and reports issues, deduplicating repeated issue details. Test
+totals are fetched after each test action completes, with pagination; zero published results are
+not test-pass evidence. Completed unsuccessful/canceled/skipped builds exit 1. A running one-shot
+snapshot exits 0 to indicate a successful query, not a successful build. Watch mode defaults to
+60-second polling; `--interval` accepts 5–86,400 seconds. Tokens are renewed for every request.
+
+Run `swift test --package-path Tools` for the observer's offline API-fixture regression tests.
+API references: [build runs](https://developer.apple.com/documentation/appstoreconnectapi/get-v1-ciproducts-_id_-buildruns),
+[actions](https://developer.apple.com/documentation/appstoreconnectapi/get-v1-cibuildruns-_id_-actions),
+and [test results](https://developer.apple.com/documentation/appstoreconnectapi/get-v1-cibuildactions-_id_-testresults).
+
 ## App unit and UI execution
 
 Use `xcrun simctl list devices available` to choose a simulator compatible with the active Xcode

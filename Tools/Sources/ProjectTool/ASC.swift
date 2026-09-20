@@ -2,7 +2,7 @@
 //  ASC.swift
 //  ProjectTool
 //
-//  App Store Connect helpers. Currently: mint an ES256 API JWT for scripts/deliver.sh, using
+//  App Store Connect helpers: credentials, Xcode Cloud observation, and ES256 API JWTs using
 //  CryptoKit (no external interpreter). CryptoKit's ECDSA `.rawRepresentation` is already the
 //  64-byte JOSE `r‖s` signature, so no DER→JOSE conversion is needed.
 //
@@ -13,11 +13,11 @@ import CryptoKit
 
 // MARK: - asc command group
 
-struct ASC: ParsableCommand {
+struct ASC: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "asc",
         abstract: "App Store Connect helpers.",
-        subcommands: [Token.self, Credentials.self]
+        subcommands: [Token.self, Credentials.self, Cloud.self]
     )
 }
 
