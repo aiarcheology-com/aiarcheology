@@ -431,6 +431,7 @@ final class SnapshotDetectionQueueTests: XCTestCase {
 
 // MARK: - The one label a detection shows and saves (AIA-0765)
 
+@MainActor
 final class DetectionPrimaryLabelTests: XCTestCase {
 
 	private func object(_ labels: [(String, Float)]) -> DetectedObject {

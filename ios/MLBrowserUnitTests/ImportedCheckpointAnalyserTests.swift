@@ -223,14 +223,17 @@ final class ImportedCheckpointAnalyserTests: XCTestCase {
 /// its original byte offsets, even though the reader never touches the 517 MB in between. Writing it
 /// as a sparse file gives exactly that for about a megabyte of disk.
 ///
-/// The regions come from `Tests/NativeModelConverterTests/Fixtures/ADAF/`, located from `#filePath`
-/// rather than bundled: the same bytes already ship in the converter package's test bundle, and
-/// copying 1.3 MB into a second bundle to read them twice buys nothing. A missing file fails the
-/// test rather than skipping it.
+/// The test target copies `Tests/NativeModelConverterTests/Fixtures/ADAF/` into its bundle,
+/// including the attribution notice. Xcode Cloud executes prebuilt tests separately from the
+/// source checkout, so runtime fixture reads must not depend on `#filePath`. Missing resources
+/// fail the test rather than skipping the real-checkpoint coverage.
 enum ADAFTestCheckpoint {
 	static func materialise(_ id: String, in directory: URL, file: StaticString = #filePath, line: UInt = #line) throws -> URL {
-		let fixtures = repositoryRoot()
-			.appendingPathComponent("Tests/NativeModelConverterTests/Fixtures/ADAF", isDirectory: true)
+		let fixtures = try XCTUnwrap(
+			Bundle(for: ImportedCheckpointAnalyserTests.self).url(forResource: "ADAF", withExtension: nil),
+			"ADAF checkpoint fixtures are missing from the test bundle — check the test target's Resources phase.",
+			file: file, line: line
+		)
 		let manifestURL = fixtures.appendingPathComponent("ADAFCheckpointFixtures.json")
 		let manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: manifestURL)) as? [String: Any]
 		let models = try XCTUnwrap(manifest?["models"] as? [[String: Any]], file: file, line: line)
@@ -253,13 +256,5 @@ enum ADAFTestCheckpoint {
 		}
 		try handle.truncate(atOffset: UInt64(totalLength))
 		return destination
-	}
-
-	private static func repositoryRoot(file: StaticString = #filePath) -> URL {
-		// <root>/ios/MLBrowserUnitTests/ImportedCheckpointAnalyserTests.swift
-		URL(fileURLWithPath: "\(file)")
-			.deletingLastPathComponent()
-			.deletingLastPathComponent()
-			.deletingLastPathComponent()
 	}
 }

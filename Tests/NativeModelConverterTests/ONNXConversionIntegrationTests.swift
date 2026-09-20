@@ -225,7 +225,7 @@ final class ONNXConversionIntegrationTests: XCTestCase {
 			guard let matchIndex = unmatched.indices.max(by: { iou(unmatched[$0], expected) < iou(unmatched[$1], expected) }),
 				iou(unmatched[matchIndex], expected) >= 0.9
 			else {
-				XCTFail("\(context): no returned box overlaps expected \(expected.label) at IoU >= 0.9.")
+				XCTFail("\(context): no returned box overlaps expected \(expected.label ?? "unlabelled box") at IoU >= 0.9.")
 				continue
 			}
 			let match = unmatched.remove(at: matchIndex)
