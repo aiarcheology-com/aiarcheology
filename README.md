@@ -265,6 +265,7 @@ The first-party demos are Apache-2.0. Apple's separate fixture terms and notices
 | `./scripts/swiftlint.sh` (`fix` to autocorrect) | SwiftLint over the iOS sources |
 | `./scripts/harmonize.sh` | Architectural rules, enforced as tests |
 | `./scripts/unittest.sh` | Unit test plan on a simulator |
+| `./scripts/aia-xcode-cloud-poll.sh --branch develop --watch` | Observe the latest branch build; [build URLs, credentials and options](specification/TESTING.md#observe-xcode-cloud) |
 | `./scripts/swiftgen.sh generate` | Regenerate `L10n.swift` after editing `Localizable.xcstrings` |
 
 Run lint + harmonize + unit tests before pushing; the same checks gate pull requests in CI (GitHub Actions for lint/architecture, Xcode Cloud for analyze/archive/unit tests).
