@@ -497,9 +497,10 @@ The 22 former gallery photographs came from Apple's Image Gallery sample. The ow
 removal, and the corrected `main` and `develop` histories contain none of those photo blobs or
 paths. On 2026-09-17, tags `1.0.7` / `1.0.8` were repointed to their corresponding cleaned release
 commits, preserving tag annotations and release contents apart from the photos and their Xcode
-resource entries. The temporary `main-public` / `develop-public` branches were deleted after
-recovery verification. **Repository-wide cleanup remains incomplete:** `main-old` / `develop-old`
-and historical PR references retain copies. See [NOTICE](NOTICE), section 5, and
+resource entries. The temporary `main-public` / `develop-public` branches and the old backup
+branches `main-old` / `develop-old` were deleted after recovery verification on the same date.
+**Repository-wide cleanup remains incomplete:** historical PR references and other GitHub copies
+still need cleanup. See [NOTICE](NOTICE), section 5, and
 [#906, A2](https://github.com/aiarcheology-com/aiarcheology/issues/906) for the remaining publication
 work. Removal does not grant rights to historical copies.
 
