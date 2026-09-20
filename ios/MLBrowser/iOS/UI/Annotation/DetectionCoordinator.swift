@@ -146,7 +146,7 @@ final class DetectionCoordinator: ObservableObject {
 			// and a driver that finished registering mid-pass would make an empty result look
 			// authoritative — the one reading that must not happen (AIA-0808).
 			let startedWithDetectors = self.hasDetectors()
-			Task {
+			Task { [self] in
 				let applyIfCurrent: @MainActor @Sendable ([DetectionResult]) -> Void = { [weak self] observations in
 					guard let self else { return }
 					// Discard if invalidated since this pass began (stale geometry/interaction/capture).

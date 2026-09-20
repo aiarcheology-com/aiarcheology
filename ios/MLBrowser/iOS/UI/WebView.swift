@@ -616,7 +616,7 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			// guard — it is AIA-0827's diagnostic about the document it measured, and suppressing it
 			// because the user has since navigated away would lose the report worth having.
 			let generation = documentGeneration
-			measureRenderedContent(of: webView) { first in
+			measureRenderedContent(of: webView) { [self, webView] first in
 				guard let first else { return }
 				guard first.drewNothing else {
 					LoggingPolicy.debug("Page finished with content — \(first.counts)", logger: .ui)
