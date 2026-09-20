@@ -52,7 +52,10 @@ final class NavigationUITests: UITestCase {
 	func testFind_redCrosshairStoresThePlaceUnderIt() {
 		enterAlignmentMode()
 
-		element(AID.findingAlignmentCrosshair).tap()
+		// The target is circular. XCTest's automatic hittable point can fall near a corner
+		// of its rectangular accessibility frame, outside the circle (Xcode Cloud build 1110).
+		element(AID.findingAlignmentCrosshair)
+			.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 		XCTAssertTrue(
 			app.textFields[AID.saveFindingTitle].waitForExistence(timeout: 15),
 			"Tapping the red crosshair did not open the finding form"
