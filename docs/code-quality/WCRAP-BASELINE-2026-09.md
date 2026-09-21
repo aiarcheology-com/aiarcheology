@@ -102,16 +102,20 @@ The baseline was generated from a reused `.xcresult` artifact. To reproduce or u
 
 ## Child Issues
 
-The worst-15% hotspots have been broken into scoped child issues for incremental work:
+The worst-15% hotspots have been broken into scoped child issues for incremental work. See [AIA-0901-CHILD-ISSUES.md](AIA-0901-CHILD-ISSUES.md) for detailed specifications.
 
-- **[AIA-XXXX](https://github.com/aiarcheology-com/aiarcheology/issues/XXXX):** Baseline and coverage attribution improvements
-- **[AIA-YYYY](https://github.com/aiarcheology-com/aiarcheology/issues/YYYY):** User-data and state-management hotspots
-- **[AIA-ZZZZ](https://github.com/aiarcheology-com/aiarcheology/issues/ZZZZ):** Large SwiftUI view bodies
-- **[AIA-WWWW](https://github.com/aiarcheology-com/aiarcheology/issues/WWWW):** Converter and tooling coverage
+Planned child issues:
+
+- **AIA-0902:** Improve coverage attribution for wCRAP baseline
+- **AIA-0903:** Refactor user-data and state-management hotspots
+- **AIA-0904:** Simplify large SwiftUI view bodies
+- **AIA-0905:** Improve converter and tooling test coverage
 
 Each child issue defines:
 - **Behavioral goal:** What user-facing or correctness property the refactor must preserve
 - **Verification scope:** Which tests or manual checks prove the goal
+
+**Note:** Child issues will be created in GitHub and linked to parent #901. The child-issues document provides the authoritative specification for each.
 
 ## Next Steps
 
