@@ -1,0 +1,91 @@
+{
+  "metadata": {
+    "source_revision": "37f3972d55df2b66673634d9bee8331aa524cff7",
+    "analyzer_revision": "70245e434a271d6ce95a62976d67f7a14f9f298c",
+    "tool_version": "0.1.0",
+    "runs": [
+      {
+        "suite": "app",
+        "result": "2463 passed, 0 failed, 8 skipped.",
+        "detail": "MLBrowserUnitTests on an iPhone 18 Pro iOS 27.0 simulator with code coverage enabled. The skips are opt-in physical-device parity and live-map tests."
+      },
+      {
+        "suite": "converter",
+        "result": "556 passed, 0 failed, 0 skipped.",
+        "detail": "Root swift test with ONNX fixtures, Apple MobileNet reference models, and code coverage. ADAFCheckpointDirectoryTests were excluded with --skip, so they are not in the skip count."
+      },
+      {
+        "suite": "tools",
+        "result": "23 passed, 0 failed, 0 skipped.",
+        "detail": "swift test --package-path Tools with code coverage. The tested product is ProjectToolCore."
+      }
+    ]
+  },
+  "summary": {
+    "analyzed_methods": 3268,
+    "scored_methods": 3058,
+    "cohort_size": 490,
+    "cohort_cutoff": 4.732050807568877,
+    "median": 0.0,
+    "p90": 7.345380466837601,
+    "p95": 13.162277660168382,
+    "max": 567.3238075793812,
+    "above_7": 329,
+    "above_30": 68,
+    "zero_cognitive": 1725,
+    "provenance": {
+      "function-match": 2210,
+      "measured-zero": 848,
+      "missing": 105,
+      "file-fallback": 105
+    },
+    "triage": {
+      "actionable": 68,
+      "acceptable": 422
+    },
+    "clusters": {
+      "swiftui-subscription": 4,
+      "swiftui-import-and-catalog": 15,
+      "swiftui-settings": 4,
+      "swiftui-findings": 11,
+      "converter-emission": 3,
+      "swiftui-other": 15,
+      "persistence-store-recovery": 1,
+      "detection": 2,
+      "converter-other": 2,
+      "map-location-probe": 1,
+      "finding-restore": 2,
+      "background-download-reconnect": 2,
+      "crash-reporting": 2,
+      "debug-launch-helpers": 3,
+      "storekit-purchase": 1
+    },
+    "reconciliation": {
+      "stayed": 374,
+      "unmeasured": 32,
+      "removed": 5,
+      "left-cohort": 81,
+      "entered": 115
+    },
+    "production_coverage": [
+      {
+        "suite": "app",
+        "covered": 25295,
+        "executable": 75648,
+        "percent": 33.437764382402705
+      },
+      {
+        "suite": "converter",
+        "covered": 10198,
+        "executable": 12152,
+        "percent": 83.92034233048058
+      },
+      {
+        "suite": "tools",
+        "covered": 284,
+        "executable": 318,
+        "percent": 89.30817610062893
+      }
+    ]
+  }
+}

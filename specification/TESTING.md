@@ -205,6 +205,17 @@ Until #850 introduces and validates a selector, preserve these gates and use the
 local verification relevant. Documentation-only changes need checks of links, commands, and
 consistency, without launching app tests solely for prose.
 
+## Weighted-CRAP baseline
+
+`./scripts/slopguard-baseline.sh` reproduces the AIA-0901 cohort. `complexity` runs the
+pinned SlopGuard checkout with coverage disabled. `collect-app`, `collect-converter`, and
+`collect-tools` gather separate production coverage. `report` writes
+[specification/weighted-crap](weighted-crap/summary.md). A method is ranked only when a
+coverage function matches its span. Missing files, ambiguous paths, and file-level fallback
+stay out of the score. The published snapshot is the frozen comparison cohort; regenerating
+the worst 15% after a refactor would move the tail. The command needs the SlopGuard checkout
+named in that summary, plus the converter fixtures from `./scripts/fetch_native_test_models.sh`.
+
 ## Opt-in coverage pitfalls
 
 The live-map harness hosts its web views in the test app window so map SDKs can finish rendering.

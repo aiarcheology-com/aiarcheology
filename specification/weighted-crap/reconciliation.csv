@@ -1,0 +1,608 @@
+file,function,initial_line,initial_weighted_crap,initial_evidence,corrected_line,corrected_weighted_crap,corrected_provenance,status
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift,PaywallView.body.get,438,806.9105714739059,function present,477,567.323808,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.makeModel(input:context:),1280,636.7386337537058,function present,1280,24.738634,function-match,stayed
+ios/MLBrowser/iOS/UI/FileImporter/NativeModelConversionReportView.swift,NativeModelConversionReportContent.body.get,266,420,function present,266,420,measured-zero,stayed
+Tools/Sources/ProjectTool/ToolsConfiguration.swift,ToolsManager.installTool(name:spec:),212,409.7484176581314,file absent; coverage unknown,212,,missing,unmeasured
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift,SettingsForm.body.get,137,329.66352173265574,function present,137,329.663522,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.body.get,113,289.5227116418582,function present,113,289.522712,measured-zero,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.expandSpatialConstant(named:tensor:over:operation:transform:),1226,286.431676725155,function present,1226,16.431677,function-match,stayed
+Tools/Sources/ProjectTool/ToolsConfiguration.swift,ToolsManager.checkTool(name:spec:),107,267.87450786638755,file absent; coverage unknown,107,,missing,unmeasured
+ios/MLBrowser/iOS/UI/Subscription/SubscriptionStatusView.swift,SubscriptionStatusView.body.get,41,255.4919333848297,function present,41,255.491933,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift,PaywallView.content.get,766,249.29705854077838,function present,770,249.297059,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.targetMetadata(from:checksums:graph:sourceProvenance:interface:imageSizingContract:parityEvidence:),1688,238.96662954709578,function present,1688,14.96663,function-match,stayed
+Sources/NativeModelConverter/ONNXMetadataMapping.swift,ONNXMetadataMapping.metadata(from:),67,212.0712472794703,function present,67,14.071247,function-match,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.importAlerts(_:),171,212.0712472794703,function present,172,212.071247,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.streamingADAFModelSegments(graph:promotedWeights:weightsDigest:context:),623,205.856406460551,function present,623,205.856406,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogBrowseView.resultsSection.get,299,205.856406460551,function present,299,205.856406,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.backUpBar.get,782,197.56465996625053,function present,782,197.56466,measured-zero,stayed
+Tools/Sources/ProjectTool/ProjectTool.swift,GitSetup.setupTools(),81,193.41640786499877,file absent; coverage unknown,81,,missing,unmeasured
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.expandExactNDConstant(named:tensor:over:operation:transform:),1312,180.9614813968157,function present,1312,12.961481,function-match,stayed
+ios/MLBrowser/iOS/UI/Support/SupportRequestView.swift,SupportRequestView.body.get,109,180.9614813968157,function present,109,180.961481,measured-zero,stayed
+Sources/NativeModelConverter/PyTorchWeightExtractor.swift,PyTorchWeightExtractor.extract(_:from:to:maximumTotalByteCount:reporting:checkingCancellation:),168,168.4899959967968,function present,139,1.414214,function-match,stayed
+Sources/NativeModelConverterCLI/main.swift,NativeModelConverterCLI.main(),7,156,file absent; coverage unknown,7,,missing,unmeasured
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ConfigurationForm.modelSection.get,346,151.83215956619924,function present,346,151.83216,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.performOffMainActorWork(_:),914,151.83215956619924,function present,915,151.83216,measured-zero,stayed
+ios/MLBrowser/iOS/UI/LocationSheetView.swift,LocationSheetView.historyRow(_:),159,149.74734012447072,function present,159,149.74734,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.convolutionLayer(for:weightsByName:weights:),1997,143.48912529307606,function present,1997,11.489125,function-match,stayed
+Sources/NativeModelConverterCLI/main.swift,NativeModelConverterCLI.inspectCheckpoint(at:),73,141.4017542509914,file absent; coverage unknown,73,,missing,unmeasured
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelADAFPromotedWeights.stream(weightNamed:checkingCancellation:receive:),1640,130.95445115010332,function present,1640,10.954451,function-match,stayed
+Sources/NativeModelConverter/NativeModelGraphPackage.swift,NativeModelGraphPackageReader.read(from:reporting:checkingCancellation:),115,130.95445115010332,function present,115,10.954451,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerSplit(_:),792,122.58300524425837,function present,792,10.583005,function-match,stayed
+Tools/Sources/ProjectTool/Secrets.swift,Secrets.Validate.run(),137,120.48808848170151,file absent; coverage unknown,137,,missing,unmeasured
+ios/MLBrowser/iOS/State/DataController.swift,DataController.handleStoreLoadError(_:description:),249,120.48808848170151,function present,249,120.488088,measured-zero,stayed
+Sources/NativeModelConverter/UltralyticsDetectorHints.swift,Scanner.scanQuotedString(),198,118.39230484541326,function present,198,10.392305,function-match,stayed
+ios/MLBrowser/iOS/Drivers/Detector.swift,Detector.detectPreSized(image:regions:contract:using:onPartialResult:),228,118.39230484541326,function present,228,118.392305,measured-zero,stayed
+Sources/ADAFDetectorParityRunner/main.swift,ADAFDetectorParityRunner.main(),35,114.19803902718556,file absent; coverage unknown,35,,missing,unmeasured
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift,ConfigurationRow.body.get,680,112.09950493836206,function present,680,112.099505,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.loadingOverlay.get,549,112.09950493836206,function present,550,112.099505,measured-zero,stayed
+Sources/NativeModelEvaluatorCLI/main.swift,NativeModelEvaluatorCLI.main(),22,108.9498743710662,file absent; coverage unknown,22,,missing,unmeasured
+Sources/NativeModelConverter/UltralyticsDetectorHints.swift,UltralyticsDetectorHints.parseNames(_:),85,107.89949493661166,function present,85,9.899495,function-match,stayed
+ios/MLBrowser/iOS/UI/Findings/SaveFindingSheet.swift,SaveFindingSheet.body.get,327,107.89949493661166,function present,327,107.899495,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelFasterRCNNRegistry.promoteWeightsForStablePrecision(_:data:checkingCancellation:),246,105.7979589711327,function present,246,105.797959,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelImageSizing.swift,NativeModelImageSizing.canvas(from:channels:geometry:fill:),380,105.7979589711327,function present,380,9.797959,function-match,stayed
+Sources/NativeModelConverter/NativeModelImageSizing.swift,NativeModelImageSizing.size(interleavedBGRA:geometry:fill:),436,105.7979589711327,function present,436,9.797959,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerReshape(_:),1754,105.7979589711327,function present,1754,9.797959,function-match,stayed
+ios/MLBrowser/iOS/UI/Findings/SharedFindingView.swift,SharedFindingUnverifiedView.row(_:),548,100.53939201416945,function present,548,100.539392,measured-zero,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerSlice(_:),1902,99.48683298050514,function present,1902,9.486833,function-match,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.syncStatus.get,958,99.48683298050514,function present,958,99.486833,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift,PaywallView.productSection(_:),1057,99.48683298050514,function present,1061,99.486833,measured-zero,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.parseNode(_:),263,97.38083151964686,function present,263,9.380832,function-match,stayed
+scripts/xcstrings-to-strings.swift,convert(inputPath:outputPath:),59,97.38083151964686,file absent; coverage unknown,59,,missing,unmeasured
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelADAFPromotedWeights.init(graph:sourceWeightByteCount:synthesizedWeightData:weightURL:checkingCancellation:),1505,93.16515138991168,function present,1505,9.165151,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lower(_:),431,93.16515138991168,function present,431,9.165151,function-match,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.resolveEmissionInterface(graph:classifierLabels:imagePreprocessing:detection:detectionTarget:targetSemanticsIntent:),1199,90,function present,1199,9,function-match,stayed
+ios/MLBrowser/iOS/UI/Support/SupportRequestView.swift,SupportRequestView.compose(),362,90,function present,360,90,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelDetectorPipeline.swift,NativeModelDetectorPipelineBuilder.nonMaximumSuppressionModel(for:),113,85.77496438739213,function present,113,8.774964,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.parseValueInfo(_:),295,85.77496438739213,function present,295,8.774964,function-match,stayed
+Tools/Sources/ProjectTool/ProjectTool.swift,GitSetup.setupDirenv(),178,85.77496438739213,file absent; coverage unknown,178,,missing,unmeasured
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelFasterRCNNRegistry.GraphBuilder.resNetFeatures(from:),466,80.48528137423855,function present,466,8.485281,function-match,stayed
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift,SettingsForm.accountSection.get,771,80.48528137423855,function present,771,80.485281,measured-zero,stayed
+ios/MLBrowser/iOS/Drivers/DeepDriver.swift,DetectionEngine.detect(on:in:tiling:onPartialResults:),321,78.36660026534075,function present,321,78.3666,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Annotation/ObservationPointView.swift,ObservationPointView.body.get,20,74.12403840463597,function present,20,74.124038,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Annotation/ObservationRectangleView.swift,ObservationRectangleView.body.get,27,74.12403840463597,function present,27,74.124038,measured-zero,stayed
+ios/MLBrowser/iOS/UI/LocationSheetView.swift,VisitTrailView.body.get,393,73.06225774829853,function present,393,73.062258,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogBrowseView.providerFilterButton(title:providerID:),185,72,function present,185,72,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.streamingConstantLayer(for:weightsByName:promotedWeights:weightsDigest:isExactRank:cancellationCheck:),1033,70.93725393319377,function present,1033,70.937254,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelFasterRCNNRegistry.expectedWeights(),360,70.93725393319377,function present,360,7.937254,function-match,stayed
+Sources/NativeModelConverter/NativeModelAnchorFreeHead.swift,NativeModelAnchorFreeHead.plan(output:classCount:labels:coordinateMode:weightOffset:formatVersion:namePrefix:),80,67.74596669241484,function present,80,7.745967,function-match,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.streamingConvolutionLayer(for:weightsByName:promotedWeights:weightsDigest:cancellationCheck:),834,67.74596669241484,function present,834,67.745967,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.coreMLMetadataMessage(for:),1808,67.74596669241484,function present,1808,7.745967,function-match,stayed
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelFasterRCNNRegistry.GraphBuilder.normalizedAnchorCorners(for:),1181,67.74596669241484,function present,1181,7.745967,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.resolveReshapeTarget(_:inputShape:operation:),1813,67.74596669241484,function present,1813,7.745967,function-match,stayed
+Sources/NativeModelConverter/NativeModelConversionMetrics.swift,NativeModelConverter.convertReserved(from:to:sourceProvenance:reporting:),436,63.48331477354788,function present,436,7.483315,function-match,stayed
+ios/MLBrowser/iOS/Services/MapLocation/MapLocationProbe.swift,MapLocationProbe.runAcrossFrames(_:),96,63.48331477354788,function present,96,63.483315,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,HardwareAccelerationPicker.body.get,161,63.48331477354788,function present,161,63.483315,measured-zero,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.resizeFactors(_:inputShape:),1699,62.41619848709566,function present,1699,7.416198,function-match,stayed
+ios/MLBrowser/iOS/State/FindingRepository.swift,FindingRepository.restore(_:),683,62.1601613199119,function present,683,62.160161,function-match,stayed
+Sources/NativeModelConverter/NativeModelAnchorFreeRecognizer.swift,NativeModelAnchorFreeRecognizer.classify(boxScale:boxCount:width:height:),166,61.348469228349536,function present,166,7.348469,function-match,stayed
+Sources/NativeModelConverter/UltralyticsDetectorHints.swift,UltralyticsDetectorHints.parseIntList(_:),128,61.348469228349536,function present,128,7.348469,function-match,stayed
+Tools/Sources/ProjectToolCore/ASCCredentialsSupport.swift,ASCCredentialsSupport.parseEnvironmentFile(_:),70,61.348469228349536,file absent; coverage unknown,70,7.348469,function-match,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.row(_:),677,59.21110255092797,function present,677,59.211103,measured-zero,stayed
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.reconnectBackgroundSession(),383,57.11202194077276,function present,383,57.112022,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.read(data:),79,57.07106781186548,function present,79,7.071068,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerExactNDSlice(_:inputShape:starts:ends:),1951,57.07106781186548,function present,1951,7.071068,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.broadcastBatchShape(_:_:operation:),923,56,function present,923,7,function-match,stayed
+Tools/Sources/ProjectTool/ToolsConfiguration.swift,ToolsManager.findBinary(named:in:),349,56,file absent; coverage unknown,349,,missing,unmeasured
+ios/MLBrowser/iOS/Tools/Reporting/SentryCrashReportingService.swift,SentryCrashReportingService.extractTypeAndFrames(payload:),224,56,function present,224,56,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Auth/DeleteAccountView.swift,DeleteAccountView.delete(),158,56,function present,158,56,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.poolingLayer(for:),2145,54.9282032302755,function present,2145,6.928203,function-match,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.decodeArchive(at:),309,54.9282032302755,function present,309,54.928203,measured-zero,stayed
+ios/MLBrowser/iOS/Tools/Reporting/SentryCrashReportingService.swift,SentryCrashReportingService.captureError(message:error:context:),305,51.70820393249937,function present,305,51.708204,measured-zero,stayed
+ios/MLBrowser/iOS/Tools/Testability/UITestLaunchConfiguration.swift,UITestLaunchConfiguration.applyDetectionAndAnalyticsDeltas(_:to:),221,51.70820393249937,function present,221,51.708204,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Auth/SignInSheet.swift,SignInSheet.body.get,35,51.70820393249937,function present,35,51.708204,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift,WebScreenView.body.get,216,50.99019513592785,function present,217,50.990195,function-match,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,AnnotationSoundConfigurationView.body.get,641,50.633249580710796,function present,641,50.63325,measured-zero,stayed
+Sources/NativeModelConverter/CoreMLProtobufEncoder.swift,CoreMLProtobufSegments.firstFileOffset(of:),88,48.48074069840786,function present,88,6.480741,function-match,stayed
+Sources/NativeModelConverter/NativeModelImageSizingContract.swift,NativeModelImageSizingContract.isSupported.get,109,48.48074069840786,function present,109,6.480741,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.layoutFamily(for:),236,48.48074069840786,function present,236,6.480741,function-match,stayed
+ios/MLBrowser/iOS/Gallery/PhotoPicker.swift,Coordinator.picker(_:didFinishPicking:),45,48.48074069840786,function present,,,,removed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.startImport(_:retainingOriginalNativePackage:existingNativeReport:),785,48.48074069840786,function present,786,48.480741,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelConversionMetrics.swift,NativeModelConverter.convertONNXReserved(from:to:reporting:),216,46.32455532033676,function present,216,6.324555,function-match,stayed
+Tools/Sources/ProjectTool/ASCCredentials.swift,ASC.Credentials.materialize(force:),175,46.32455532033676,file absent; coverage unknown,175,,missing,unmeasured
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogResultRow.metrics.get,440,46.32455532033676,function present,440,46.324555,measured-zero,stayed
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift,SettingsForm.subscriptionRow.get,487,46.32455532033676,function present,487,46.324555,measured-zero,stayed
+ios/MLBrowser/iOS/Tools/Reporting/Observability.swift,Observability.runSentryThrottleSmokeTestIfEnabled(),273,45.95398100805328,function present,273,45.953981,function-match,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.classifierPlan(outputs:operations:labels:),1566,42,function present,1566,6,function-match,stayed
+Sources/NativeModelConverter/NativeModelTargetSemantics.swift,NativeModelTargetSemanticsIntent.resolved(task:classCount:imagePreprocessingWasApplied:),197,42,function present,197,6,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerGemm(_:),532,42,function present,532,6,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.resolvedPads(_:inputShape:kernelShape:strides:dilations:),677,42,function present,677,6,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerMaxPool(_:),1586,42,function present,1586,6,function-match,stayed
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogBrowseView.providerSection.get,137,42,function present,137,42,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogDownloadStatus.body.get,549,42,function present,549,42,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Downloder/DownloadDetailView.swift,DownloadDetailView.urlInputSection.get,112,42,function present,113,42,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/ActivityShareSheet.swift,ActivitySharePresenter.updateUIViewController(_:context:),49,42,function present,49,42,measured-zero,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.joinedConcatShape(_:axis:rank:operation:),1489,40.91607978309962,function present,1489,5.91608,function-match,stayed
+Sources/NativeModelConverter/ProtobufReader.swift,ProtobufReader.fields(in:),36,40.91607978309962,function present,36,5.91608,function-match,stayed
+Tools/Sources/ProjectTool/Secrets.swift,Secrets.Generate.run(),60,40.91607978309962,file absent; coverage unknown,60,,missing,unmeasured
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.discoverInterruptedNativeConversion(),670,40.91607978309962,function present,671,40.91608,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.createAndSaveConfiguration(work:request:),1239,40.91607978309962,function present,1240,40.91608,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelAnchorFreeRecognizer.swift,NativeModelAnchorFreeRecognizer.boxBranchAssemblesCentreAndSize(_:in:),229,37.65685424949239,function present,229,5.656854,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.broadcastConstant(named:over:operation:transform:),1178,37.65685424949239,function present,1178,5.656854,function-match,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingShareCard.swift,FindingShareComposer.controls.get,849,37.65685424949239,function present,849,37.656854,measured-zero,stayed
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift,SettingsForm.webContentSection.get,361,37.65685424949239,function present,361,37.656854,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelImageSizing.swift,NativeModelImageSizing.resample(_:channels:from:to:),299,35.47722557505166,function present,299,5.477226,function-match,stayed
+Sources/NativeModelConverter/NativeModelYOLOHead.swift,NativeModelYOLOHead.plan(grid:anchors:labels:weightOffset:namePrefix:),78,35.47722557505166,function present,78,5.477226,function-match,stayed
+Sources/NativeModelConverter/ONNXMetadataMapping.swift,ONNXRawMetadata.==(lhs:rhs:),40,35.47722557505166,function present,40,35.477226,measured-zero,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerConcat(_:),1445,35.47722557505166,function present,1445,5.477226,function-match,stayed
+ios/MLBrowser/iOS/Gallery/DataModel.swift,DataModel.init(),11,35.47722557505166,function present,,,,removed
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.recoverOrphanedDownloads(activeTaskIds:),433,35.47722557505166,function present,433,35.477226,measured-zero,stayed
+ios/MLBrowser/iOS/State/FindingRepository.swift,FindingRepository.undoInParent(created:replaced:),526,35.47722557505166,function present,526,35.477226,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.exportConvertedModel(_:),748,35.47722557505166,function present,749,35.477226,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.importConfiguration(_:),860,35.47722557505166,function present,861,35.477226,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingDetailView.swift,FindingDetailView.hasChanges.get,336,35.47722557505166,function present,336,35.477226,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.syncHelpSheet.get,861,35.47722557505166,function present,861,35.477226,measured-zero,stayed
+scripts/m3a_parity_spike/VisionReplay/Sources/VisionReplay/main.swift,describe(_:),215,35.47722557505166,file absent; coverage unknown,191,,missing,unmeasured
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.defaultDomainOpsetVersion(_:),172,33.29150262212919,function present,172,5.291503,function-match,stayed
+Sources/NativeModelConverter/ProtobufReader.swift,ProtobufReader.readVarint(_:_:),69,33.29150262212919,function present,69,5.291503,function-match,stayed
+ios/MLBrowser/iOS/State/StoreKitSubscriptionProvider.swift,StoreKitSubscriptionProvider.purchase(_:),158,33.29150262212919,function present,158,33.291503,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift,DrawerContent.body.get,88,33.29150262212919,function present,88,33.291503,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.convertNativeModelIfNeeded(_:),1053,33.29150262212919,function present,1054,33.291503,measured-zero,stayed
+ios/MLBrowser/iOS/Tools/Testability/UITestLaunchConfiguration.swift,UITestLaunchConfiguration.applyPageScenario(_:to:),189,32.19615242270663,function present,189,32.196152,measured-zero,stayed
+ios/MLBrowser/iOS/UI/AppMessages/AppMessageModifier.swift,AppMessageBanner.body.get,108,30,function present,108,30,measured-zero,stayed
+Sources/NativeModelConverter/ADAFCheckpointCatalog.swift,ADAFCheckpointCatalog.summary(of:family:),208,28.89897948556635,function present,208,4.898979,function-match,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.networkLayers(input:imagePlan:classifier:usesLegacyShapeMapping:progress:cancellationCheck:),1436,28.89897948556635,function present,1436,4.898979,function-match,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.linearLayer(for:weightsByName:weights:),2867,28.89897948556635,function present,2867,4.898979,function-match,stayed
+Sources/NativeModelConverter/NativeModelYOLOHead.swift,NativeModelYOLOHead.Builder.cellOrigins(size:anchorCount:),219,28.89897948556635,function present,219,4.898979,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.weightName(_:),365,28.89897948556635,function present,365,4.898979,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerSoftmax(_:),1556,28.89897948556635,function present,1556,4.898979,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerTranspose(_:),1866,28.89897948556635,function present,1866,4.898979,function-match,stayed
+ios/MLBrowser/iOS/Gallery/GridView.swift,GridView.body.get,21,28.89897948556635,function present,,,,removed
+ios/MLBrowser/iOS/Services/Catalog/CatalogPackageDownloader.swift,CatalogPackageDownloader.fetch(file:index:totalCount:session:httpDownload:onBytesWritten:),535,28.89897948556635,function present,535,28.898979,measured-zero,stayed
+ios/MLBrowser/iOS/State/DataController.swift,DataController.destroyAndRetryStore(description:),285,28.89897948556635,function present,285,28.898979,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogBrowseView.filterChip(title:isSelected:testabilityID:testabilityLabel:action:),261,28.89897948556635,function present,261,28.898979,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ConfigurationForm.annotationSection.get,473,28.89897948556635,function present,473,28.898979,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Downloder/ListItemView.swift,ListItemView.body.get,22,28.89897948556635,function present,22,28.898979,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift,DrawerContent.accountFooter.get,390,28.89897948556635,function present,390,28.898979,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingShareCard.swift,FindingShareComposer.addressChoice.get,626,28.89897948556635,function present,626,28.898979,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift,WebReloadStopButton.body.get,1200,28.89897948556635,function present,1201,28.898979,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Tour/TourState.swift,TourState.performCutoutAction(),334,28.89897948556635,function present,334,28.898979,measured-zero,stayed
+ios/MLBrowser/iOS/Tools/AppEnvironment.swift,AppEnvironment.distributionChannel.get,170,28.555613938757123,function present,170,28.555614,function-match,stayed
+ios/MLBrowser/iOS/State/FindingRepository.swift,FindingRepository.importFindings(_:duplicates:),390,26.841800711725497,function present,390,26.841801,function-match,stayed
+Sources/NativeModelConverter/NativeModelAnchorFreeRecognizer.swift,NativeModelAnchorFreeRecognizer.conversion(of:),30,26.69041575982343,function present,30,4.690416,function-match,left-cohort
+ios/MLBrowser/iOS/State/ModelTypeBackfiller.swift,ModelTypeBackfiller.backfillIfNeeded(),58,26.59177124948616,function present,58,26.591771,function-match,stayed
+ios/MLBrowser/iOS/State/FindingsSyncCoordinator.swift,FindingsSyncCoordinator.apply(_:account:transport:store:ledger:),988,25.612119229242715,function present,988,25.612119,function-match,stayed
+ios/MLBrowser/iOS/State/Annotation.swift,AnnotationSoundPlayer.startImmediately(_:),315,25.58257569495584,function present,315,25.582576,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/SharedFindingView.swift,SharedFindingView.body.get,290,25.58257569495584,function present,290,25.582576,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/SharedFindingView.swift,SharedFindingView.bodyContent.get,385,25.58257569495584,function present,385,25.582576,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelConversionMetrics.swift,NativeModelConverter.conversionError(from:defaultPhase:),539,24.472135954999583,function present,539,4.472136,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelFasterRCNNRegistry.GraphBuilder.convolutionND(_:shape:module:output:outputChannels:kernel:hasBias:),1278,24.472135954999583,function present,1278,4.472136,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.negativeOneConstant(over:),1065,24.472135954999583,function present,1065,4.472136,function-match,left-cohort
+Sources/NativeModelConverter/UltralyticsDetectorHints.swift,UltralyticsDetectorHints.parseNMS(_:),152,24.472135954999583,function present,152,4.472136,function-match,left-cohort
+Tools/Sources/ProjectTool/ToolsConfiguration.swift,ToolsManager.printToolStatus(name:spec:status:),437,24.472135954999583,file absent; coverage unknown,437,,missing,unmeasured
+ios/MLBrowser/iOS/Persistence/CoreDataManagable.swift,CoreDataManageable.batchedUpdate(_:in:with:),271,24.472135954999583,function present,271,24.472136,measured-zero,stayed
+ios/MLBrowser/iOS/State/StoreKitSubscriptionProvider.swift,StoreKitSubscriptionProvider.loadProducts(),118,24.472135954999583,function present,118,24.472136,measured-zero,stayed
+ios/MLBrowser/iOS/State/StoreKitSubscriptionProvider.swift,StoreKitSubscriptionProvider.statusCandidates(for:),258,24.472135954999583,function present,258,24.472136,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Annotation/ObservationCircleView.swift,ObservationCircleView.pulsingCircle(at:),58,24.472135954999583,function present,58,24.472136,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ConfigurationForm.modelTypeFootnote.get,423,24.472135954999583,function present,423,24.472136,measured-zero,stayed
+ios/MLBrowser/iOS/UI/WebView.swift,MLWebView.Coordinator.userContentController(_:didReceive:),452,22.930711074871503,function present,452,22.930711,function-match,stayed
+ios/MLBrowser/iOS/UI/ContentView.swift,ContentView.floatingChromeButton.get,284,22.838336686162776,function present,284,22.838337,function-match,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.streamingLinearLayer(for:weightsByName:promotedWeights:weightsDigest:cancellationCheck:),971,22.24264068711928,function present,971,22.242641,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelGraph.swift,NativeModelGraphValidationIssue.errorDescription.get,511,22.24264068711928,function present,511,22.242641,measured-zero,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.parseTensor(_:),249,22.24264068711928,function present,249,4.242641,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerSub(_:),948,22.24264068711928,function present,948,4.242641,function-match,left-cohort
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.pauseDownload(_:),788,22.24264068711928,function present,788,22.242641,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.inferredSemanticsMessage(for:),258,22.24264068711928,function present,259,22.242641,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Support/SupportRequestView.swift,SupportRequestView.loadPickedPhoto(),328,22.24264068711928,function present,326,22.242641,measured-zero,stayed
+ios/MLBrowser/iOS/State/DeepState.swift,DeepState.handleUpdatedConfigurations(_:),328,21.77042209600132,function present,328,21.770422,function-match,stayed
+Sources/NativeModelConverter/NativeModelGraph.swift,NativeModelAttribute.init(from:),411,20.7037037037037,function present,411,20.703704,function-match,stayed
+Sources/NativeModelConverter/NativeModelConversionObservation.swift,NativeModelGraphPackageError.diagnosticCode.get,151,20,function present,151,4,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.emit(graph:weights:to:roiBoxHeadChunk:parityEvidence:),357,20,function present,357,4,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.layer(for:weightsByName:weights:usesLegacyShapeMapping:),1832,20,function present,1832,4,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelFasterRCNNRegistry.validateSourceWeights(_:),304,20,function present,304,4,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelGraphPackage.swift,NativeModelGraphPackageReader.validate(_:),312,20,function present,312,4,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelGraphPackage.swift,NativeModelGraphPackageError.errorDescription.get,398,20,function present,398,4,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.dispatch(_:primaryInput:),473,20,function present,473,4,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerClip(_:),741,20,function present,741,4,function-match,left-cohort
+Tools/Sources/ProjectTool/Secrets.swift,Secrets.Clean.run(),199,20,file absent; coverage unknown,199,,missing,unmeasured
+Tools/Sources/ProjectTool/SupportLog.swift,SupportLog.Decrypt.run(),129,20,file absent; coverage unknown,129,,missing,unmeasured
+Tools/Sources/ProjectTool/ToolsConfiguration.swift,ToolsManager.getInstallPath(),49,20,file absent; coverage unknown,49,,missing,unmeasured
+ios/MLBrowser/iOS/Gallery/FileManagerExtensions.swift,FileManager.copyItemToDocumentDirectory(from:),16,20,function present,,,,removed
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.getNetworkType(_:),366,20,function present,366,20,measured-zero,stayed
+ios/MLBrowser/iOS/Tools/Reporting/SentryCrashReportingService.swift,SentryCrashReportingService.signatureInput(from:),205,20,function present,205,20,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ExpandableDetailRow.body.get,53,20,function present,53,20,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.importRetentionDialogs(_:),287,20,function present,288,20,measured-zero,stayed
+ios/MLBrowser/iOS/UI/LocationSheetView.swift,LocationSheetView.inputRow.get,94,20,function present,94,20,measured-zero,stayed
+scripts/m3a_parity_spike/VisionReplay/Sources/VisionReplay/main.swift,describe(_:),191,20,file absent; coverage unknown,191,,missing,unmeasured
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogSearchManager.searchCurrentQuery(),634,19.87213273036619,function present,634,19.872133,function-match,stayed
+Sources/NativeModelConverter/ADAFCheckpointCatalog.swift,ADAFCheckpointCatalog.sanitised(_:),232,18.87298334620742,function present,232,3.872983,function-match,left-cohort
+Sources/NativeModelConverter/CoreMLProtobufEncoder.swift,CoreMLProtobufSegments.write(to:reporting:),66,18.87298334620742,function present,66,3.872983,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.detectionLayer(for:),2251,18.87298334620742,function present,2251,3.872983,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelADAFPromotedWeightsDigest.sha256(of:checkingCancellation:),1722,18.87298334620742,function present,1722,3.872983,function-match,left-cohort
+Sources/NativeModelConverter/PyTorchWeightExtractor.swift,PyTorchWeightExtractor.openBinding(_:in:),303,18.87298334620742,function present,303,3.872983,function-match,left-cohort
+ios/MLBrowser/iOS/Services/MapLocation/MapFrameRegistry.swift,WKFrameInfo.supersededBy(_:),76,18.87298334620742,function present,76,18.872983,measured-zero,stayed
+ios/MLBrowser/iOS/State/ClerkAuthProvider.swift,ClerkAuthProvider.validateSession(),127,18.87298334620742,function present,127,18.872983,measured-zero,stayed
+ios/MLBrowser/iOS/State/VisitTrail.swift,WebVisit.validationReport(),16,18.87298334620742,function present,16,18.872983,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.sortMenu.get,567,18.87298334620742,function present,567,18.872983,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.backupBadge(for:),652,18.87298334620742,function present,652,18.872983,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/SharedFindingView.swift,SharedFindingUnverifiedView.locationBlock.get,747,18.87298334620742,function present,747,18.872983,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift,WebScreenView.captureCentreManually(in:),670,18.87298334620742,function present,671,18.872983,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift,PaywallView.legalFooter.get,1006,18.87298334620742,function present,1010,18.872983,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Support/SupportRequestView.swift,SupportRequestView.applicationLogShareRow.get,254,18.87298334620742,function present,252,18.872983,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Annotation/DetectableView.swift,DetectableView.body.get,165,18.439088914585774,function present,165,18.439089,function-match,stayed
+ios/MLBrowser/iOS/Tools/Reporting/SentryCrashReportingService.swift,SentryCrashReportingService.start(),73,18.33030277982336,function present,73,18.330303,function-match,stayed
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift,WebScreenView.createOrRefreshWebHistoryEntry(_:maxEntries:),879,17.84141992271916,function present,880,17.84142,function-match,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerConvolution(_:),609,16.605551275463988,function present,609,3.605551,function-match,left-cohort
+ios/MLBrowser/iOS/State/BrowserState.swift,BrowserState.perform(_:now:),735,16.14506204972025,function present,735,16.145062,function-match,stayed
+ios/MLBrowser/iOS/State/FindingsSyncCoordinator.swift,FindingsSyncCoordinator.download(_:account:transport:),1095,15.677122206574062,function present,1095,15.677122,function-match,stayed
+Sources/ADAFDetectorParityRunner/main.swift,ADAFDetectorParityRunner.evaluate(_:sourceRGBURL:canvasRGBURL:using:),98,15.464101615137753,file absent; coverage unknown,98,,missing,unmeasured
+Sources/ADAFDetectorParityRunner/main.swift,ADAFDetectorParityRunner.writePortablePixmap(_:width:height:to:),186,15.464101615137753,file absent; coverage unknown,186,,missing,unmeasured
+Sources/NativeModelConverter/NativeModelAnchorFreeRecognizer.swift,NativeModelAnchorFreeRecognizer.channelValue(_:),170,15.464101615137753,function present,170,3.464102,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelConversionMetrics.swift,NativeModelConversionExecutionGate.acquire(),582,15.464101615137753,function present,582,3.464102,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.reluLayer(for:),1980,15.464101615137753,function present,1980,3.464102,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.nonMaximumSuppressionLayer(for:),2496,15.464101615137753,function present,2496,3.464102,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.layer(name:inputs:outputs:parameterField:parameters:),2926,15.464101615137753,function present,2926,3.464102,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelGraph.swift,NativeModelGraphValidator.OutputArity.expectation.get,713,15.464101615137753,function present,713,3.464102,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelImageSizing.swift,NativeModelImageSizing.normalized(_:channels:size:preprocessing:),536,15.464101615137753,function present,536,3.464102,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerPassThrough(_:),515,15.464101615137753,function present,515,3.464102,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerAxis2Concat(_:inputShapes:joined:),1518,15.464101615137753,function present,1518,3.464102,function-match,left-cohort
+Sources/NativeModelConverter/ProtobufReader.swift,Array.repeatedInts(_:),140,15.464101615137753,function present,140,3.464102,function-match,left-cohort
+Sources/NativeModelConverter/UltralyticsDetectorHints.swift,UltralyticsDetectorHints.isEmpty.get,42,15.464101615137753,function present,42,3.464102,function-match,left-cohort
+Tools/Sources/ProjectTool/ProjectTool.swift,GitSetup.setupGit(),149,15.464101615137753,file absent; coverage unknown,149,,missing,unmeasured
+Tools/Sources/ProjectTool/ProjectTool.swift,Cleanup.run(),288,15.464101615137753,file absent; coverage unknown,288,,missing,unmeasured
+ios/MLBrowser/iOS/Gallery/FileManagerExtensions.swift,FileManager.removeItemFromDocumentDirectory(url:),37,15.464101615137753,function present,,,,removed
+ios/MLBrowser/iOS/Persistence/CoreDataManagable.swift,CoreDataManagableWithState.reset(),107,15.464101615137753,function present,107,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/Services/Catalog/HuggingFaceXetDownloader.swift,HuggingFaceXetDownloader.downloadAndReportProgress(file:repository:client:destination:onBytesWritten:),68,15.464101615137753,function present,68,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/State/Annotation.swift,AnnotationSound.localizedName.get,64,15.464101615137753,function present,64,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/State/FindingArchiveImport.swift,FindingArchiveImport.purgeStagedImportsFromEarlierRuns(),204,15.464101615137753,function present,204,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/State/StoreKitSubscriptionProvider.swift,StoreKitSubscriptionProvider.start(),102,15.464101615137753,function present,102,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/State/StoreKitSubscriptionProvider.swift,StoreKitSubscriptionProvider.restore(),278,15.464101615137753,function present,278,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ExpandableDetailRow.trailingLayout.get,73,15.464101615137753,function present,73,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ExpandableDetailRow.leadingLayout.get,90,15.464101615137753,function present,90,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ConfigurationForm.exportButton.get,584,15.464101615137753,function present,584,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,PressableButtonStyle.makeBody(configuration:),716,15.464101615137753,function present,716,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.importSuccessMessage(for:),238,15.464101615137753,function present,239,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.handleFileImportResult(_:),649,15.464101615137753,function present,650,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingDetailView.swift,FindingDetailView.snapshotSection.get,90,15.464101615137753,function present,90,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingDetailView.swift,FindingDetailView.receivedSection.get,160,15.464101615137753,function present,160,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingShareCard.swift,FindingShareComposer.body.get,484,15.464101615137753,function present,484,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.chip(title:isSelected:action:),628,15.464101615137753,function present,628,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/LocationSheetView.swift,LocationSheetView.filteredEntries.get,148,15.464101615137753,function present,148,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/SettingsView/SentryStatsView.swift,SentryStatsView.format(_:),54,15.464101615137753,function present,54,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift,SettingsForm.removeFindingsRow.get,582,15.464101615137753,function present,582,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift,SettingsForm.subscriptionFootnote.get,722,15.464101615137753,function present,722,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/SettingsView/TiledDetectionSettingsView.swift,TilingSchemeGlyph.path(in:),70,15.464101615137753,function present,70,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift,PaywallView.billingNote(for:),1220,15.464101615137753,function present,1224,15.464102,measured-zero,stayed
+ios/MLBrowser/iOS/State/AppMessages/MessageNotificationCoordinator.swift,MessageNotificationCoordinator.performSync(allowAuthorizationRequest:),81,15.11391318316053,function present,81,15.113913,function-match,stayed
+ios/MLBrowser/iOS/Drivers/DetectionTiling.swift,TileLayout.dedupAcrossRegions(_:regions:containmentThreshold:iouThreshold:clippedAreaRatio:edgeTolerance:),156,14.422205101855956,function present,156,14.422205,function-match,stayed
+Sources/NativeModelConverter/NativeModelConversionObservation.swift,NativeModelCoreMLEmissionError.diagnosticCode.get,188,14.3166247903554,function present,188,14.316625,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.boxArithmeticLayer(for:),2276,14.3166247903554,function present,2276,3.316625,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmissionError.errorDescription.get,3061,14.3166247903554,function present,3061,3.316625,function-match,left-cohort
+ios/MLBrowser/iOS/Persistence/Migration/FillEntityIdIfNilPolicy.swift,FillEntityIdIfNilPolicy.createDestinationInstances(forSource:in:manager:),40,13.962326895043732,function present,40,13.962327,function-match,stayed
+Sources/NativeModelConverter/NativeModelAnchorFreeRecognizer.swift,NativeModelAnchorFreeRecognizer.constantValues(feeding:in:weights:),273,13.162277660168382,function present,273,3.162278,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.cropResizeLayer(for:),2364,13.162277660168382,function present,2364,3.162278,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.loadConstantLayer(for:weightsByName:weights:),2809,13.162277660168382,function present,2809,3.162278,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelFasterRCNNRegistry.template(for:weights:),108,13.162277660168382,function present,108,3.162278,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelFasterRCNNRegistryError.errorDescription.get,1764,13.162277660168382,function present,1764,13.162278,measured-zero,stayed
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerResize(_:),1654,13.162277660168382,function present,1654,3.162278,function-match,left-cohort
+ios/MLBrowser/iOS/UI/Annotation/Annotator.swift,Annotator.body(content:),16,13.162277660168382,function present,16,13.162278,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogBrowseView.select(_:),357,13.162277660168382,function present,357,13.162278,measured-zero,stayed
+ios/MLBrowser/iOS/UI/LocationSheetView.swift,WebsiteDataView.body.get,324,13.162277660168382,function present,324,13.162278,measured-zero,stayed
+ios/MLBrowser/iOS/Services/Catalog/CatalogPackageDownloader.swift,CatalogPackageDownloader.downloadPackage(files:reportProgress:),395,13.000231824417009,function present,395,13.000232,function-match,stayed
+ios/MLBrowser/iOS/UI/Annotation/FindingFlash.swift,ClassificationFlashController.ingest(_:showIdentifiers:onResultsBecameVisible:),119,13,function present,119,13,function-match,stayed
+ios/MLBrowser/iOS/State/FindingsSyncCoordinator.swift,FindingsSyncCoordinator.cycle(),563,12.85605012842848,function present,563,12.85605,function-match,stayed
+ios/MLBrowser/iOS/Services/ModelLoadingService.swift,ModelLoadingService.loadAndExtractMetadata(from:admission:),315,12.84968757866513,function present,315,12.849688,function-match,stayed
+ios/MLBrowser/iOS/Tools/Reporting/SentryEventGuard.swift,SentryEventGuard.decideLocked(signatureHex:now:state:),105,12.681677213007104,function present,105,12.681677,function-match,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingShareCard.swift,FindingShareCard.metadataRows.get,328,12.36931687685298,function present,328,12.369317,function-match,stayed
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.sessionTaskDidComplete(session:task:error:),954,12.131839494625387,function present,954,12.131839,function-match,stayed
+Sources/NativeModelConverter/NativeModelAnchorFreeHead.swift,NativeModelAnchorFreeHead.inverseSizeScale(width:height:boxCount:),159,12,function present,159,3,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.tensorIndex(for:),1178,12,function present,1178,3,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.validPadding(_:),2958,12,function present,2958,3,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelDetectorCatalog.swift,NativeModelDetectorCatalog.outputTensor(of:),183,12,function present,183,3,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelYOLOHead.swift,NativeModelYOLOHead.Builder.anchorSizes(_:size:),237,12,function present,237,3,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.dispatchDetectionDecode(_:primaryInput:),499,12,function present,499,3,function-match,left-cohort
+Sources/NativeModelConverter/ProtobufReader.swift,Array.firstBytes(_:),114,12,function present,114,3,function-match,left-cohort
+Sources/NativeModelConverter/ProtobufReader.swift,Array.firstVarint(_:),130,12,function present,130,3,function-match,left-cohort
+Tools/Sources/ProjectTool/ToolsConfiguration.swift,ToolsManager.bundledToolPath(for:),74,12,file absent; coverage unknown,74,,missing,unmeasured
+ios/MLBrowser/iOS/Services/Catalog/CatalogProvider.swift,CatalogError.errorDescription.get,271,12,function present,271,12,measured-zero,stayed
+ios/MLBrowser/iOS/Services/ImportedContainerRouting.swift,ImportedContainerRouting.route(for:origin:analyser:),89,12,function present,89,12,function-match,stayed
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.State.localizedName.get,245,12,function present,245,12,measured-zero,stayed
+ios/MLBrowser/iOS/Tools/HostPlatform.swift,View.iPadOrMacOnly(_:),141,12,function present,141,12,measured-zero,stayed
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift,Testability.SegmentedItem.idForSegment(in:index:),598,12,function present,589,12,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Annotation/ObservationCircleView.swift,ObservationCircleView.label(at:),46,12,function present,46,12,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ConfigurationForm.body.get,282,12,function present,282,12,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Downloder/DownloadDetailView.swift,DownloadDetailView.catalogArtifactInput.get,141,12,function present,142,12,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Downloder/DownloadDetailView.swift,DownloadDetailView.toolbarContent.get,392,12,function present,393,12,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Drawer/DrawerContainer.swift,DrawerContainer.swipeToCloseGesture.get,87,12,function present,87,12,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift,DrawerContent.configurationList.get,252,12,function present,252,12,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.rootContent.get,126,12,function present,127,12,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingDetailView.swift,FindingDetailView.toolbarContent.get,288,12,function present,288,12,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.dataMenu(isExportDisabled:),424,12,function present,424,12,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.orderItem(_:title:systemImage:id:),604,12,function present,604,12,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,View.macContextMenu(_:),1231,12,function present,1231,12,measured-zero,stayed
+scripts/m3a_parity_spike/VisionReplay/Sources/VisionReplay/main.swift,featureTypeName(_:),163,12,file absent; coverage unknown,163,,missing,unmeasured
+ios/MLBrowser/iOS/Persistence/CoreDataManagable.swift,CoreDataManagableWithState.suggestedNextState(),65,11.839931904550852,function present,65,11.839932,function-match,stayed
+Sources/NativeModelConverter/PyTorchZipArchive.swift,PyTorchZipArchive.readCentralDirectory(_:_:allowsDeflate:),312,11.558258137417459,function present,312,11.224972,function-match,stayed
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.handleDownloadCompletion(itemId:fileURL:),1037,11.370794525297862,function present,1037,11.370795,function-match,stayed
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogSearchManager.toggleProvider(id:),705,11.108458212623614,function present,705,11.108458,function-match,stayed
+ios/MLBrowser/iOS/State/FindingArchiveImport.swift,FindingArchiveImport.readImages(for:root:reader:stagingDirectory:),510,11.066182826106502,function present,510,11.066183,function-match,stayed
+Sources/NativeModelConverter/NativeModelAnchorFreeRecognizer.swift,NativeModelAnchorFreeRecognizer.classifyBranches(_:_:classCount:),124,10.828427124746192,function present,124,2.828427,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelConversionMetrics.swift,NativeModelConverter.convert(from:to:sourceProvenance:reporting:),128,10.828427124746192,function present,128,2.828427,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.weightParameters(for:in:),2976,10.828427124746192,function present,2976,2.828427,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelGraph.swift,NativeModelAttribute.encode(to:),436,10.828427124746192,function present,436,10.828427,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelGraphPackage.swift,NativeModelGraphPackageReader.validatePackageContents(_:manifest:),342,10.828427124746192,function present,342,2.828427,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReaderError.errorDescription.get,45,10.828427124746192,function present,45,2.828427,function-match,left-cohort
+Sources/NativeModelConverter/UltralyticsDetectorHints.swift,Scanner.scanNonNegativeInt(),186,10.828427124746192,function present,186,2.828427,function-match,left-cohort
+Tools/Sources/ProjectTool/SupportLog.swift,SupportLog.Decrypt.resolvePrivateKey(),183,10.828427124746192,file absent; coverage unknown,183,,missing,unmeasured
+ios/MLBrowser/iOS/Services/Catalog/HuggingFaceXetDownloader.swift,HuggingFaceXetDownloader.download(file:session:onBytesWritten:),18,10.828427124746192,function present,18,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/Services/TelemetryDeckAnalyticsService.swift,TelemetryDeckAnalyticsProvider.activate(),44,10.828427124746192,function present,44,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/State/Annotation.swift,AnnotationSoundPlayer.start(_:),291,10.828427124746192,function present,291,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/State/AppMessages/ClerkMessageReplyWriter.swift,ClerkMessageReplyWriter.write(_:),60,10.828427124746192,function present,60,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/State/FindingRepository.swift,FindingRepository.linkedBackup(of:named:in:),656,10.828427124746192,function present,656,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Annotation/AnnotationViewBuilder.swift,DetectionPhaseOut.body(content:),43,10.828427124746192,function present,43,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Annotation/AnnotationViewBuilder.swift,AnnotationViewBuilder.body.get,80,10.828427124746192,function present,80,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Annotation/FindingFlash.swift,ClassificationLabelBubble.body.get,287,10.828427124746192,function present,287,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Auth/DeleteAccountView.swift,DeleteAccountView.body.get,98,10.828427124746192,function present,98,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ConfigurationForm.exportConvertedModel(_:),320,10.828427124746192,function present,320,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift,demoModelTheTourWillEnable(among:),620,10.828427124746192,function present,620,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.nativeConversionInput(for:),1035,10.828427124746192,function present,1036,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.isNativeConversionCancellation(_:),1224,10.828427124746192,function present,1225,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/UI/LocationSheetView.swift,VisitTrailView.deleteSiteHistory(),492,10.828427124746192,function present,492,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift,FindPickOverlay.body.get,944,10.828427124746192,function present,945,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/UI/SettingsView/SentryStatsView.swift,SentryStatsView.body.get,9,10.828427124746192,function present,9,10.828427,measured-zero,stayed
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.totalBytesWrittenPublisher(for:),622,10.75,function present,622,10.75,function-match,stayed
+ios/MLBrowser/iOS/Services/FindingShareLink.swift,CoordinateText.component(_:positive:negative:),1090,10.583005244258363,function present,1090,10.583005,function-match,stayed
+ios/MLBrowser/iOS/Drivers/Detector.swift,Detector.detect(),461,10.54382367884827,function present,461,10.543824,function-match,stayed
+ios/MLBrowser/iOS/Services/MessageReplyPatchBuilder.swift,MessageReplyPatchBuilder.plan(outbox:serverReplies:appVersion:retentionLimit:),60,10.393762571360785,function present,60,10.393763,function-match,stayed
+ios/MLBrowser/iOS/State/Downloader.swift,DownloadItem.delete(_:in:deleteModel:),1203,10.291079783099615,function present,1203,10.29108,function-match,stayed
+ios/MLBrowser/iOS/State/AppMessages/MessageCenterState.swift,MessageCenterState.reevaluate(using:),323,10.198039027185569,function present,323,10.198039,function-match,stayed
+ios/MLBrowser/iOS/UI/MLBrowser.swift,MLBrowser.body.get,332,10.198039027185569,function present,332,10.198039,function-match,stayed
+ios/MLBrowser/iOS/Drivers/Detector.swift,Detector.detectUsingVisionROI(image:regions:using:onPartialResult:),146,10.085676840202002,function present,146,10.085677,function-match,stayed
+ios/MLBrowser/iOS/State/FindingsSyncCoordinator.swift,FindingsSyncCoordinator.upload(_:account:transport:ledger:),846,10.0604635474528,function present,846,10.060464,function-match,stayed
+ios/MLBrowser/iOS/State/Findings.swift,Finding.validationReport(),15,10.014968478076966,function present,15,10.014968,function-match,stayed
+ios/MLBrowser/iOS/UI/Subscription/SubscriptionGateView.swift,SubscriptionGateView.body.get,228,10,function present,228,10,function-match,stayed
+ios/MLBrowser/iOS/UI/ContentView.swift,ContentView.body.get,48,9.9498743710662,function present,48,8.944272,function-match,stayed
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.totalBytesExpectedPublisher(for:),643,9.830903790087465,function present,643,9.830904,function-match,stayed
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.catalogDownloadItem(files:catalogSource:in:),496,9.825598412603904,function present,496,9.825598,function-match,stayed
+ios/MLBrowser/iOS/UI/FileImporter/NativeModelConversionReportView.swift,NativeModelConversionReporting.logText(for:),66,9.763797668709497,function present,66,9.763798,function-match,stayed
+ios/MLBrowser/iOS/State/FindingsSyncCoordinator.swift,FindingsSyncCoordinator.flushTombstones(account:transport:ledger:),769,9.75579530543811,function present,769,10.076123,function-match,stayed
+ios/MLBrowser/iOS/UI/GlobalToolbar.swift,GlobalToolbarTrailing.detectionButton.get,124,9.656854249492381,function present,124,9.656854,function-match,stayed
+Sources/NativeModelConverter/NativeModelAnchorFreeHead.swift,NativeModelAnchorFreeHead.PlanError.errorDescription.get,58,9.645751311064592,function present,58,9.645751,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelYOLOHead.swift,NativeModelYOLOHead.PlanError.errorDescription.get,58,9.645751311064592,function present,58,9.645751,measured-zero,stayed
+Tools/Sources/ProjectTool/ASC.swift,ASC.Token.run(),56,9.645751311064592,file absent; coverage unknown,56,,missing,unmeasured
+Tools/Sources/ProjectTool/SupportLog.swift,SupportLog.Decrypt.describe(_:),205,9.645751311064592,file absent; coverage unknown,205,,missing,unmeasured
+ios/MLBrowser/iOS/State/FindingsSyncCoordinator.swift,FindingsSyncCoordinator.pull(account:store:transport:ledger:),924,9.488609775561699,function present,924,9.48861,function-match,stayed
+ios/MLBrowser/iOS/State/FindingsSyncCoordinator.swift,FindingsSyncCoordinator.requeue(_:for:),723,9.456508462563834,function present,723,9.456508,function-match,stayed
+Sources/NativeModelConverter/PyTorchZipArchive.swift,PyTorchZipArchive.readEndOfCentralDirectory(_:),162,9.28037772736024,function present,162,9.165151,function-match,stayed
+ios/MLBrowser/iOS/Services/MapLocation/MapURLViewportRefresh.swift,MapURLViewportRefresh.refreshedFragment(_:geographic:zoom:center:),182,9.16515138991168,function present,182,9.165151,function-match,stayed
+ios/MLBrowser/iOS/State/Annotation.swift,AnnotationSoundCatalog.makeWAV(for:),483,9.16515138991168,function present,483,9.165151,function-match,stayed
+ios/MLBrowser/iOS/Tools/Reporting/Observability.swift,Observability.runSentryTestCrashIfEnabled(),246,8.917684953298835,function present,246,8.917685,function-match,stayed
+ios/MLBrowser/iOS/Services/MapLocation/MapURLLocationInference.swift,MapURLLocationInference.coordinate(fromTuple:layout:),155,8.83318235634097,function present,155,8.833182,function-match,stayed
+Sources/NativeModelConverter/PyTorchZipArchive.swift,PyTorchZipArchive.torchPickleEntry(),671,8.532622542973673,function present,671,8.485281,function-match,stayed
+Sources/NativeModelConverter/ADAFCheckpointCatalog.swift,ADAFCheckpointCatalog.familyName(matching:),202,8.449489742783177,function present,202,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelConversionMemory.swift,NativeModelConversionMemoryTracker.sample(),72,8.449489742783177,function present,72,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelConversionMetrics.swift,NativeModelConverter.convert(onnx:to:reporting:),161,8.449489742783177,function present,161,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelConversionMetrics.swift,NativeModelConverter.convert(adafDetector:to:reporting:),190,8.449489742783177,function present,190,8.44949,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelConversionMetrics.swift,NativeModelConverter.convertADAFDetectorReserved(from:to:reporting:),326,8.449489742783177,function present,326,8.44949,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelConversionObservation.swift,NativeModelGraphPackageError.conversionPhase.get,171,8.449489742783177,function present,171,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.ResolvedEmissionInterface.modelFormat.get,71,8.449489742783177,function present,71,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.streamingNetworkLayers(operations:weightsByName:promotedWeights:weightsDigest:imagePlan:usesLegacyShapeMapping:cancellationCheck:),737,8.449489742783177,function present,737,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.streamingLayer(for:weightsByName:promotedWeights:weightsDigest:usesLegacyShapeMapping:cancellationCheck:),771,8.449489742783177,function present,771,8.44949,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.streamingLayerEnvelope(name:inputs:outputs:parameterField:parameters:),1111,8.449489742783177,function present,1111,8.44949,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.upsampleLayer(for:),2558,8.449489742783177,function present,2558,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.sliceChannelsLayer(for:),2669,8.449489742783177,function present,2669,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelFasterRCNNRegistry.GraphBuilder.emitROIEdgeAlignment(features:proposalCorners:count:),720,8.449489742783177,function present,720,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelFasterRCNNRegistry.GraphBuilder.roiLevelMasks(proposalCorners:count:),827,8.449489742783177,function present,827,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelFasterRCNNRegistry.swift,NativeModelFasterRCNNRegistry.GraphBuilder.add(_:_:output:),1418,8.449489742783177,function present,1418,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelGraphPackage.swift,NativeModelGraphPackageReader.isSHA256(_:),365,8.449489742783177,function present,365,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.constantInts(_:),387,8.449489742783177,function present,387,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.paddingAttribute(_:),715,8.449489742783177,function present,715,2.44949,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.transformedFloatBytes(_:name:operation:transform:),1388,8.449489742783177,function present,1388,2.44949,function-match,left-cohort
+ios/MLBrowser/iOS/State/Annotation.swift,AnnotationSoundPlayer.prepareSession(),369,8.449489742783177,function present,369,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.catalogDownloadErrorMessage(for:),921,8.449489742783177,function present,921,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/Tools/AppEnvironment.swift,AppEnvironment.purchasesUseSandbox.get,243,8.449489742783177,function present,243,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/Tools/Reporting/SentryCrashReportingService.swift,SentryCrashReportingService.addBreadcrumb(message:level:category:),262,8.449489742783177,function present,262,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Annotation/DetectionCoordinator.swift,DetectionCoordinator.setInteracting(_:),117,8.449489742783177,function present,117,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogBrowseView.body.get,74,8.449489742783177,function present,74,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogResultRow.body.get,388,8.449489742783177,function present,388,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogResultRow.status.get,522,8.449489742783177,function present,522,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ConfigurationForm.authorSection.get,441,8.449489742783177,function present,441,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ConfigurationForm.exportModelFile(),598,8.449489742783177,function present,598,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Downloder/DownloadDetailView.swift,DownloadDetailView.downloadButton.get,327,8.449489742783177,function present,328,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Downloder/DownloadDetailView.swift,DownloadDetailView.importButton.get,439,8.449489742783177,function present,440,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.recordNativeImportFailure(_:reportStore:configurationDirectory:reportObserver:),1138,8.449489742783177,function present,1139,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingShareCard.swift,FindingShareComposer.previewFloor.get,834,8.449489742783177,function present,834,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/SaveFindingSheet.swift,CropAdjustableSnapshot.content(fitted:),667,8.449489742783177,function present,667,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift,WebScreenView.presentResolvingLocation(observation:params:frame:generation:),775,8.449489742783177,function present,776,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift,FindPickOverlay.hintText.get,979,8.449489742783177,function present,980,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift,FindingAlignmentCrosshair.body.get,1049,8.449489742783177,function present,1050,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/SettingsView/AppDescriptionView.swift,AppDescriptionView.body.get,35,8.449489742783177,function present,35,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/SettingsView/AppDescriptionView.swift,AppDescriptionView.applicationSection.get,93,8.449489742783177,function present,93,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/SettingsView/BrowsingHistoryView.swift,BrowserHistoryView.historyRow(_:),65,8.449489742783177,function present,66,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift,SettingsForm.createAlert(from:),967,8.449489742783177,function present,967,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift,PaywallView.description.get,421,8.449489742783177,function present,421,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift,PaywallView.exportFindings(),931,8.449489742783177,function present,935,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift,PaywallView.removeAllFindings(),954,8.449489742783177,function present,958,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift,PaywallView.trialEligibility.get,986,8.449489742783177,function present,990,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift,PaywallView.startPurchase(_:),1167,8.449489742783177,function present,1171,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Subscription/WelcomeView.swift,WelcomeBackground.body.get,190,8.449489742783177,function present,190,8.44949,measured-zero,stayed
+ios/MLBrowser/iOS/UI/WebLoadFailureOverlay.swift,WebLoadFailureOverlay.body.get,20,8.449489742783177,function present,20,8.44949,measured-zero,stayed
+scripts/m3a_parity_spike/VisionReplay/Sources/VisionReplay/main.swift,multiArrayDataTypeName(_:),180,8.449489742783177,file absent; coverage unknown,180,,missing,unmeasured
+Sources/NativeModelConverter/PyTorchCheckpointReader.swift,PyTorchCheckpointReader.readTensors(_:archive:root:),238,8.36782690175039,function present,238,8.3666,function-match,stayed
+ios/MLBrowser/iOS/State/AppMessages/AppMessage.swift,AppMessage.compareVersions(_:_:),232,8.366600265340756,function present,232,8.3666,function-match,stayed
+ios/MLBrowser/iOS/State/Settings.swift,Settings.validate(),593,8,function present,593,8,function-match,stayed
+ios/MLBrowser/iOS/State/FindingArchiveImport.swift,FindingArchiveImport.decodeRows(_:),349,7.9559205998604385,function present,349,7.981501,function-match,stayed
+Sources/NativeModelConverter/NativeModelGraph.swift,NativeModelGraphValidator.validate(operation:formatVersion:knownTensors:operationNames:issues:),659,7.935870621312453,function present,659,6.928203,function-match,stayed
+ios/MLBrowser/iOS/Services/FreeAccessAnchorService.swift,FreeAccessAnchorService.reconciledWindow(),203,7.745966692414834,function present,203,7.745967,function-match,stayed
+ios/MLBrowser/iOS/State/DemoDataManager.swift,DemoDataManager.createBrowsingHistoryIfNeeded(),109,7.745966692414834,function present,109,7.745967,function-match,stayed
+ios/MLBrowser/iOS/State/DetectionSessionState.swift,DetectionSessionState.ontheflyDetectionTapped(recordAnalytics:isUserInitiated:),95,7.745966692414834,function present,95,7.745967,function-match,stayed
+ios/MLBrowser/iOS/UI/Tour/TourOverlay.swift,TourOverlayModifier.overlay(step:anchors:proxy:),49,7.745966692414834,function present,49,7.745967,function-match,stayed
+Sources/NativeModelConverter/NativeModelGraph.swift,NativeModelGraphValidator.validate(_:),558,7.6872292023143824,function present,558,7.483315,function-match,stayed
+Sources/NativeModelConverter/NativeModelGraph.swift,NativeModelGraphValidator.validateOperationSignature(_:knownTensors:issues:),743,7.609658292197951,function present,743,3.872983,function-match,left-cohort
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.startDownload(_:),722,7.607585341477528,function present,722,7.607585,function-match,stayed
+ios/MLBrowser/iOS/State/AppMessages/AppMessage.swift,AppMessage.parse(_:),343,7.483485240719254,function present,343,7.483485,function-match,stayed
+ios/MLBrowser/iOS/UI/Findings/SharedFindingView.swift,SharedFindingSection.layout(for:),87,7.483314773547883,function present,87,7.483315,function-match,stayed
+ios/MLBrowser/iOS/UI/Subscription/SubscriptionGateView.swift,RootGateDisplay.resolve(isPaymentsSurfaceEnabled:isSubscribed:freeAccess:hasEverShownContent:),36,7.483314773547883,function present,36,7.483315,function-match,stayed
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift,WebScreenView.toolbarContent.get,184,7.416198487095663,function present,185,7.416198,function-match,stayed
+ios/MLBrowser/iOS/State/FindingsSyncCoordinator.swift,FindingsSyncCoordinator.backupStates(for:ledger:modifiedAt:),1337,7.3484692283495345,function present,1337,7.348469,function-match,stayed
+ios/MLBrowser/iOS/Services/Analytics.swift,AnalyticsState.track(_:),517,7.344056711903915,function present,517,7.344057,function-match,stayed
+Sources/ADAFDetectorParityRunner/main.swift,ADAFDetectorParityRunner.decodeRGB(_:),147,7.236067977499791,file absent; coverage unknown,147,,missing,unmeasured
+Sources/NativeModelConverter/NativeModelConversionObservation.swift,NativeModelConversionError.diagnostic.get,119,7.236067977499791,function present,119,2.236068,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.streamingBatchNormalizationLayer(for:weightsByName:promotedWeights:weightsDigest:cancellationCheck:),921,7.236067977499791,function present,921,7.236068,measured-zero,stayed
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.modelData(graph:weights:context:),1134,7.236067977499791,function present,1134,2.236068,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerMatMul(_:),870,7.236067977499791,function present,870,2.236068,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerDiv(_:),991,7.236067977499791,function present,991,2.236068,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.lowerBinaryElementwise(_:kind:),1110,7.236067977499791,function present,1110,2.236068,function-match,left-cohort
+Sources/NativeModelConverter/ONNXModelReader.swift,ONNXModelReader.Lowering.ConstantTransform.apply(_:name:operation:),1154,7.236067977499791,function present,1154,2.236068,function-match,left-cohort
+Sources/NativeModelConverter/PyTorchWeightExtractor.swift,PyTorchWeightExtractor.float16Bytes(of:tensor:),424,7.236067977499791,function present,424,2.236068,function-match,left-cohort
+Sources/NativeModelConverter/PyTorchZipArchive.swift,PyTorchZipArchive.streamBytes(of:maximumByteCount:chunkByteCount:receive:),511,7.236067977499791,function present,511,2.236068,function-match,left-cohort
+Sources/NativeModelEvaluatorCLI/main.swift,EvaluationError.errorDescription.get,114,7.236067977499791,file absent; coverage unknown,114,,missing,unmeasured
+ios/MLBrowser/iOS/Drivers/Classificator.swift,Classificator.classify(),99,7.236067977499791,function present,99,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/Services/Catalog/CatalogProvider.swift,ModelFamily.displayName.get,50,7.236067977499791,function present,50,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/State/Annotation.swift,AnnotationSoundPlayer.startBurst(_:),277,7.236067977499791,function present,277,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/State/AppMessages/ClerkMessageReplyWriter.swift,ClerkMessageReplyWriter.serverReplies(),37,7.236067977499791,function present,37,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/Tools/BackendEnvironment.swift,BackendEnvironment.`switch`(to:),87,7.236067977499791,function present,87,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/UI/AppMessages/AppMessageModifier.swift,AppMessageBanner.styleTint.get,224,7.236067977499791,function present,224,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/UI/AppMessages/AppMessageModifier.swift,AppMessageInlineRow.rowTint.get,255,7.236067977499791,function present,255,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogResultRow.supportBadge.get,499,7.236067977499791,function present,499,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ModelComputeUnit.localizedName.get,207,7.236067977499791,function present,207,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ModelComputeUnit.localizedDescription.get,216,7.236067977499791,function present,216,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Downloder/DownloadDetailView.swift,DownloadDetailView.downloadButtonAttributes(_:),512,7.236067977499791,function present,513,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.synchronizeMessage(for:),912,7.236067977499791,function present,912,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.backUpMessage(for:),923,7.236067977499791,function present,923,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.backUpIcon(for:),934,7.236067977499791,function present,934,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.backUpTint(for:),943,7.236067977499791,function present,943,7.236068,measured-zero,stayed
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogSearchManager.resolveFiles(for:),787,7.083502622129182,function present,787,7.083503,function-match,stayed
+ios/MLBrowser/iOS/Services/MessageNotificationPlanner.swift,MessageNotificationPlanner.plan(desired:notifiedState:pending:delivered:now:),80,7.0710678118654755,function present,80,7.071068,function-match,stayed
+ios/MLBrowser/iOS/State/FindingRepository.swift,FindingRepository.apply(_:to:screenshotFilename:),548,7.0710678118654755,function present,548,7.071068,function-match,stayed
+ios/MLBrowser/iOS/Persistence/CoreDataManagable.swift,CoreDataManageable.update(_:in:with:),208,7.000710958923985,function present,161,,file-fallback,unmeasured
+Sources/NativeModelConverter/PyTorchCheckpointReader.swift,PyTorchCheckpointReader.countStorages(in:),329,6.930641882919923,function present,329,6.928203,function-match,stayed
+ios/MLBrowser/iOS/Services/FindingsSyncLedger.swift,FindingsSyncLedgerStore.accountsHolding(_:in:),176,6.928203230275509,function present,176,6.928203,function-match,stayed
+ios/MLBrowser/iOS/State/DeepConfiguration.swift,DeepConfiguration.validationReport(),16,6.928203230275509,function present,16,6.928203,function-match,stayed
+ios/MLBrowser/iOS/Tools/Extensions/String+Extensions.swift,String.browserInputType.get,62,6.928203230275509,function present,62,6.928203,function-match,stayed
+ios/MLBrowser/iOS/UI/GlobalToolbar.swift,GlobalToolbarLeading.body.get,37,6.928203230275509,function present,37,6.928203,function-match,stayed
+ios/MLBrowser/iOS/UI/MLBrowser.swift,AnalyticsChoiceGate.display.get,575,6.928203230275509,function present,575,6.928203,function-match,stayed
+Sources/NativeModelConverter/NativeModelGraph.swift,NativeModelOperationKind.serializedValue.get,257,6.708203932499369,function present,257,6.708204,function-match,stayed
+ios/MLBrowser/iOS/Drivers/DetectionTiling.swift,TileLayout.isAdjacentToInteriorRegionEdge(_:regions:tolerance:),232,6.708203932499369,function present,232,6.708204,function-match,stayed
+ios/MLBrowser/iOS/State/FindingsSyncCoordinator.swift,FindingsSyncCoordinator.backUpNow(expectedAccount:),397,6.708203932499369,function present,397,6.708204,function-match,stayed
+Sources/NativeModelConverter/NativeModelGraph.swift,NativeModelGraphValidator.validateUnaryOperationSignature(_:knownTensors:issues:),840,6.671817165449399,function present,840,3.872983,function-match,left-cohort
+ios/MLBrowser/iOS/State/Settings.swift,Settings.init(),472,6.489077503963416,function present,472,6.489078,function-match,stayed
+ios/MLBrowser/iOS/Drivers/DeepDriver.swift,DeepDrivers.unload(_:),250,6.48074069840786,function present,250,6.480741,function-match,stayed
+ios/MLBrowser/iOS/Services/Analytics.swift,AnalyticsState.applyScope(_:),406,6.48074069840786,function present,406,6.480741,function-match,stayed
+ios/MLBrowser/iOS/State/BrowserState.swift,BrowserState.urlChanged(_:),809,6.48074069840786,function present,809,6.480741,function-match,stayed
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift,WebAddressDisplay.body.get,1115,6.48074069840786,function present,1116,6.480741,function-match,stayed
+ios/MLBrowser/iOS/Services/ModelLoadingService.swift,ModelLoadingService.byteCount(at:),424,6.345876861015495,function present,424,6.345877,function-match,stayed
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.nativeConversionDiagnostic(for:),1173,6.324875320336759,function present,1174,6.324875,function-match,stayed
+ios/MLBrowser/iOS/Services/MapLocation/MapLocationProbe.swift,MapLocationProbe.decode(_:),218,6.324555320336759,function present,218,6.324555,function-match,stayed
+ios/MLBrowser/iOS/State/Downloader.swift,DownloadItem.validationReport(),1150,6.324555320336759,function present,1150,6.324555,function-match,stayed
+ios/MLBrowser/iOS/Tools/Reporting/SentryBreadcrumbGuard.swift,SentryBreadcrumbGuard.shouldAllowLocked(signatureHex:now:state:),67,6.324555320336759,function present,67,6.324555,function-match,stayed
+ios/MLBrowser/iOS/Services/Catalog/HuggingFaceCatalogProvider.swift,JSONHTTPClient.get(_:from:),18,6.275658972710859,function present,18,6.275659,function-match,stayed
+ios/MLBrowser/iOS/Services/MapLocation/MapFrameRegistry.swift,MapFrameRegistry.record(_:),40,6.0873411256479395,function present,40,6.087341,function-match,stayed
+ios/MLBrowser/iOS/Services/DownloadedContainerFormat.swift,DownloadedContainerFormat.containsTorchPickleEntry(_:),110,6.000452790320349,function present,110,6.000453,function-match,stayed
+Sources/NativeModelConverter/CoreMLProtobufEncoder.swift,NativeModelAtomicFilePublisher.publish(_:as:),206,6,function present,206,2,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.companionFilename(for:besidePrimaryAt:),528,6,function present,528,2,function-match,left-cohort
+Sources/NativeModelConverter/NativeModelCoreMLEmitter.swift,NativeModelCoreMLEmitter.semanticsProvenance(of:),1270,6,function present,1270,2,function-match,left-cohort
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift,PaywallView.paywallStack.get,,,,438,18.872983,measured-zero,entered
+Tools/Sources/ProjectToolCore/XcodeCloud.swift,CloudSnapshot.report(),,,,82,12.961481,function-match,entered
+Tools/Sources/ProjectToolCore/XcodeCloud.swift,XcodeCloudClient.snapshot(buildID:),,,,195,8.124038,function-match,entered
+Tools/Sources/ProjectToolCore/XcodeCloud.swift,XcodeCloudClient.latestBuild(branch:product:),,,,169,7.348469,function-match,entered
+Tools/Sources/ProjectToolCore/ASCCredentialsSupport.swift,ASCCredentialsError.description.get,,,,20,6,measured-zero,entered
+ios/MLBrowser/iOS/Drivers/DeepDriver.swift,DeepDriverType.localizedName.get,,,,21,6,measured-zero,entered
+ios/MLBrowser/iOS/Rendering/DefaultRenderer.swift,DefaultRenderer.render(_:scale:completionHandler:),,,,19,6,measured-zero,entered
+ios/MLBrowser/iOS/Services/Catalog/HuggingFaceXetDownloader.swift,HuggingFaceXetDownloader.hubURL(for:xetFile:),,,,122,6,measured-zero,entered
+ios/MLBrowser/iOS/State/DataController.swift,DataController.destroyUITestStore(_:),,,,205,6,measured-zero,entered
+ios/MLBrowser/iOS/State/NativeModelConversionExporter.swift,NativeModelConversionExportError.errorDescription.get,,,,172,6,measured-zero,entered
+ios/MLBrowser/iOS/State/WebHistory.swift,WebHistoryEntry.ValidationError.errorDescription.get,,,,87,6,measured-zero,entered
+ios/MLBrowser/iOS/Tools/Extensions/OSLog+Extensions.swift,Logger.logTrace(_:isPrivate:),,,,79,6,measured-zero,entered
+ios/MLBrowser/iOS/Tools/Extensions/OSLog+Extensions.swift,Logger.logCritical(_:isPrivate:),,,,106,6,measured-zero,entered
+ios/MLBrowser/iOS/Tools/Extensions/UI/Image+Extensions.swift,Image.init(templateName:),,,,12,6,measured-zero,entered
+ios/MLBrowser/iOS/Tools/Extensions/UI/View+Extensions.swift,View.roomySheet(width:height:),,,,123,6,measured-zero,entered
+ios/MLBrowser/iOS/Tools/HostPlatform.swift,View.macOnly(_:),,,,101,6,measured-zero,entered
+ios/MLBrowser/iOS/Tools/HostPlatform.swift,View.mobileOnly(_:),,,,111,6,measured-zero,entered
+ios/MLBrowser/iOS/Tools/HostPlatform.swift,View.iPhoneOnly(_:),,,,121,6,measured-zero,entered
+ios/MLBrowser/iOS/Tools/HostPlatform.swift,View.iPadOnly(_:),,,,131,6,measured-zero,entered
+ios/MLBrowser/iOS/Tools/Localization/L10n+SwiftUI.swift,localizedAlert(title:message:primaryButton:secondaryButton:),,,,54,6,measured-zero,entered
+ios/MLBrowser/iOS/Tools/Reporting/SentryCrashReportingService.swift,SentryCrashReportingService.captureError(message:error:),,,,282,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Annotation/DetectableView.swift,View.trackingInteraction(_:),,,,382,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Annotation/DetectableView.swift,View.trackingMagnification(_:),,,,397,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Annotation/ObservationCircleView.swift,ObservationCircleView.body.get,,,,20,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/AppMessages/AppMessageModifier.swift,AppMessageBanner.replyButton(_:fillsWidth:),,,,204,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogBrowseView.filterSectionHeader(_:),,,,281,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogResultRow.tags.get,,,,468,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogResultRow.formatTag.get,,,,483,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Catalog/CatalogBrowseView.swift,CatalogSearchManager.toggleFamily(_:),,,,747,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ExpandableDetailRow.copyButton.get,,,,119,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Configuration/ConfigurationForm.swift,ConfigurationForm.modelTypeSelection.get,,,,270,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Downloder/DownloadDetailView.swift,DownloadDetailView.urlInput.get,,,,174,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Downloder/DownloadDetailView.swift,DownloadDetailView.urlTextField.get,,,,189,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Downloder/DownloadDetailView.swift,DownloadDetailView.downloadProgressText.get,,,,244,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Downloder/DownloadDetailView.swift,DownloadDetailView.packageProgressDescription.get,,,,366,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift,enableFirstReadyDemoModel(in:),,,,642,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift,ConfigurationRow.provenanceText.get,,,,781,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/EmailController.swift,EmailController.sendEmail(subject:body:to:attachments:onFinish:),,,,51,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/EmailController.swift,EmailController.topmostViewController(),,,,124,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ModelImportView.importButtonsSection.get,,,,406,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/FileImporter/ModelImportView.swift,ImportError.errorDescription.get,,,,1398,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Findings/FindingDetailView.swift,FindingDetailView.pageSection.get,,,,257,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Findings/FindingDetailView.swift,InspectableHighlightedSnapshot.content(fitted:),,,,417,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.exportFindings(),,,,448,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.distinctLabels.get,,,,483,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.sortOrderName.get,,,,620,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.thumbnail(_:),,,,741,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Findings/SaveFindingSheet.swift,FindingCapture.detection(at:in:results:minimumTarget:),,,,60,6,function-match,entered
+ios/MLBrowser/iOS/UI/LocationSheetView.swift,LocationSheetView.fullURLsToggle.get,,,,303,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/MLBrowser.swift,BackgroundDownloadAppDelegate.runMessagesRefresh(),,,,112,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/MLBrowser.swift,AnalyticsChoiceGate.body.get,,,,602,6,function-match,entered
+ios/MLBrowser/iOS/UI/Modifiers/UnderConstructionBadgeModifier.swift,UnderConstructionBadgeModifier.body(content:),,,,34,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/SettingsView/AppDescriptionView.swift,AppDescriptionView.privacySection.get,,,,168,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/SettingsView/BrowsingHistoryView.swift,BrowserHistoryView.clearAlert.get,,,,105,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/SettingsView/PrivacyPolicyView.swift,PrivacyPolicyView.body.get,,,,35,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift,SettingsForm.resetOptionsView.get,,,,544,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift,SettingsForm.exportFindingsBeforeRemoval(),,,,614,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift,SettingsForm.removeAllFindings(),,,,629,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Subscription/SubscriptionStatusView.swift,SubscriptionStatusView.openManageSubscriptionsPage(),,,,122,6,measured-zero,entered
+ios/MLBrowser/iOS/UI/Subscription/WelcomeView.swift,WelcomeView.priceNote.get,,,,141,6,measured-zero,entered
+ios/MLBrowser/iOS/Services/Catalog/CatalogPackageDownloader.swift,CatalogPackageDownloader.validate(files:),,,,494,5.921183,function-match,entered
+ios/MLBrowser/iOS/State/ModelAssetStore.swift,ModelAssetStore.cleanup(entityId:demo:),,,,34,5.919859,function-match,entered
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.init(dataController:packageDownloader:),,,,338,5.91608,function-match,entered
+ios/MLBrowser/iOS/State/Findings.swift,Finding.isUnitRect(x:y:width:height:),,,,122,5.91608,function-match,entered
+ios/MLBrowser/iOS/State/ModelTypeBackfiller.swift,ModelTypeBackfiller.armGuardsIfScanIsComplete(loadFailureCount:shouldBackfillType:shouldBackfillLicense:),,,,187,5.91608,function-match,entered
+ios/MLBrowser/iOS/Tools/Reporting/SentryEventSignature.swift,SentryEventSignatureBuilder.signatureHex(from:),,,,22,5.91608,function-match,entered
+ios/MLBrowser/iOS/UI/AppMessages/AppMessageModifier.swift,AppMessageModifier.body(content:),,,,52,5.91608,function-match,entered
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift,FindingsListView.ordered(_:by:reversed:),,,,1096,5.91608,function-match,entered
+ios/MLBrowser/iOS/State/FindingScreenshotStore.swift,FindingScreenshotStore.sweepOrphans(in:),,,,166,5.829404,function-match,entered
+ios/MLBrowser/iOS/State/AppMessages/MessageReplyCoordinator.swift,MessageReplyCoordinator.drain(),,,,80,5.656854,function-match,entered
+ios/MLBrowser/iOS/State/FreeAccessState.swift,FreeAccessState.reevaluate(),,,,316,5.656854,function-match,entered
+ios/MLBrowser/iOS/UI/Findings/FindingShareCard.swift,FindingShareCard.imageSlot.get,,,,213,5.656854,function-match,entered
+ios/MLBrowser/iOS/Services/FindingsCloudTransport.swift,FindingsCloudTransport.send(_:),,,,247,5.512216,function-match,entered
+ios/MLBrowser/iOS/Tools/Testability/UITestLaunchConfiguration.swift,UITestLaunchConfiguration.fromEnvironment.get,,,,130,5.490883,function-match,entered
+ios/MLBrowser/iOS/Tools/Extensions/FileManager+Extensions.swift,FileManager.storeModelInDocuments(from:configurationId:preferMove:),,,,85,5.483332,function-match,entered
+ios/MLBrowser/iOS/Services/FindingShareLink.swift,FindingShareLink.fitted(_:variant:pageDetail:),,,,366,5.477661,function-match,entered
+ios/MLBrowser/iOS/Drivers/DeepDriver.swift,DeepDrivers.register(driver:along:),,,,188,5.477226,function-match,entered
+ios/MLBrowser/iOS/Services/DownloadedContainerFormat.swift,DownloadedContainerFormat.isValidOctalField(_:),,,,185,5.477226,function-match,entered
+ios/MLBrowser/iOS/Services/MapLocation/MapLocationTypes.swift,MapLocationReading.formatted(_:),,,,148,5.477226,function-match,entered
+ios/MLBrowser/iOS/State/AppMessages/TargetingCoordinator.swift,TargetingCoordinator.recompute(),,,,90,5.477226,function-match,entered
+ios/MLBrowser/iOS/State/FindingExporter.swift,FindingExporter.zip(directory:to:fileManager:),,,,397,5.477226,function-match,entered
+ios/MLBrowser/iOS/State/FindingsSyncCoordinator.swift,FindingsSyncCoordinator.Claims.apply(to:),,,,695,5.477226,function-match,entered
+ios/MLBrowser/iOS/State/NativeModelConversionExporter.swift,NativeModelConversionExporter.zip(directory:to:fileManager:),,,,94,5.477226,function-match,entered
+ios/MLBrowser/iOS/UI/Configuration/MetadataParser.swift,MLModelMetadataParser.modelVersion.get,,,,84,5.477226,function-match,entered
+ios/MLBrowser/iOS/UI/Configuration/MetadataParser.swift,MLModelMetadataParser.confidenceThreshold.get,,,,141,5.477226,function-match,entered
+ios/MLBrowser/iOS/UI/Configuration/MetadataParser.swift,MLModelMetadataParser.iouThreshold.get,,,,161,5.477226,function-match,entered
+ios/MLBrowser/iOS/UI/Findings/SaveFindingSheet.swift,FindingCapture.detectionAlignedWithCentre(in:),,,,90,5.477226,function-match,entered
+ios/MLBrowser/iOS/State/FindingArchiveImport.swift,FindingArchiveImport.read(archiveAt:availableCapacity:),,,,220,5.301179,function-match,entered
+Sources/NativeModelConverter/PyTorchPickleDecoder.swift,PyTorchPickleDecoder.Machine.setItems(_:opcode:at:),,,,554,5.291503,function-match,entered
+ios/MLBrowser/iOS/Services/MapLocation/MapURLLocationInference.swift,MapURLLocationInference.reading(from:),,,,41,5.291503,function-match,entered
+ios/MLBrowser/iOS/Services/MapLocation/MapURLLocationInference.swift,MapURLLocationInference.namedTriple(in:url:),,,,134,5.291503,function-match,entered
+ios/MLBrowser/iOS/State/AppMessages/MessageSurfaceResolver.swift,MessageSurfaceResolver.surface(isReady:paymentsSurfaceEnabled:isSubscribed:freeAccess:analyticsChoicePending:),,,,54,5.291503,function-match,entered
+ios/MLBrowser/iOS/State/DataController.swift,DataController.loadStores(),,,,227,5.291503,function-match,entered
+ios/MLBrowser/iOS/State/FindingExporter.swift,FindingExporter.csvField(_:),,,,361,5.291503,function-match,entered
+ios/MLBrowser/iOS/State/BrowserState.swift,BrowserState.attemptRecovery(now:),,,,717,5.197694,function-match,entered
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.handlePackageDownloadCompletion(itemId:result:),,,,879,5.091961,function-match,entered
+ios/MLBrowser/iOS/Services/Catalog/CatalogPackageDownloader.swift,CatalogHTTPFileDownloader.urlSession(_:task:didCompleteWithError:),,,,186,5.012136,function-match,entered
+ios/MLBrowser/iOS/State/Appstate.swift,AppState.initialize(),,,,159,5.001422,function-match,entered
+ios/MLBrowser/iOS/Services/NativeModelConversionImportReport.swift,NativeModelConversionImportReport.removeTransientArtifacts(for:in:includingSourcePackage:includingConvertedModel:),,,,386,5,function-match,entered
+ios/MLBrowser/iOS/State/AuthState.swift,AuthState.evaluateGate(),,,,352,4.909903,function-match,entered
+ios/MLBrowser/iOS/UI/Support/SupportRequestView.swift,SupportRequestView.exportedApplicationLogFile(data:sendUnredactedData:sealer:generation:),,,,529,4.909307,function-match,entered
+ios/MLBrowser/iOS/State/ModelConfigurationRepository.swift,ModelConfigurationRepository.reset(),,,,73,4.900199,function-match,entered
+Sources/NativeModelConverter/NativeModelTargetSemantics.swift,NativeModelTargetSemantics.isValid(labelProfile:for:),,,,158,4.898979,function-match,entered
+ios/MLBrowser/iOS/Drivers/DetectionTiling.swift,TileLayout.regions(for:),,,,109,4.898979,function-match,entered
+ios/MLBrowser/iOS/Services/ModelLoadingService.swift,ModelLoadingError.errorDescription.get,,,,83,4.898979,function-match,entered
+ios/MLBrowser/iOS/Services/ModelLoadingService.swift,ModelLoadMemoryPreflight.decide(modelByteCount:headroom:),,,,221,4.898979,function-match,entered
+ios/MLBrowser/iOS/State/AppMessages/MessageCenterState.swift,MessageCenterState.notifiableMessages(),,,,449,4.898979,function-match,entered
+ios/MLBrowser/iOS/Services/Catalog/CatalogPackageDownloader.swift,CatalogHTTPFileDownloader.timeout(taskIdentifier:deadline:),,,,241,4.836621,function-match,entered
+Sources/NativeModelConverter/PyTorchPickleDecoder.swift,PickleStorageKind.byteCount.get,,,,19,4.732051,measured-zero,entered
+ios/MLBrowser/iOS/Services/Catalog/HuggingFaceXetDownloader.swift,HuggingFaceXetDownloader.repository(for:xetFile:),,,,111,4.732051,measured-zero,entered
+ios/MLBrowser/iOS/Services/NativeModelConversionImportReport.swift,NativeModelConversionImportReportError.errorDescription.get,,,,545,4.732051,measured-zero,entered
+ios/MLBrowser/iOS/Services/TelemetryDeckAnalyticsService.swift,TelemetryDeckAnalyticsProvider.updateAccountIdentity(_:),,,,108,4.732051,measured-zero,entered
+ios/MLBrowser/iOS/State/Annotation.swift,AnnotationSoundPlayer.logPlaybackEnvironment(_:),,,,409,4.732051,measured-zero,entered
+ios/MLBrowser/iOS/State/Downloader.swift,Downloader.catalogArtifactName(for:),,,,558,4.732051,measured-zero,entered
+ios/MLBrowser/iOS/State/StoreKitSubscriptionProvider.swift,StoreKitSubscriptionProvider.drainUnfinishedTransactions(),,,,332,4.732051,measured-zero,entered
