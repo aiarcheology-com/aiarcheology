@@ -19,6 +19,7 @@ it is not implemented. Selection today is manual and does not replace existing r
 | Credential-delivery shell logic | `./scripts/test_deliver_credentials.sh` uses its hermetic test harness. |
 | Architecture and source/resource invariants | `./scripts/harmonize.sh` uses the macOS `MLBrowserArchitectureTests` scheme and `MLBrowserUnitTestsHarmonize` plan. It reads repository files from disk. |
 | Localization parity and catalog validation | `./scripts/localization.sh` runs Python strict parity and checks both catalogs. This also runs in GitHub CI; it is not merely an optional editor helper. |
+| Issue automation trust boundary | `node --test .github/tests/issue-automation.test.cjs` executes the inline workflow with offline GitHub API doubles; requires Node and Ruby/Psych. Runs in Harmonize CI. Covers permissions, exact commands, issue/PR events, and comment updates; hosted event/token behavior remains a separate check. |
 | Apple test-fixture setup | `python3 scripts/test_apple_test_models.py` checks cache repair, offline reuse, fail-closed opt-in, notice embedding, and ordinary-build cleanup without network or Xcode. Runs in the unit wrapper and Harmonize CI. |
 | Xcode catalog stability | `./scripts/check_localization_build.sh` builds and checks that both catalogs remain unchanged. This is separate from semantic validation and does not execute app tests. |
 | Swift style | `./scripts/swiftlint.sh` lints `ios/`. For a file, pass an absolute path after `lint`, since the wrapper changes directory. Preserve required hook/CI scope. |
