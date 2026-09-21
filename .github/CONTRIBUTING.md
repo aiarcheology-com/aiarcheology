@@ -15,6 +15,14 @@ what you intend to change and why; if you already know how, say that too.
 Issues are titled `AIA-XXXX: <summary>`. The number is assigned automatically — open the issue with
 a plain title and a workflow normalises it.
 
+Issue creation and label changes also generate a branch suggestion for outside contributors.
+Only users with current repository write access can request a refresh with `/key` or override
+that suggestion with `/branch fix`, `/branch feature`, or `/branch test`. Post the command alone
+at the start of an issue comment; trailing whitespace is allowed. PR comments, embedded commands,
+unsupported prefixes, and commands from users without write access are ignored. Permission lookup
+failures stop processing without changing the issue. Commands change suggestions, not Git branches.
+This automation runs from `main`; changes merged into `develop` take effect after release promotion.
+
 ## Getting the project building
 
 Start at the [README](../README.md#getting-started). It covers the two paths:

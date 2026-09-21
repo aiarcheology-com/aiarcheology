@@ -5,20 +5,19 @@ on:
     types: [opened, labeled, unlabeled]  # will refresh suggestion when labels change
   issue_comment:
     types: [created]                     # allows "/key" or "/branch <prefix>"
-  workflow_dispatch:
 
 permissions:
   issues: write
 
 jobs:
   assign-key:
-    # Run when:
-    # - it's an issue event, OR
-    # - it's a comment with "/key" or "/branch"
-    if: >
-      github.event_name != 'issue_comment' ||
-      contains(github.event.comment.body || '', '/key') ||
-      startsWith(github.event.comment.body || '', '/branch')
+    # Outside contributors retain automatic issue formatting; commands are authorized below.
+    if: >-
+      github.event.issue && !github.event.issue.pull_request &&
+      (github.event_name == 'issues' ||
+       (github.event_name == 'issue_comment' &&
+        (startsWith(github.event.comment.body || '', '/key') ||
+         startsWith(github.event.comment.body || '', '/branch'))))
     runs-on: ubuntu-latest
     env:
       KEY_PREFIX: "AIA"
@@ -27,82 +26,82 @@ jobs:
       ALLOWED_BRANCH_PREFIXES: "fix,feature,test"
       COMMENT_MARKER: "<!-- AIA_SHARE_BLOCK -->"  # used to find/update existing comment
     steps:
-      - name: Normalize title (AIA-####)
+      # Keep privileged code inline: never check out or execute contributor-controlled files.
+      - name: Authorize event, normalize title, and update suggestion
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
-            const prefix = process.env.KEY_PREFIX;
-            const padWidth = parseInt(process.env.PAD_WIDTH || '4', 10);
             const issue = context.payload.issue;
+            if (!issue || issue.pull_request) return;
 
-            // Only normalize on issue events or "/key" comment
-            const isComment = context.eventName === 'issue_comment';
-            const body = isComment ? (context.payload.comment.body || '') : '';
-            if (isComment && !body.includes('/key') && !body.startsWith('/branch')) {
-              core.info('Comment not a /key or /branch command; skip title step.');
+            const allowed = (process.env.ALLOWED_BRANCH_PREFIXES || 'fix,feature,test')
+              .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+            let requested = null;
+            if (context.eventName === 'issue_comment') {
+              if (context.payload.action !== 'created') return;
+              const comment = context.payload.comment;
+              const body = typeof comment?.body === 'string' ? comment.body.trimEnd() : '';
+              const branchCommand = body.match(/^\/branch[ \t]+([a-zA-Z0-9_-]+)$/);
+              if (body !== '/key' && !branchCommand) return;
+              requested = branchCommand ? branchCommand[1].toLowerCase() : null;
+              if (requested && !allowed.includes(requested)) return;
+              if (!comment?.user?.login) return;
+
+              // Use the original comment author, including on reruns; associations are not permissions.
+              // GitHub maps maintain to write and triage to read in this endpoint.
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                ...context.repo,
+                username: comment.user.login
+              });
+              if (!['write', 'admin'].includes(data?.permission)) {
+                core.info('Issue commands require repository write access; skipping.');
+                return;
+              }
+              // API errors fail the step before any mutation; do not fall back to author_association.
+            } else if (context.eventName !== 'issues' ||
+                       !['opened', 'labeled', 'unlabeled'].includes(context.payload.action)) {
               return;
             }
+
+            const prefix = process.env.KEY_PREFIX;
+            const keyPrefix = prefix;
+            const padWidth = parseInt(process.env.PAD_WIDTH || '4', 10);
+            const defaultBranchPrefix = (process.env.DEFAULT_BRANCH_PREFIX || 'fix').toLowerCase();
+            const MARKER = process.env.COMMENT_MARKER || '<!-- AIA_SHARE_BLOCK -->';
+            const n = issue.number;
 
             const originalTitle = issue.title;
             const finalRx = new RegExp(`^${prefix}-\\d{${padWidth},}:\\s`);
             if (finalRx.test(originalTitle)) {
               core.info('Title already normalized; skipping.');
-              return;
+            } else {
+              // Strip provisional "AIA-XXXX:" or "AIA-123:"
+              const stripRx = new RegExp(`^${prefix}-[A-ZX0-9]+:\\s*`, 'i');
+              const baseTitle = originalTitle.replace(stripRx, '').trim();
+
+              // Use GitHub issue number (matches URL)
+              const padded = String(issue.number).padStart(padWidth, '0');
+              const newTitle = `${prefix}-${padded}: ${baseTitle}`;
+
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                title: newTitle
+              });
+
+              core.info(`Updated title: ${newTitle}`);
             }
 
-            // Strip provisional "AIA-XXXX:" or "AIA-123:"
-            const stripRx = new RegExp(`^${prefix}-[A-ZX0-9]+:\\s*`, 'i');
-            const baseTitle = originalTitle.replace(stripRx, '').trim();
-
-            // Use GitHub issue number (matches URL)
-            const padded = String(issue.number).padStart(padWidth, '0');
-            const newTitle = `${prefix}-${padded}: ${baseTitle}`;
-
-            await github.rest.issues.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue.number,
-              title: newTitle
-            });
-
-            core.info(`Updated title: ${newTitle}`);
-
-      - name: Comment share link + branch suggestion (dedup/update)
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        with:
-          script: |
-            const keyPrefix = process.env.KEY_PREFIX;
-            const padWidth = parseInt(process.env.PAD_WIDTH || '4', 10);
-            const defaultBranchPrefix = (process.env.DEFAULT_BRANCH_PREFIX || 'fix').toLowerCase();
-            const allowed = (process.env.ALLOWED_BRANCH_PREFIXES || 'fix,feature,test')
-              .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-            const MARKER = process.env.COMMENT_MARKER || '<!-- AIA_SHARE_BLOCK -->';
-
-            const n = context.payload.issue.number;
-
-            // Load fresh issue (title + labels)
+            // Read labels and title again after normalization.
             const { data: it } = await github.rest.issues.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: n
             });
-
-            // Determine requested override via "/branch <prefix>" (if comment)
-            let requested = null;
-            if (context.eventName === 'issue_comment') {
-              const body = (context.payload.comment.body || '').trim();
-              const m = body.match(/^\/branch\s+([a-zA-Z0-9_-]+)/);
-              if (m) requested = m[1].toLowerCase();
-            }
-
-            // Determine prefix from labels (fix/feature/test), precedence by order in `allowed`
             const labelNames = (it.labels || []).map(l => (typeof l === 'string' ? l : l.name).toLowerCase());
-            let labelBased = allowed.find(p => labelNames.includes(p)) || null;
-
-            // Final prefix: override > label-based > default
-            let branchPrefix = requested && allowed.includes(requested)
-              ? requested
-              : (labelBased || defaultBranchPrefix);
+            const labelBased = allowed.find(p => labelNames.includes(p)) || null;
+            const branchPrefix = requested || labelBased || defaultBranchPrefix;
 
             // Strip leading "AIA-0001: " from title
             const titleOnly = it.title.replace(new RegExp(`^${keyPrefix}-\\d{${padWidth},}:\\s*`), '');
@@ -130,12 +129,8 @@ jobs:
               '```',
               branch,
               '```',
-              ...(requested && !allowed.includes(requested)
-                ? ['', `> Unknown branch prefix "${requested}". Allowed: ${allowed.join(', ')}`]
-                : (context.eventName === 'issue_comment' && (requested || (context.payload.comment.body||'').includes('/key'))
-                    ? ['', '_Updated suggestion per request._']
-                    : [])
-              )
+              ...(context.eventName === 'issue_comment'
+                ? ['', '_Updated suggestion per request._'] : [])
             ].join('\n');
 
             // Find existing bot comment with the marker

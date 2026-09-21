@@ -21,6 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+      - name: Verify issue automation trust boundary
+        run: node --test .github/tests/issue-automation.test.cjs
+
       - name: Verify Apple test-fixture setup
         run: python3 scripts/test_apple_test_models.py
 
