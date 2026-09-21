@@ -37,10 +37,10 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Select Xcode
-        uses: maxim-lobanov/setup-xcode@v1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
           xcode-version: latest-stable
 
@@ -58,7 +58,7 @@ jobs:
       # `restore-keys` makes a manifest change a delta fetch rather than a full 407 MB re-fetch:
       # already-valid files are reused, superseded ones re-download, stale extras are ignored.
       - name: Cache ONNX fixtures
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: .native-model-fixtures
           key: ${{ runner.os }}-onnx-fixtures-${{ hashFiles('Tests/NativeModelConverterTests/Fixtures/*.json') }}
