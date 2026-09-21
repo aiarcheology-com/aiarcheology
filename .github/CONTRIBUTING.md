@@ -113,6 +113,12 @@ as your first test run.
 Reviews come from maintainers and from automated reviewers. Disagreeing with a review comment is
 fine — say why. "Done" with no change is not.
 
+[CODEOWNERS](CODEOWNERS) names `@aiarcheology` for all repository files, including CODEOWNERS
+itself. Ownership is advisory: mandatory approving reviews and code-owner approval are disabled
+under the sole-maintainer policy. Pull requests and the required CI checks remain mandatory.
+GitHub uses the CODEOWNERS file from the PR's base branch, so review routing applies to `develop`
+after this file is merged there and to `main` after release promotion.
+
 ## Things that will be declined
 
 - Reformatting or refactoring unrelated to a stated issue.
