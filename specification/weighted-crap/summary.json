@@ -7,7 +7,7 @@
       {
         "suite": "app",
         "result": "2463 passed, 0 failed, 8 skipped.",
-        "detail": "MLBrowserUnitTests on an iPhone 18 Pro iOS 27.0 simulator with code coverage enabled. The skips are opt-in physical-device parity and live-map tests."
+        "detail": "MLBrowserUnitTests on an iPhone 18 Pro iOS 27.0 simulator with code coverage enabled. Seven skips are physical-device or opt-in live-map checks; the eighth is BrowserStateTests.testConsumePendingSessionState_IsOneShot, whose setup did not request the rebuild required to capture a session. That unexpected skip is not session-restoration evidence."
       },
       {
         "suite": "converter",

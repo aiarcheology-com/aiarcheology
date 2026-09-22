@@ -8,7 +8,7 @@ PR #950 review correction: these are the original pre-refactor exports, reproces
 
 ## Collection
 
-- app: 2463 passed, 0 failed, 8 skipped. MLBrowserUnitTests on an iPhone 18 Pro iOS 27.0 simulator with code coverage enabled. The skips are opt-in physical-device parity and live-map tests.
+- app: 2463 passed, 0 failed, 8 skipped. MLBrowserUnitTests on an iPhone 18 Pro iOS 27.0 simulator with code coverage enabled. Seven skips are physical-device or opt-in live-map checks; the eighth is BrowserStateTests.testConsumePendingSessionState_IsOneShot, whose setup did not request the rebuild required to capture a session. That unexpected skip is not session-restoration evidence.
 - converter: 556 passed, 0 failed, 0 skipped. Root swift test with ONNX fixtures, Apple MobileNet reference models, and code coverage. ADAFCheckpointDirectoryTests were excluded with --skip, so they are not in the skip count.
 - tools: 23 passed, 0 failed, 0 skipped. swift test --package-path Tools with code coverage. The tested product is ProjectToolCore.
 
