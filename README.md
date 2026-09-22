@@ -483,8 +483,8 @@ paths are named:
 | `ios/TestFixtures/FastViT/FastViT-LICENSE.txt`, `FastViT-ACKNOWLEDGEMENTS.txt` in that directory | Verbatim Apple and component notices, retained under their original terms; see the [fixture licence guide](ios/TestFixtures/FastViT/LICENSE.md). |
 | `Tests/NativeModelConverterTests/Fixtures/ADAF/*` | CC-BY-SA-4.0 — ShareAlike. [Attribution](Tests/NativeModelConverterTests/Fixtures/ADAF/NOTICE.md) |
 | `ios/MLBrowserUnitTests/Fixtures/MapHarness/*.js` | Leaflet and OpenLayers, BSD-2-Clause |
-| `ios/MLBrowser/iOS/Assets/Assets.xcassets/AppIcon.appiconset/*.png`, `ios/MLBrowser/iOS/Assets/Assets.xcassets/AppLogo.imageset/AppLogo.png` | App icon and logo artwork; no separate reuse licence is granted. See the [brand policy](specification/BRAND_POLICY.md). Asset-catalog configuration files are not artwork. |
-| `ios/MLBrowser/iOS/Assets/Assets.xcassets/WelcomeBackground.imageset/*`, `ExampleScreenshot.jpg` | Ownership confirmed by the repository owner on 2026-09-14 in #906. These remain excluded from the source-code grant; no separate reuse licence is recorded. See [NOTICE](NOTICE), section 5. |
+| `ios/MLBrowser/iOS/Assets/Assets.xcassets/AppIcon.appiconset/*.png`, `ios/MLBrowser/iOS/Assets/Assets.xcassets/AppLogo.imageset/AppLogo.png` | App icon and logo artwork; excluded from the source-code grant. See the [brand policy](specification/BRAND_POLICY.md) for limited source-fork retention. Asset-catalog configuration files are not artwork. |
+| `ios/MLBrowser/iOS/Assets/Assets.xcassets/WelcomeBackground.imageset/WelcomeBackground.jpg`, `ExampleScreenshot.jpg` | Ownership confirmed by the repository owner on 2026-09-14 in #906. These images remain excluded from the source-code grant; the imageset's `Contents.json` is configuration. See [NOTICE](NOTICE), section 5, and the [brand policy](specification/BRAND_POLICY.md) for limited source-fork retention. |
 
 **The detection models are included in the grant.** `AIArcheology.mlpackage` and
 `HroudaDetector15.mlpackage` are first-party weights — trained by this project on its own data, from
@@ -496,7 +496,8 @@ code would be the asterisk that mattered, so it is stated rather than left to be
 [brand policy](specification/BRAND_POLICY.md) explains use of the AI Archeology and ML Browser
 names, the logo and app icon, the official App Store identity, and branding for independent
 forks. It preserves factual attribution and the Apache-2.0 rights in the code and first-party
-models; it does not grant reuse rights for excluded artwork or assert trademark registration.
+models; it permits retaining excluded artwork in a source-code fork, but does not grant its use
+in another app or listing or assert trademark registration.
 
 The 22 former gallery photographs came from Apple's Image Gallery sample. The owner chose
 removal, and the corrected `main` and `develop` histories contain none of those photo blobs or

@@ -16,8 +16,8 @@ copyright and attribution notices required by the applicable licences when rebra
 
 The project uses **AI Archeology** and **ML Browser** as names for its project and app. Its logo
 and app icon identify the official app. This policy does not assert that these names or designs
-are registered trademarks, establish ownership, or claim exclusive rights in ordinary descriptive
-uses of those words. It applies only to rights the project owner holds and does not limit uses
+are registered trademarks, and it does not claim exclusive rights over ordinary descriptive uses
+of those words. It applies only to rights the project owner holds and does not limit uses
 permitted by applicable law, including fair use, reporting, commentary or criticism.
 
 ## Referring to the project
@@ -33,15 +33,18 @@ make your own app name and publisher clear. No approval is needed for these fact
 
 ## Distributing a fork or another app
 
-Without separate permission from the project owner, use your own product name, logo and app
-icon for an independently distributed app, including TestFlight builds and App Store listings.
+Without separate permission from the project owner, use your own app name on the Home Screen and
+in any store listing, as well as your own logo and app icon, for an independently distributed app,
+including TestFlight builds. Set any build setting that determines the shipped display name to
+your own name.
 Do not present it as the official AI Archeology or ML Browser app, an official update, or a
 project-endorsed service. A disclaimer does not by itself authorize using the project's logo
 or icon as your app's identity.
 
 Give your distribution its own bundle identifier, publisher/support details and store listing.
 Identify the maintainer users should contact. Keep required upstream notices and factual origin
-references; rebranding does not require removing attribution or renaming internal source symbols.
+references; rebranding does not require removing attribution or renaming internal source
+identifiers such as module and type names.
 An ordinary source-code fork used for contribution is not an assertion that its maintainer
 publishes the official app.
 
@@ -52,8 +55,8 @@ the project's production services or accounts.
 
 ## Artwork excluded from the source-code licence
 
-The following artwork is excluded from the repository's Apache-2.0 grant. This policy grants
-no separate copyright licence to reuse or redistribute it:
+The following artwork is excluded from the repository's Apache-2.0 grant. Apart from the limited
+source-fork permission below, this policy grants no copyright licence to reuse or redistribute it:
 
 | Artwork | Repository path |
 |-|-|
@@ -63,17 +66,25 @@ no separate copyright licence to reuse or redistribute it:
 | Repository example screenshot | `ExampleScreenshot.jpg` |
 
 The photographs and screenshot have copyright exclusions regardless of whether they serve as
-brand identifiers. The app-icon and logo asset-catalog configuration files are not artwork. Third-party fixtures and
-notices retain their own terms; see [README](../README.md#licence) and [NOTICE](../NOTICE).
-Before distributing a build, replace excluded artwork with material you may distribute, or
-obtain separate permission covering your intended use. Ownership confirmation alone is not a
-reuse licence, and this policy does not revoke rights already granted under another licence.
+brand identifiers. Asset-catalog `Contents.json` files are configuration, not excluded artwork.
+Third-party fixtures and notices retain their own terms; see [README](../README.md#licence) and
+[NOTICE](../NOTICE).
+
+A checkout or source-code fork, including a public fork, may keep and share unmodified copies of
+these files as part of the source tree for development and contribution. This limited permission
+does not cover shipping them in another app build or using them in another app's store listing or
+marketing materials.
+Before distributing an app build or listing, replace any excluded artwork it uses with material
+you may distribute, or obtain separate permission covering your intended use. Ownership
+confirmation alone does not grant reuse rights, and this policy does not revoke rights already
+granted under another licence.
 
 ## Permission for other brand uses
 
 For uses beyond the factual references above, open a
-[brand-use request](https://github.com/aiarcheology-com/aiarcheology/issues/new) addressed to the
-repository owner. Describe the proposed name or artwork, where it will appear, and whether
-you intend to distribute an app. Permission must be explicit and cover the proposed use;
+[brand-use request](https://github.com/aiarcheology-com/aiarcheology/issues/new/choose) by
+choosing **Open a blank issue** and titling it `Brand permission request: <proposed use>`.
+Address it to the repository owner. Describe the proposed name or artwork, where it will appear,
+and whether you intend to distribute an app. Permission must be explicit and cover the proposed use;
 silence or acceptance of a code contribution is not brand permission. Do not include private
 account details in the request.
