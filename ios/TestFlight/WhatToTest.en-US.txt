@@ -58,3 +58,5 @@ STILL WORTH RETESTING FROM THE PREVIOUS BUILD
 
 - KNOWN GAP: on atlas.bayern.de, reopening the app straight onto the page and saving a finding
   without panning first may still store the wrong address. Please report whether that reproduces.
+
+ALSO IN THIS BUILD: paywall, settings, findings, import, and catalog were split into smaller sections. Behavior should be unchanged. Please report anything that moved, disappeared, or no longer responds.

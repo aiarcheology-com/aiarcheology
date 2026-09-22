@@ -111,10 +111,41 @@ class AttributionTests(unittest.TestCase):
         self.assertIsNone(item.weighted_crap)
 
     def test_absent_file_is_missing_rather_than_zero(self):
-        item = method("Tools/Sources/ProjectTool/ToolsConfiguration.swift", "ToolsManager.installTool(name:spec:)")
+        item = method("ios/MLBrowser/iOS/State/DataController.swift", "DataController.handleStoreLoadError(_:description:)")
         baseline.attribute_method(item, baseline.CoverageIndex([]), Path("/repo"))
         self.assertEqual(item.provenance, "missing")
         self.assertIsNone(item.weighted_crap)
+
+    def test_project_tool_executable_is_excluded_not_measured_zero(self):
+        item = method(
+            "Tools/Sources/ProjectTool/ToolsConfiguration.swift",
+            "ToolsManager.installTool(name:spec:)",
+        )
+        baseline.attribute_method(item, baseline.CoverageIndex([]), Path("/repo"))
+        self.assertEqual(item.provenance, "excluded")
+        self.assertEqual(
+            item.exclusion_reason,
+            "ProjectTool executable not in ProjectToolCore tests",
+        )
+        self.assertIsNone(item.coverage_percent)
+        self.assertIsNone(item.weighted_crap)
+
+    def test_cli_main_and_script_paths_are_excluded(self):
+        cli = method(
+            "Sources/NativeModelConverterCLI/main.swift",
+            "NativeModelConverterCLI.main()",
+        )
+        script = method(
+            "scripts/xcstrings-to-strings.swift",
+            "convert(inputPath:outputPath:)",
+        )
+        index = baseline.CoverageIndex([])
+        baseline.attribute_method(cli, index, Path("/repo"))
+        baseline.attribute_method(script, index, Path("/repo"))
+        self.assertEqual(cli.provenance, "excluded")
+        self.assertEqual(cli.exclusion_reason, "CLI main")
+        self.assertEqual(script.provenance, "excluded")
+        self.assertEqual(script.exclusion_reason, "script")
 
     def test_same_filename_in_another_directory_is_ambiguous(self):
         files = [baseline.FileCoverage(
@@ -124,7 +155,7 @@ class AttributionTests(unittest.TestCase):
             functions=(baseline.FunctionCoverage(1, 4, 0, 0, "app"),),
             suite="app",
         )]
-        item = method("scripts/main.swift", "main()", line=1, end=20, cyc=4, cog=4)
+        item = method("ios/Helpers/main.swift", "main()", line=1, end=20, cyc=4, cog=4)
         baseline.attribute_method(item, baseline.CoverageIndex(files), Path("/repo"))
         self.assertEqual(item.provenance, "ambiguous")
 
@@ -253,6 +284,33 @@ class CohortTests(unittest.TestCase):
         selected = baseline.select_cohort(methods)
         self.assertEqual(selected, [scored])
 
+    def test_excluded_identity_is_not_measured_zero_or_cohort_hotspot(self):
+        methods = []
+        for index in range(10):
+            item = method(f"F{index:02d}.swift", f"fn{index}()", cyc=2, cog=2)
+            item.provenance = "function-match"
+            item.coverage_percent = 50
+            item.weighted_crap = 3
+            methods.append(item)
+        excluded = method(
+            "Tools/Sources/ProjectTool/ToolsConfiguration.swift",
+            "ToolsManager.installTool(name:spec:)",
+            cyc=15,
+            cog=26,
+        )
+        baseline.attribute_method(excluded, baseline.CoverageIndex([]), Path("/repo"))
+        self.assertEqual(excluded.provenance, "excluded")
+        self.assertIsNone(excluded.weighted_crap)
+        self.assertNotEqual(excluded.provenance, "measured-zero")
+        methods.append(excluded)
+        selected = baseline.select_cohort(methods)
+        self.assertEqual(len(selected), 2)
+        self.assertNotIn(excluded, selected)
+        summary = baseline.summarize(methods, selected, [], [])
+        self.assertEqual(summary["provenance"]["excluded"], 1)
+        self.assertEqual(summary["scored_methods"], 10)
+        self.assertNotIn(excluded.identity, {method.identity for method in selected})
+
     def test_threshold_counts_ignore_unmeasured_methods(self):
         scored = method("A.swift", "a()")
         scored.weighted_crap = 40
@@ -319,6 +377,30 @@ class CohortTests(unittest.TestCase):
         self.assertEqual(status[("E.swift", "e()")], "removed")
         self.assertEqual(status[("D.swift", "d()")], "entered")
 
+    def test_reconciliation_records_excluded_instead_of_unmeasured_or_zero(self):
+        excluded = method(
+            "Tools/Sources/ProjectTool/ToolsConfiguration.swift",
+            "ToolsManager.installTool(name:spec:)",
+        )
+        baseline.attribute_method(excluded, baseline.CoverageIndex([]), Path("/repo"))
+        rows = baseline.reconcile([
+            {
+                "file": excluded.file,
+                "function": excluded.qualified_name,
+                "line": "212",
+                "weighted_crap": "409",
+                "coverage_evidence": "file absent; coverage unknown",
+            },
+        ], [excluded], [])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["status"], "excluded")
+        self.assertEqual(rows[0]["corrected_provenance"], "excluded")
+        self.assertEqual(
+            rows[0]["exclusion_reason"],
+            "ProjectTool executable not in ProjectToolCore tests",
+        )
+        self.assertEqual(rows[0]["corrected_weighted_crap"], "")
+
 
 class ReportTextTests(unittest.TestCase):
     def test_summary_states_the_measurement_limits(self):
@@ -353,6 +435,7 @@ class ReportTextTests(unittest.TestCase):
         self.assertIn("not a line-level union", text)
         self.assertIn("not a UI journey", text)
         self.assertIn("Zero cognitive complexity", text)
+        self.assertIn("classified `excluded`", text)
         self.assertIn(baseline.ANALYZER_PIN, text)
 
 

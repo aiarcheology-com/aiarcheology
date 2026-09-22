@@ -7,6 +7,7 @@
 
 import XCTest
 @testable import ML_Browser
+import Darwin
 
 // MARK: - Mock CrashReportingService
 
@@ -291,7 +292,39 @@ final class ObservabilityTestTriggersTests: XCTestCase {
 	
 	func test_runSentryThrottleSmokeTestIfEnabled_properlyGatedByEnvVar() {
 		// When SENTRY_THROTTLE_SMOKE_TEST is not set, this should return early
-		XCTAssertNoThrow(Observability.runTestTriggersIfEnabled())
+		XCTAssertNil(
+			AppEnvironment.sentryThrottleSmokeTestMode,
+			"Unit tests must not inherit a throttle smoke-test mode from the process environment"
+		)
+		XCTAssertNoThrow(Observability.runSentryThrottleSmokeTestIfEnabled())
+	}
+
+	func test_runSentryThrottleSmokeTestIfEnabled_enabledPathUsesNoOpReporter() async throws {
+		// Existing seam: Observability with NoOpCrashReportingService never uploads to Sentry.
+		if !Observability.isStarted {
+			Observability.start(with: NoOpCrashReportingService())
+		}
+
+		let key = "SENTRY_THROTTLE_SMOKE_TEST"
+		let previous = getenv(key).map { String(cString: $0) }
+		defer {
+			if let previous {
+				setenv(key, previous, 1)
+			} else {
+				unsetenv(key)
+			}
+		}
+
+		setenv(key, "duplicate", 1)
+		guard AppEnvironment.sentryThrottleSmokeTestMode == "duplicate" else {
+			// ProcessInfo may cache the environment; skip rather than invent a live upload path.
+			throw XCTSkip("ProcessInfo did not observe setenv for SENTRY_THROTTLE_SMOKE_TEST")
+		}
+
+		XCTAssertNoThrow(Observability.runSentryThrottleSmokeTestIfEnabled())
+		// The smoke path schedules LoggingPolicy.error on a detached task; give it a beat to
+		// finish under the NoOp reporter without asserting remote delivery.
+		try await Task.sleep(nanoseconds: 200_000_000)
 	}
 }
 

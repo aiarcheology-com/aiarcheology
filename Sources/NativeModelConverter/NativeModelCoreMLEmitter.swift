@@ -30,7 +30,7 @@ private let adafWeightsSHA256Placeholder = String(repeating: "x", count: 64)
 /// answers whether the installed native emitter can faithfully serialize it today. Unsupported
 /// operations fail explicitly, which prevents a partially converted model from reaching Core ML.
 public struct NativeModelCoreMLEmitter: Sendable {
-	private struct EmissionContext {
+	struct EmissionContext {
 		let metadata: NativeModelCoreMLMetadata?
 		/// The exact target interface resolved before metadata is written. Keeping this single plan
 		/// prevents provenance from describing a requested image preprocessing that the emitter later
@@ -61,7 +61,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	}
 
 	/// The target facts decided once and used for both protobuf emission and target metadata.
-	private struct ResolvedEmissionInterface {
+	struct ResolvedEmissionInterface {
 		let classifier: ClassifierPlan?
 		let imagePlan: ImageInputPlan?
 		let detection: NativeModelDetectionInterface?
@@ -620,7 +620,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		context.progress?(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
 	}
 
-	private func streamingADAFModelSegments(
+	func streamingADAFModelSegments(
 		graph: NativeModelGraph,
 		promotedWeights: NativeModelADAFPromotedWeights,
 		weightsDigest: NativeModelADAFPromotedWeightsDigest,
@@ -831,7 +831,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		}
 	}
 
-	private func streamingConvolutionLayer(
+	func streamingConvolutionLayer(
 		for operation: NativeModelOperation,
 		weightsByName: [String: NativeModelWeight],
 		promotedWeights: NativeModelADAFPromotedWeights,
@@ -1030,7 +1030,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		)
 	}
 
-	private func streamingConstantLayer(
+	func streamingConstantLayer(
 		for operation: NativeModelOperation,
 		weightsByName: [String: NativeModelWeight],
 		promotedWeights: NativeModelADAFPromotedWeights,
@@ -1196,7 +1196,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	/// Resolves the interface once, before both target metadata and protobuf layers are produced.
 	/// A target-semantics intent is advisory until this function proves it matches an interface that
 	/// will really be emitted.
-	private func resolveEmissionInterface(
+	func resolveEmissionInterface(
 		graph: NativeModelGraph,
 		classifierLabels: [String]?,
 		imagePreprocessing: NativeModelImagePreprocessing?,
@@ -1540,7 +1540,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		}
 	}
 
-	private struct ClassifierPlan {
+	struct ClassifierPlan {
 		let labels: [String]
 		/// The graph's output blob (class scores in any unit-padded layout).
 		let logitsBlobName: String

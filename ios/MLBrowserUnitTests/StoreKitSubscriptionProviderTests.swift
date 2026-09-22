@@ -305,4 +305,24 @@ final class StoreKitSubscriptionProviderTests: XCTestCase {
 		let expected = try XCTUnwrap(AppAccountToken.make(from: accountID))
 		XCTAssertEqual(provider.purchaseOptions(), [.appAccountToken(expected)])
 	}
+
+	// MARK: - purchase outcome (AIA-0947)
+
+	/// Success and failure through ``MockSubscriptionProvider.purchaseOutcome``.
+	///
+	/// Does not call ``StoreKitSubscriptionProvider.purchase(_:)`` or `Product.products(for:)`.
+	/// Those talk to StoreKit and do not return in this unit host.
+	func testPurchase_MockSurface_SuccessAndFailure() {
+		let mock = MockSubscriptionProvider(outcome: .notSubscribed)
+		mock.purchaseOutcome = .subscribed
+		XCTAssertEqual(mock.applyConfiguredPurchaseOutcome(), .subscribed)
+		XCTAssertTrue(mock.isSubscribed)
+
+		// A failed purchase does not clear a subscription the mock already recorded, so the
+		// failure case starts from the unsigned-in outcome.
+		let failing = MockSubscriptionProvider(outcome: .notSubscribed)
+		failing.purchaseOutcome = .failed
+		XCTAssertEqual(failing.applyConfiguredPurchaseOutcome(), .failed)
+		XCTAssertFalse(failing.isSubscribed)
+	}
 }

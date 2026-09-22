@@ -40,61 +40,8 @@ struct SubscriptionStatusView: View {
 
 	var body: some View {
 		Form {
-			Section {
-				if let plan = planText {
-					LabeledContent(L10n.Subscription.plan, value: plan)
-				}
-				LabeledContent(
-					L10n.Subscription.state,
-					value: subscriptionState.isInTrial ? L10n.Subscription.trial : L10n.Paywall.active
-				)
-				if let renews = renewalText {
-					// During the free trial the date is when the trial ends (and the first
-					// charge happens); afterwards it's the renewal date.
-					LabeledContent(
-						subscriptionState.isInTrial ? L10n.Subscription.trialEnds : L10n.Subscription.renews,
-						value: renews
-					)
-				}
-			}
-
-			Section {
-				// Cancel / change plan happens in Apple's native sheet (Apple doesn't permit
-				// in-app programmatic cancellation — this is the compliant path).
-				Button(L10n.Paywall.manage) {
-					guard isBusy.not else { return }
-					// Not every host can present StoreKit's sheet. On iOS-on-Mac the system
-					// rejects the request and the modifier below has nowhere to report it, so
-					// the tap did nothing at all — no sheet, no error (AIA-0448's family).
-					// Apple's account page is the substitute, and it is the same destination
-					// the paywall's "Manage Subscription" already sends people to.
-					guard HostPlatform.current.supportsManageSubscriptionsSheet else {
-						openManageSubscriptionsPage()
-						return
-					}
-					showManage = true
-				}
-
-				Button {
-					guard isBusy.not else { return }
-					// Synchronous, before the Task: the body runs on a later turn of the main
-					// actor, so a second tap can enqueue a second restore before a flag set
-					// inside the Task would stop it.
-					isWorking = true
-					Task {
-						defer { isWorking = false }
-						let outcome = await subscriptionState.restore()
-						notice = SubscriptionNotice.forRestore(outcome)
-					}
-				} label: {
-					HStack {
-						Text(L10n.Paywall.restore)
-						Spacer()
-						if isWorking { ProgressView() }
-					}
-				}
-				.disabled(isWorking)
-			}
+			statusSection
+			actionsSection
 		}
 		.navigationTitle(L10n.Auth.Account.subscription)
 		.navigationBarTitleDisplayMode(.inline)
@@ -111,6 +58,66 @@ struct SubscriptionStatusView: View {
 			Text(notice?.message ?? "")
 		}
 		.task { await subscriptionState.loadProducts() }
+	}
+
+	private var statusSection: some View {
+		Section {
+			if let plan = planText {
+				LabeledContent(L10n.Subscription.plan, value: plan)
+			}
+			LabeledContent(
+				L10n.Subscription.state,
+				value: subscriptionState.isInTrial ? L10n.Subscription.trial : L10n.Paywall.active
+			)
+			if let renews = renewalText {
+				// During the free trial the date is when the trial ends (and the first
+				// charge happens); afterwards it's the renewal date.
+				LabeledContent(
+					subscriptionState.isInTrial ? L10n.Subscription.trialEnds : L10n.Subscription.renews,
+					value: renews
+				)
+			}
+		}
+	}
+
+	private var actionsSection: some View {
+		Section {
+			// Cancel / change plan happens in Apple's native sheet (Apple doesn't permit
+			// in-app programmatic cancellation — this is the compliant path).
+			Button(L10n.Paywall.manage) {
+				guard isBusy.not else { return }
+				// Not every host can present StoreKit's sheet. On iOS-on-Mac the system
+				// rejects the request and the modifier below has nowhere to report it, so
+				// the tap did nothing at all — no sheet, no error (AIA-0448's family).
+				// Apple's account page is the substitute, and it is the same destination
+				// the paywall's "Manage Subscription" already sends people to.
+				guard HostPlatform.current.supportsManageSubscriptionsSheet else {
+					openManageSubscriptionsPage()
+					return
+				}
+				showManage = true
+			}
+
+			Button {
+				guard isBusy.not else { return }
+				// Synchronous, before the Task: the body runs on a later turn of the main
+				// actor, so a second tap can enqueue a second restore before a flag set
+				// inside the Task would stop it.
+				isWorking = true
+				Task {
+					defer { isWorking = false }
+					let outcome = await subscriptionState.restore()
+					notice = SubscriptionNotice.forRestore(outcome)
+				}
+			} label: {
+				HStack {
+					Text(L10n.Paywall.restore)
+					Spacer()
+					if isWorking { ProgressView() }
+				}
+			}
+			.disabled(isWorking)
+		}
 	}
 
 	/// Opens Apple's subscription management page, for hosts where StoreKit's in-app sheet

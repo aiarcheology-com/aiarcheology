@@ -329,10 +329,7 @@ struct SaveFindingSheet: View {
 			Form {
 				// Title first (AIA-0757 E2): it is the one required field — Save stays disabled until
 				// it is filled — so it should not sit below a 420pt image the user has to scroll past.
-				Section(L10n.Finding.title) {
-					TextField(L10n.Finding.titlePlaceholder, text: $title)
-						.testability(Testability.TextField.saveFindingTitle)
-				}
+				titleSection
 				// Directly under the title, and above the image: where the finding *is* matters more
 				// than how it was framed, and on a map site these two are the answer. Page first —
 				// it identifies what was being looked at — then the coordinate, which is the part
@@ -346,64 +343,12 @@ struct SaveFindingSheet: View {
 				// correct in the field below. Capture cannot fix that: inventing a viewport
 				// parameter a site does not read produces a link that looks precise and opens
 				// nowhere (see `MapURLViewportRefresh`). So the form says which record to trust.
-				Section {
-					HStack(alignment: .firstTextBaseline, spacing: 8) {
-						// Editable, not static text: the app cannot resolve a usable URL for every
-						// map site, and this is where a user corrects or pastes one.
-						// Body size, like GPS directly below and every other field here. It was
-						// `.caption`, which bought a line or two of height for a long URL and cost
-						// legibility on the one field a user has to read character by character to
-						// judge — and made the sheet look like the address mattered less than the
-						// coordinate. The extra line allowance below pays for the height instead.
-						TextField(L10n.Finding.page, text: $page, axis: .vertical)
-							.lineLimit(1...4)
-							.keyboardType(.URL)
-							.textInputAutocapitalization(.never)
-							.autocorrectionDisabled()
-							.testability(Testability.TextField.saveFindingPage)
-						copyButton(page, identifier: Testability.Button.saveFindingCopyPage)
-					}
-				} header: {
-					Text(L10n.Finding.page)
-				} footer: {
-					Text(L10n.Finding.Page.footnote)
-						.testability(Testability.Label.saveFindingPageFootnote)
-				}
-				Section(L10n.Finding.gps) {
-					HStack(alignment: .firstTextBaseline, spacing: 8) {
-						// The ordinary keyboard, not `.numbersAndPunctuation`. Since AIA-0817 the
-						// prefilled value carries its provenance in letters — `leaflet: 47.9, 18.7`,
-						// `S-JTSK (EPSG:5514): …` — and a numeric keyboard cannot type a single
-						// character of that, so correcting or retyping one was impossible (raised in
-						// review). The field is free text by design; its keyboard has to be too.
-						TextField(L10n.Finding.gpsPlaceholder, text: $gps)
-							.testability(Testability.TextField.saveFindingGps)
-						copyButton(gps, identifier: Testability.Button.saveFindingCopyGps)
-					}
-				}
-				Section {
-					preview
-					opacitySlider
-					zoomSlider
-				}
-
-				Section(L10n.Finding.label) {
-					TextField(L10n.Finding.labelPlaceholder, text: $label)
-						.testability(Testability.TextField.saveFindingLabel)
-					if suggestions.isEmpty.not {
-						suggestionChips
-					}
-				}
-				Section(L10n.Finding.note) {
-					TextField(L10n.Finding.notePlaceholder, text: $note, axis: .vertical)
-						.lineLimit(3...6)
-						.testability(Testability.TextField.saveFindingNote)
-				}
-				Section(L10n.Finding.author) {
-					TextField(L10n.Finding.authorPlaceholder, text: $author)
-						.testability(Testability.TextField.saveFindingAuthor)
-				}
-
+				pageSection
+				gpsSection
+				previewSection
+				labelSection
+				noteSection
+				authorSection
 			}
 			.navigationTitle(L10n.Finding.Save.title)
 			.navigationBarTitleDisplayMode(.inline)
@@ -462,6 +407,87 @@ struct SaveFindingSheet: View {
 					gps = prefill
 				}
 			}
+		}
+	}
+
+	private var titleSection: some View {
+		Section(L10n.Finding.title) {
+			TextField(L10n.Finding.titlePlaceholder, text: $title)
+				.testability(Testability.TextField.saveFindingTitle)
+		}
+	}
+
+	private var pageSection: some View {
+		Section {
+			HStack(alignment: .firstTextBaseline, spacing: 8) {
+				// Editable, not static text: the app cannot resolve a usable URL for every
+				// map site, and this is where a user corrects or pastes one.
+				// Body size, like GPS directly below and every other field here. It was
+				// `.caption`, which bought a line or two of height for a long URL and cost
+				// legibility on the one field a user has to read character by character to
+				// judge — and made the sheet look like the address mattered less than the
+				// coordinate. The extra line allowance below pays for the height instead.
+				TextField(L10n.Finding.page, text: $page, axis: .vertical)
+					.lineLimit(1...4)
+					.keyboardType(.URL)
+					.textInputAutocapitalization(.never)
+					.autocorrectionDisabled()
+					.testability(Testability.TextField.saveFindingPage)
+				copyButton(page, identifier: Testability.Button.saveFindingCopyPage)
+			}
+		} header: {
+			Text(L10n.Finding.page)
+		} footer: {
+			Text(L10n.Finding.Page.footnote)
+				.testability(Testability.Label.saveFindingPageFootnote)
+		}
+	}
+
+	private var gpsSection: some View {
+		Section(L10n.Finding.gps) {
+			HStack(alignment: .firstTextBaseline, spacing: 8) {
+				// The ordinary keyboard, not `.numbersAndPunctuation`. Since AIA-0817 the
+				// prefilled value carries its provenance in letters — `leaflet: 47.9, 18.7`,
+				// `S-JTSK (EPSG:5514): …` — and a numeric keyboard cannot type a single
+				// character of that, so correcting or retyping one was impossible (raised in
+				// review). The field is free text by design; its keyboard has to be too.
+				TextField(L10n.Finding.gpsPlaceholder, text: $gps)
+					.testability(Testability.TextField.saveFindingGps)
+				copyButton(gps, identifier: Testability.Button.saveFindingCopyGps)
+			}
+		}
+	}
+
+	private var previewSection: some View {
+		Section {
+			preview
+			opacitySlider
+			zoomSlider
+		}
+	}
+
+	private var labelSection: some View {
+		Section(L10n.Finding.label) {
+			TextField(L10n.Finding.labelPlaceholder, text: $label)
+				.testability(Testability.TextField.saveFindingLabel)
+			if suggestions.isEmpty.not {
+				suggestionChips
+			}
+		}
+	}
+
+	private var noteSection: some View {
+		Section(L10n.Finding.note) {
+			TextField(L10n.Finding.notePlaceholder, text: $note, axis: .vertical)
+				.lineLimit(3...6)
+				.testability(Testability.TextField.saveFindingNote)
+		}
+	}
+
+	private var authorSection: some View {
+		Section(L10n.Finding.author) {
+			TextField(L10n.Finding.authorPlaceholder, text: $author)
+				.testability(Testability.TextField.saveFindingAuthor)
 		}
 	}
 

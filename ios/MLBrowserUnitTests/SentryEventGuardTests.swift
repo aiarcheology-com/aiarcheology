@@ -4,6 +4,7 @@
 //
 
 import XCTest
+import Sentry
 @testable import ML_Browser
 
 final class SentryEventGuardTests: XCTestCase {
@@ -148,5 +149,77 @@ final class SentryEventGuardTests: XCTestCase {
 		
 		// A should be treated as new (allowed) because it was evicted.
 		XCTAssertTrue(sut.decide(signatureHex: signatureA, now: t0.advanced(by: .seconds(1))).isAllowed)
+	}
+
+	// MARK: - Crash payload parsing (AIA-0946)
+
+	func testExtractTypeAndFrames_ReadsExceptionStacktrace() {
+		let payload: [String: Any] = [
+			"exception": [
+				"values": [
+					[
+						"type": "NSError",
+						"value": "probe failed",
+						"stacktrace": [
+							"frames": [
+								["function": "MapLocationProbe.run()"],
+								["function": "FindingCapture.perform()"],
+								["symbol": "AppDelegate.application"]
+							]
+						]
+					] as [String: Any]
+				]
+			]
+		]
+		let (type, frames) = SentryCrashReportingService.extractTypeAndFrames(payload: payload)
+		XCTAssertEqual(type, "NSError")
+		XCTAssertEqual(frames, [
+			"MapLocationProbe.run()",
+			"FindingCapture.perform()",
+			"AppDelegate.application"
+		])
+	}
+
+	func testCaptureError_BuildsTaggedEventWithoutImageryOrPageContents() throws {
+		// Existing test seam: configure Sentry with a beforeSend that keeps the event in-process
+		// and drops transport (nil return). Do not call SentryCrashReportingService.start, which
+		// would replace this hook.
+		final class CaptureBox: @unchecked Sendable {
+			var event: Event?
+		}
+		let box = CaptureBox()
+		SentrySDK.start { options in
+			options.dsn = "https://publickey@127.0.0.1/1"
+			options.beforeSend = { event in
+				box.event = event
+				return nil
+			}
+		}
+		let sut = SentryCrashReportingService(dsn: nil, tracesSampleRate: 0, enableProfiling: false)
+		sut.captureError(
+			message: "map probe failed",
+			error: NSError(domain: "AIA0946", code: 1, userInfo: [NSLocalizedDescriptionKey: "timeout"]),
+			context: [
+				"page_host": "example.org",
+				"page_url": "https://example.org/viewer?extent=1,2,3,4",
+				"thumbnail_base64": String(repeating: "A", count: 256),
+				"page_html": "<html><body>secret page contents</body></html>"
+			]
+		)
+
+		let event = try XCTUnwrap(box.event, "captureError must produce a Sentry event through the SDK")
+		let serialized = event.serialize()
+		XCTAssertNil(serialized["attachments"], "serialized payload must not carry an attachments collection")
+		XCTAssertNil(serialized["screenshot"], "crash events must not attach image bytes or page snapshots")
+		let message = (serialized["message"] as? String)
+			?? ((serialized["message"] as? [String: Any])?["formatted"] as? String)
+		XCTAssertEqual(message, "map probe failed: timeout")
+		// Tags are short indexed fields; long values and *_url keys travel as extras — never as attachments.
+		let tags = event.tags
+		let extra = event.extra
+		XCTAssertEqual(tags?["page_host"], "example.org")
+		XCTAssertEqual(extra?["page_url"] as? String, "https://example.org/viewer?extent=1,2,3,4")
+		XCTAssertEqual(extra?["thumbnail_base64"] as? String, String(repeating: "A", count: 256))
+		XCTAssertEqual(tags?["page_html"], "<html><body>secret page contents</body></html>")
 	}
 }

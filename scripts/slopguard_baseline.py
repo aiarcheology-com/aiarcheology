@@ -77,6 +77,7 @@ class Method:
     coverage_percent: float | None = None
     coverage_suite: str = ""
     weighted_crap: float | None = None
+    exclusion_reason: str = ""
 
     @property
     def identity(self) -> tuple[str, str]:
@@ -119,6 +120,25 @@ def area_for(path: str) -> str:
     if path.startswith("ios/"):
         return "ios"
     return "other"
+
+
+def exclusion_reason_for(path: str) -> str | None:
+    """Programs absent from the app/converter/tools coverage products.
+
+    These are not scored as 0%. Reconciliation records them as `excluded` with
+    a required reason instead of leaving a fake measured-zero hotspot.
+    """
+    if path.startswith("scripts/"):
+        return "script"
+    if path.startswith("Tools/Sources/ProjectTool/"):
+        return "ProjectTool executable not in ProjectToolCore tests"
+    if path.startswith((
+        "Sources/NativeModelConverterCLI/",
+        "Sources/NativeModelEvaluatorCLI/",
+        "Sources/ADAFDetectorParityRunner/",
+    )):
+        return "CLI main"
+    return None
 
 
 def is_production_xccov_target(name: str) -> bool:
@@ -301,26 +321,45 @@ def _best_function(
     return "function-match", max(nearest, key=lambda function: function.percent)
 
 
+def _mark_unscored(method: Method, provenance: str, *, reason: str = "") -> None:
+    method.provenance = provenance
+    method.match_quality = ""
+    method.coverage_percent = None
+    method.coverage_suite = ""
+    method.weighted_crap = None
+    method.exclusion_reason = reason
+
+
 def attribute_method(method: Method, index: CoverageIndex, source_root: Path) -> None:
     absolute = str(source_root / method.file)
     quality, files = index.lookup(absolute)
     if quality in {"missing", "ambiguous"} or not files:
-        method.provenance = quality if quality in {"missing", "ambiguous"} else "missing"
-        method.match_quality = ""
-        method.coverage_percent = None
-        method.weighted_crap = None
+        reason = exclusion_reason_for(method.file)
+        if reason is not None:
+            _mark_unscored(method, "excluded", reason=reason)
+            return
+        _mark_unscored(
+            method,
+            quality if quality in {"missing", "ambiguous"} else "missing",
+        )
         return
     provenance, function = _best_function(files, method.line, method.end_line)
     method.match_quality = quality
     if provenance != "function-match" or function is None:
+        reason = exclusion_reason_for(method.file)
+        if reason is not None:
+            _mark_unscored(method, "excluded", reason=reason)
+            return
         method.provenance = provenance
         method.coverage_percent = None
         method.weighted_crap = None
+        method.exclusion_reason = ""
         return
     method.provenance = "measured-zero" if function.percent <= 0 else "function-match"
     method.coverage_percent = function.percent
     method.coverage_suite = function.suite
     method.weighted_crap = crap_score(method.cyclomatic, method.cognitive, function.percent)
+    method.exclusion_reason = ""
 
 
 def load_methods(report: dict) -> list[Method]:
@@ -409,6 +448,12 @@ def cluster_for(method: Method) -> str | None:
 
 
 def triage_label(method: Method) -> tuple[str, str]:
+    if method.provenance == "excluded":
+        reason = method.exclusion_reason or "not linked into a tested coverage product"
+        return (
+            "measurement",
+            f"excluded ({reason}); not scored and not treated as measured-zero",
+        )
     if method.provenance in {"missing", "ambiguous", "file-fallback"}:
         return (
             "measurement",
@@ -449,6 +494,8 @@ def reconcile(initial_rows: list[dict[str, str]], methods: list[Method], cohort:
         current = by_identity.get(identity)
         if current is None:
             status = "removed"
+        elif current.provenance == "excluded":
+            status = "excluded"
         elif current.weighted_crap is None:
             status = "unmeasured"
         elif identity in cohort_ids:
@@ -464,6 +511,7 @@ def reconcile(initial_rows: list[dict[str, str]], methods: list[Method], cohort:
             "corrected_line": "" if current is None else str(current.line),
             "corrected_weighted_crap": "" if current is None or current.weighted_crap is None else format_number(current.weighted_crap),
             "corrected_provenance": "" if current is None else current.provenance,
+            "exclusion_reason": "" if current is None else current.exclusion_reason,
             "status": status,
         })
     for method in cohort:
@@ -478,6 +526,7 @@ def reconcile(initial_rows: list[dict[str, str]], methods: list[Method], cohort:
             "corrected_line": str(method.line),
             "corrected_weighted_crap": format_number(method.weighted_crap or 0),
             "corrected_provenance": method.provenance,
+            "exclusion_reason": method.exclusion_reason,
             "status": "entered",
         })
     return rows
@@ -598,9 +647,24 @@ def write_outputs(
             "provenance": method.provenance,
         }
         for method in methods
-        if method.weighted_crap is None
+        if method.weighted_crap is None and method.provenance != "excluded"
     ]
     unmeasured.sort(key=lambda row: (-row["cyclomatic"] * max(row["cognitive"], 1), row["file"], row["line"], row["function"]))
+    excluded = [
+        {
+            "file": method.file,
+            "line": method.line,
+            "function": method.qualified_name,
+            "area": method.area,
+            "cyclomatic": method.cyclomatic,
+            "cognitive": method.cognitive,
+            "provenance": method.provenance,
+            "exclusion_reason": method.exclusion_reason,
+        }
+        for method in methods
+        if method.provenance == "excluded"
+    ]
+    excluded.sort(key=lambda row: (-row["cyclomatic"] * max(row["cognitive"], 1), row["file"], row["line"], row["function"]))
     _write_csv(out / "cohort.csv", cohort_rows, list(cohort_rows[0]) if cohort_rows else [
         "rank", "area", "file", "line", "function", "kind", "weighted_crap",
         "cyclomatic", "cognitive", "coverage_percent", "provenance",
@@ -611,6 +675,10 @@ def write_outputs(
     ])
     _write_csv(out / "unmeasured.csv", unmeasured, [
         "file", "line", "function", "area", "cyclomatic", "cognitive", "provenance",
+    ])
+    _write_csv(out / "excluded.csv", excluded, [
+        "file", "line", "function", "area", "cyclomatic", "cognitive", "provenance",
+        "exclusion_reason",
     ])
     if reconciliation:
         _write_csv(out / "reconciliation.csv", reconciliation, list(reconciliation[0]))
@@ -670,8 +738,14 @@ def render_markdown(payload: dict) -> str:
         "The converter suite is the root package test with ONNX fixtures and the Apple "
         "reference models. `ADAFCheckpointDirectoryTests` is not part of that command. "
         "The tool suite is `swift test --package-path Tools`, which builds "
-        "`ProjectToolCoreTests`. Sources that exist only in the `ProjectTool` executable, "
-        "including tool installation, are absent from that product and stay unmeasured.",
+        "`ProjectToolCoreTests`.",
+        "",
+        "Programs that are not linked into those tested products — CLI mains under "
+        "`Sources/*CLI*` / parity runners, the `ProjectTool` executable (not "
+        "`ProjectToolCore`), and `scripts/` — are classified `excluded` with an explicit "
+        "reason. They are not scored as coverage 0%, do not enter the cohort as "
+        "measured-zero hotspots, and appear in reconciliation as `excluded` rather than "
+        "`unmeasured` or a silent drop.",
         "",
         "## Production coverage",
         "",
@@ -707,8 +781,10 @@ def render_markdown(payload: dict) -> str:
         f"{json.dumps(summary['reconciliation'], sort_keys=True)}.",
         "",
         "`stayed` is still in the frozen cohort. `left-cohort` is function-matched and "
-        "now outside it. `unmeasured` has no function match, so it is not given a fake "
-        "zero. `entered` is new to the cohort. `removed` is no longer in the complexity report.",
+        "now outside it. `excluded` is an explicit non-product coverage gap with a "
+        "reason. `unmeasured` has no function match and is not excluded, so it is not "
+        "given a fake zero. `entered` is new to the cohort. `removed` is no longer in "
+        "the complexity report.",
         "",
     ])
 

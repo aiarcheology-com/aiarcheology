@@ -500,6 +500,14 @@ final class MockSubscriptionProvider: SubscriptionProviding {
 	var restoreOutcome: RestoreOutcome = .restored
 
 	func purchase(_ product: Product) async -> PurchaseOutcome {
+		applyConfiguredPurchaseOutcome()
+	}
+
+	/// Applies ``purchaseOutcome`` without talking to StoreKit.
+	///
+	/// Unit tests call this directly. ``purchase(_:)`` cannot be invoked offline: it requires a
+	/// `Product`, and constructing one goes through `Product.products(for:)`.
+	func applyConfiguredPurchaseOutcome() -> PurchaseOutcome {
 		if purchaseOutcome == .subscribed { outcome = .subscribed }
 		return purchaseOutcome
 	}

@@ -539,4 +539,180 @@ final class FindingRepositoryTests: XCTestCase {
 			"the sibling the swap copies through must not survive the store"
 		)
 	}
+
+	// MARK: - restore / undoInParent (AIA-0935)
+
+	/// `restore` itself has no account or owner check — ownership is enforced on the public import
+	/// path that produces the backup tuple. Covered below via ``ImportRejection``.
+	func testRestore_nilBackup_returnsImmediately() {
+		sut.restore(nil)
+		// No crash, no file IO: a nil argument is the "nothing to put back" branch.
+	}
+
+	func testRestore_missingBackupURL_deletesDestinationFilename() throws {
+		let id = UUID()
+		let original = Data(repeating: 0x11, count: 512)
+		let filename = try FindingScreenshotStore.save(original, for: id, pathExtension: "jpg")
+		defer { FindingScreenshotStore.delete(filename: filename) }
+
+		XCTAssertNotNil(FindingScreenshotStore.url(forFilename: filename).flatMap {
+			FileManager.default.fileExists(atPath: $0.path) ? $0 : nil
+		})
+
+		// Nil backup URL means "there was nothing here" — delete whatever is at that name.
+		sut.restore((filename: filename, backup: nil))
+
+		let destination = try XCTUnwrap(FindingScreenshotStore.url(forFilename: filename))
+		XCTAssertFalse(
+			FileManager.default.fileExists(atPath: destination.path),
+			"a missing backup must clear the destination filename"
+		)
+	}
+
+	func testRestore_backupFile_restoresDestinationAndSurvivesASecondRestore() throws {
+		let id = UUID()
+		let original = Data(repeating: 0x22, count: 1024)
+		let replaced = Data(repeating: 0x33, count: 2048)
+		let filename = try FindingScreenshotStore.save(original, for: id, pathExtension: "jpg")
+		let destination = try XCTUnwrap(FindingScreenshotStore.url(forFilename: filename))
+
+		let backupDirectory = FileManager.default.temporaryDirectory
+			.appendingPathComponent("FindingRestore-\(UUID().uuidString)", isDirectory: true)
+		try FileManager.default.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
+		let backupURL = backupDirectory.appendingPathComponent(filename)
+		try FileManager.default.linkItem(at: destination, to: backupURL)
+		defer {
+			try? FileManager.default.removeItem(at: backupDirectory)
+			FindingScreenshotStore.delete(filename: filename)
+		}
+
+		// Simulate the import writing a new picture over the destination.
+		_ = try FindingScreenshotStore.save(replaced, for: id, pathExtension: "jpg")
+		XCTAssertEqual(try Data(contentsOf: destination), replaced)
+
+		sut.restore((filename: filename, backup: backupURL))
+		XCTAssertEqual(try Data(contentsOf: destination), original, "first restore puts the backup back")
+		XCTAssertTrue(
+			FileManager.default.fileExists(atPath: backupURL.path),
+			"the backup must survive the first restore so a second rollback can use it"
+		)
+
+		_ = try FindingScreenshotStore.save(replaced, for: id, pathExtension: "jpg")
+		sut.restore((filename: filename, backup: backupURL))
+		XCTAssertEqual(try Data(contentsOf: destination), original, "a second restore must still work")
+	}
+
+	func testUndoInParent_deletesCreated_refreshesReplaced_leavesUnrelatedPending() throws {
+		let replacedId = UUID()
+		let createdId = UUID()
+		let unrelatedId = UUID()
+
+		let replaced = Finding.create(in: moc)
+		replaced.entityId = replacedId
+		replaced.title = "Stored title"
+		replaced.creationDate_ = .now
+		replaced.screenshotFilename = Finding.screenshotFilename(for: replacedId)
+		replaced.boxX = 0.1
+		replaced.boxY = 0.1
+		replaced.boxWidth = 0.2
+		replaced.boxHeight = 0.2
+		replaced.detectionConfidence = 0.5
+		replaced.transition(to: .draft)
+		try replaced.throwIfInvalid()
+		replaced.transition(to: .ready)
+		try Finding.save(in: moc)
+
+		replaced.title = "Unsaved edit"
+		XCTAssertEqual(replaced.title, "Unsaved edit")
+
+		let created = Finding.create(in: moc)
+		created.entityId = createdId
+		created.title = "Created pending"
+		created.creationDate_ = .now
+		created.screenshotFilename = Finding.screenshotFilename(for: createdId)
+		created.boxX = 0.1
+		created.boxY = 0.1
+		created.boxWidth = 0.2
+		created.boxHeight = 0.2
+		created.detectionConfidence = 0.5
+		created.transition(to: .draft)
+		try created.throwIfInvalid()
+		created.transition(to: .ready)
+
+		let unrelated = Finding.create(in: moc)
+		unrelated.entityId = unrelatedId
+		unrelated.title = "Unrelated pending"
+		unrelated.creationDate_ = .now
+		unrelated.screenshotFilename = Finding.screenshotFilename(for: unrelatedId)
+		unrelated.boxX = 0.1
+		unrelated.boxY = 0.1
+		unrelated.boxWidth = 0.2
+		unrelated.boxHeight = 0.2
+		unrelated.detectionConfidence = 0.5
+		unrelated.transition(to: .draft)
+		try unrelated.throwIfInvalid()
+		unrelated.transition(to: .ready)
+
+		XCTAssertTrue(moc.insertedObjects.contains(created))
+		XCTAssertTrue(moc.insertedObjects.contains(unrelated))
+		XCTAssertTrue(moc.updatedObjects.contains(replaced) || replaced.hasChanges)
+
+		sut.undoInParent(created: [createdId], replaced: [replacedId])
+
+		XCTAssertNil(Finding.select(createdId, in: moc), "created ids are deleted in the parent")
+		XCTAssertEqual(
+			try XCTUnwrap(Finding.select(replacedId, in: moc)).title,
+			"Stored title",
+			"replaced ids lose unsaved edits (refresh mergeChanges: false)"
+		)
+		XCTAssertNotNil(
+			Finding.select(unrelatedId, in: moc),
+			"an unrelated pending insert must remain"
+		)
+		XCTAssertEqual(
+			try XCTUnwrap(Finding.select(unrelatedId, in: moc)).title,
+			"Unrelated pending"
+		)
+
+		// Drop the unrelated insert so tearDown does not leave it for an accidental later save.
+		if let leftover = Finding.select(unrelatedId, in: moc) {
+			moc.delete(leftover)
+		}
+		moc.rollback()
+	}
+
+	/// Wrong-archive rejection on the public import API. `restore` has no owner check of its own.
+	func testImportFindings_invalidArchiveRow_isRejected() throws {
+		let badId = UUID()
+		let contents = FindingArchiveContents(
+			rows: [
+				ImportedFindingRow(
+					id: badId,
+					title: "",
+					label: nil,
+					note: nil,
+					author: nil,
+					gps: nil,
+					page: URL(string: "https://example.com/bad"),
+					detectionClass: nil,
+					confidence: 0.5,
+					creationDate: nil,
+					box: .init(x: 0.1, y: 0.1, width: 0.2, height: 0.2),
+					captureBox: nil,
+					modifiedAt: nil,
+					modelId: nil,
+					lifeCycle: CoreDataManageableState.ready.rawValue,
+					screenshotExtension: nil,
+					source: nil,
+					receivedAt: nil
+				)
+			],
+			images: [:]
+		)
+
+		let summary = try sut.importFindings(contents, duplicates: .skip)
+		XCTAssertEqual(summary.rejected, 1, "invalid archive content must be ImportRejection")
+		XCTAssertEqual(summary.restored, 0)
+		XCTAssertNil(Finding.select(badId, in: moc), "a rejected row must not persist")
+	}
 }

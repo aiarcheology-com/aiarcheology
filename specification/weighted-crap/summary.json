@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "source_revision": "37f3972d55df2b66673634d9bee8331aa524cff7",
+    "source_revision": "392312f7b2a6c73dd20a15cc7915e1f63bc08742",
     "analyzer_revision": "70245e434a271d6ce95a62976d67f7a14f9f298c",
     "tool_version": "0.1.0",
     "runs": [
@@ -36,7 +36,8 @@
     "provenance": {
       "function-match": 2210,
       "measured-zero": 848,
-      "missing": 105,
+      "excluded": 83,
+      "missing": 22,
       "file-fallback": 105
     },
     "triage": {
@@ -62,9 +63,10 @@
     },
     "reconciliation": {
       "stayed": 374,
-      "unmeasured": 32,
+      "excluded": 31,
       "removed": 5,
       "left-cohort": 81,
+      "unmeasured": 1,
       "entered": 115
     },
     "production_coverage": [

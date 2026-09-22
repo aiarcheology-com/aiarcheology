@@ -270,7 +270,7 @@ extension Observability {
 	/// Runs throttle/dedup smoke tests when `SENTRY_THROTTLE_SMOKE_TEST` env var is set.
 	/// - `duplicate`: emits many identical errors (should mostly be deduped)
 	/// - `global`: emits many unique errors (should hit global cap)
-	private static func runSentryThrottleSmokeTestIfEnabled() {
+	static func runSentryThrottleSmokeTestIfEnabled() {
 		guard let mode = AppEnvironment.sentryThrottleSmokeTestMode, !mode.isEmpty else { return }
 		
 		Logger.logger.info("[SentryThrottle] Starting smoke test with mode: \(mode, privacy: .public)")

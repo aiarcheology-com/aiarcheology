@@ -392,4 +392,15 @@ final class MapLocationProbeTests: XCTestCase {
 		XCTAssertNil(MapLocationProbe.decode(["canonical": "javascript:alert(1)"]).canonicalURL)
 		XCTAssertNil(MapLocationProbe.decode(["canonical": "file:///etc/passwd"]).canonicalURL)
 	}
+
+	// MARK: - Frame iteration (AIA-0945)
+
+	/// ``runAcrossFrames`` must run against a real harness page. An empty child-frame list still
+	/// exercises the method: it probes the main frame first and returns that answer when no child
+	/// frames contribute.
+	func testRunAcrossFrames_MainFrameHarness_ReturnsTheLeafletReading() async throws {
+		try await load("map_leaflet")
+		let result = await MapLocationProbe(webView: webView).runAcrossFrames([])
+		assertCoordinate(result, latitude: 47.941230, longitude: 18.709545, source: .leaflet)
+	}
 }

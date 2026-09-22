@@ -243,7 +243,7 @@ public enum NativeModelFasterRCNNRegistry {
 	/// The decoder itself is not
 	/// the amplifier: after the `[10, 10, 5, 5]` BoxCoder division the measured delta moves a box by
 	/// roughly 0.1 px, not the 3.9135 px observed on device.
-	private static func promoteWeightsForStablePrecision(
+	static func promoteWeightsForStablePrecision(
 		_ graph: NativeModelGraph,
 		data: Data,
 		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler?

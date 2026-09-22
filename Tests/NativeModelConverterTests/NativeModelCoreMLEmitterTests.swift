@@ -908,4 +908,179 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 	private func float16Data(_ values: [Float16]) -> Data {
 		values.withUnsafeBytes { Data($0) }
 	}
+
+	// MARK: - Streaming ADAF emitters (AIA-0942)
+
+	/// Builds the weight-bearing operations streamingADAFModelSegments routes into
+	/// ``streamingConvolutionLayer`` / ``streamingConstantLayer``, then asserts those methods
+	/// and the outer segment assembly actually run.
+	func testStreamingADAFEmitters_produceSegmentsAndHonourCancellation() throws {
+		let directory = try temporaryDirectory()
+		defer { try? FileManager.default.removeItem(at: directory) }
+
+		let kernel = NativeModelWeight(
+			name: "kernel", dataType: .float16, shape: [1, 1, 1, 1], offset: 0, byteCount: 2
+		)
+		let constant = NativeModelWeight(
+			name: "constant.values", dataType: .float16, shape: [1, 1, 1], offset: 2, byteCount: 2
+		)
+		let weightGraph = NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [NativeModelTensor(name: "image", dataType: .float32, shape: [1, 1, 2, 2])],
+			weights: [kernel, constant],
+			operations: [
+				NativeModelOperation(
+					name: "features",
+					kind: .convolution2D,
+					inputs: ["image", "kernel"],
+					outputs: [NativeModelTensor(name: "features", dataType: .float32, shape: [1, 1, 2, 2])],
+					attributes: convolutionAttributes(kernelSize: [1, 1])
+				),
+				NativeModelOperation(
+					name: "bias_const",
+					kind: .constant,
+					inputs: ["constant.values"],
+					outputs: [NativeModelTensor(name: "bias_const", dataType: .float32, shape: [1, 1, 1])],
+					attributes: [:]
+				)
+			],
+			outputs: ["features"]
+		)
+		let weightBytes = float16Data([Float16(1), Float16(0.5)])
+		let weightURL = directory.appendingPathComponent("weights.bin")
+		try weightBytes.write(to: weightURL)
+		let promotedWeights = try NativeModelADAFPromotedWeights(
+			graph: weightGraph,
+			sourceWeightByteCount: UInt64(weightBytes.count),
+			synthesizedWeightData: Data(),
+			weightURL: weightURL,
+			checkingCancellation: nil
+		)
+		let digest = NativeModelADAFPromotedWeightsDigest(logicalWeights: promotedWeights.graph.weights)
+		let weightsByName = Dictionary(uniqueKeysWithValues: promotedWeights.graph.weights.map { ($0.name, $0) })
+		let convolutionOperation = try XCTUnwrap(promotedWeights.graph.operations.first { $0.kind == .convolution2D })
+		let constantOperation = try XCTUnwrap(promotedWeights.graph.operations.first { $0.kind == .constant })
+
+		let convolution = try NativeModelCoreMLEmitter().streamingConvolutionLayer(
+			for: convolutionOperation,
+			weightsByName: weightsByName,
+			promotedWeights: promotedWeights,
+			weightsDigest: digest,
+			cancellationCheck: nil
+		)
+		XCTAssertGreaterThan(convolution.byteCount, 0, "streamingConvolutionLayer must emit a layer envelope")
+
+		let constantLayer = try NativeModelCoreMLEmitter().streamingConstantLayer(
+			for: constantOperation,
+			weightsByName: weightsByName,
+			promotedWeights: promotedWeights,
+			weightsDigest: digest,
+			isExactRank: false,
+			cancellationCheck: nil
+		)
+		XCTAssertGreaterThan(constantLayer.byteCount, 0, "streamingConstantLayer must emit a layer envelope")
+
+		// Cancellation is checked while the deferred weight payload is written, not when the
+		// layer envelope is assembled.
+		let cancellingConvolution = try NativeModelCoreMLEmitter().streamingConvolutionLayer(
+			for: convolutionOperation,
+			weightsByName: weightsByName,
+			promotedWeights: promotedWeights,
+			weightsDigest: digest,
+			cancellationCheck: { throw CancellationError() }
+		)
+		let cancelledURL = directory.appendingPathComponent("cancelled-convolution.bin")
+		FileManager.default.createFile(atPath: cancelledURL.path, contents: nil)
+		let cancelledHandle = try FileHandle(forWritingTo: cancelledURL)
+		defer { try? cancelledHandle.close() }
+		XCTAssertThrowsError(
+			try cancellingConvolution.write(to: cancelledHandle, reporting: nil)
+		) { error in
+			XCTAssertTrue(error is CancellationError)
+		}
+
+		// Pass-through detector graph (same shape as NativeModelDetectorPipelineTests): no weights,
+		// so segment assembly exercises streamingADAFModelSegments without the heavy ADAF checkpoint.
+		let detectorGraph = NativeModelGraph(
+			formatVersion: NativeModelGraph.currentFormatVersion,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [
+				NativeModelTensor(name: "coordinates_in", dataType: .float32, shape: [1, 4]),
+				NativeModelTensor(name: "confidence_in", dataType: .float32, shape: [1, 1])
+			],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "raw_coordinates",
+					kind: .add,
+					inputs: ["coordinates_in", "coordinates_in"],
+					outputs: [NativeModelTensor(name: "raw_coordinates", dataType: .float32, shape: [1, 4])],
+					attributes: [:]
+				),
+				NativeModelOperation(
+					name: "raw_confidence",
+					kind: .add,
+					inputs: ["confidence_in", "confidence_in"],
+					outputs: [NativeModelTensor(name: "raw_confidence", dataType: .float32, shape: [1, 1])],
+					attributes: [:]
+				)
+			],
+			outputs: ["raw_coordinates", "raw_confidence"]
+		)
+		let emptyWeightsURL = directory.appendingPathComponent("empty.bin")
+		try Data().write(to: emptyWeightsURL)
+		let emptyPromoted = try NativeModelADAFPromotedWeights(
+			graph: detectorGraph,
+			sourceWeightByteCount: 0,
+			synthesizedWeightData: Data(),
+			weightURL: emptyWeightsURL,
+			checkingCancellation: nil
+		)
+		let detection = NativeModelDetectionInterface(
+			labels: ["ringfort"],
+			boxCount: 1,
+			coordinatesBlobName: "raw_coordinates",
+			confidenceBlobName: "raw_confidence",
+			suppressionOwnership: .graph
+		)
+		let interface = try NativeModelCoreMLEmitter().resolveEmissionInterface(
+			graph: emptyPromoted.graph,
+			classifierLabels: nil,
+			imagePreprocessing: nil,
+			detection: detection,
+			detectionTarget: NativeModelDetectionTargetInfo(
+				classCount: 1, labelProvenance: .convention, coordinateMode: .normalizedByGraph
+			),
+			targetSemanticsIntent: nil
+		)
+		let segments = try NativeModelCoreMLEmitter().streamingADAFModelSegments(
+			graph: emptyPromoted.graph,
+			promotedWeights: emptyPromoted,
+			weightsDigest: NativeModelADAFPromotedWeightsDigest(logicalWeights: []),
+			context: NativeModelCoreMLEmitter.EmissionContext(
+				metadata: nil,
+				interface: interface,
+				progress: nil,
+				cancellationCheck: nil
+			)
+		)
+		XCTAssertGreaterThan(segments.byteCount, 0, "streamingADAFModelSegments must assemble a pipeline model")
+
+		XCTAssertThrowsError(
+			try NativeModelCoreMLEmitter().streamingADAFModelSegments(
+				graph: emptyPromoted.graph,
+				promotedWeights: emptyPromoted,
+				weightsDigest: NativeModelADAFPromotedWeightsDigest(logicalWeights: []),
+				context: NativeModelCoreMLEmitter.EmissionContext(
+					metadata: nil,
+					interface: interface,
+					progress: nil,
+					cancellationCheck: { throw CancellationError() }
+				)
+			)
+		) { error in
+			XCTAssertTrue(error is CancellationError)
+		}
+	}
 }

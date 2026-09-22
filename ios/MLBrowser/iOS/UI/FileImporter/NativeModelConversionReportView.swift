@@ -266,93 +266,11 @@ struct NativeModelConversionReportContent: View {
 	var body: some View {
 		Group {
 			List {
-				Section(L10n.Import.conversionLogStatus) {
-					// The identity of the model that failed — the whole reason this report is worth
-					// sending (AIA-0778). Without it a support mail says which *phase* failed and
-					// nothing about *what* failed, so it cannot tell anyone which models the app does
-					// not yet support. A filename is not a path: the report's path-free promise is
-					// about never recording where in the user's documents a file lives.
-					LabeledContent(L10n.Import.conversionLogSourceFile, value: report.sourcePackageFilename)
-					LabeledContent(L10n.Import.conversionLogState, value: report.state.rawValue)
-					LabeledContent(L10n.Import.conversionLogSourceVersion, value: report.nativeConverterPackageVersion)
-					LabeledContent(
-						L10n.Import.conversionLogRevision,
-						value: String(report.nativeConverterConversionRevision)
-					)
-				}
-
-				if let diagnostic = report.diagnostic {
-					Section(L10n.Import.conversionLogDiagnostic) {
-						LabeledContent(L10n.Import.conversionLogCode, value: diagnostic.code)
-						LabeledContent(L10n.Import.conversionLogPhase, value: diagnostic.phase.rawValue)
-						Text(diagnostic.message)
-					}
-				}
-
-				// The failure case: no metrics, but the input size was captured before the attempt,
-				// and it is the one number that says how big the model we could not convert was.
-				// Only when `metrics` is absent — otherwise the section below already shows it,
-				// alongside the output figures a success also has.
-				if report.metrics == nil, let sourceByteCount = report.sourceByteCount {
-					Section(L10n.Import.conversionLogMetrics) {
-						LabeledContent(
-							L10n.Import.conversionLogInputBytes,
-							value: formattedByteCount(sourceByteCount)
-						)
-					}
-				}
-				if let metrics = report.metrics {
-					Section(L10n.Import.conversionLogMetrics) {
-						LabeledContent(
-							L10n.Import.conversionLogInputBytes,
-							value: String(metrics.sourceFootprint.totalByteCount)
-						)
-						LabeledContent(
-							L10n.Import.conversionLogOutputBytes,
-							value: String(metrics.emission.outputModelByteCount)
-						)
-						LabeledContent(
-							L10n.Import.conversionLogOperations,
-							value: String(metrics.emission.operationCount)
-						)
-						if let memoryUsage = metrics.processMemoryUsage {
-							LabeledContent(
-								L10n.Import.conversionProcessMemory,
-								value: formattedByteCount(memoryUsage.currentProcessFootprintByteCount)
-							)
-							LabeledContent(
-								L10n.Import.conversionObservedPeakMemory,
-								value: formattedByteCount(memoryUsage.peakObservedProcessFootprintByteCount)
-							)
-							LabeledContent(
-								L10n.Import.conversionObservedPeakIncrease,
-								value: formattedByteCount(memoryUsage.observedPeakIncreaseByteCount)
-							)
-						}
-					}
-				}
-
-				Section(L10n.Import.conversionLogEvents) {
-					ForEach(report.entries.reversed()) { entry in
-						VStack(alignment: .leading, spacing: 4) {
-							Text(entry.state.rawValue)
-								.font(.headline)
-							if let progress = entry.progress {
-								Text(progressDescription(progress))
-									.font(.caption)
-									.foregroundStyle(.secondary)
-							}
-							if let diagnostic = entry.diagnostic {
-								Text("\(diagnostic.code): \(diagnostic.message)")
-									.font(.caption)
-									.foregroundStyle(.secondary)
-							}
-							Text(entry.timestamp, style: .time)
-								.font(.caption2)
-								.foregroundStyle(.tertiary)
-						}
-					}
-				}
+				statusSection
+				diagnosticSection
+				sourceBytesSection
+				metricsSection
+				eventsSection
 			}
 			.navigationTitle(L10n.Import.conversionLog)
 			// Written once the log is on screen rather than on every menu open, so the Share item is
@@ -360,50 +278,155 @@ struct NativeModelConversionReportContent: View {
 			.task(id: report.sourcePackageFilename) {
 				logExportURL = NativeModelConversionReporting.exportedLogFile(for: report)
 			}
-			.toolbar {
-				ToolbarItem(placement: .topBarLeading) {
-					// Available for every state — a failed conversion has no exportable model, but its
-					// log (including the diagnostic) is exactly what a user needs to send for support.
-					// Email reuses the app's support-mail path (with its mailto: fallback); Share is the
-					// plain-text alternative when the user would rather not use mail.
-					Menu {
-						Button {
-							Task { await emailReport() }
-						} label: {
-							Label(L10n.Support.sendEmail, systemImage: "envelope")
-						}
-						// A written file and no `preview:` — the exact shape of `SupportRequestView`'s
-						// support-log row, which is the one share in this app proven to survive
-						// *Save to Files* on macOS. See
-						// ``NativeModelConversionReporting/exportedLogFile(for:)`` for what the
-						// three departures from it each cost.
-						if let logExportURL {
-							ShareLink(item: logExportURL) {
-								Label(L10n.Common.share, systemImage: "square.and.arrow.up")
-							}
-						}
-					} label: {
-						// Text, not a glyph (AIA-0778). Named for the job rather than the mechanism
-						// was the first half; the second is that no icon says "report this failure"
-						// on sight. A user looking for a way to report a failed conversion has to
-						// read the word to know this is it, so the word is what the toolbar shows.
-						Text(L10n.Import.reportConversion)
+			.toolbar { reportToolbar }
+		}
+	}
+
+	private var statusSection: some View {
+		Section(L10n.Import.conversionLogStatus) {
+			// The identity of the model that failed — the whole reason this report is worth
+			// sending (AIA-0778). Without it a support mail says which *phase* failed and
+			// nothing about *what* failed, so it cannot tell anyone which models the app does
+			// not yet support. A filename is not a path: the report's path-free promise is
+			// about never recording where in the user's documents a file lives.
+			LabeledContent(L10n.Import.conversionLogSourceFile, value: report.sourcePackageFilename)
+			LabeledContent(L10n.Import.conversionLogState, value: report.state.rawValue)
+			LabeledContent(L10n.Import.conversionLogSourceVersion, value: report.nativeConverterPackageVersion)
+			LabeledContent(
+				L10n.Import.conversionLogRevision,
+				value: String(report.nativeConverterConversionRevision)
+			)
+		}
+	}
+
+	@ViewBuilder
+	private var diagnosticSection: some View {
+		if let diagnostic = report.diagnostic {
+			Section(L10n.Import.conversionLogDiagnostic) {
+				LabeledContent(L10n.Import.conversionLogCode, value: diagnostic.code)
+				LabeledContent(L10n.Import.conversionLogPhase, value: diagnostic.phase.rawValue)
+				Text(diagnostic.message)
+			}
+		}
+	}
+
+	@ViewBuilder
+	private var sourceBytesSection: some View {
+		// The failure case: no metrics, but the input size was captured before the attempt,
+		// and it is the one number that says how big the model we could not convert was.
+		// Only when `metrics` is absent — otherwise the section below already shows it,
+		// alongside the output figures a success also has.
+		if report.metrics == nil, let sourceByteCount = report.sourceByteCount {
+			Section(L10n.Import.conversionLogMetrics) {
+				LabeledContent(
+					L10n.Import.conversionLogInputBytes,
+					value: formattedByteCount(sourceByteCount)
+				)
+			}
+		}
+	}
+
+	@ViewBuilder
+	private var metricsSection: some View {
+		if let metrics = report.metrics {
+			Section(L10n.Import.conversionLogMetrics) {
+				LabeledContent(
+					L10n.Import.conversionLogInputBytes,
+					value: String(metrics.sourceFootprint.totalByteCount)
+				)
+				LabeledContent(
+					L10n.Import.conversionLogOutputBytes,
+					value: String(metrics.emission.outputModelByteCount)
+				)
+				LabeledContent(
+					L10n.Import.conversionLogOperations,
+					value: String(metrics.emission.operationCount)
+				)
+				if let memoryUsage = metrics.processMemoryUsage {
+					LabeledContent(
+						L10n.Import.conversionProcessMemory,
+						value: formattedByteCount(memoryUsage.currentProcessFootprintByteCount)
+					)
+					LabeledContent(
+						L10n.Import.conversionObservedPeakMemory,
+						value: formattedByteCount(memoryUsage.peakObservedProcessFootprintByteCount)
+					)
+					LabeledContent(
+						L10n.Import.conversionObservedPeakIncrease,
+						value: formattedByteCount(memoryUsage.observedPeakIncreaseByteCount)
+					)
+				}
+			}
+		}
+	}
+
+	private var eventsSection: some View {
+		Section(L10n.Import.conversionLogEvents) {
+			ForEach(report.entries.reversed()) { entry in
+				VStack(alignment: .leading, spacing: 4) {
+					Text(entry.state.rawValue)
+						.font(.headline)
+					if let progress = entry.progress {
+						Text(progressDescription(progress))
+							.font(.caption)
+							.foregroundStyle(.secondary)
+					}
+					if let diagnostic = entry.diagnostic {
+						Text("\(diagnostic.code): \(diagnostic.message)")
+							.font(.caption)
+							.foregroundStyle(.secondary)
+					}
+					Text(entry.timestamp, style: .time)
+						.font(.caption2)
+						.foregroundStyle(.tertiary)
+				}
+			}
+		}
+	}
+
+	@ToolbarContentBuilder
+	private var reportToolbar: some ToolbarContent {
+		ToolbarItem(placement: .topBarLeading) {
+			// Available for every state — a failed conversion has no exportable model, but its
+			// log (including the diagnostic) is exactly what a user needs to send for support.
+			// Email reuses the app's support-mail path (with its mailto: fallback); Share is the
+			// plain-text alternative when the user would rather not use mail.
+			Menu {
+				Button {
+					Task { await emailReport() }
+				} label: {
+					Label(L10n.Support.sendEmail, systemImage: "envelope")
+				}
+				// A written file and no `preview:` — the exact shape of `SupportRequestView`'s
+				// support-log row, which is the one share in this app proven to survive
+				// *Save to Files* on macOS. See
+				// ``NativeModelConversionReporting/exportedLogFile(for:)`` for what the
+				// three departures from it each cost.
+				if let logExportURL {
+					ShareLink(item: logExportURL) {
+						Label(L10n.Common.share, systemImage: "square.and.arrow.up")
 					}
 				}
-				// Passed in, not derived here: a memory refusal keeps its converted model precisely so
-				// it can leave the device (AIA-0889), but the model can also have been cleaned up
-				// already — and this view deliberately touches no model paths to find out.
-				if canExport {
-					ToolbarItem(placement: .topBarLeading) {
-						if isPreparingExport {
-							ProgressView()
-						} else {
-							Button {
-								onExport()
-							} label: {
-								Label(L10n.Import.exportConvertedModel, systemImage: "archivebox")
-							}
-						}
+			} label: {
+				// Text, not a glyph (AIA-0778). Named for the job rather than the mechanism
+				// was the first half; the second is that no icon says "report this failure"
+				// on sight. A user looking for a way to report a failed conversion has to
+				// read the word to know this is it, so the word is what the toolbar shows.
+				Text(L10n.Import.reportConversion)
+			}
+		}
+		// Passed in, not derived here: a memory refusal keeps its converted model precisely so
+		// it can leave the device (AIA-0889), but the model can also have been cleaned up
+		// already — and this view deliberately touches no model paths to find out.
+		if canExport {
+			ToolbarItem(placement: .topBarLeading) {
+				if isPreparingExport {
+					ProgressView()
+				} else {
+					Button {
+						onExport()
+					} label: {
+						Label(L10n.Import.exportConvertedModel, systemImage: "archivebox")
 					}
 				}
 			}

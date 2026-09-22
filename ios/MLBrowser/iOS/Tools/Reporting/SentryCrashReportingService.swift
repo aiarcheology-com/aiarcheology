@@ -221,7 +221,7 @@ final class SentryCrashReportingService: CrashReportingService {
 		return SentryEventSignatureInput(errorType: errorType, message: message, topFrames: topFrames)
 	}
 	
-	private static func extractTypeAndFrames(payload: [String: Any]) -> (String?, [String]) {
+	static func extractTypeAndFrames(payload: [String: Any]) -> (String?, [String]) {
 		// 1) Exception stacktrace
 		if let exception = payload["exception"] as? [String: Any],
 		   let values = exception["values"] as? [[String: Any]],
