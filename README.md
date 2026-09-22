@@ -483,6 +483,7 @@ paths are named:
 | `ios/TestFixtures/FastViT/FastViT-LICENSE.txt`, `FastViT-ACKNOWLEDGEMENTS.txt` in that directory | Verbatim Apple and component notices, retained under their original terms; see the [fixture licence guide](ios/TestFixtures/FastViT/LICENSE.md). |
 | `Tests/NativeModelConverterTests/Fixtures/ADAF/*` | CC-BY-SA-4.0 — ShareAlike. [Attribution](Tests/NativeModelConverterTests/Fixtures/ADAF/NOTICE.md) |
 | `ios/MLBrowserUnitTests/Fixtures/MapHarness/*.js` | Leaflet and OpenLayers, BSD-2-Clause |
+| `ios/MLBrowser/iOS/Assets/Assets.xcassets/AppIcon.appiconset/*.png`, `ios/MLBrowser/iOS/Assets/Assets.xcassets/AppLogo.imageset/AppLogo.png` | App icon and logo artwork; no separate reuse licence is granted. See the [brand policy](specification/BRAND_POLICY.md). Asset-catalog configuration files are not artwork. |
 | `ios/MLBrowser/iOS/Assets/Assets.xcassets/WelcomeBackground.imageset/*`, `ExampleScreenshot.jpg` | Ownership confirmed by the repository owner on 2026-09-14 in #906. These remain excluded from the source-code grant; no separate reuse licence is recorded. See [NOTICE](NOTICE), section 5. |
 
 **The detection models are included in the grant.** `AIArcheology.mlpackage` and
@@ -491,8 +492,11 @@ scratch rather than fine-tuned from the CC-BY-SA-4.0 ADAF checkpoints — so the
 Apache-2.0 licence as the code. For a repository whose point is on-device detection, weights under a different licence to the
 code would be the asterisk that mattered, so it is stated rather than left to be inferred.
 
-[NOTICE](NOTICE) is the full attribution record for all of the above. "AI Archeology", the
-ML Browser name and the app artwork are trademarks and are not licensed by LICENSE.
+[NOTICE](NOTICE) is the attribution record for the assets above. The
+[brand policy](specification/BRAND_POLICY.md) explains use of the AI Archeology and ML Browser
+names, the logo and app icon, the official App Store identity, and branding for independent
+forks. It preserves factual attribution and the Apache-2.0 rights in the code and first-party
+models; it does not grant reuse rights for excluded artwork or assert trademark registration.
 
 The 22 former gallery photographs came from Apple's Image Gallery sample. The owner chose
 removal, and the corrected `main` and `develop` histories contain none of those photo blobs or

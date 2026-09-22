@@ -238,6 +238,16 @@ repository. Their licences ship with their own distributions.
 8. Trademarks
 ================================================================================
 
-Apache-2.0 section 6 does not grant trademark rights. "AI Archeology", the
-ML Browser name, the application icon and other brand artwork are not licensed
-by LICENSE and may not be used to identify derivative works.
+The brand policy at specification/BRAND_POLICY.md describes use of the
+AI Archeology and ML Browser names, the app logo and icon, and the official
+App Store identity. Apache-2.0 section 6 preserves customary references to
+the work's origin and reproduction of NOTICE; it does not grant general
+brand-use permission. This statement does not assert trademark registration.
+
+The app icon images under
+    ios/MLBrowser/iOS/Assets/Assets.xcassets/AppIcon.appiconset/*.png
+and the logo at
+    ios/MLBrowser/iOS/Assets/Assets.xcassets/AppLogo.imageset/AppLogo.png
+are excluded artwork in README.md's operative licence scope. No separate
+reuse licence is granted here. The photographic exclusions in section 5
+remain unchanged. This NOTICE records the policy; it does not modify LICENSE.
