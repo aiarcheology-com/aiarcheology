@@ -215,6 +215,8 @@ final class SentryEventGuardTests: XCTestCase {
 
 		let event = try XCTUnwrap(box.event, "captureError must produce a Sentry event through the SDK")
 		let serialized = event.serialize()
+		XCTAssertNil(serialized["attachments"], "the diagnostic fixture must not attach files")
+		XCTAssertNil(serialized["screenshot"], "the diagnostic fixture must not attach a screenshot")
 		let message = (serialized["message"] as? String)
 			?? ((serialized["message"] as? [String: Any])?["formatted"] as? String)
 		XCTAssertEqual(message, "map probe failed: timeout")
