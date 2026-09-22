@@ -52,4 +52,3 @@ Actionable clusters: {"background-download-reconnect": 2, "converter-emission": 
 The September 13 list scored absent coverage as 0% and reused one app-test bundle. Identity match is file plus qualified name. Status counts: {"entered": 115, "excluded": 31, "left-cohort": 80, "removed": 5, "stayed": 374, "unmeasured": 2}.
 
 `stayed` is still in the frozen cohort. `left-cohort` is function-matched and now outside it. `excluded` is an explicit non-product coverage gap with a reason. `unmeasured` has no function match and is not excluded, so it is not given a fake zero. `entered` is new to the cohort. `removed` is no longer in the complexity report.
-
