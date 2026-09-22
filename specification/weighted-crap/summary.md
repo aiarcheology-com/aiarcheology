@@ -2,7 +2,9 @@
 
 Analyzer: slopguard-swift 0.1.0 at `70245e434a271d6ce95a62976d67f7a14f9f298c`.
 Source revision: `392312f7b2a6c73dd20a15cc7915e1f63bc08742`.
-Regenerate with `./scripts/slopguard-baseline.sh report`.
+Collect on a clean revision, then run `./scripts/slopguard-baseline.sh report`; output goes to `build/slopguard/report/` and keeps this cohort's identities.
+
+PR #950 review correction: these are the original pre-refactor exports, reprocessed with corrected region, target, path, and ambiguity handling. Cohort membership and original rank order are unchanged. The legacy exports predate collection attestations; the source revision and test-run descriptions below are the original collector’s attribution, not a new source attestation or validation of the refactored code. New collections require revision/hash sidecars.
 
 ## Collection
 
@@ -22,32 +24,32 @@ Programs that are not linked into those tested products — CLI mains under `Sou
 
 ## Production coverage
 
-- app: 33.44% (25295 / 75648 executable lines, production files only)
-- converter: 83.92% (10198 / 12152 executable lines, production files only)
-- tools: 89.31% (284 / 318 executable lines, production files only)
+- app: 45.72% (23283 / 50920 executable lines, production files only)
+- converter: 83.97% (10150 / 12088 executable lines, production files only)
+- tools: 92.41% (268 / 290 executable lines, production files only)
 
 ## Scored population
 
 - Analyzed methods: 3268
-- Function-matched methods: 3058
-- Provenance counts: {"excluded": 83, "file-fallback": 105, "function-match": 2210, "measured-zero": 848, "missing": 22}
-- Median / p90 / p95 / max: 0 / 7.34538 / 13.162278 / 567.323808
-- Methods above 7: 329
-- Methods above 30: 68
-- Scored methods with zero cognitive complexity: 1725 (their weighted CRAP is 0, which pulls the median down)
+- Function-matched methods: 3033
+- Provenance counts: {"ambiguous": 25, "excluded": 83, "file-fallback": 105, "function-match": 2184, "measured-zero": 849, "missing": 22}
+- Median / p90 / p95 / max: 0 / 7.402653 / 13.482297 / 567.323808
+- Methods above 7: 332
+- Methods above 30: 69
+- Scored methods with zero cognitive complexity: 1712 (their weighted CRAP is 0, which pulls the median down)
 
 Missing, ambiguous, and file-fallback methods stay in the provenance counts. They are not folded into the median or the threshold counts.
 
 ## Frozen cohort
 
-Worst 15% of analyzed methods (490), taken only from function-matched scores. Cutoff: 4.732051. Ties break by file, line, and qualified name. Identities are in `cohort.csv`.
+Frozen identities and original rank order (490) are retained from the published worst-15% cohort. Scores reflect the current joiner; unmeasured members have blank scores. No replacement members are selected.
 
-Triage of that cohort: {"acceptable": 422, "actionable": 68}.
-Actionable clusters: {"background-download-reconnect": 2, "converter-emission": 3, "converter-other": 2, "crash-reporting": 2, "debug-launch-helpers": 3, "detection": 2, "finding-restore": 2, "map-location-probe": 1, "persistence-store-recovery": 1, "storekit-purchase": 1, "swiftui-findings": 11, "swiftui-import-and-catalog": 15, "swiftui-other": 15, "swiftui-settings": 4, "swiftui-subscription": 4}.
+Triage of that cohort: {"acceptable": 420, "actionable": 69, "measurement": 1}.
+Actionable clusters: {"background-download-reconnect": 2, "converter-emission": 3, "converter-other": 3, "crash-reporting": 2, "debug-launch-helpers": 3, "detection": 2, "finding-restore": 2, "map-location-probe": 1, "persistence-store-recovery": 1, "storekit-purchase": 1, "swiftui-findings": 11, "swiftui-import-and-catalog": 15, "swiftui-other": 15, "swiftui-settings": 4, "swiftui-subscription": 4}.
 
 ## Reconciliation with the 2026-09-13 list
 
-The September 13 list scored absent coverage as 0% and reused one app-test bundle. Identity match is file plus qualified name. Status counts: {"entered": 115, "excluded": 31, "left-cohort": 81, "removed": 5, "stayed": 374, "unmeasured": 1}.
+The September 13 list scored absent coverage as 0% and reused one app-test bundle. Identity match is file plus qualified name. Status counts: {"entered": 115, "excluded": 31, "left-cohort": 80, "removed": 5, "stayed": 374, "unmeasured": 2}.
 
 `stayed` is still in the frozen cohort. `left-cohort` is function-matched and now outside it. `excluded` is an explicit non-product coverage gap with a reason. `unmeasured` has no function match and is not excluded, so it is not given a fake zero. `entered` is new to the cohort. `removed` is no longer in the complexity report.
 

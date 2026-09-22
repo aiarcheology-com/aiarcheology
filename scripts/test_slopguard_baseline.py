@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Hermetic checks for the weighted-CRAP baseline joiner."""
 
+import csv
 import importlib.util
+import tempfile
 import sys
 import unittest
 from pathlib import Path
@@ -58,7 +60,58 @@ class FormulaTests(unittest.TestCase):
         self.assertEqual(baseline.crap_score(12, 0, 0), 0)
 
 
+class ArtifactProvenanceTests(unittest.TestCase):
+    def test_mixed_revisions_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = [Path(directory) / name for name in ("complexity.json", "coverage.json")]
+            for index, path in enumerate(paths):
+                path.write_text("{}")
+                baseline.attest_artifact(path, str(index) * 40)
+            with self.assertRaisesRegex(ValueError, "same source revision"):
+                baseline.artifact_revision(paths)
+
+    def test_modified_export_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "coverage.json"
+            path.write_text("{}")
+            baseline.attest_artifact(path, "a" * 40)
+            path.write_text('{"changed":true}')
+            with self.assertRaisesRegex(ValueError, "changed after collection"):
+                baseline.artifact_revision([path])
+
+    def test_unattested_export_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "coverage.json"
+            path.write_text("{}")
+            with self.assertRaisesRegex(ValueError, "missing provenance"):
+                baseline.artifact_revision([path])
+
+    def test_report_uses_collection_revision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = [Path(directory) / name for name in ("complexity.json", "coverage.json")]
+            for path in paths:
+                path.write_text("{}")
+                baseline.attest_artifact(path, "a" * 40)
+            self.assertEqual(baseline.artifact_revision(paths), "a" * 40)
+
+
 class AttributionTests(unittest.TestCase):
+    def test_app_totals_exclude_dependency_targets(self):
+        files, totals = baseline.parse_xccov({"targets": [
+            {"name": "ML Browser.app", "coveredLines": 3, "executableLines": 10},
+            {"name": "ConfigCat", "coveredLines": 100, "executableLines": 100},
+            {"name": "NativeModelConverter", "coveredLines": 20, "executableLines": 20},
+        ]}, "app")
+        self.assertEqual((totals.covered, totals.executable), (3, 10))
+
+    def test_generated_runner_and_dependencies_are_not_production_sources(self):
+        self.assertTrue(baseline.is_test_source(
+            "/repo/.build/out/Intermediates/Tests-p.build/DerivedSources/test_entry_point.swift"
+        ))
+        self.assertTrue(baseline.is_test_source(
+            "/repo/.build/checkouts/argument-parser/Sources/ArgumentParser/Parser.swift"
+        ))
+
     def test_function_match_ignores_a_higher_file_coverage(self):
         files, _ = baseline.parse_xccov({
             "targets": [{
@@ -172,6 +225,17 @@ class AttributionTests(unittest.TestCase):
         self.assertEqual(item.provenance, "function-match")
         self.assertEqual(item.coverage_percent, 50)
 
+    def test_partial_parent_directory_suffix_does_not_match(self):
+        file = baseline.FileCoverage(
+            path="/ci/OtherState/Foo.swift", executable=10, covered=10,
+            functions=(baseline.FunctionCoverage(10, 10, 10, 100, "app"),),
+            suite="app",
+        )
+        item = method("State/Foo.swift", "Foo.bar()")
+        baseline.attribute_method(item, baseline.CoverageIndex([file]), Path("/repo"))
+        self.assertEqual(item.provenance, "ambiguous")
+        self.assertIsNone(item.weighted_crap)
+
     def test_test_bundle_zero_does_not_count_as_measured(self):
         files, totals = baseline.parse_xccov({
             "targets": [{
@@ -221,6 +285,19 @@ class AttributionTests(unittest.TestCase):
         self.assertEqual(item.coverage_percent, 80)
         self.assertEqual(item.coverage_suite, "converter")
 
+    def test_same_line_closure_is_ambiguous_instead_of_taking_maximum(self):
+        file = baseline.FileCoverage(
+            path="/repo/Sources/Foo.swift", executable=10, covered=10,
+            functions=(
+                baseline.FunctionCoverage(10, 10, 0, 0, "app", "Foo.bar()"),
+                baseline.FunctionCoverage(10, 1, 1, 100, "app", "closure in Foo.bar()"),
+            ), suite="app",
+        )
+        item = method("Sources/Foo.swift", "Foo.bar()")
+        baseline.attribute_method(item, baseline.CoverageIndex([file]), Path("/repo"))
+        self.assertEqual(item.provenance, "ambiguous")
+        self.assertIsNone(item.weighted_crap)
+
     def test_llvm_regions_and_test_paths(self):
         files, totals = baseline.parse_llvm_cov({
             "data": [{
@@ -258,7 +335,57 @@ class AttributionTests(unittest.TestCase):
         self.assertEqual(function.percent, 75)
 
 
+class LLVMFunctionCoverageTests(unittest.TestCase):
+    def test_unexecuted_nested_branch_overrides_the_enclosing_region(self):
+        # Real Swift coverage layout for CoreMLProtobufStreamingEncoder.varint:
+        # the function ran, but the while body on lines 154-156 never did.
+        result = baseline._function_from_regions({"regions": [
+            [150, 54, 159, 3, 10, 0, 0, 0],
+            [153, 9, 153, 26, 10, 0, 0, 0],
+            [153, 27, 156, 4, 0, 0, 0, 0],
+            [156, 4, 158, 14, 10, 0, 0, 0],
+        ]}, "converter")
+        self.assertEqual(result.executable, 10)
+        self.assertEqual(result.covered, 8)
+        self.assertEqual(result.percent, 80)
+
+    def test_regions_from_an_expansion_file_do_not_cover_the_main_file(self):
+        result = baseline._function_from_regions({"regions": [
+            [10, 1, 12, 2, 0, 0, 0, 0],
+            [10, 1, 12, 2, 4, 1, 0, 0],
+        ]}, "converter")
+        self.assertEqual(result.covered, 0)
+
+    def test_skipped_region_is_not_an_executable_line(self):
+        result = baseline._function_from_regions({"regions": [
+            [10, 1, 15, 2, 1, 0, 0, 0],
+            [12, 1, 14, 1, 0, 0, 0, 2],
+        ]}, "converter")
+        self.assertEqual(result.executable, 3)
+        self.assertEqual(result.covered, 3)
+
+
 class CohortTests(unittest.TestCase):
+    def test_frozen_cohort_keeps_unmeasured_members_and_does_not_rerank(self):
+        existing = method("A.swift", "a()", cyc=2, cog=2)
+        new_hotspot = method("B.swift", "b()", cyc=20, cog=20)
+        new_hotspot.weighted_crap = 420
+        rows = [{"file": "A.swift", "function": "a()", "line": "10", "kind": "function",
+                 "cyclomatic": "2", "cognitive": "2"}]
+        selected = baseline.frozen_cohort([existing, new_hotspot], rows)
+        self.assertEqual(selected, [existing])
+        self.assertIsNone(selected[0].weighted_crap)
+        with tempfile.TemporaryDirectory() as directory:
+            baseline.write_outputs(
+                Path(directory), [existing, new_hotspot], selected, [],
+                baseline.summarize([existing, new_hotspot], selected, [], []),
+                {"cohort_selection": "frozen"},
+            )
+            with (Path(directory) / "cohort.csv").open() as handle:
+                output = list(csv.DictReader(handle))
+            self.assertEqual(output[0]["weighted_crap"], "")
+            self.assertEqual(output[0]["coverage_percent"], "")
+
     def test_exact_fifteen_percent_breaks_ties_by_file_line_and_name(self):
         methods = []
         for index in range(10):

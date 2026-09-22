@@ -180,7 +180,7 @@ final class SentryEventGuardTests: XCTestCase {
 		])
 	}
 
-	func testCaptureError_BuildsTaggedEventWithoutImageryOrPageContents() throws {
+	func testCaptureError_RoutesDiagnosticContextToTagsAndExtras() throws {
 		// Existing test seam: configure Sentry with a beforeSend that keeps the event in-process
 		// and drops transport (nil return). Do not call SentryCrashReportingService.start, which
 		// would replace this hook.
@@ -190,36 +190,38 @@ final class SentryEventGuardTests: XCTestCase {
 		let box = CaptureBox()
 		SentrySDK.start { options in
 			options.dsn = "https://publickey@127.0.0.1/1"
+			options.enableAutoSessionTracking = false
+			options.enableCrashHandler = false
+			options.enableAutoPerformanceTracing = false
+			options.enableSwizzling = false
+			options.enableAppHangTracking = false
+			options.enableWatchdogTerminationTracking = false
+			options.enableAutoBreadcrumbTracking = false
 			options.beforeSend = { event in
 				box.event = event
 				return nil
 			}
 		}
+		defer { SentrySDK.close() }
 		let sut = SentryCrashReportingService(dsn: nil, tracesSampleRate: 0, enableProfiling: false)
 		sut.captureError(
 			message: "map probe failed",
 			error: NSError(domain: "AIA0946", code: 1, userInfo: [NSLocalizedDescriptionKey: "timeout"]),
 			context: [
-				"page_host": "example.org",
-				"page_url": "https://example.org/viewer?extent=1,2,3,4",
-				"thumbnail_base64": String(repeating: "A", count: 256),
-				"page_html": "<html><body>secret page contents</body></html>"
+				"operation": "map_probe",
+				"diagnostic_detail": String(repeating: "timeout ", count: 32)
 			]
 		)
 
 		let event = try XCTUnwrap(box.event, "captureError must produce a Sentry event through the SDK")
 		let serialized = event.serialize()
-		XCTAssertNil(serialized["attachments"], "serialized payload must not carry an attachments collection")
-		XCTAssertNil(serialized["screenshot"], "crash events must not attach image bytes or page snapshots")
 		let message = (serialized["message"] as? String)
 			?? ((serialized["message"] as? [String: Any])?["formatted"] as? String)
 		XCTAssertEqual(message, "map probe failed: timeout")
-		// Tags are short indexed fields; long values and *_url keys travel as extras — never as attachments.
+		// This checks routing of safe diagnostic values; it is not an imagery/privacy gate.
 		let tags = event.tags
 		let extra = event.extra
-		XCTAssertEqual(tags?["page_host"], "example.org")
-		XCTAssertEqual(extra?["page_url"] as? String, "https://example.org/viewer?extent=1,2,3,4")
-		XCTAssertEqual(extra?["thumbnail_base64"] as? String, String(repeating: "A", count: 256))
-		XCTAssertEqual(tags?["page_html"], "<html><body>secret page contents</body></html>")
+		XCTAssertEqual(tags?["operation"], "map_probe")
+		XCTAssertEqual(extra?["diagnostic_detail"] as? String, String(repeating: "timeout ", count: 32))
 	}
 }

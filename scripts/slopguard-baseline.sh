@@ -8,7 +8,8 @@
 #   ./scripts/slopguard-baseline.sh collect-converter
 #   ./scripts/slopguard-baseline.sh report
 #
-# `report` reads build/slopguard artifacts and writes specification/weighted-crap/.
+# `report` reads build/slopguard artifacts and writes build/slopguard/report/.
+# Set SLOPGUARD_REPORT_OUT explicitly to publish; the frozen cohort is never overwritten by default.
 # It refuses to publish until app, converter, and tool coverage exports exist.
 # SlopGuard itself is not a repository dependency. Set SLOPGUARD_DIR when the
 # checkout is not ~/Development/SlopGuard-Swift. The checkout must be the pinned
@@ -19,8 +20,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SLOPGUARD_DIR="${SLOPGUARD_DIR:-${HOME}/Development/SlopGuard-Swift}"
 ANALYZER_PIN="70245e434a271d6ce95a62976d67f7a14f9f298c"
-OUT="${REPO_ROOT}/build/slopguard"
+OUT="${SLOPGUARD_OUT:-${REPO_ROOT}/build/slopguard}"
 PUBLISHED="${REPO_ROOT}/specification/weighted-crap"
+REPORT_OUT="${SLOPGUARD_REPORT_OUT:-${OUT}/report}"
 export DEVELOPER_DIR="${DEVELOPER_DIR:-$(xcode-select -p)}"
 
 usage() {
@@ -81,12 +83,12 @@ export_llvm() {
     local build_dir="$1"
     local destination="$2"
     local profdata product
-    profdata="$(find "${build_dir}" -name default.profdata -path '*codecov*' | head -1)"
-    if [[ -z "${profdata}" ]]; then
-        echo "Could not find a codecov profile under ${build_dir}" >&2
+    product="$(swift build --package-path "${build_dir%/.build}" --show-bin-path)"
+    profdata="${product}/codecov/default.profdata"
+    if [[ ! -s "${profdata}" ]]; then
+        echo "Could not find the active codecov profile at ${profdata}" >&2
         exit 1
     fi
-    product="$(cd "$(dirname "${profdata}")/.." && pwd)"
     local bins=()
     while IFS= read -r bin; do
         bins+=("${bin}")
@@ -95,7 +97,41 @@ export_llvm() {
         echo "Could not find an instrumented test binary under ${product}" >&2
         exit 1
     fi
-    xcrun llvm-cov export -format=text -instr-profile "${profdata}" "${bins[@]}" > "${destination}"
+    local objects=("${bins[0]}")
+    for bin in "${bins[@]:1}"; do
+        objects+=(-object "${bin}")
+    done
+    xcrun llvm-cov export -format=text -instr-profile "${profdata}" "${objects[@]}" > "${destination}"
+}
+
+# Collect on one clean revision so line spans and coverage cannot silently drift.
+clean_sources() {
+    git -C "${REPO_ROOT}" diff --quiet HEAD -- &&
+        [[ -z "$(git -C "${REPO_ROOT}" ls-files --others --exclude-standard -- '*.swift')" ]]
+}
+
+begin_collection() {
+    if ! clean_sources; then
+        echo "Commit tracked changes before collecting revision-specific coverage." >&2
+        exit 1
+    fi
+    collection_revision="$(git -C "${REPO_ROOT}" rev-parse HEAD)"
+    rm -f "${OUT}/$1.provenance.json"
+}
+
+finish_collection() {
+    if [[ "$(git -C "${REPO_ROOT}" rev-parse HEAD)" != "${collection_revision}" ]] ||
+       ! clean_sources; then
+        echo "Sources changed during collection; rerun this collection command." >&2
+        exit 1
+    fi
+    python3 - "${REPO_ROOT}" "${OUT}/$1" "${collection_revision}" <<'PYCODE'
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]) / "scripts"))
+from slopguard_baseline import attest_artifact
+attest_artifact(Path(sys.argv[2]), sys.argv[3])
+PYCODE
 }
 
 command="${1:-}"
@@ -104,13 +140,16 @@ mkdir -p "${OUT}"
 case "${command}" in
     complexity)
         require_analyzer
+        begin_collection complexity.json
         "${SLOPGUARD_DIR}/slopguard-swift" analyze \
             --path "${REPO_ROOT}" \
             --no-coverage \
             --exclude build 'build/*' .deriveddata '.deriveddata/*' 'web/node_modules/*' \
             --json --quiet > "${OUT}/complexity.json"
+        finish_collection complexity.json
         ;;
     collect-app)
+        begin_collection app-coverage.json
         simulator_id="$(pick_simulator)"
         "${REPO_ROOT}/scripts/fetch_apple_test_models.sh"
         rm -rf "${OUT}/app.xcresult"
@@ -126,12 +165,16 @@ case "${command}" in
             -skipPackagePluginValidation \
             -skipMacroValidation
         xcrun xccov view --report --json "${OUT}/app.xcresult" > "${OUT}/app-coverage.json"
+        finish_collection app-coverage.json
         ;;
     collect-tools)
+        begin_collection tools-coverage.json
         swift test --package-path "${REPO_ROOT}/Tools" --enable-code-coverage
         export_llvm "${REPO_ROOT}/Tools/.build" "${OUT}/tools-coverage.json"
+        finish_collection tools-coverage.json
         ;;
     collect-converter)
+        begin_collection converter-coverage.json
         reference_directory="$(mktemp -d "${TMPDIR:-/tmp}/native-model-converter-references.XXXXXX")"
         trap 'rm -rf "${reference_directory}"' EXIT
         download_reference() {
@@ -154,6 +197,7 @@ case "${command}" in
             NATIVE_MODEL_REFERENCE_DIRECTORY="${reference_directory}" \
             swift test --package-path "${REPO_ROOT}" --skip ADAFCheckpointDirectoryTests --enable-code-coverage
         export_llvm "${REPO_ROOT}/.build" "${OUT}/converter-coverage.json"
+        finish_collection converter-coverage.json
         ;;
     report)
         require_analyzer
@@ -163,13 +207,21 @@ case "${command}" in
                 exit 1
             fi
         done
-        revision="$(git -C "${REPO_ROOT}" rev-parse HEAD)"
-        if [[ ! -s "${OUT}/runs.json" ]]; then
-            echo '[]' > "${OUT}/runs.json"
-        fi
+        revision="$(python3 - "${REPO_ROOT}" "${OUT}" <<'PYCODE'
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]) / "scripts"))
+from slopguard_baseline import artifact_revision
+root = Path(sys.argv[2])
+print(artifact_revision([root / name for name in (
+    "complexity.json", "app-coverage.json", "converter-coverage.json", "tools-coverage.json"
+)]))
+PYCODE
+)"
         python3 "${REPO_ROOT}/scripts/slopguard_baseline.py" \
             --complexity "${OUT}/complexity.json" \
-            --initial "${OUT}/worst-15-percent.csv" \
+            --initial "${PUBLISHED}/initial.csv" \
+            --frozen-cohort "${PUBLISHED}/cohort.csv" \
             --xccov app "${OUT}/app-coverage.json" \
             --llvm-cov converter "${OUT}/converter-coverage.json" \
             --llvm-cov tools "${OUT}/tools-coverage.json" \
@@ -178,8 +230,7 @@ case "${command}" in
             --require-suite tools \
             --source-revision "${revision}" \
             --analyzer-revision "${ANALYZER_PIN}" \
-            --runs "${OUT}/runs.json" \
-            --out "${PUBLISHED}"
+            --out "${REPORT_OUT}"
         ;;
     *)
         usage

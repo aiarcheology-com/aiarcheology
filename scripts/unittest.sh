@@ -52,6 +52,7 @@ done
 cd "${REPO_ROOT}"
 
 python3 scripts/test_apple_test_models.py
+python3 scripts/test_slopguard_baseline.py
 
 # ProjectTool's own tests run first: they are pure host-side Swift (no simulator, well under a
 # second), so a failure here should not cost a full simulator boot to discover. Without this the

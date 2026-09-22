@@ -74,6 +74,7 @@ final class TestabilityTests: XCTestCase {
     @MainActor
     func test_applyPageScenario_blank_clearsHomeAndLastPageRouting() {
         let settings = Settings()
+        defer { settings.reset() }
         settings.defaultPage = URL(string: UITestLaunchConfiguration.baselineHome)
         settings.reopenLastPage = true
         settings.lastPage = URL(string: "https://example.org/previous")
@@ -89,6 +90,7 @@ final class TestabilityTests: XCTestCase {
     @MainActor
     func test_applyPageScenario_last_seedsReopenLastPage() {
         let settings = Settings()
+        defer { settings.reset() }
         settings.reopenLastPage = false
         settings.lastPage = nil
 
@@ -104,6 +106,7 @@ final class TestabilityTests: XCTestCase {
     @MainActor
     func test_applyPageScenario_homeOverride_writesDefaultPage() {
         let settings = Settings()
+        defer { settings.reset() }
         settings.defaultPage = URL(string: UITestLaunchConfiguration.baselineHome)
 
         var config = UITestLaunchConfiguration()
@@ -117,6 +120,7 @@ final class TestabilityTests: XCTestCase {
     @MainActor
     func test_applyDetectionAndAnalyticsDeltas_writesDetectionAndAnalyticsFields() {
         let settings = Settings()
+        defer { settings.reset() }
         settings.fullscreenDetection = false
         settings.disableDetectionAnimations = false
         settings.snapFrequency = 3.0

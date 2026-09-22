@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import sys
@@ -28,6 +29,33 @@ ANALYZER_PIN = "70245e434a271d6ce95a62976d67f7a14f9f298c"
 COHORT_FRACTION = 0.15
 WARNING_THRESHOLD = 30.0
 REVIEW_TARGET = 7.0
+
+
+def attest_artifact(path: Path, revision: str) -> None:
+    """Called only after a successful collection on an unchanged clean revision."""
+    if len(revision) != 40 or any(char not in "0123456789abcdef" for char in revision):
+        raise ValueError("collection requires a full Git source revision")
+    payload = {
+        "source_revision": revision,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+    Path(str(path) + ".provenance.json").write_text(json.dumps(payload) + "\n")
+
+
+def artifact_revision(paths: list[Path]) -> str:
+    """Reject stale/mixed exports instead of labelling them with report-time HEAD."""
+    revisions = set()
+    for path in paths:
+        sidecar = Path(str(path) + ".provenance.json")
+        if not sidecar.is_file():
+            raise ValueError(f"missing provenance for {path}; rerun its collection command")
+        payload = json.loads(sidecar.read_text())
+        if payload.get("sha256") != hashlib.sha256(path.read_bytes()).hexdigest():
+            raise ValueError(f"coverage artifact changed after collection: {path}")
+        revisions.add(payload["source_revision"])
+    if len(revisions) != 1:
+        raise ValueError("coverage and complexity must come from the same source revision")
+    return revisions.pop()
 
 NAMED_HOTSPOTS = {
     (
@@ -52,6 +80,7 @@ class FunctionCoverage:
     covered: int
     percent: float
     suite: str
+    name: str = ""
 
 
 @dataclass(frozen=True)
@@ -142,16 +171,16 @@ def exclusion_reason_for(path: str) -> str | None:
 
 
 def is_production_xccov_target(name: str) -> bool:
-    lowered = name.lower()
-    if lowered.endswith(".xctest") or "tests" in lowered:
-        return False
-    if "harmonize" in lowered or lowered == "sentry":
-        return False
-    return True
+    # xccov also exports dependencies (ConfigCat, TelemetryDeck, HuggingFace,
+    # etc.). Their counters must not inflate the application's coverage.
+    # The owned converter package has its own separately reported LLVM suite.
+    return name == "ML Browser.app"
 
 
 def is_test_source(path: str) -> bool:
     parts = Path(path).parts
+    if any(part == ".build" or part.startswith(".deriveddata") for part in parts):
+        return True  # Generated runners and dependency sources are not production code.
     if any(part.endswith("Tests") or part.endswith("Specs") for part in parts):
         return True
     name = Path(path).name
@@ -160,7 +189,7 @@ def is_test_source(path: str) -> bool:
 
 def shared_suffix_length(left: str, right: str) -> int:
     count = 0
-    for a, b in zip(reversed(left), reversed(right)):
+    for a, b in zip(reversed(Path(left).parts), reversed(Path(right).parts)):
         if a != b:
             break
         count += 1
@@ -168,19 +197,57 @@ def shared_suffix_length(left: str, right: str) -> int:
 
 
 def _function_from_regions(function: dict, suite: str) -> FunctionCoverage | None:
-    lines: dict[int, int] = {}
-    for region in function.get("regions") or []:
-        if len(region) < 5:
+    # LLVM regions are nested source ranges. A covered outer function must not
+    # paint an unexecuted inner branch as covered. Resolve region boundaries
+    # first, then use the wrapped count and non-gap entries for each line (the
+    # same inputs as LLVM's LineCoverageStats).
+    regions = {}
+    for raw in function.get("regions") or []:
+        if len(raw) < 8:
+            raise ValueError("LLVM coverage region must contain all eight fields")
+        start, end = tuple(raw[:2]), tuple(raw[2:4])
+        count, file_id, _, kind = raw[4:8]
+        if file_id != 0 or kind in (1, 4, 5, 6):
             continue
-        start_line = int(region[0])
-        end_line = int(region[2])
-        end_column = int(region[3])
-        count = int(region[4])
-        last = end_line if end_column > 1 else end_line - 1
-        if last < start_line:
-            last = start_line
-        for line in range(start_line, last + 1):
-            lines[line] = max(lines.get(line, 0), count)
+        if kind not in (0, 2, 3) or end < start:
+            raise ValueError("unsupported LLVM coverage region")
+        key = (start, end, kind)
+        regions[key] = regions.get(key, 0) + count
+    if not regions:
+        return None
+    starts = defaultdict(list)
+    ends = defaultdict(list)
+    for region in regions:
+        starts[region[0]].append(region)
+        ends[region[1]].append(region)
+    active = set()
+    segments = defaultdict(list)
+    for point in sorted(starts.keys() | ends.keys()):
+        active.difference_update(ends[point])
+        active.update(region for region in starts[point] if region[0] != region[1])
+        if active:
+            # Latest start, then earliest end: the innermost active region.
+            current = max(active, key=lambda r: (r[0], -r[1][0], -r[1][1]))
+            count, has_count = regions[current], current[2] != 2
+            gap = current[2] == 3
+            entry = current in starts[point]
+        else:
+            count, has_count, entry, gap = 0, False, False, False
+        segments[point[0]].append((count, has_count, entry, gap))
+    lines: dict[int, int] = {}
+    wrapped = (0, False, False, False)
+    first = min(region[0][0] for region in regions)
+    last = max(end[0] - (end[1] == 1) for _, end, _ in regions)
+    for line in range(first, last + 1):
+        entries = segments.get(line, [])
+        code_entries = [s for s in entries if s[1] and s[2] and not s[3]]
+        starts_skipped = bool(entries and not entries[0][1] and entries[0][2])
+        mapped = (not starts_skipped and (wrapped[1] or bool(code_entries)))
+        mapped |= any(s[1] and s[2] for s in entries)
+        if mapped:
+            lines[line] = max([wrapped[0], *(s[0] for s in code_entries)])
+        if entries:
+            wrapped = entries[-1]
     if not lines:
         return None
     covered = sum(1 for count in lines.values() if count > 0)
@@ -191,6 +258,7 @@ def _function_from_regions(function: dict, suite: str) -> FunctionCoverage | Non
         covered=covered,
         percent=100.0 * covered / executable,
         suite=suite,
+        name=function.get("name", ""),
     )
 
 
@@ -220,6 +288,7 @@ def parse_xccov(document: dict, suite: str) -> tuple[list[FileCoverage], SuiteTo
                     covered=covered,
                     percent=percent,
                     suite=suite,
+                    name=function.get("name", ""),
                 ))
             files.append(FileCoverage(
                 path=raw["path"],
@@ -289,9 +358,9 @@ class CoverageIndex:
         scored: list[tuple[int, FileCoverage]] = []
         for candidate in candidates:
             overlap = shared_suffix_length(normalized, str(Path(candidate.path)))
-            # A shared "/File.swift" is not a path match: every absolute path
-            # has that slash. Require at least one parent-directory character.
-            if overlap > len(basename) + 1:
+            # Require a complete parent component, not a textual suffix such
+            # as State/Foo.swift matching OtherState/Foo.swift.
+            if overlap >= 2:
                 scored.append((overlap, candidate))
         if not scored:
             return "ambiguous", []
@@ -315,8 +384,13 @@ def _best_function(
         return "file-fallback", None
     closest = min(abs(function.line - start) for function in in_range)
     nearest = [function for function in in_range if abs(function.line - start) == closest]
-    # Two different first-lines at the same distance are an ambiguous closure match.
-    if len({function.line for function in nearest}) > 1:
+    # Same-line closures/accessors can have unrelated coverage. Taking the
+    # highest percentage within one suite would silently credit the wrong body.
+    # Combining evidence across suites is a separate, intentional decision.
+    names_by_suite: dict[str, set[str]] = defaultdict(set)
+    for function in nearest:
+        names_by_suite[function.suite].add(function.name)
+    if any(len(names) > 1 for names in names_by_suite.values()):
         return "ambiguous", None
     return "function-match", max(nearest, key=lambda function: function.percent)
 
@@ -388,6 +462,23 @@ def select_cohort(methods: list[Method], fraction: float = COHORT_FRACTION) -> l
         method.qualified_name,
     ))
     return scored[:count]
+
+
+def frozen_cohort(methods: list[Method], rows: list[dict[str, str]]) -> list[Method]:
+    """Keep the published identities/order even if corrected evidence is missing."""
+    by_identity = {method.identity: method for method in methods}
+    selected = []
+    for row in rows:
+        identity = (row["file"], row["function"])
+        current = by_identity.get(identity)
+        if current is None:
+            current = Method(
+                file=identity[0], qualified_name=identity[1], line=int(row["line"]),
+                end_line=int(row["line"]), kind=row["kind"],
+                cyclomatic=int(row["cyclomatic"]), cognitive=int(row["cognitive"]),
+            )
+        selected.append(current)
+    return selected
 
 
 def percentile(sorted_values: list[float], percent: float) -> float | None:
@@ -568,7 +659,8 @@ def summarize(
         "analyzed_methods": len(methods),
         "scored_methods": len(scored),
         "cohort_size": len(cohort),
-        "cohort_cutoff": None if not cohort else cohort[-1].weighted_crap,
+        "cohort_cutoff": min((method.weighted_crap for method in cohort
+                              if method.weighted_crap is not None), default=None),
         "median": percentile(scored, 50),
         "p90": percentile(scored, 90),
         "p95": percentile(scored, 95),
@@ -619,10 +711,10 @@ def write_outputs(
             "line": method.line,
             "function": method.qualified_name,
             "kind": method.kind,
-            "weighted_crap": format_number(method.weighted_crap or 0),
+            "weighted_crap": "" if method.weighted_crap is None else format_number(method.weighted_crap),
             "cyclomatic": method.cyclomatic,
             "cognitive": method.cognitive,
-            "coverage_percent": format_number(method.coverage_percent or 0),
+            "coverage_percent": "" if method.coverage_percent is None else format_number(method.coverage_percent),
             "provenance": method.provenance,
             "coverage_suite": method.coverage_suite,
             "triage": label,
@@ -719,7 +811,9 @@ def render_markdown(payload: dict) -> str:
         "",
         f"Analyzer: slopguard-swift {meta.get('tool_version', '0.1.0')} at `{meta.get('analyzer_revision', ANALYZER_PIN)}`.",
         f"Source revision: `{meta.get('source_revision', 'unknown')}`.",
-        "Regenerate with `./scripts/slopguard-baseline.sh report`.",
+        "Collect on a clean revision, then run `./scripts/slopguard-baseline.sh report`; "
+        "output goes to `build/slopguard/report/` and keeps this cohort's identities.",
+        *(["", meta["evidence_note"]] if meta.get("evidence_note") else []),
         "",
         *run_lines(meta.get("runs") or []),
         "## How a method is scored",
@@ -767,9 +861,13 @@ def render_markdown(payload: dict) -> str:
         "",
         "## Frozen cohort",
         "",
-        f"Worst 15% of analyzed methods ({summary['cohort_size']}), taken only from "
-        f"function-matched scores. Cutoff: {cutoff_text}. Ties break by file, line, "
-        "and qualified name. Identities are in `cohort.csv`.",
+        (f"Frozen identities and original rank order ({summary['cohort_size']}) are retained "
+         "from the published worst-15% cohort. Scores reflect the current joiner; "
+         "unmeasured members have blank scores. No replacement members are selected."
+         if meta.get("cohort_selection") == "frozen" else
+         f"Worst 15% of analyzed methods ({summary['cohort_size']}), taken only from "
+         f"function-matched scores. Cutoff: {cutoff_text}. Ties break by file, line, "
+         "and qualified name. Identities are in `cohort.csv`."),
         "",
         f"Triage of that cohort: {json.dumps(summary['triage'], sort_keys=True)}.",
         f"Actionable clusters: {json.dumps(summary['clusters'], sort_keys=True)}.",
@@ -794,13 +892,14 @@ def build(
     coverage_files: list[FileCoverage],
     totals: list[SuiteTotals],
     initial_rows: list[dict[str, str]] | None,
+    frozen_rows: list[dict[str, str]] | None = None,
 ) -> tuple[list[Method], list[Method], list[dict[str, str]], dict]:
     source_root = Path(complexity.get("sourceRoot") or ".")
     methods = load_methods(complexity)
     index = CoverageIndex(coverage_files)
     for method in methods:
         attribute_method(method, index, source_root)
-    cohort = select_cohort(methods)
+    cohort = frozen_cohort(methods, frozen_rows) if frozen_rows is not None else select_cohort(methods)
     reconciliation = reconcile(initial_rows, methods, cohort) if initial_rows is not None else []
     summary = summarize(methods, cohort, totals, reconciliation)
     return methods, cohort, reconciliation, summary
@@ -819,6 +918,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--complexity", required=True, type=Path)
     parser.add_argument("--initial", type=Path)
+    parser.add_argument("--frozen-cohort", type=Path)
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--xccov", action="append", default=[], nargs=2, metavar=("SUITE", "PATH"))
     parser.add_argument("--llvm-cov", action="append", default=[], nargs=2, metavar=("SUITE", "PATH"))
@@ -845,14 +945,22 @@ def main(argv: list[str] | None = None) -> int:
     missing = [suite for suite in args.require_suite if suite not in present]
     if missing:
         raise SystemExit(f"missing required coverage suites: {', '.join(missing)}")
+    empty = [suite for suite in args.require_suite
+             if not any(total.suite == suite and total.executable > 0 for total in totals)]
+    if empty:
+        raise SystemExit(f"empty required coverage suites: {', '.join(empty)}")
 
     complexity = json.loads(args.complexity.read_text())
     initial = load_initial_cohort(args.initial) if args.initial else None
-    methods, cohort, reconciliation, summary = build(complexity, files, totals, initial)
+    frozen = load_initial_cohort(args.frozen_cohort) if args.frozen_cohort else None
+    methods, cohort, reconciliation, summary = build(complexity, files, totals, initial, frozen)
+    if not methods:
+        raise SystemExit("complexity report contains no methods")
     metadata = {
         "source_revision": args.source_revision,
         "analyzer_revision": args.analyzer_revision,
         "tool_version": args.tool_version,
+        "cohort_selection": "frozen" if frozen is not None else "ranked",
     }
     if args.runs:
         metadata["runs"] = json.loads(args.runs.read_text())

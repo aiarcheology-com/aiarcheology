@@ -207,14 +207,27 @@ consistency, without launching app tests solely for prose.
 
 ## Weighted-CRAP baseline
 
-`./scripts/slopguard-baseline.sh` reproduces the AIA-0901 cohort. `complexity` runs the
-pinned SlopGuard checkout with coverage disabled. `collect-app`, `collect-converter`, and
-`collect-tools` gather separate production coverage. `report` writes
-[specification/weighted-crap](weighted-crap/summary.md). A method is ranked only when a
-coverage function matches its span. Missing files, ambiguous paths, and file-level fallback
-stay out of the score. The published snapshot is the frozen comparison cohort; regenerating
-the worst 15% after a refactor would move the tail. The command needs the SlopGuard checkout
-named in that summary, plus the converter fixtures from `./scripts/fetch_native_test_models.sh`.
+`./scripts/slopguard-baseline.sh` collects the AIA-0901 measurements. Commit tracked changes
+before collection. `complexity` runs the pinned SlopGuard checkout with coverage disabled;
+`collect-app`, `collect-converter`, and `collect-tools` gather coverage. Each successful command
+records the source revision and artifact SHA-256 in a sidecar. `report` rejects absent, altered,
+or mixed-revision exports, and uses the collection revision rather than the current HEAD.
+Recollect old exports that lack sidecars; do not attest them retroactively. Set `SLOPGUARD_OUT`
+to keep a new collection separate from historical artifacts.
+
+`report` writes `build/slopguard/report/` by default, preserving the identities and original order
+in [the frozen cohort](weighted-crap/cohort.csv). A missing or ambiguous function has a blank
+score, including when it was previously ranked. Set `SLOPGUARD_REPORT_OUT` only when deliberately
+publishing reviewed evidence. The September reconciliation input is committed as
+[initial.csv](weighted-crap/initial.csv), so it does not depend on an ignored local file.
+
+App totals include only `ML Browser.app`. LLVM totals omit generated runners, dependencies, and
+test sources; nested unexecuted regions override their enclosing function's count. Same-line
+functions with different names in one suite are ambiguous, not credited with whichever has the
+highest coverage. The command needs the pinned SlopGuard checkout named in the summary, plus the
+converter fixtures from `./scripts/fetch_native_test_models.sh`. Run
+`python3 scripts/test_slopguard_baseline.py` for the attribution/provenance regressions; the unit
+wrapper and Harmonize CI include these checks.
 
 ## Opt-in coverage pitfalls
 

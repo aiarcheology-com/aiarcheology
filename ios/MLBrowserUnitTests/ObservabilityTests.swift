@@ -7,7 +7,6 @@
 
 import XCTest
 @testable import ML_Browser
-import Darwin
 
 // MARK: - Mock CrashReportingService
 
@@ -290,42 +289,38 @@ final class ObservabilityTestTriggersTests: XCTestCase {
 		XCTAssertNoThrow(Observability.runTestTriggersIfEnabled())
 	}
 	
-	func test_runSentryThrottleSmokeTestIfEnabled_properlyGatedByEnvVar() {
-		// When SENTRY_THROTTLE_SMOKE_TEST is not set, this should return early
-		XCTAssertNil(
-			AppEnvironment.sentryThrottleSmokeTestMode,
-			"Unit tests must not inherit a throttle smoke-test mode from the process environment"
-		)
-		XCTAssertNoThrow(Observability.runSentryThrottleSmokeTestIfEnabled())
+	func test_runSentryThrottleSmokeTestIfEnabled_disabledModesDoNotStartWork() {
+		XCTAssertNil(Observability.runSentryThrottleSmokeTestIfEnabled(mode: nil))
+		XCTAssertNil(Observability.runSentryThrottleSmokeTestIfEnabled(mode: ""))
 	}
 
-	func test_runSentryThrottleSmokeTestIfEnabled_enabledPathUsesNoOpReporter() async throws {
-		// Existing seam: Observability with NoOpCrashReportingService never uploads to Sentry.
-		if !Observability.isStarted {
-			Observability.start(with: NoOpCrashReportingService())
-		}
-
-		let key = "SENTRY_THROTTLE_SMOKE_TEST"
-		let previous = getenv(key).map { String(cString: $0) }
-		defer {
-			if let previous {
-				setenv(key, previous, 1)
-			} else {
-				unsetenv(key)
-			}
-		}
-
-		setenv(key, "duplicate", 1)
-		guard AppEnvironment.sentryThrottleSmokeTestMode == "duplicate" else {
-			// ProcessInfo may cache the environment; skip rather than invent a live upload path.
-			throw XCTSkip("ProcessInfo did not observe setenv for SENTRY_THROTTLE_SMOKE_TEST")
-		}
-
-		XCTAssertNoThrow(Observability.runSentryThrottleSmokeTestIfEnabled())
-		// The smoke path schedules LoggingPolicy.error on a detached task; give it a beat to
-		// finish under the NoOp reporter without asserting remote delivery.
-		try await Task.sleep(nanoseconds: 200_000_000)
+	func test_runSentryThrottleSmokeTestIfEnabled_duplicateEmits120MatchingErrors() async throws {
+		let recorder = SmokeErrorRecorder()
+		let task = try XCTUnwrap(Observability.runSentryThrottleSmokeTestIfEnabled(mode: "duplicate") { _, error in
+			recorder.record(error.code)
+		})
+		await task.value
+		XCTAssertEqual(recorder.codes, Array(repeating: 1, count: 120))
 	}
+
+	func test_runSentryThrottleSmokeTestIfEnabled_globalEmits200DistinctErrors() async throws {
+		let recorder = SmokeErrorRecorder()
+		let task = try XCTUnwrap(Observability.runSentryThrottleSmokeTestIfEnabled(mode: "global") { _, error in
+			recorder.record(error.code)
+		})
+		await task.value
+		XCTAssertEqual(recorder.codes, Array(0..<200))
+	}
+
+	func test_runSentryThrottleSmokeTestIfEnabled_unknownModeEmitsNothing() async throws {
+		let recorder = SmokeErrorRecorder()
+		let task = try XCTUnwrap(Observability.runSentryThrottleSmokeTestIfEnabled(mode: "unknown") { _, error in
+			recorder.record(error.code)
+		})
+		await task.value
+		XCTAssertTrue(recorder.codes.isEmpty)
+	}
+
 }
 
 // MARK: - Test helpers
@@ -344,5 +339,19 @@ private extension SentryCrashReportingService {
 			mirror = current.superclassMirror
 		}
 		throw MirrorError.propertyNotFound(property)
+	}
+}
+
+/// The detached smoke task writes while the test reads after awaiting completion.
+private final class SmokeErrorRecorder: @unchecked Sendable {
+	private let lock = NSLock()
+	private var recordedCodes: [Int] = []
+
+	func record(_ code: Int) {
+		lock.withLock { recordedCodes.append(code) }
+	}
+
+	var codes: [Int] {
+		lock.withLock { recordedCodes }
 	}
 }
