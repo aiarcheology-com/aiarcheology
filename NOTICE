@@ -176,7 +176,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 5. Photographic assets — owner-confirmed images and gallery history
 ================================================================================
 
-    ios/MLBrowser/iOS/Assets/Assets.xcassets/WelcomeBackground.imageset/*
+    ios/MLBrowser/iOS/Assets/Assets.xcassets/WelcomeBackground.imageset/WelcomeBackground.jpg
     ExampleScreenshot.jpg
 
 On 2026-09-14, the repository owner confirmed ownership of both images in
@@ -184,7 +184,9 @@ issue #906, A2. WelcomeBackground is an app asset; ExampleScreenshot.jpg is a
 repository screenshot, not established as an asset shipped in the application.
 This confirmation resolves their ownership provenance. It does not grant a new
 asset licence: both remain excluded from the source-code Apache-2.0 grant in
-README.md, and no separate reuse licence is recorded here.
+README.md. The imageset's Contents.json is configuration, not excluded artwork.
+The limited permission to retain these images in a source-code fork is in
+specification/BRAND_POLICY.md; this NOTICE grants no app-distribution rights.
 
 The 22 photographs formerly under ios/MLBrowser/iOS/Gallery/Images/ were
 identified as copies of Apple's Image Gallery sample photographs; all 22 matched
@@ -238,6 +240,17 @@ repository. Their licences ship with their own distributions.
 8. Trademarks
 ================================================================================
 
-Apache-2.0 section 6 does not grant trademark rights. "AI Archeology", the
-ML Browser name, the application icon and other brand artwork are not licensed
-by LICENSE and may not be used to identify derivative works.
+The brand policy at specification/BRAND_POLICY.md describes use of the
+AI Archeology and ML Browser names, the app logo and icon, and the official
+App Store identity. Apache-2.0 section 6 preserves customary references to
+the work's origin and reproduction of NOTICE; it does not grant general
+brand-use permission. This statement does not assert trademark registration.
+
+The app icon images under
+    ios/MLBrowser/iOS/Assets/Assets.xcassets/AppIcon.appiconset/*.png
+and the logo at
+    ios/MLBrowser/iOS/Assets/Assets.xcassets/AppLogo.imageset/AppLogo.png
+are excluded artwork in README.md's operative licence scope. The limited
+source-fork retention permission is in specification/BRAND_POLICY.md; this
+NOTICE grants no app-distribution rights. Section 5 names the excluded
+photographs. This NOTICE records the policy; it does not modify LICENSE.

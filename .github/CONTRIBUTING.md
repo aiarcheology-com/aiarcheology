@@ -52,6 +52,11 @@ See
 [the Apple fixture licence](../ios/TestFixtures/FastViT/LICENSE.md), and the root
 [NOTICE](../NOTICE), which records every asset that sits outside the repository licence.
 
+For a fork you intend to distribute, read the [brand policy](../specification/BRAND_POLICY.md).
+Use your own app identity and replace excluded artwork or obtain separate permission, while
+retaining required notices and factual upstream attribution. Contributing code does not grant
+permission to use the project's logo, app icon or official App Store identity for your own app.
+
 ## Branches and commits
 
 Branch from `develop`, never from `main`:
