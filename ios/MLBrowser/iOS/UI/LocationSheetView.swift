@@ -399,19 +399,7 @@ private struct VisitTrailView: View {
 	}
 
 	var body: some View {
-		List {
-			if visits.isEmpty {
-				Text(L10n.Browser.Location.Trail.empty)
-					.foregroundStyle(.secondary)
-					.frame(maxWidth: .infinity, alignment: .center)
-					.padding(.vertical, 32)
-			}
-			ForEach(visits, id: \.objectID) { visit in
-				if let page = visit.page {
-					visitRow(visit: visit, page: page)
-				}
-			}
-		}
+		visitList
 		.listStyle(.plain)
 		.navigationTitle(domain)
 		.navigationBarTitleDisplayMode(.inline)
@@ -427,6 +415,22 @@ private struct VisitTrailView: View {
 		}
 		.navigationDestination(isPresented: $presentDataSheet) {
 			WebsiteDataView(domain: domain)
+		}
+	}
+
+	private var visitList: some View {
+		List {
+			if visits.isEmpty {
+				Text(L10n.Browser.Location.Trail.empty)
+					.foregroundStyle(.secondary)
+					.frame(maxWidth: .infinity, alignment: .center)
+					.padding(.vertical, 32)
+			}
+			ForEach(visits, id: \.objectID) { visit in
+				if let page = visit.page {
+					visitRow(visit: visit, page: page)
+				}
+			}
 		}
 	}
 

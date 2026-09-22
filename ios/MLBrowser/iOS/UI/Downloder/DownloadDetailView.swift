@@ -122,19 +122,26 @@ private extension DownloadDetailView {
 				}
 			}
 		} footer: {
-			if let packageProgressDescription {
-				if packageFileCount != nil {
-					Text(packageProgressDescription)
-						.font(.subheadline)
-						.foregroundColor(.gray)
-						.onReceive(downloader.packageFileProgressPublisher(for: item.entityId)) { progress in
-							packageFileProgress = progress
-						}
-				} else {
-					Text(packageProgressDescription)
-						.font(.subheadline)
-						.foregroundColor(.gray)
-				}
+			packageProgressFooter
+		}
+	}
+
+	/// Package downloads name how many files have landed. A single file has a description and no
+	/// running count, so it does not subscribe to per-file progress.
+	@ViewBuilder
+	var packageProgressFooter: some View {
+		if let packageProgressDescription {
+			if packageFileCount != nil {
+				Text(packageProgressDescription)
+					.font(.subheadline)
+					.foregroundColor(.gray)
+					.onReceive(downloader.packageFileProgressPublisher(for: item.entityId)) { progress in
+						packageFileProgress = progress
+					}
+			} else {
+				Text(packageProgressDescription)
+					.font(.subheadline)
+					.foregroundColor(.gray)
 			}
 		}
 	}

@@ -25,24 +25,17 @@ struct ObservationRectangleView: View {
 	@ScaledMetric(relativeTo: .caption) private var labelClearance: CGFloat = 24
 
 	var body: some View {
-		let boundingBox = observation.boundingBox
-		let size = CGSize(width: boundingBox.width * geometry.size.width,
-						  height: boundingBox.height * geometry.size.height)
-		let center = CGPoint(
-			x: boundingBox.midX * geometry.size.width,
-			y: (1 - boundingBox.midY) * geometry.size.height
+		let size = DetectionViewport.size(ofNormalized: observation.boundingBox, in: geometry.size)
+		let center = DetectionViewport.center(ofNormalized: observation.boundingBox, in: geometry.size)
+		// Room above, and which horizontal edge the label grows from. See ``ObservationLabelPlacement``.
+		let placement = ObservationLabelPlacement.decide(
+			center: center,
+			boxSize: size,
+			viewWidth: geometry.size.width,
+			labelClearance: labelClearance
 		)
-		// A box hard against the top of the view has nowhere to put a label above it, so that one
-		// sits just inside the top edge instead of off-screen.
-		let hasRoomAbove = (center.y - size.height / 2) >= labelClearance
-		// Anchored to whichever side of the box faces more free space, so a long class name on a box
-		// near the right-hand edge grows inwards instead of off-screen. This only means anything
-		// because the label sizes itself (see `.fixedSize()` below) and can therefore be wider than
-		// the box it belongs to; against a label clamped to the box width the two anchors would be
-		// the same rectangle.
-		let anchor: Alignment = (center.x - size.width / 2) > geometry.size.width * 0.6
-			? .topTrailing
-			: .topLeading
+		let hasRoomAbove = placement.hasRoomAbove
+		let anchor = placement.anchor
 
 		// **A `ZStack`-free single positioned view, and an `.overlay` for the label — never a
 		// `VStack`** (AIA-0765). The label and the box used to be two children of a `VStack`:
@@ -84,5 +77,45 @@ struct ObservationRectangleView: View {
 			}
 			.position(center)
 			.detectionPhaseOut($phasedOut, after: phaseOutTime, animated: animateDetections)
+	}
+}
+
+/// Vision boxes are normalized with a bottom-left origin. The view's coordinates are top-left,
+/// so the vertical axis flips. Both the point marker and the rectangle use this, which is what
+/// keeps a class label on the same detection as its box.
+enum DetectionViewport {
+	static func center(ofNormalized box: CGRect, in size: CGSize) -> CGPoint {
+		CGPoint(x: box.midX * size.width, y: (1 - box.midY) * size.height)
+	}
+
+	static func size(ofNormalized box: CGRect, in size: CGSize) -> CGSize {
+		CGSize(width: box.width * size.width, height: box.height * size.height)
+	}
+}
+
+/// Where a detection label sits relative to its box.
+///
+/// A box hard against the top of the view has nowhere to put a label above it, so that one sits
+/// just inside the top edge. Horizontally the label anchors to whichever side of the box faces
+/// more free space, so a long class name near the right-hand edge grows inwards. That only means
+/// anything because the label sizes itself and can be wider than the box; against a label clamped
+/// to the box width the two anchors would be the same rectangle.
+struct ObservationLabelPlacement: Equatable {
+	var hasRoomAbove: Bool
+	/// `true` grows the label leftward from the box's top-right corner.
+	var anchorsTrailing: Bool
+
+	var anchor: Alignment { anchorsTrailing ? .topTrailing : .topLeading }
+
+	static func decide(
+		center: CGPoint,
+		boxSize: CGSize,
+		viewWidth: CGFloat,
+		labelClearance: CGFloat
+	) -> ObservationLabelPlacement {
+		ObservationLabelPlacement(
+			hasRoomAbove: (center.y - boxSize.height / 2) >= labelClearance,
+			anchorsTrailing: (center.x - boxSize.width / 2) > viewWidth * 0.6
+		)
 	}
 }

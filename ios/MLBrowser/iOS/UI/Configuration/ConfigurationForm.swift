@@ -664,59 +664,11 @@ private struct AnnotationSoundConfigurationView: View {
 
 	var body: some View {
 		Form {
-			Toggle(L10n.Configuration.soundEnabled, isOn: $configuration.annotationSoundEnabled)
-				.testability(Testability.Toggle.configurationFormSoundEnabled)
-
-			VStack(alignment: .leading) {
-				HStack {
-					Text(L10n.Configuration.soundVolume)
-					Spacer()
-					Text(volumeBinding.wrappedValue, format: .percent.precision(.fractionLength(0)))
-						.foregroundStyle(.secondary)
-				}
-				Slider(value: volumeBinding, in: AnnotationSoundConfiguration.volumeRange, step: 0.01)
-					.testability(Testability.Slider.configurationFormSoundVolume)
-					.accessibilityLabel(Text(L10n.Configuration.soundVolume))
-					.accessibilityValue(Text(volumeBinding.wrappedValue, format: .percent.precision(.fractionLength(0))))
-			}
-
-			// AIA-0720. An explicit preview tap that produces nothing, with no explanation, is a
-			// defect regardless of cause — #720 was reported as "no sound on iPhone" and turned out
-			// to be Silent mode. iOS exposes no API for the Silent switch, so the note carries the
-			// weight and is always shown; the muted-volume warning below is the only part that can
-			// actually be detected, and it is the rarer case.
-			Section {
-				Text(L10n.Configuration.soundOutputNote)
-					.font(.footnote)
-					.foregroundStyle(.secondary)
-					.testability(Testability.Label.configurationFormSoundOutputNote)
-
-				if isDeviceOutputMuted {
-					Label(L10n.Configuration.soundOutputMuted, systemImage: "speaker.slash")
-						.font(.footnote)
-						.foregroundStyle(.orange)
-						.testability(Testability.Label.configurationFormSoundOutputMuted)
-				}
-			}
-
+			soundEnabledToggle
+			soundVolumeControl
+			soundOutputSection
 			ForEach(AnnotationSound.allCases) { sound in
-				Button {
-					configuration.annotationSound = sound
-					Task { await onPreview(previewRequest(for: sound)) }
-				} label: {
-					HStack {
-						Text(sound.localizedName)
-						Spacer()
-						if configuration.annotationSound == sound {
-							Image(systemName: "checkmark")
-								.foregroundStyle(.tint)
-								.accessibilityHidden(true)
-						}
-					}
-				}
-				.accessibilityLabel(sound.localizedName)
-				.accessibilityValue(configuration.annotationSound == sound ? Testability.valueTrue : Testability.valueFalse)
-				.testability(Testability.Button.configurationFormSoundChoice, label: sound.rawValue)
+				soundChoice(sound)
 			}
 		}
 		.navigationTitle(L10n.Configuration.sound)
@@ -726,6 +678,66 @@ private struct AnnotationSoundConfigurationView: View {
 			// volume and come straight back, which is the whole point of showing the warning.
 			isDeviceOutputMuted = await onReadOutputVolume() <= 0
 		}
+	}
+
+	private var soundEnabledToggle: some View {
+		Toggle(L10n.Configuration.soundEnabled, isOn: $configuration.annotationSoundEnabled)
+			.testability(Testability.Toggle.configurationFormSoundEnabled)
+	}
+
+	private var soundVolumeControl: some View {
+		VStack(alignment: .leading) {
+			HStack {
+				Text(L10n.Configuration.soundVolume)
+				Spacer()
+				Text(volumeBinding.wrappedValue, format: .percent.precision(.fractionLength(0)))
+					.foregroundStyle(.secondary)
+			}
+			Slider(value: volumeBinding, in: AnnotationSoundConfiguration.volumeRange, step: 0.01)
+				.testability(Testability.Slider.configurationFormSoundVolume)
+				.accessibilityLabel(Text(L10n.Configuration.soundVolume))
+				.accessibilityValue(Text(volumeBinding.wrappedValue, format: .percent.precision(.fractionLength(0))))
+		}
+	}
+
+	/// AIA-0720. An explicit preview tap that produces nothing, with no explanation, is a defect
+	/// regardless of cause — #720 was reported as "no sound on iPhone" and turned out to be Silent
+	/// mode. iOS exposes no API for the Silent switch, so the note carries the weight and is always
+	/// shown; the muted-volume warning is the only part that can actually be detected.
+	private var soundOutputSection: some View {
+		Section {
+			Text(L10n.Configuration.soundOutputNote)
+				.font(.footnote)
+				.foregroundStyle(.secondary)
+				.testability(Testability.Label.configurationFormSoundOutputNote)
+
+			if isDeviceOutputMuted {
+				Label(L10n.Configuration.soundOutputMuted, systemImage: "speaker.slash")
+					.font(.footnote)
+					.foregroundStyle(.orange)
+					.testability(Testability.Label.configurationFormSoundOutputMuted)
+			}
+		}
+	}
+
+	private func soundChoice(_ sound: AnnotationSound) -> some View {
+		Button {
+			configuration.annotationSound = sound
+			Task { await onPreview(previewRequest(for: sound)) }
+		} label: {
+			HStack {
+				Text(sound.localizedName)
+				Spacer()
+				if configuration.annotationSound == sound {
+					Image(systemName: "checkmark")
+						.foregroundStyle(.tint)
+						.accessibilityHidden(true)
+				}
+			}
+		}
+		.accessibilityLabel(sound.localizedName)
+		.accessibilityValue(configuration.annotationSound == sound ? Testability.valueTrue : Testability.valueFalse)
+		.testability(Testability.Button.configurationFormSoundChoice, label: sound.rawValue)
 	}
 
 	private func previewRequest(for sound: AnnotationSound) -> AnnotationSoundPlaybackRequest {

@@ -71,6 +71,98 @@ func webViewLoadErrorLevel(for error: Error) -> WebViewLoadErrorLevel {
 	return .error
 }
 
+struct InitialWebPageContext: Equatable {
+	var hasSharedLink: Bool = false
+	var launchFixtureURL: URL?
+	var onboardingPage: String?
+	var reopenLastPage: Bool = false
+	var lastPage: String?
+	var defaultPage: String?
+	var currentInput: String = ""
+	var currentFileURL: URL?
+}
+
+/// Which page `WebScreenView` loads the first time it appears, and what that load must record.
+///
+/// The screen used to decide this inside `body`. The branches are a product policy — a shared link
+/// beats the UI-test fixture, which beats onboarding, which beats the last page, which beats home —
+/// and a SwiftUI lifecycle race already overwrote a shared link with the home page once (AIA-0657).
+/// Keeping the choice in one function is what lets a test name each branch.
+struct InitialWebPageDecision: Equatable {
+	var kind: InitialWebPageKind
+	var load: InitialWebPageLoad
+	/// Recorded in history for onboarding and the home page. A shared link, a fixture, the last
+	/// page, and a blank start do not write a history entry here.
+	var historyPage: String?
+	/// Onboarding is one-shot. A later recreation of this screen must not force the demo page again.
+	var clearsOnboardingPage: Bool
+
+	static func decide(_ context: InitialWebPageContext) -> InitialWebPageDecision {
+		if context.hasSharedLink {
+			// A shared link is already waiting; the page-to-open subscription loads it. Skipping the
+			// default here is what stops a home-page flash when `onAppear` wins the race.
+			return InitialWebPageDecision(
+				kind: .sharedLink, load: .unchanged, historyPage: nil, clearsOnboardingPage: false
+			)
+		}
+		if let launchFixtureURL = context.launchFixtureURL {
+			// AIA-0316 UI-test harness: load a bundled local-HTML fixture directly via loadFileURL.
+			// Highest precedence after a shared link, and deliberately NOT recorded in history.
+			let load: InitialWebPageLoad = context.currentFileURL != launchFixtureURL
+				? .file(launchFixtureURL) : .unchanged
+			return InitialWebPageDecision(
+				kind: .localFixture, load: load, historyPage: nil, clearsOnboardingPage: false
+			)
+		}
+		if let onboardingPage = context.onboardingPage {
+			// First-launch onboarding (AIA-0333): load the demo page the tour points at, taking
+			// precedence over the home page. Set deterministically before the UI appears, so it
+			// never races the default-page load.
+			let load: InitialWebPageLoad = context.currentInput != onboardingPage ? .page(onboardingPage) : .unchanged
+			return InitialWebPageDecision(
+				kind: .onboarding, load: load, historyPage: onboardingPage, clearsOnboardingPage: true
+			)
+		}
+		if context.reopenLastPage, let lastPage = context.lastPage {
+			// Not a user load: the display gate stays open and KVO fills the bar.
+			let load: InitialWebPageLoad = context.currentInput != lastPage ? .page(lastPage) : .unchanged
+			return InitialWebPageDecision(
+				kind: .last, load: load, historyPage: nil, clearsOnboardingPage: false
+			)
+		}
+		if let defaultPage = context.defaultPage, defaultPage.lowercased() != "about:blank" {
+			// No generation bump when the initial request already targets the default page — it
+			// would reload the same URL a second time.
+			let load: InitialWebPageLoad = context.currentInput != defaultPage ? .page(defaultPage) : .unchanged
+			return InitialWebPageDecision(
+				kind: .home, load: load, historyPage: defaultPage, clearsOnboardingPage: false
+			)
+		}
+		// No home page, or an explicit about:blank — stay blank rather than search-treating
+		// "about:blank" in the load pipeline (AIA-0298).
+		return InitialWebPageDecision(
+			kind: .blank, load: .unchanged, historyPage: nil, clearsOnboardingPage: false
+		)
+	}
+}
+
+enum InitialWebPageKind: String, Equatable {
+	case sharedLink
+	case localFixture
+	case onboarding
+	case last
+	case home
+	case blank
+}
+
+enum InitialWebPageLoad: Equatable {
+	case unchanged
+	/// A string load. The caller bumps `LoadRequest.generation` only when this differs from the
+	/// request already held, which is what `unchanged` records.
+	case page(String)
+	case file(URL)
+}
+
 import Vision
 struct WebScreenView: View {
 	@Environment(\.managedObjectContext) var moc
@@ -214,7 +306,9 @@ struct WebScreenView: View {
 		}
 	}
 
-    var body: some View {
+    /// DetectableView handles both snapshotting and annotation in one coordinated scope.
+    /// This keeps detection state local to WebScreenView and ensures coordinate alignment.
+    private var detectableWebContent: some View {
         // DetectableView handles both snapshotting and annotation in one coordinated scope
         // This keeps detection state local to WebScreenView and ensures coordinate alignment
         DetectableView(
@@ -249,29 +343,7 @@ struct WebScreenView: View {
 			MLWebView(loadRequest, renderer: appState.webViewRenderer, rendererAttached: {
 				appState.snapshotWorkCoordinator.rendererDidAttach()
 			}, loadStatusChanged: { loading, error in
-				LoggingPolicy.debug("WebView loading status changed: \(loading ? "loading" : "loaded")", logger: .ui)
-                if let error = error {
-					switch webViewLoadErrorLevel(for: error) {
-					case .debug:
-						// Benign cancellation (load superseded by navigating away / reload /
-						// redirect). Downgraded so it stops being captured as a Sentry error
-						// (AIA-0296) — genuine load failures still log at .error below.
-						LoggingPolicy.debug("WebView loading cancelled: \(error.localizedDescription)", logger: .ui)
-					case .error:
-						// The URL out of the ERROR, not out of the address bar. `displayedURL` is
-						// mutable and deliberately keeps the previous page until a commit, so a failed
-						// search reported the site the user was on before it — and a superseded
-						// navigation failing late reported the newer one (raised in review). WebKit
-						// names the failing URL in the error itself; nothing else is attributable, so
-						// when it is absent no address is sent at all.
-						let page = (error as NSError).userInfo[NSURLErrorFailingURLErrorKey] as? URL
-						LoggingPolicy.error(
-							"WebView loading error [site: \(page?.host ?? "unknown")]: \(error.localizedDescription)",
-							page: page,
-							logger: .ui
-						)
-					}
-                }
+				logWebLoad(loading: loading, error: error)
             }, interactionStateChanged: { state in
                 // Update DetectableView's internal state via binding
                 interactionState.wrappedValue = state
@@ -281,6 +353,10 @@ struct WebScreenView: View {
             // recovery available when the renderer itself is wedged rather than the navigation.
             .id(webViewGeneration)
         }
+    }
+
+    var body: some View {
+        detectableWebContent
         .onReceive(appState.settings.$showIdentifiers) { value in
             showIdentifiers = value
         }
@@ -306,59 +382,7 @@ struct WebScreenView: View {
             fireImmediateSnapshotIfDriverAdded(Set(detectors.map(\.id)), previous: $runningDetectorIDs)
         }
         .onAppear {
-            showIdentifiers = appState.settings.showIdentifiers
-            animateDetections = !appState.settings.disableDetectionAnimations
-            tiling = appState.settings.tilingSchemes
-            tiledBorders = appState.settings.tiledBorders
-            if hasPerformedInitialAction.not {
-                hasPerformedInitialAction = true
-                if appState.chromeState.pageToOpen != nil {
-                    // A shared link is already waiting; the `onReceive` above loads it. Skipping the
-                    // default here is what stops a home-page flash when `onAppear` wins the race —
-                    // the flag set above covers the other ordering.
-                    intendedPageKind = "sharedLink"
-                } else if let fixtureURL = appState.settings.launchFixtureURL {
-                    // AIA-0316 UI-test harness: load a bundled local-HTML fixture directly via
-                    // loadFileURL. Highest precedence, and deliberately NOT recorded in history.
-                    intendedPageKind = "localFixture"
-                    if loadRequest.fileURL != fixtureURL {
-                        loadRequest = loadRequest.nextFile(fixtureURL)
-                    }
-                } else if let onboardingPage = appState.settings.onboardingInitialPage?.absoluteString {
-                    // First-launch onboarding (AIA-0333): load the demo page the tour points at,
-                    // taking precedence over the home page. Set deterministically before the UI
-                    // appears, so it never races the default-page load.
-                    intendedPageKind = "onboarding"
-                    if loadRequest.input != onboardingPage {
-                        loadRequest = loadRequest.next(onboardingPage)
-                    }
-                    createOrRefreshWebHistoryEntry(onboardingPage, maxEntries: appState.settings.historySize)
-                    // One-shot: clear it so a later WebScreen re-creation (tab/mode switch) doesn't
-                    // re-force the onboarding page over the user's real home/last page.
-                    appState.settings.onboardingInitialPage = nil
-                } else if
-                    appState.settings.reopenLastPage.enabled,
-                    let lastPage = appState.settings.lastPage {
-                    intendedPageKind = "last"
-                    // Not a user load: the display gate stays open and KVO fills the bar.
-                    if loadRequest.input != lastPage.absoluteString {
-                        loadRequest = loadRequest.next(lastPage.absoluteString)
-                    }
-                } else if let defaultPage = appState.settings.defaultPage?.absoluteString,
-                    defaultPage.lowercased() != "about:blank" {
-                    intendedPageKind = "home"
-                    // No generation bump when the initial request already targets the
-                    // default page — it would reload the same URL a second time.
-                    if loadRequest.input != defaultPage {
-                        loadRequest = loadRequest.next(defaultPage)
-                    }
-                    createOrRefreshWebHistoryEntry(defaultPage, maxEntries: appState.settings.historySize)
-                } else {
-                    // No home page, or an explicit about:blank — stay blank rather than
-                    // search-treating "about:blank" in the load pipeline (AIA-0298).
-                    intendedPageKind = "blank"
-                }
-            }
+            handleAppear()
         }
         .checkpoint(.intendedPageKind, value: intendedPageKind)
         // Mirror the live URL's file name into a @State so the checkpoint re-renders on every
@@ -382,25 +406,7 @@ struct WebScreenView: View {
             .environmentObject(appState.settings)
         }
         .sheet(item: $findingCapture, onDismiss: {
-            // Every dismissal path (Save, Cancel, interactive swipe) ends the
-            // capture: unfreeze the displayed frame, then resume the timer —
-            // its immediate snapshot replaces the frozen frame right away.
-            isCapturingFinding = false
-			appState.snapshotWorkCoordinator.findingCaptureEnded()
-            appState.detectionState.findingCaptureEnded()
-            // Tour (AIA-0333): a dismiss without a save returns to the capture step (no-op once
-            // the finding was saved, which already advanced the step).
-            appState.tour.captureCancelled()
-            // AIA-0117: a cancel recorded no moment, so this is a no-op on that path.
-            let saved = didSaveFinding
-            didSaveFinding = false
-            if appState.reviewPrompt.consumePendingRequest(.findingSaved, isTourActive: appState.tour.isActive) {
-                requestReview()
-            } else if saved {
-                // Only when the review prompt stayed quiet: two modals racing one dismissal is a
-                // bug, and the review moment is the older claim on it (AIA-0117/0536).
-                offerSignInIfEarned()
-            }
+            finishFindingCapture()
         }) { capture in
             SaveFindingSheet(
                 capture: capture,
@@ -420,54 +426,10 @@ struct WebScreenView: View {
                 .environment(\.usesRealAuth, usesRealAuth)
         }
         .onReceive(appState.chromeState.$pageToOpen) { url in
-            // A finding's "open page" action lands here (the findings UI cannot
-            // reach the web view directly).
-            guard let url else { return }
-            // A shared link IS this screen's initial action, so claim it. `.onAppear` below performs
-            // the default first load (onboarding / last page / home) and there is no guaranteed
-            // ordering between the two: on a FIRST mount — a link opened from behind the paywall,
-            // which is the whole point of AIA-0657 — `onAppear` ran second and overwrote the page
-            // the user had asked for with the home page. Reported from a real build; no unit test
-            // reaches a SwiftUI lifecycle race.
-            hasPerformedInitialAction = true
-            // Cleared on the NEXT runloop turn, not inline, and that is not a style choice.
-            // `@Published` publishes from `willSet`, so this closure runs *inside* the assignment
-            // that delivered the value — the inline `pageToOpen = nil` completed first and the
-            // outer assignment then wrote the URL back over it, leaving the latch permanently
-            // armed. Nothing failed visibly: the page loaded, and the next time this screen was
-            // rebuilt (a tab or mode switch) the stale value was redelivered and navigated away
-            // from whatever the user was reading. Measured on develop before AIA-0657.
-            // `SharedFindingStateTests` pins the Combine semantics that force this shape, but it
-            // cannot reach a SwiftUI `onReceive` closure — so nothing automated fails if this line
-            // reverts to an inline assignment. Stated rather than implied.
-            DispatchQueue.main.async { appState.chromeState.pageToOpen = nil }
-            openRequested(url.absoluteString)
+            openPageRequestedFromOutside(url)
         }
         .onReceive(appState.chromeState.$findPickActive) { active in
-			// The dedupe is what makes the state safe to write from both sides. It absorbs the
-			// publish that this screen's own exits (`present`/`cancelFindPick`) cause, so those
-			// never re-enter here, and it absorbs the value replayed on every mount. It also does
-			// the job the old `guard findPickActive == false` did: Find stays reachable while the
-			// overlay is up, and re-entering would freeze a second time with no matching end.
-			guard active != findPickActive else { return }
-			guard active else {
-				// Cancelled from the Find/Store control. Deliberately the same path as the overlay's
-				// own Cancel button, so the pending capture is abandoned and the detection freeze
-				// released identically — a second way out must not become a second lifecycle.
-				cancelFindPick()
-				return
-			}
-			if appState.tour.isActive {
-				// The published onboarding lesson still teaches its original one-tap map capture. It is
-				// intentionally kept out of alignment mode (and therefore never shows the large
-				// crosshair); changing that guided flow needs its own scripted map fixture and lesson.
-				appState.snapshotWorkCoordinator.findingCaptureStarted()
-				isCapturingFinding = true
-				appState.detectionState.findingCaptureStarted()
-			}
-            // This is not a capture yet. Keeping the normal interaction lifecycle alive is what
-            // lets WKWebView receive pan/pinch gestures and refreshes boxes after it settles.
-            findPickActive = true
+            applyFindPickActive(active)
         }
         .overlay {
             if findPickActive {
@@ -493,15 +455,7 @@ struct WebScreenView: View {
             }
         }
         .onReceive(appState.browserState.$loadFailure) { failure in
-            loadFailure = failure
-            // The recovery ladder is exhausted and the failure UI is up, so a run interrupted by the
-            // termination has nothing to come back to. Read from `BrowserState` rather than from the
-            // raw delegate error: this verdict is already filtered for the current web view and
-            // ignores the cancellations that are the ordinary result of navigating away, which the
-            // delegate callback is not (raised in review).
-            if failure != nil {
-                appState.detectionState.webContentDidFailToLoad()
-            }
+            applyLoadFailure(failure)
         }
         // Deliberately NOT `dropFirst()`. `@Published` replays its current value to every new
         // subscriber and SwiftUI resubscribes whenever it remounts this screen, so dropping the first
@@ -519,50 +473,13 @@ struct WebScreenView: View {
         // Not `dropFirst()`: that would discard an event published while this screen was unmounted.
         // The sequence is consumed in `DetectionSessionState`, which outlives the view.
         .onReceive(appState.browserState.$webContentEvent) { event in
-            switch event.kind {
-            case .none:
-                break
-            case let .processTerminated(host):
-                appState.detectionState.webContentProcessDidTerminate(
-                    sequence: event.sequence,
-                    host: host
-                )
-            case .loaded:
-                appState.detectionState.webContentDidLoad(sequence: event.sequence)
-            case .stopped:
-                appState.detectionState.webContentDidStopLoading(sequence: event.sequence)
-            }
+            applyWebContentEvent(event)
         }
         .onReceive(appState.browserState.$rebuildRequest) { request in
-            guard let request else { return }
-            // A rebuild mid-capture yanks the web view out from under a frozen frame: the
-            // renderer holds it weakly, so `snapshot()` starts returning nil and the pick is
-            // silently cancelled. Both states are user-driven and brief, so skip the rebuild and
-            // leave the failure overlay standing — Try Again is available once the capture ends.
-            guard isCapturingFinding == false, findPickActive == false else {
-                appState.browserState.rebuildRequestDeclined()
-                return
-            }
-            // Point the request at where the user actually is, with caching bypassed: the fresh
-            // Coordinator has no `lastLoadedGeneration`, so it loads whatever `loadRequest` holds
-            // — without this it would reload the original `.onAppear` page instead.
-            loadRequest = loadRequest.next(
-                request.url.absoluteString,
-                cachePolicy: .reloadIgnoringLocalCacheData
-            )
-            // Clears the display gate before the web view that owns its navigation token is
-            // destroyed; otherwise the address bar freezes for the rest of the session.
-            appState.browserState.webViewInvalidated()
-            webViewGeneration = request.generation
-            appState.browserState.rebuildRequestHandled()
+            applyRebuildRequest(request)
         }
         .onDisappear {
-            // The screen can be unmounted mid-capture (mode switch): without
-            // this, the snap timer would stay paused and the pick/sheet state
-            // would leak into the next appearance.
-            guard findPickActive || isCapturingFinding || findingCapture != nil else { return }
-            findingCapture = nil
-            cancelFindPick()
+            releaseCaptureIfScreenLeaves()
         }
         .alert(isPresented: $showAlert) {
             alertForError(latestError)
@@ -591,6 +508,204 @@ struct WebScreenView: View {
             toolbarContent
         }
     }
+
+    /// Seeds the detection presentation and chooses the first page. The choice itself is
+    /// ``InitialWebPageDecision``; this only applies it, including the history write and the
+    /// one-shot onboarding clear.
+    private func handleAppear() {
+        showIdentifiers = appState.settings.showIdentifiers
+        animateDetections = !appState.settings.disableDetectionAnimations
+        tiling = appState.settings.tilingSchemes
+        tiledBorders = appState.settings.tiledBorders
+        guard hasPerformedInitialAction.not else { return }
+        hasPerformedInitialAction = true
+		let decision = InitialWebPageDecision.decide(InitialWebPageContext(
+			hasSharedLink: appState.chromeState.pageToOpen != nil,
+			launchFixtureURL: appState.settings.launchFixtureURL,
+			onboardingPage: appState.settings.onboardingInitialPage?.absoluteString,
+			reopenLastPage: appState.settings.reopenLastPage.enabled,
+			lastPage: appState.settings.lastPage?.absoluteString,
+			defaultPage: appState.settings.defaultPage?.absoluteString,
+			currentInput: loadRequest.input,
+			currentFileURL: loadRequest.fileURL
+		))
+        intendedPageKind = decision.kind.rawValue
+        switch decision.load {
+        case .unchanged:
+            break
+        case .page(let input):
+            loadRequest = loadRequest.next(input)
+        case .file(let url):
+            loadRequest = loadRequest.nextFile(url)
+        }
+        if let historyPage = decision.historyPage {
+            createOrRefreshWebHistoryEntry(historyPage, maxEntries: appState.settings.historySize)
+        }
+        if decision.clearsOnboardingPage {
+            appState.settings.onboardingInitialPage = nil
+        }
+    }
+
+    private func logWebLoad(loading: Bool, error: Error?) {
+				LoggingPolicy.debug("WebView loading status changed: \(loading ? "loading" : "loaded")", logger: .ui)
+                if let error = error {
+					switch webViewLoadErrorLevel(for: error) {
+					case .debug:
+						// Benign cancellation (load superseded by navigating away / reload /
+						// redirect). Downgraded so it stops being captured as a Sentry error
+						// (AIA-0296) — genuine load failures still log at .error below.
+						LoggingPolicy.debug("WebView loading cancelled: \(error.localizedDescription)", logger: .ui)
+					case .error:
+						// The URL out of the ERROR, not out of the address bar. `displayedURL` is
+						// mutable and deliberately keeps the previous page until a commit, so a failed
+						// search reported the site the user was on before it — and a superseded
+						// navigation failing late reported the newer one (raised in review). WebKit
+						// names the failing URL in the error itself; nothing else is attributable, so
+						// when it is absent no address is sent at all.
+						let page = (error as NSError).userInfo[NSURLErrorFailingURLErrorKey] as? URL
+						LoggingPolicy.error(
+							"WebView loading error [site: \(page?.host ?? "unknown")]: \(error.localizedDescription)",
+							page: page,
+							logger: .ui
+						)
+					}
+                }
+            }
+
+    private func finishFindingCapture() {
+            // Every dismissal path (Save, Cancel, interactive swipe) ends the
+            // capture: unfreeze the displayed frame, then resume the timer —
+            // its immediate snapshot replaces the frozen frame right away.
+            isCapturingFinding = false
+			appState.snapshotWorkCoordinator.findingCaptureEnded()
+            appState.detectionState.findingCaptureEnded()
+            // Tour (AIA-0333): a dismiss without a save returns to the capture step (no-op once
+            // the finding was saved, which already advanced the step).
+            appState.tour.captureCancelled()
+            // AIA-0117: a cancel recorded no moment, so this is a no-op on that path.
+            let saved = didSaveFinding
+            didSaveFinding = false
+            if appState.reviewPrompt.consumePendingRequest(.findingSaved, isTourActive: appState.tour.isActive) {
+                requestReview()
+            } else if saved {
+                // Only when the review prompt stayed quiet: two modals racing one dismissal is a
+                // bug, and the review moment is the older claim on it (AIA-0117/0536).
+                offerSignInIfEarned()
+            }
+        }
+
+    private func openPageRequestedFromOutside(_ url: URL?) {
+            // A finding's "open page" action lands here (the findings UI cannot
+            // reach the web view directly).
+            guard let url else { return }
+            // A shared link IS this screen's initial action, so claim it. `.onAppear` below performs
+            // the default first load (onboarding / last page / home) and there is no guaranteed
+            // ordering between the two: on a FIRST mount — a link opened from behind the paywall,
+            // which is the whole point of AIA-0657 — `onAppear` ran second and overwrote the page
+            // the user had asked for with the home page. Reported from a real build; no unit test
+            // reaches a SwiftUI lifecycle race.
+            hasPerformedInitialAction = true
+            // Cleared on the NEXT runloop turn, not inline, and that is not a style choice.
+            // `@Published` publishes from `willSet`, so this closure runs *inside* the assignment
+            // that delivered the value — the inline `pageToOpen = nil` completed first and the
+            // outer assignment then wrote the URL back over it, leaving the latch permanently
+            // armed. Nothing failed visibly: the page loaded, and the next time this screen was
+            // rebuilt (a tab or mode switch) the stale value was redelivered and navigated away
+            // from whatever the user was reading. Measured on develop before AIA-0657.
+            // `SharedFindingStateTests` pins the Combine semantics that force this shape, but it
+            // cannot reach a SwiftUI `onReceive` closure — so nothing automated fails if this line
+            // reverts to an inline assignment. Stated rather than implied.
+            DispatchQueue.main.async { appState.chromeState.pageToOpen = nil }
+            openRequested(url.absoluteString)
+        }
+
+    private func applyFindPickActive(_ active: Bool) {
+			// The dedupe is what makes the state safe to write from both sides. It absorbs the
+			// publish that this screen's own exits (`present`/`cancelFindPick`) cause, so those
+			// never re-enter here, and it absorbs the value replayed on every mount. It also does
+			// the job the old `guard findPickActive == false` did: Find stays reachable while the
+			// overlay is up, and re-entering would freeze a second time with no matching end.
+			guard active != findPickActive else { return }
+			guard active else {
+				// Cancelled from the Find/Store control. Deliberately the same path as the overlay's
+				// own Cancel button, so the pending capture is abandoned and the detection freeze
+				// released identically — a second way out must not become a second lifecycle.
+				cancelFindPick()
+				return
+			}
+			if appState.tour.isActive {
+				// The published onboarding lesson still teaches its original one-tap map capture. It is
+				// intentionally kept out of alignment mode (and therefore never shows the large
+				// crosshair); changing that guided flow needs its own scripted map fixture and lesson.
+				appState.snapshotWorkCoordinator.findingCaptureStarted()
+				isCapturingFinding = true
+				appState.detectionState.findingCaptureStarted()
+			}
+            // This is not a capture yet. Keeping the normal interaction lifecycle alive is what
+            // lets WKWebView receive pan/pinch gestures and refreshes boxes after it settles.
+            findPickActive = true
+        }
+
+    private func applyLoadFailure(_ failure: WebLoadFailure?) {
+            loadFailure = failure
+            // The recovery ladder is exhausted and the failure UI is up, so a run interrupted by the
+            // termination has nothing to come back to. Read from `BrowserState` rather than from the
+            // raw delegate error: this verdict is already filtered for the current web view and
+            // ignores the cancellations that are the ordinary result of navigating away, which the
+            // delegate callback is not (raised in review).
+            if failure != nil {
+                appState.detectionState.webContentDidFailToLoad()
+            }
+        }
+
+    private func applyWebContentEvent(_ event: WebContentEvent) {
+            switch event.kind {
+            case .none:
+                break
+            case let .processTerminated(host):
+                appState.detectionState.webContentProcessDidTerminate(
+                    sequence: event.sequence,
+                    host: host
+                )
+            case .loaded:
+                appState.detectionState.webContentDidLoad(sequence: event.sequence)
+            case .stopped:
+                appState.detectionState.webContentDidStopLoading(sequence: event.sequence)
+            }
+        }
+
+    private func applyRebuildRequest(_ request: WebViewRebuildRequest?) {
+            guard let request else { return }
+            // A rebuild mid-capture yanks the web view out from under a frozen frame: the
+            // renderer holds it weakly, so `snapshot()` starts returning nil and the pick is
+            // silently cancelled. Both states are user-driven and brief, so skip the rebuild and
+            // leave the failure overlay standing — Try Again is available once the capture ends.
+            guard isCapturingFinding == false, findPickActive == false else {
+                appState.browserState.rebuildRequestDeclined()
+                return
+            }
+            // Point the request at where the user actually is, with caching bypassed: the fresh
+            // Coordinator has no `lastLoadedGeneration`, so it loads whatever `loadRequest` holds
+            // — without this it would reload the original `.onAppear` page instead.
+            loadRequest = loadRequest.next(
+                request.url.absoluteString,
+                cachePolicy: .reloadIgnoringLocalCacheData
+            )
+            // Clears the display gate before the web view that owns its navigation token is
+            // destroyed; otherwise the address bar freezes for the rest of the session.
+            appState.browserState.webViewInvalidated()
+            webViewGeneration = request.generation
+            appState.browserState.rebuildRequestHandled()
+        }
+
+    private func releaseCaptureIfScreenLeaves() {
+            // The screen can be unmounted mid-capture (mode switch): without
+            // this, the snap timer would stay paused and the pick/sheet state
+            // would leak into the next appearance.
+            guard findPickActive || isCapturingFinding || findingCapture != nil else { return }
+            findingCapture = nil
+            cancelFindPick()
+        }
 
     /// The bottom placement of the address bar (iPhone portrait). Empty otherwise, so the
     /// inset reserves no space. Reuses the same `WebAddressDisplay` (one id, one sheet

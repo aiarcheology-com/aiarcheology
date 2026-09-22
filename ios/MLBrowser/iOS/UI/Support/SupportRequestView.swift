@@ -141,32 +141,17 @@ struct SupportRequestView: View {
 			// (`openSettingsURLString` only opens THIS app's page, and `App-Prefs:root=MAIL` is
 			// undocumented and an App Review risk). So offer the two things that do work: the
 			// Settings app, and a clipboard copy so the report survives either way.
-			.alert(L10n.Support.MailUnavailable.title, isPresented: $showMailUnavailableNotice) {
-				Button(L10n.Support.openSettings) { openAppSettings() }
-				Button(L10n.Support.copyReport) { copyReport() }
-				Button(L10n.Common.ok, role: .cancel) { dismiss() }
-			} message: {
-				Text(
-					mailtoOpened
-						? L10n.Support.MailUnavailable.message(recipient)
-						: L10n.Support.MailUnavailable.messageNoMailApp(recipient)
-				)
-			}
-			.alert(L10n.Support.title, isPresented: $showCopiedConfirmation) {
-				Button(L10n.Common.ok, role: .cancel) { dismiss() }
-			} message: {
-				Text(L10n.Support.reportCopied(recipient))
-			}
-			.alert(L10n.Support.ScreenshotTooSmall.title, isPresented: $showScreenshotTooSmallNotice) {
-				Button(L10n.Common.ok, role: .cancel) {}
-			} message: {
-				Text(L10n.Support.ScreenshotTooSmall.message(ScreenshotAttachmentValidator.minimumShortestSidePixels))
-			}
-			.alert(L10n.Support.ScreenshotUnreadable.title, isPresented: $showScreenshotUnreadableNotice) {
-				Button(L10n.Common.ok, role: .cancel) {}
-			} message: {
-				Text(L10n.Support.ScreenshotUnreadable.message)
-			}
+			.modifier(SupportRequestNotices(
+				recipient: recipient,
+				mailtoOpened: mailtoOpened,
+				showMailUnavailableNotice: $showMailUnavailableNotice,
+				showCopiedConfirmation: $showCopiedConfirmation,
+				showScreenshotTooSmallNotice: $showScreenshotTooSmallNotice,
+				showScreenshotUnreadableNotice: $showScreenshotUnreadableNotice,
+				openSettings: { openAppSettings() },
+				copyReport: { copyReport() },
+				dismiss: { dismiss() }
+			))
 		}
 	}
 
@@ -375,51 +360,61 @@ struct SupportRequestView: View {
 		isComposing = true
 		defer { isComposing = false }
 
-		let request = SupportRequest(
+		let request = await makeComposedRequest()
+		composedRequest = request
+		var attachments = [attachment].compactMap { $0 }
+		if let applicationLogAttachment = await includedApplicationLogAttachment() {
+			attachments.append(applicationLogAttachment)
+		}
+		await deliver(request, attachments: attachments)
+	}
+
+	/// The fields support needs to reproduce what the user saw. Account id is omitted on the mock
+	/// path, where there is no Clerk user. App language is the bundle's resolved localization, not
+	/// `Locale.current`: iOS lets a user set a per-app language that differs from the device locale.
+	private func makeComposedRequest() async -> SupportRequest {
+		SupportRequest(
 			category: category,
 			contextURL: contextURL,
 			accountID: usesRealAuth ? Clerk.shared.user?.id : nil,
-			// The bundle's resolved localization, not `Locale.current`: the field is labelled
-			// "App language", and iOS lets a user set a per-app language that differs from the
-			// device locale. This reports the language the UI is actually rendering in — the
-			// thing support needs to reproduce what the user saw.
 			appLanguage: Bundle.main.preferredLocalizations.first ?? "unknown",
 			appVersion: AppEnvironment.shortVersion ?? "unknown",
 			deviceInformation: await DeviceInfo.information()
 		)
-		composedRequest = request
-		var attachments = [attachment].compactMap { $0 }
-		if includeApplicationLog, let sealer = Self.sealer {
-			// Off the main actor: the log is read from disk and, unless the user opted into raw
-			// data, every line is run through `LogRedactor` — on the order of a second for a full
-			// five MiB. Sealing happens here too: compressing and encrypting five MiB is not
-			// main-thread work either. This view is `@MainActor`, so doing any of it inline would
-			// freeze the sheet.
-			let sendUnredacted = sendUnredactedApplicationLog
-			let applicationLogAttachment = await Task.detached(priority: .userInitiated) {
-				let logData = LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredacted)
-				return Self.applicationLogAttachment(
-					data: logData,
-					sendUnredactedData: sendUnredacted,
-					sealer: sealer
-				)
-			}.value
-			LoggingPolicy.info(
-				sendUnredactedApplicationLog
-					? "User chose to include unredacted application data with a support report."
-					: "User chose to include the redacted application log with a support report.",
-				logger: .ui
-			)
-			if let applicationLogAttachment {
-				attachments.append(applicationLogAttachment)
-			}
-		}
+	}
 
+	/// The sealed log, when the user asked for one and this build can seal it. `nil` otherwise —
+	/// including a seal that failed, which must not fall back to plain text (AIA-0643).
+	private func includedApplicationLogAttachment() async -> EmailController.Attachment? {
+		guard includeApplicationLog, let sealer = Self.sealer else { return nil }
+		// Off the main actor: the log is read from disk and, unless the user opted into raw data,
+		// every line is run through `LogRedactor` — on the order of a second for a full five MiB.
+		// Sealing happens here too. This view is `@MainActor`, so doing any of it inline would
+		// freeze the sheet.
+		let sendUnredacted = sendUnredactedApplicationLog
+		let applicationLogAttachment = await Task.detached(priority: .userInitiated) {
+			let logData = LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredacted)
+			return Self.applicationLogAttachment(
+				data: logData,
+				sendUnredactedData: sendUnredacted,
+				sealer: sealer
+			)
+		}.value
+		LoggingPolicy.info(
+			sendUnredactedApplicationLog
+				? "User chose to include unredacted application data with a support report."
+				: "User chose to include the redacted application log with a support report.",
+			logger: .ui
+		)
+		return applicationLogAttachment
+	}
+
+	/// Presents Mail when it can carry the report. Otherwise opens `mailto:` — which cannot carry
+	/// attachments (RFC 6068) — and says so, rather than dropping a screenshot or an opted-in log
+	/// silently. The sheet stays up while the composer is on top; it closes only after Mail accepts
+	/// the message, so a cancel returns here with the category and attachment intact.
+	private func deliver(_ request: SupportRequest, attachments: [EmailController.Attachment]) async {
 		do {
-			// The sheet must NOT be dismissed here: the composer presents on top of it, so
-			// dismissing now would tear the composer down mid-flight. Close only once the
-			// composer reports the message was handed to Mail; on cancel the user lands back
-			// here with their category and attachment intact, free to retry or leave.
 			try EmailController.shared.sendEmail(
 				subject: request.subject,
 				body: request.body,
@@ -430,9 +425,6 @@ struct SupportRequestView: View {
 				}
 			)
 		} catch {
-			// No mail account, or nothing to present from. Fall back to the user's default mail app
-			// — which cannot carry attachments (RFC 6068), so say so rather than dropping the
-			// screenshot or an opted-in application log silently.
 			LoggingPolicy.warning("Mail composer unavailable (\(error)) — falling back to mailto:", logger: .ui)
 			mailtoOpened = await EmailController.shared.openMailto(
 				subject: request.subject,
@@ -654,5 +646,55 @@ struct SupportRequestView: View {
 		guard let request = composedRequest else { return }
 		UIPasteboard.general.string = "\(request.subject)\n\n\(request.body)"
 		showCopiedConfirmation = true
+	}
+}
+
+/// Which sentence the mail-unavailable alert shows. `mailto:` opened means the device has a mail
+/// app and the user can finish there; otherwise they have to leave the app entirely.
+enum SupportMailUnavailableCopy {
+	static func message(mailtoOpened: Bool, recipient: String) -> String {
+		mailtoOpened
+			? L10n.Support.MailUnavailable.message(recipient)
+			: L10n.Support.MailUnavailable.messageNoMailApp(recipient)
+	}
+}
+
+/// The failure notices on the support form: no mail account, a copied report, and a screenshot
+/// the app refused. Kept off `body` so the form itself stays the category, log, and compose rows.
+private struct SupportRequestNotices: ViewModifier {
+	let recipient: String
+	let mailtoOpened: Bool
+	@Binding var showMailUnavailableNotice: Bool
+	@Binding var showCopiedConfirmation: Bool
+	@Binding var showScreenshotTooSmallNotice: Bool
+	@Binding var showScreenshotUnreadableNotice: Bool
+	let openSettings: () -> Void
+	let copyReport: () -> Void
+	let dismiss: () -> Void
+
+	func body(content: Content) -> some View {
+		content
+			.alert(L10n.Support.MailUnavailable.title, isPresented: $showMailUnavailableNotice) {
+				Button(L10n.Support.openSettings) { openSettings() }
+				Button(L10n.Support.copyReport) { copyReport() }
+				Button(L10n.Common.ok, role: .cancel) { dismiss() }
+			} message: {
+				Text(SupportMailUnavailableCopy.message(mailtoOpened: mailtoOpened, recipient: recipient))
+			}
+			.alert(L10n.Support.title, isPresented: $showCopiedConfirmation) {
+				Button(L10n.Common.ok, role: .cancel) { dismiss() }
+			} message: {
+				Text(L10n.Support.reportCopied(recipient))
+			}
+			.alert(L10n.Support.ScreenshotTooSmall.title, isPresented: $showScreenshotTooSmallNotice) {
+				Button(L10n.Common.ok, role: .cancel) {}
+			} message: {
+				Text(L10n.Support.ScreenshotTooSmall.message(ScreenshotAttachmentValidator.minimumShortestSidePixels))
+			}
+			.alert(L10n.Support.ScreenshotUnreadable.title, isPresented: $showScreenshotUnreadableNotice) {
+				Button(L10n.Common.ok, role: .cancel) {}
+			} message: {
+				Text(L10n.Support.ScreenshotUnreadable.message)
+			}
 	}
 }

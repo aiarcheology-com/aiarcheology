@@ -350,3 +350,19 @@ final class SupportLogAttachmentTests: XCTestCase {
 		XCTAssertFalse(fileManager.fileExists(atPath: strandedZipCopy.path), "old zip staging copy survived")
 	}
 }
+
+final class SupportMailUnavailableCopyTests: XCTestCase {
+	func testAnOpenedMailtoKeepsTheUserInAMailApp() {
+		XCTAssertEqual(
+			SupportMailUnavailableCopy.message(mailtoOpened: true, recipient: "help@example.com"),
+			L10n.Support.MailUnavailable.message("help@example.com")
+		)
+	}
+
+	func testAMissingMailAppSaysSo() {
+		XCTAssertEqual(
+			SupportMailUnavailableCopy.message(mailtoOpened: false, recipient: "help@example.com"),
+			L10n.Support.MailUnavailable.messageNoMailApp("help@example.com")
+		)
+	}
+}
