@@ -289,10 +289,38 @@ final class ObservabilityTestTriggersTests: XCTestCase {
 		XCTAssertNoThrow(Observability.runTestTriggersIfEnabled())
 	}
 	
-	func test_runSentryThrottleSmokeTestIfEnabled_properlyGatedByEnvVar() {
-		// When SENTRY_THROTTLE_SMOKE_TEST is not set, this should return early
-		XCTAssertNoThrow(Observability.runTestTriggersIfEnabled())
+	func test_runSentryThrottleSmokeTestIfEnabled_disabledModesDoNotStartWork() {
+		XCTAssertNil(Observability.runSentryThrottleSmokeTestIfEnabled(mode: nil))
+		XCTAssertNil(Observability.runSentryThrottleSmokeTestIfEnabled(mode: ""))
 	}
+
+	func test_runSentryThrottleSmokeTestIfEnabled_duplicateEmits120MatchingErrors() async throws {
+		let recorder = SmokeErrorRecorder()
+		let task = try XCTUnwrap(Observability.runSentryThrottleSmokeTestIfEnabled(mode: "duplicate") { _, error in
+			recorder.record(error.code)
+		})
+		await task.value
+		XCTAssertEqual(recorder.codes, Array(repeating: 1, count: 120))
+	}
+
+	func test_runSentryThrottleSmokeTestIfEnabled_globalEmits200DistinctErrors() async throws {
+		let recorder = SmokeErrorRecorder()
+		let task = try XCTUnwrap(Observability.runSentryThrottleSmokeTestIfEnabled(mode: "global") { _, error in
+			recorder.record(error.code)
+		})
+		await task.value
+		XCTAssertEqual(recorder.codes, Array(0..<200))
+	}
+
+	func test_runSentryThrottleSmokeTestIfEnabled_unknownModeEmitsNothing() async throws {
+		let recorder = SmokeErrorRecorder()
+		let task = try XCTUnwrap(Observability.runSentryThrottleSmokeTestIfEnabled(mode: "unknown") { _, error in
+			recorder.record(error.code)
+		})
+		await task.value
+		XCTAssertTrue(recorder.codes.isEmpty)
+	}
+
 }
 
 // MARK: - Test helpers
@@ -311,5 +339,19 @@ private extension SentryCrashReportingService {
 			mirror = current.superclassMirror
 		}
 		throw MirrorError.propertyNotFound(property)
+	}
+}
+
+/// The detached smoke task writes while the test reads after awaiting completion.
+private final class SmokeErrorRecorder: @unchecked Sendable {
+	private let lock = NSLock()
+	private var recordedCodes: [Int] = []
+
+	func record(_ code: Int) {
+		lock.withLock { recordedCodes.append(code) }
+	}
+
+	var codes: [Int] {
+		lock.withLock { recordedCodes }
 	}
 }

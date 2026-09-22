@@ -270,6 +270,45 @@ final class NativeModelFasterRCNNRegistryTests: XCTestCase {
 		}
 	}
 
+	// MARK: - Weight promotion (AIA-0943)
+
+	func testPromoteWeightsForStablePrecision_widensFloat16AndHonoursCancellation() throws {
+		let half = Float16(1.5)
+		var littleEndianBits = half.bitPattern.littleEndian
+		var float16Bytes = Data()
+		withUnsafeBytes(of: &littleEndianBits) { float16Bytes.append(contentsOf: $0) }
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "tests", version: "1"),
+			inputs: [],
+			weights: [
+				NativeModelWeight(
+					name: "w0", dataType: .float16, shape: [1], offset: 0, byteCount: 2
+				)
+			],
+			operations: [],
+			outputs: []
+		)
+
+		let promoted = try NativeModelFasterRCNNRegistry.promoteWeightsForStablePrecision(
+			graph, data: float16Bytes, checkingCancellation: nil
+		)
+		XCTAssertEqual(promoted.graph.weights.count, 1)
+		XCTAssertEqual(promoted.graph.weights[0].dataType, .float32)
+		XCTAssertEqual(promoted.graph.weights[0].byteCount, 4)
+		XCTAssertEqual(promoted.data.count, 4)
+		let value = promoted.data.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 0, as: Float.self) }
+		XCTAssertEqual(value, Float(half))
+
+		XCTAssertThrowsError(
+			try NativeModelFasterRCNNRegistry.promoteWeightsForStablePrecision(
+				graph, data: float16Bytes, checkingCancellation: { throw CancellationError() }
+			)
+		) { error in
+			XCTAssertTrue(error is CancellationError)
+		}
+	}
+
 	private func makePromotedWeights(
 		sourceURL: URL,
 		byteCount: UInt64,

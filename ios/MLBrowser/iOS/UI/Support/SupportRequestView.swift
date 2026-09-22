@@ -109,75 +109,10 @@ struct SupportRequestView: View {
 	var body: some View {
 		NavigationStack {
 			Form {
-				Section(L10n.Support.categoryPrompt) {
-					Picker(L10n.Support.categoryPrompt, selection: $category) {
-						ForEach(SupportCategory.allCases) { option in
-							Text(option.displayName).tag(option)
-						}
-					}
-					.labelsHidden()
-					.pickerStyle(.inline)
-				}
-
-				// Conditional on a usable key, and withdrawn rather than downgraded without one:
-				// the only alternative to sealing is exporting the log in the clear, which is the
-				// thing AIA-0643 exists to stop. A build with no configured key therefore offers no
-				// log at all, and does it quietly — no alert, no error row, nothing for the user to
-				// act on, because there is nothing they could do about it. See ``SupportLogSealer``.
-				if Self.sealer != nil {
-					Section {
-						Toggle(L10n.Support.includeApplicationLog, isOn: $includeApplicationLog)
-							.testability(Testability.Toggle.supportRequestIncludeApplicationLog)
-						Text(L10n.Support.ApplicationLog.explanation)
-							.foregroundStyle(.blue)
-							.fixedSize(horizontal: false, vertical: true)
-						Toggle(L10n.Support.sendUnredactedData, isOn: $sendUnredactedApplicationLog)
-							.disabled(!includeApplicationLog)
-							.testability(Testability.Toggle.supportRequestSendUnredactedData)
-						Text(L10n.Support.sendUnredactedDataExplanation)
-							.foregroundStyle(.secondary)
-							.fixedSize(horizontal: false, vertical: true)
-						if includeApplicationLog {
-							applicationLogShareRow
-						}
-					}
-				}
-
-				Section {
-					// `PhotosPicker` runs out-of-process, so it needs no photo-library permission
-					// and no NSPhotoLibraryUsageDescription: the app only ever receives the single
-					// image the user hands it. The attachment is used only for this support request.
-					// Read once here, on the main actor, and capture the result. `attachment` is
-					// `@State` and therefore main-actor isolated, while `PhotosPicker`'s label
-					// closure is `@Sendable` — reading it inside warns today and is an error under
-					// Swift 6 language mode. A captured `Bool` crosses that boundary safely and the
-					// rendered label is identical (AIA-0634).
-					let hasAttachment = attachment != nil
-					PhotosPicker(selection: $pickedPhoto, matching: .images, photoLibrary: .shared()) {
-						Label(
-							hasAttachment ? L10n.Support.attachedScreenshot : L10n.Support.attachScreenshot,
-							systemImage: hasAttachment ? "checkmark.circle.fill" : "photo.badge.plus"
-						)
-					}
-				}
-
-				Section {
-					// Disabled while composing: gathering the log is no longer instant (it reads up
-					// to five MiB from disk and redacts it), and a second tap would build a second
-					// request and try to present a second composer over the first.
-					Button(L10n.Support.compose) {
-						Task { await compose() }
-					}
-					.buttonStyle(.borderedProminent)
-					.tint(.green)
-					.frame(maxWidth: .infinity, alignment: .center)
-					.disabled(isComposing)
-				} footer: {
-					Text(L10n.Support.privacyNote)
-						.font(.body)
-						.foregroundStyle(.primary)
-						.fixedSize(horizontal: false, vertical: true)
-				}
+				categorySection
+				applicationLogSection
+				screenshotSection
+				composeSection
 			}
 			.navigationTitle(L10n.Support.title)
 			.navigationBarTitleDisplayMode(.inline)
@@ -232,6 +167,85 @@ struct SupportRequestView: View {
 			} message: {
 				Text(L10n.Support.ScreenshotUnreadable.message)
 			}
+		}
+	}
+
+	private var categorySection: some View {
+		Section(L10n.Support.categoryPrompt) {
+			Picker(L10n.Support.categoryPrompt, selection: $category) {
+				ForEach(SupportCategory.allCases) { option in
+					Text(option.displayName).tag(option)
+				}
+			}
+			.labelsHidden()
+			.pickerStyle(.inline)
+		}
+	}
+
+	/// Conditional on a usable key, and withdrawn rather than downgraded without one:
+	/// the only alternative to sealing is exporting the log in the clear, which is the
+	/// thing AIA-0643 exists to stop. A build with no configured key therefore offers no
+	/// log at all, and does it quietly — no alert, no error row, nothing for the user to
+	/// act on, because there is nothing they could do about it. See ``SupportLogSealer``.
+	@ViewBuilder
+	private var applicationLogSection: some View {
+		if Self.sealer != nil {
+			Section {
+				Toggle(L10n.Support.includeApplicationLog, isOn: $includeApplicationLog)
+					.testability(Testability.Toggle.supportRequestIncludeApplicationLog)
+				Text(L10n.Support.ApplicationLog.explanation)
+					.foregroundStyle(.blue)
+					.fixedSize(horizontal: false, vertical: true)
+				Toggle(L10n.Support.sendUnredactedData, isOn: $sendUnredactedApplicationLog)
+					.disabled(!includeApplicationLog)
+					.testability(Testability.Toggle.supportRequestSendUnredactedData)
+				Text(L10n.Support.sendUnredactedDataExplanation)
+					.foregroundStyle(.secondary)
+					.fixedSize(horizontal: false, vertical: true)
+				if includeApplicationLog {
+					applicationLogShareRow
+				}
+			}
+		}
+	}
+
+	private var screenshotSection: some View {
+		Section {
+			// `PhotosPicker` runs out-of-process, so it needs no photo-library permission
+			// and no NSPhotoLibraryUsageDescription: the app only ever receives the single
+			// image the user hands it. The attachment is used only for this support request.
+			// Read once here, on the main actor, and capture the result. `attachment` is
+			// `@State` and therefore main-actor isolated, while `PhotosPicker`'s label
+			// closure is `@Sendable` — reading it inside warns today and is an error under
+			// Swift 6 language mode. A captured `Bool` crosses that boundary safely and the
+			// rendered label is identical (AIA-0634).
+			let hasAttachment = attachment != nil
+			PhotosPicker(selection: $pickedPhoto, matching: .images, photoLibrary: .shared()) {
+				Label(
+					hasAttachment ? L10n.Support.attachedScreenshot : L10n.Support.attachScreenshot,
+					systemImage: hasAttachment ? "checkmark.circle.fill" : "photo.badge.plus"
+				)
+			}
+		}
+	}
+
+	private var composeSection: some View {
+		Section {
+			// Disabled while composing: gathering the log is no longer instant (it reads up
+			// to five MiB from disk and redacts it), and a second tap would build a second
+			// request and try to present a second composer over the first.
+			Button(L10n.Support.compose) {
+				Task { await compose() }
+			}
+			.buttonStyle(.borderedProminent)
+			.tint(.green)
+			.frame(maxWidth: .infinity, alignment: .center)
+			.disabled(isComposing)
+		} footer: {
+			Text(L10n.Support.privacyNote)
+				.font(.body)
+				.foregroundStyle(.primary)
+				.fixedSize(horizontal: false, vertical: true)
 		}
 	}
 

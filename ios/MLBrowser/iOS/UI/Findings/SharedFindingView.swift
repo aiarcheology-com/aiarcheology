@@ -551,35 +551,13 @@ struct SharedFindingUnverifiedView: View {
 		case .provenance:
 			provenance
 		case .title:
-			// `Text(_: some StringProtocol)`, not the `LocalizedStringKey` overload — this is the
-			// sender's own words and must never be run through a lookup table.
-			Text(payload.title)
-				.font(.title2.bold())
-				.foregroundStyle(.primary)
+			titleRow
 		case .detection:
-			if let text = SharedFindingSection.detectionText(for: payload) {
-				Text(verbatim: text)
-					.font(.caption.weight(.semibold))
-					.padding(.horizontal, 10)
-					.padding(.vertical, 4)
-					.background(Color.accentColor.opacity(0.18), in: Capsule())
-					.foregroundStyle(Color.accentColor)
-			}
+			detectionRow
 		case .author:
-			if let author = payload.author {
-				detail(L10n.Finding.author, value: author, systemImage: "person")
-			}
+			authorRow
 		case .date:
-			if let date = SharedFindingSection.date(for: payload) {
-				LabeledContent {
-					Text(date, format: Date.FormatStyle(date: .abbreviated))
-						.foregroundStyle(.primary)
-				} label: {
-					Label(L10n.Configuration.created, systemImage: "calendar")
-						.foregroundStyle(.secondary)
-				}
-				.font(.callout)
-			}
+			dateRow
 		case .openPage:
 			openPageBlock
 		case .page:
@@ -588,6 +566,47 @@ struct SharedFindingUnverifiedView: View {
 			boxBlock
 		case .location:
 			locationBlock
+		}
+	}
+
+	private var titleRow: some View {
+		// `Text(_: some StringProtocol)`, not the `LocalizedStringKey` overload — this is the
+		// sender's own words and must never be run through a lookup table.
+		Text(payload.title)
+			.font(.title2.bold())
+			.foregroundStyle(.primary)
+	}
+
+	@ViewBuilder
+	private var detectionRow: some View {
+		if let text = SharedFindingSection.detectionText(for: payload) {
+			Text(verbatim: text)
+				.font(.caption.weight(.semibold))
+				.padding(.horizontal, 10)
+				.padding(.vertical, 4)
+				.background(Color.accentColor.opacity(0.18), in: Capsule())
+				.foregroundStyle(Color.accentColor)
+		}
+	}
+
+	@ViewBuilder
+	private var authorRow: some View {
+		if let author = payload.author {
+			detail(L10n.Finding.author, value: author, systemImage: "person")
+		}
+	}
+
+	@ViewBuilder
+	private var dateRow: some View {
+		if let date = SharedFindingSection.date(for: payload) {
+			LabeledContent {
+				Text(date, format: Date.FormatStyle(date: .abbreviated))
+					.foregroundStyle(.primary)
+			} label: {
+				Label(L10n.Configuration.created, systemImage: "calendar")
+					.foregroundStyle(.secondary)
+			}
+			.font(.callout)
 		}
 	}
 

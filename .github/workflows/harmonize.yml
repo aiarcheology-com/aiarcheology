@@ -27,6 +27,9 @@ jobs:
       - name: Verify Apple test-fixture setup
         run: python3 scripts/test_apple_test_models.py
 
+      - name: Verify weighted-CRAP attribution
+        run: python3 scripts/test_slopguard_baseline.py
+
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:

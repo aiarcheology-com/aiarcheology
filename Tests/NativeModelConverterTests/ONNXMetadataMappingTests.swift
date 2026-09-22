@@ -103,6 +103,39 @@ final class ONNXMetadataMappingTests: XCTestCase {
 		XCTAssertEqual(metadata.userDefined["imgsz"], "[640, 640]")
 	}
 
+	// MARK: - Equality (AIA-0943)
+
+	func testRawMetadataEquality_MatchesOnPropsOrderAndScalars() {
+		let left = ONNXRawMetadata(
+			props: [("author", "Ultralytics"), ("version", "8.3.168")],
+			docString: "YOLO",
+			producerName: "onnx",
+			modelVersion: 5
+		)
+		let equal = ONNXRawMetadata(
+			props: [("author", "Ultralytics"), ("version", "8.3.168")],
+			docString: "YOLO",
+			producerName: "onnx",
+			modelVersion: 5
+		)
+		let differentProps = ONNXRawMetadata(
+			props: [("author", "Ultralytics"), ("version", "9.0")],
+			docString: "YOLO",
+			producerName: "onnx",
+			modelVersion: 5
+		)
+		let differentOrder = ONNXRawMetadata(
+			props: [("version", "8.3.168"), ("author", "Ultralytics")],
+			docString: "YOLO",
+			producerName: "onnx",
+			modelVersion: 5
+		)
+		XCTAssertEqual(left, equal)
+		XCTAssertNotEqual(left, differentProps)
+		XCTAssertNotEqual(left, differentOrder, "props are compared in file order, not as a set")
+		XCTAssertNotEqual(left, ONNXRawMetadata(props: left.props, docString: "other"))
+	}
+
 	func testEmptyKeysAndValuesAreDroppedFromTheMirror() throws {
 		let metadata = try XCTUnwrap(ONNXMetadataMapping.metadata(from: ONNXRawMetadata(
 			props: [("author", "A"), ("", "orphan value"), ("orphan key", "  ")]

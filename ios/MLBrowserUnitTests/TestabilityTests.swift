@@ -68,5 +68,81 @@ final class TestabilityTests: XCTestCase {
     func testIsValid_Nil() {
         XCTAssertFalse(Testability.isValid(nil))
     }
+
+    // MARK: - UITestLaunchConfiguration deltas
+
+    @MainActor
+    func test_applyPageScenario_blank_clearsHomeAndLastPageRouting() {
+        let settings = Settings()
+        defer { settings.reset() }
+        settings.defaultPage = URL(string: UITestLaunchConfiguration.baselineHome)
+        settings.reopenLastPage = true
+        settings.lastPage = URL(string: "https://example.org/previous")
+
+        var config = UITestLaunchConfiguration()
+        config.pageScenario = .blank
+        UITestLaunchConfiguration.applyPageScenario(config, to: settings)
+
+        XCTAssertNil(settings.defaultPage)
+        XCTAssertFalse(settings.reopenLastPage)
+    }
+
+    @MainActor
+    func test_applyPageScenario_last_seedsReopenLastPage() {
+        let settings = Settings()
+        defer { settings.reset() }
+        settings.reopenLastPage = false
+        settings.lastPage = nil
+
+        var config = UITestLaunchConfiguration()
+        config.pageScenario = .last
+        config.lastPage = "https://example.org/resume"
+        UITestLaunchConfiguration.applyPageScenario(config, to: settings)
+
+        XCTAssertTrue(settings.reopenLastPage)
+        XCTAssertEqual(settings.lastPage, URL(string: "https://example.org/resume"))
+    }
+
+    @MainActor
+    func test_applyPageScenario_homeOverride_writesDefaultPage() {
+        let settings = Settings()
+        defer { settings.reset() }
+        settings.defaultPage = URL(string: UITestLaunchConfiguration.baselineHome)
+
+        var config = UITestLaunchConfiguration()
+        config.pageScenario = .home
+        config.defaultPageOverride = "https://example.org/custom-home"
+        UITestLaunchConfiguration.applyPageScenario(config, to: settings)
+
+        XCTAssertEqual(settings.defaultPage, URL(string: "https://example.org/custom-home"))
+    }
+
+    @MainActor
+    func test_applyDetectionAndAnalyticsDeltas_writesDetectionAndAnalyticsFields() {
+        let settings = Settings()
+        defer { settings.reset() }
+        settings.fullscreenDetection = false
+        settings.disableDetectionAnimations = false
+        settings.snapFrequency = 3.0
+        settings.analyticsEnabled = false
+        settings.analyticsChoiceMade = true
+
+        var config = UITestLaunchConfiguration()
+        config.fullscreenDetection = true
+        config.disableDetectionAnimations = true
+        config.snapFrequency = 7.0
+        config.analyticsScenario = .prompt
+        UITestLaunchConfiguration.applyDetectionAndAnalyticsDeltas(config, to: settings)
+
+        XCTAssertTrue(settings.fullscreenDetection)
+        XCTAssertTrue(settings.disableDetectionAnimations)
+        XCTAssertEqual(settings.snapFrequency, 7.0)
+        XCTAssertFalse(settings.analyticsEnabled)
+        XCTAssertFalse(settings.analyticsChoiceMade)
+
+        config.analyticsScenario = .enabled
+        UITestLaunchConfiguration.applyDetectionAndAnalyticsDeltas(config, to: settings)
+        XCTAssertTrue(settings.analyticsEnabled)
+    }
     
 }

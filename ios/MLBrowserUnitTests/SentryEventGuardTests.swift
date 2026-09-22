@@ -4,6 +4,7 @@
 //
 
 import XCTest
+import Sentry
 @testable import ML_Browser
 
 final class SentryEventGuardTests: XCTestCase {
@@ -148,5 +149,81 @@ final class SentryEventGuardTests: XCTestCase {
 		
 		// A should be treated as new (allowed) because it was evicted.
 		XCTAssertTrue(sut.decide(signatureHex: signatureA, now: t0.advanced(by: .seconds(1))).isAllowed)
+	}
+
+	// MARK: - Crash payload parsing (AIA-0946)
+
+	func testExtractTypeAndFrames_ReadsExceptionStacktrace() {
+		let payload: [String: Any] = [
+			"exception": [
+				"values": [
+					[
+						"type": "NSError",
+						"value": "probe failed",
+						"stacktrace": [
+							"frames": [
+								["function": "MapLocationProbe.run()"],
+								["function": "FindingCapture.perform()"],
+								["symbol": "AppDelegate.application"]
+							]
+						]
+					] as [String: Any]
+				]
+			]
+		]
+		let (type, frames) = SentryCrashReportingService.extractTypeAndFrames(payload: payload)
+		XCTAssertEqual(type, "NSError")
+		XCTAssertEqual(frames, [
+			"MapLocationProbe.run()",
+			"FindingCapture.perform()",
+			"AppDelegate.application"
+		])
+	}
+
+	func testCaptureError_RoutesDiagnosticContextToTagsAndExtras() throws {
+		// Existing test seam: configure Sentry with a beforeSend that keeps the event in-process
+		// and drops transport (nil return). Do not call SentryCrashReportingService.start, which
+		// would replace this hook.
+		final class CaptureBox: @unchecked Sendable {
+			var event: Event?
+		}
+		let box = CaptureBox()
+		SentrySDK.start { options in
+			options.dsn = "https://publickey@127.0.0.1/1"
+			options.enableAutoSessionTracking = false
+			options.enableCrashHandler = false
+			options.enableAutoPerformanceTracing = false
+			options.enableSwizzling = false
+			options.enableAppHangTracking = false
+			options.enableWatchdogTerminationTracking = false
+			options.enableAutoBreadcrumbTracking = false
+			options.beforeSend = { event in
+				box.event = event
+				return nil
+			}
+		}
+		defer { SentrySDK.close() }
+		let sut = SentryCrashReportingService(dsn: nil, tracesSampleRate: 0, enableProfiling: false)
+		sut.captureError(
+			message: "map probe failed",
+			error: NSError(domain: "AIA0946", code: 1, userInfo: [NSLocalizedDescriptionKey: "timeout"]),
+			context: [
+				"operation": "map_probe",
+				"diagnostic_detail": String(repeating: "timeout ", count: 32)
+			]
+		)
+
+		let event = try XCTUnwrap(box.event, "captureError must produce a Sentry event through the SDK")
+		let serialized = event.serialize()
+		XCTAssertNil(serialized["attachments"], "the diagnostic fixture must not attach files")
+		XCTAssertNil(serialized["screenshot"], "the diagnostic fixture must not attach a screenshot")
+		let message = (serialized["message"] as? String)
+			?? ((serialized["message"] as? [String: Any])?["formatted"] as? String)
+		XCTAssertEqual(message, "map probe failed: timeout")
+		// This checks routing of safe diagnostic values; it is not an imagery/privacy gate.
+		let tags = event.tags
+		let extra = event.extra
+		XCTAssertEqual(tags?["operation"], "map_probe")
+		XCTAssertEqual(extra?["diagnostic_detail"] as? String, String(repeating: "timeout ", count: 32))
 	}
 }

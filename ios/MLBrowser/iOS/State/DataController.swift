@@ -69,7 +69,7 @@ final class DataController: ObservableObject {
 	/// to fail migration or loading for non-transient reasons. During development, if the
 	/// data model changes multiple times in one run, subsequent migration failures will not
 	/// trigger another destructive recovery and will instead surface the error.
-	private var didRetryAfterStoreDestruction = false
+	private(set) var didRetryAfterStoreDestruction = false
 
 	/// Determines whether Core Data should automatically infer mapping models for migrations.
 	///
@@ -245,8 +245,20 @@ final class DataController: ObservableObject {
 		}
 	}
 
+	/// Whether store-load recovery may destroy and recreate the store.
+	///
+	/// Extracted so unit tests can cover the App Store / already-retried / non-migration gates
+	/// without invoking `LoggingPolicy.criticalFailure` (a `preconditionFailure`).
+	static func canAttemptStoreRecovery(
+		isAppStoreDistribution: Bool,
+		isMigrationError: Bool,
+		didRetryAfterStoreDestruction: Bool
+	) -> Bool {
+		!isAppStoreDistribution && isMigrationError && !didRetryAfterStoreDestruction
+	}
+
 	/// Handles Core Data store load errors with optional recovery for migration issues
-	private func handleStoreLoadError(_ error: Error, description: NSPersistentStoreDescription) {
+	func handleStoreLoadError(_ error: Error, description: NSPersistentStoreDescription) {
 		let nsError = error as NSError
 
 		// Check if this is a migration-related error
@@ -259,9 +271,11 @@ final class DataController: ObservableObject {
 		)
 
 		// Only attempt recovery in non-App Store builds
-		let canAttemptRecovery = !AppEnvironment.isAppStoreDistribution &&
-								 isMigrationError &&
-								 !didRetryAfterStoreDestruction
+		let canAttemptRecovery = Self.canAttemptStoreRecovery(
+			isAppStoreDistribution: AppEnvironment.isAppStoreDistribution,
+			isMigrationError: isMigrationError,
+			didRetryAfterStoreDestruction: didRetryAfterStoreDestruction
+		)
 
 		if canAttemptRecovery {
 			LoggingPolicy.warning(
@@ -282,7 +296,7 @@ final class DataController: ObservableObject {
 	}
 
 	/// Destroys the persistent store and retries loading with a fresh container (TestFlight/dev recovery path)
-	private func destroyAndRetryStore(description: NSPersistentStoreDescription) {
+	func destroyAndRetryStore(description: NSPersistentStoreDescription) {
 		didRetryAfterStoreDestruction = true
 
 		guard let storeURL = description.url else {
@@ -300,6 +314,14 @@ final class DataController: ObservableObject {
 
 			LoggingPolicy.info("Successfully destroyed Core Data store. Creating fresh container and retrying load...", logger: .persistence)
 
+			// Capture the failed description's location and migration flags for the replacement.
+			// A fresh NSPersistentContainer defaults to Application Support; reusing these values
+			// keeps a storeURL-initialized (or production default) controller on THAT store.
+			let failedURL = description.url
+			let failedType = description.type
+			let failedMigrateAutomatically = description.shouldMigrateStoreAutomatically
+			let failedInferMapping = description.shouldInferMappingModelAutomatically
+
 			DispatchQueue.main.async { [weak self] in
 				guard let self = self else { return }
 
@@ -313,14 +335,22 @@ final class DataController: ObservableObject {
 				// Reapply the same configuration. Under UI tests, pin the dedicated UI-test store
 				// again so the retry never falls back to the default (production) store location —
 				// preserving the "never touch the production store" isolation guarantee even on the
-				// migration-recovery path.
+				// migration-recovery path. Outside UI tests, reuse the failed description's
+				// URL/type/migration flags so a temp-directory controller never switches to the
+				// default Application Support store.
 				if AppEnvironment.isRunningUITests {
 					self.container.persistentStoreDescriptions = [Self.uiTestStoreDescription()]
-				} else if let desc = self.container.persistentStoreDescriptions.first {
-					desc.shouldMigrateStoreAutomatically = true
-					desc.shouldInferMappingModelAutomatically = shouldInferMappingModelAutomatically
+				} else {
+					let retryDescription = NSPersistentStoreDescription()
+					if let failedURL {
+						retryDescription.url = failedURL
+					}
+					retryDescription.type = failedType
+					retryDescription.shouldMigrateStoreAutomatically = failedMigrateAutomatically
+					retryDescription.shouldInferMappingModelAutomatically = failedInferMapping
+					self.container.persistentStoreDescriptions = [retryDescription]
 				}
-                                
+
 				// Retry loading with fresh container
 				self.loadStores()
 			}

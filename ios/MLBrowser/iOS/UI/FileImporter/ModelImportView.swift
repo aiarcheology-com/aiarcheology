@@ -172,41 +172,7 @@ struct ModelImportView: View {
 	private func importAlerts(_ content: some View) -> some View {
 		content
 		.alert(L10n.Alert.Error.title, isPresented: $showErrorAlert) {
-			if let report = nativeConversionReport {
-				// Reporting offered where the failure is announced, not only after the user has
-				// opened the log and found a toolbar menu (AIA-0778). A conversion that produced no
-				// Core ML model is the only way the app learns which models it does not yet support,
-				// so the path to sending one must be visible at the moment it fails.
-				//
-				// Gated on the state and not merely on a report existing: this alert also carries
-				// errors raised *after* a conversion succeeded, and inviting someone to report a
-				// registered model as a failing conversion would corrupt the signal.
-				if report.state.isReportableConversionFailure {
-					Button(L10n.Import.reportConversion) {
-						Task {
-							// No mail account and no mail app reaches neither tier. Falling through
-							// to the log is not a consolation prize: that screen carries the same
-							// report behind a Share item, so the path stays open instead of ending.
-							if await NativeModelConversionReporting.email(report).not {
-								presentedNativeConversionReport = report
-							}
-						}
-					}
-				}
-				// Offered where the failure is announced (AIA-0889). A load refused for memory is the
-				// one failure whose artifact is good — the conversion succeeded and only this device
-				// cannot load it — so the model is still here and can leave for a device that can.
-				// Burying that behind the log sheet would lose it: the model is deleted the moment
-				// this failure stops being on screen.
-				if canExportConvertedModel(for: report) {
-					Button(L10n.Import.exportConvertedModel) {
-						exportConvertedModel(report)
-					}
-				}
-				Button(L10n.Import.showConversionLog) {
-					presentedNativeConversionReport = report
-				}
-			}
+			errorAlertActions
 			Button(L10n.Common.ok, role: .cancel) { }
 		} message: {
 			Text(errorAlertMessage)
@@ -216,23 +182,67 @@ struct ModelImportView: View {
 				get: { importedModelInfo != nil },
 				set: { if !$0 { importedModelInfo = nil } }
 		)) {
-			if nativeConversionReport != nil {
-				Button(L10n.Import.showConversionLog) {
-					presentedNativeConversionReport = nativeConversionReport
-				}
-			}
-			Button(L10n.Common.ok) {
-				let info = importedModelInfo
-				importedModelInfo = nil
-				// Only an unparsed-type model opens its settings for the user to pick a type; a
-				// parsed (authoritative) type is trusted and locked, so its import just confirms
-				// success. Hand the id to the presenter FIRST so its onDismiss can open the
-				// settings sheet once this import sheet finishes dismissing (AIA-0402).
-				if let info { onImported(info.id, info.needsReview) }
-				dismiss()
-			}
+			successAlertActions
 		} message: {
 			Text(importSuccessMessage(for: importedModelInfo))
+		}
+	}
+
+	@ViewBuilder
+	private var errorAlertActions: some View {
+		if let report = nativeConversionReport {
+			// Reporting offered where the failure is announced, not only after the user has
+			// opened the log and found a toolbar menu (AIA-0778). A conversion that produced no
+			// Core ML model is the only way the app learns which models it does not yet support,
+			// so the path to sending one must be visible at the moment it fails.
+			//
+			// Gated on the state and not merely on a report existing: this alert also carries
+			// errors raised *after* a conversion succeeded, and inviting someone to report a
+			// registered model as a failing conversion would corrupt the signal.
+			if report.state.isReportableConversionFailure {
+				Button(L10n.Import.reportConversion) {
+					Task {
+						// No mail account and no mail app reaches neither tier. Falling through
+						// to the log is not a consolation prize: that screen carries the same
+						// report behind a Share item, so the path stays open instead of ending.
+						if await NativeModelConversionReporting.email(report).not {
+							presentedNativeConversionReport = report
+						}
+					}
+				}
+			}
+			// Offered where the failure is announced (AIA-0889). A load refused for memory is the
+			// one failure whose artifact is good — the conversion succeeded and only this device
+			// cannot load it — so the model is still here and can leave for a device that can.
+			// Burying that behind the log sheet would lose it: the model is deleted the moment
+			// this failure stops being on screen.
+			if canExportConvertedModel(for: report) {
+				Button(L10n.Import.exportConvertedModel) {
+					exportConvertedModel(report)
+				}
+			}
+			Button(L10n.Import.showConversionLog) {
+				presentedNativeConversionReport = report
+			}
+		}
+	}
+
+	@ViewBuilder
+	private var successAlertActions: some View {
+		if nativeConversionReport != nil {
+			Button(L10n.Import.showConversionLog) {
+				presentedNativeConversionReport = nativeConversionReport
+			}
+		}
+		Button(L10n.Common.ok) {
+			let info = importedModelInfo
+			importedModelInfo = nil
+			// Only an unparsed-type model opens its settings for the user to pick a type; a
+			// parsed (authoritative) type is trusted and locked, so its import just confirms
+			// success. Hand the id to the presenter FIRST so its onDismiss can open the
+			// settings sheet once this import sheet finishes dismissing (AIA-0402).
+			if let info { onImported(info.id, info.needsReview) }
+			dismiss()
 		}
 	}
 
@@ -552,40 +562,43 @@ struct ModelImportView: View {
 			Color.black.opacity(0.3)
 				.ignoresSafeArea()
 
-			Group {
-				if let progress = nativeConversionProgress, let fraction = progress.fractionCompleted {
-					VStack(alignment: .leading, spacing: 8) {
-						ProgressView(value: fraction) {
-							Text(conversionProgressTitle(progress))
-						} currentValueLabel: {
-							Text("\(progress.completedUnitCount) / \(progress.totalUnitCount)")
+			conversionProgressCard
+				.padding(24)
+				.overlay(alignment: .bottomTrailing) {
+					if activeImportTask != nil {
+						Button(L10n.Common.cancel) {
+							activeImportTask?.cancel()
 						}
-						if let memoryUsage = progress.processMemoryUsage {
-							conversionMemoryUsageView(memoryUsage)
-						}
-					}
-				} else {
-					VStack(alignment: .leading, spacing: 8) {
-						ProgressView {
-							Text(nativeConversionProgress.map(conversionProgressTitle) ?? L10n.Import.validating)
-						}
-						if let memoryUsage = nativeConversionProgress?.processMemoryUsage {
-							conversionMemoryUsageView(memoryUsage)
-						}
+						.buttonStyle(.bordered)
+						.padding(12)
 					}
 				}
-			}
-			.padding(24)
-			.overlay(alignment: .bottomTrailing) {
-				if activeImportTask != nil {
-					Button(L10n.Common.cancel) {
-						activeImportTask?.cancel()
-					}
-					.buttonStyle(.bordered)
-					.padding(12)
+				.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+		}
+	}
+
+	@ViewBuilder
+	private var conversionProgressCard: some View {
+		if let progress = nativeConversionProgress, let fraction = progress.fractionCompleted {
+			VStack(alignment: .leading, spacing: 8) {
+				ProgressView(value: fraction) {
+					Text(conversionProgressTitle(progress))
+				} currentValueLabel: {
+					Text("\(progress.completedUnitCount) / \(progress.totalUnitCount)")
+				}
+				if let memoryUsage = progress.processMemoryUsage {
+					conversionMemoryUsageView(memoryUsage)
 				}
 			}
-			.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+		} else {
+			VStack(alignment: .leading, spacing: 8) {
+				ProgressView {
+					Text(nativeConversionProgress.map(conversionProgressTitle) ?? L10n.Import.validating)
+				}
+				if let memoryUsage = nativeConversionProgress?.processMemoryUsage {
+					conversionMemoryUsageView(memoryUsage)
+				}
+			}
 		}
 	}
 

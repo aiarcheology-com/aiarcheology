@@ -523,7 +523,7 @@ final class FindingRepository {
 	/// into the parent, where they sit pending until some unrelated save writes them -- as findings
 	/// the user was told had failed to import, whose images this method's caller has already
 	/// deleted. The parent's own unrelated pending edits are deliberately left alone.
-	private func undoInParent(created: [UUID], replaced: [UUID]) {
+	func undoInParent(created: [UUID], replaced: [UUID]) {
 		for id in created {
 			if let row = Finding.select(id, in: context) { context.delete(row) }
 		}
@@ -680,7 +680,7 @@ final class FindingRepository {
 	/// commit later fails — because that path deletes every written file first and then restores.
 	/// The backup is therefore linked back rather than moved back, so it survives its own use; the
 	/// caller's `defer` removes the backup directory once the import is over.
-	private func restore(_ backup: (filename: String, backup: URL?)?) {
+	func restore(_ backup: (filename: String, backup: URL?)?) {
 		guard let backup else { return }
 		guard let source = backup.backup else {
 			FindingScreenshotStore.delete(filename: backup.filename)

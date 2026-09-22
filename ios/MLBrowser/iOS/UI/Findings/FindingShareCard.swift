@@ -848,59 +848,11 @@ struct FindingShareComposer: View {
 
 	private var controls: some View {
 		VStack(spacing: 16) {
-			HStack(spacing: 12) {
-				Image(systemName: "plus.magnifyingglass")
-					.foregroundStyle(.secondary)
-				Slider(value: $imageZoom, in: Self.zoomRange)
-					.testability(Testability.Slider.findingShareZoom)
-			}
-
-			Picker(L10n.Finding.Share.theme, selection: $theme) {
-				Text(L10n.Finding.Share.light).tag(ColorScheme.light)
-				Text(L10n.Finding.Share.dark).tag(ColorScheme.dark)
-			}
-			.pickerStyle(.segmented)
-			.testability(Testability.Picker.findingShareTheme)
-
-			Picker(L10n.Finding.Share.layout, selection: $orientation) {
-				Text(L10n.Finding.Share.portrait).tag(ShareCardOrientation.portrait)
-				Text(L10n.Finding.Share.landscape).tag(ShareCardOrientation.landscape)
-			}
-			.pickerStyle(.segmented)
-			.testability(Testability.Picker.findingShareLayout)
-
-			// Offered only when there is something to withhold. On a finding with no coordinate the
-			// control would be a switch over nothing — and worse than useless, since its presence
-			// would suggest a location was recorded.
-			if subject.gps != nil {
-				VStack(alignment: .leading, spacing: 6) {
-					Toggle(L10n.Finding.Share.includeLocation, isOn: $includesLocation)
-						.testability(Testability.Toggle.findingShareIncludeLocation)
-					Text(L10n.Finding.Share.includeLocationFootnote)
-						.font(.footnote)
-						.foregroundStyle(.secondary)
-						.frame(maxWidth: .infinity, alignment: .leading)
-				}
-			}
-
-			// Labelled by its consequence, not its mechanism: nothing on screen tells the user what
-			// "include a link" would change, and the trade-off it makes is invisible until the system
-			// sheet is already up and Save Image is missing from it. Hidden entirely when the feature
-			// is off, so a dark flag leaves the composer exactly as it was.
-			if isLinkEnabled {
-				VStack(alignment: .leading, spacing: 6) {
-					Toggle(L10n.Finding.Share.includeLink, isOn: $includesLink)
-						.testability(Testability.Toggle.findingShareIncludeLink)
-					Text(L10n.Finding.Share.includeLinkFootnote)
-						.font(.footnote)
-						.foregroundStyle(.secondary)
-						.frame(maxWidth: .infinity, alignment: .leading)
-
-					if includesLink, subject.page != nil {
-						addressChoice
-					}
-				}
-			}
+			zoomControl
+			themePicker
+			layoutPicker
+			locationToggle
+			linkToggle
 		}
 		// Re-clamp when zooming out via the slider; reset framing per orientation.
 		.onChange(of: imageZoom) { _, newZoom in
@@ -909,6 +861,72 @@ struct FindingShareComposer: View {
 		.onChange(of: orientation) { _, _ in
 			imageZoom = 1
 			imageOffset = .zero
+		}
+	}
+
+	private var zoomControl: some View {
+		HStack(spacing: 12) {
+			Image(systemName: "plus.magnifyingglass")
+				.foregroundStyle(.secondary)
+			Slider(value: $imageZoom, in: Self.zoomRange)
+				.testability(Testability.Slider.findingShareZoom)
+		}
+	}
+
+	private var themePicker: some View {
+		Picker(L10n.Finding.Share.theme, selection: $theme) {
+			Text(L10n.Finding.Share.light).tag(ColorScheme.light)
+			Text(L10n.Finding.Share.dark).tag(ColorScheme.dark)
+		}
+		.pickerStyle(.segmented)
+		.testability(Testability.Picker.findingShareTheme)
+	}
+
+	private var layoutPicker: some View {
+		Picker(L10n.Finding.Share.layout, selection: $orientation) {
+			Text(L10n.Finding.Share.portrait).tag(ShareCardOrientation.portrait)
+			Text(L10n.Finding.Share.landscape).tag(ShareCardOrientation.landscape)
+		}
+		.pickerStyle(.segmented)
+		.testability(Testability.Picker.findingShareLayout)
+	}
+
+	/// Offered only when there is something to withhold. On a finding with no coordinate the
+	/// control would be a switch over nothing — and worse than useless, since its presence
+	/// would suggest a location was recorded.
+	@ViewBuilder
+	private var locationToggle: some View {
+		if subject.gps != nil {
+			VStack(alignment: .leading, spacing: 6) {
+				Toggle(L10n.Finding.Share.includeLocation, isOn: $includesLocation)
+					.testability(Testability.Toggle.findingShareIncludeLocation)
+				Text(L10n.Finding.Share.includeLocationFootnote)
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.frame(maxWidth: .infinity, alignment: .leading)
+			}
+		}
+	}
+
+	/// Labelled by its consequence, not its mechanism: nothing on screen tells the user what
+	/// "include a link" would change, and the trade-off it makes is invisible until the system
+	/// sheet is already up and Save Image is missing from it. Hidden entirely when the feature
+	/// is off, so a dark flag leaves the composer exactly as it was.
+	@ViewBuilder
+	private var linkToggle: some View {
+		if isLinkEnabled {
+			VStack(alignment: .leading, spacing: 6) {
+				Toggle(L10n.Finding.Share.includeLink, isOn: $includesLink)
+					.testability(Testability.Toggle.findingShareIncludeLink)
+				Text(L10n.Finding.Share.includeLinkFootnote)
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.frame(maxWidth: .infinity, alignment: .leading)
+
+				if includesLink, subject.page != nil {
+					addressChoice
+				}
+			}
 		}
 	}
 

@@ -486,49 +486,7 @@ struct PaywallView: View {
 				.frame(maxWidth: .infinity, minHeight: geometry.size.height)
 			}
 			.testability(Testability.View.paywallContent)
-			// A way out, and **only** where one exists (AIA-0616).
-			//
-			// Presented from Settings during the free-access window, this screen is an offer: the
-			// user still has days left and can simply close it. Without a visible control it read as
-			// a wall, because the only exit was an undiscoverable swipe — and a screen that looks
-			// like "subscribe or nothing" when it is not costs a conversion at best and reads as a
-			// dark pattern at worst, on precisely the screen App Review scrutinises.
-			//
-			// Keyed on ``isDeadEnd``, so the root gate — where there genuinely is nothing to go back
-			// to — is untouched and cannot be dismissed into a blank app. That is the same question
-			// the findings escape hatch asks, and it is the reason the property exists rather than
-			// each site testing ``isRootGate`` for itself.
-			.overlay(alignment: .topTrailing) {
-				if isDeadEnd.not {
-					Button {
-						dismiss()
-					} label: {
-						// The word, not an ✕. A glyph asks the reader to interpret it, and this is the
-						// one screen where a user who misreads the exit concludes they have to pay.
-						// `L10n.Common.dismiss` already ships in all 17 locales, so saying it costs
-						// nothing — and with real text the label *is* the accessibility label, which is
-						// why no `.accessibilityLabel` is set: adding one would make VoiceOver say it
-						// twice.
-						Text(L10n.Common.dismiss)
-							.font(.body.weight(.semibold))
-							.padding(.horizontal, 14)
-							// 44×44 is Apple's minimum touch target, set explicitly rather than reached
-							// by adding up padding — padding arithmetic is exactly what regresses the
-							// next time someone nudges the insets.
-							.frame(minWidth: 44, minHeight: 44)
-							.background(.thinMaterial, in: Capsule())
-					}
-					.buttonStyle(.plain)
-					// The same blue as Restore, Manage and the legal links: a control, not a caption.
-					// The paywall scrolls *under* this overlay, so the material backing is load-bearing
-					// rather than decorative — without it the word sits on top of moving body text.
-					.tint(Self.interactiveTint)
-					.foregroundStyle(Self.interactiveTint)
-					.padding(.top, 8)
-					.padding(.trailing, 16)
-					.testability(Testability.Button.paywallDismiss)
-				}
-			}
+			.overlay(alignment: .topTrailing) { dismissOverlay }
 			// The free days a purchase would forfeit, said before the money moves (AIA-0623).
 			//
 			// The app-managed window and Apple's introductory trial do not stack and the trial cannot
@@ -752,22 +710,81 @@ struct PaywallView: View {
 		} message: {
 			Text(notice?.message ?? "")
 		}
+		.sheet(isPresented: $showSignIn) { signInSheet }
+	}
+
+	/// A way out, and **only** where one exists (AIA-0616).
+	///
+	/// Presented from Settings during the free-access window, this screen is an offer: the
+	/// user still has days left and can simply close it. Without a visible control it read as
+	/// a wall, because the only exit was an undiscoverable swipe — and a screen that looks
+	/// like "subscribe or nothing" when it is not costs a conversion at best and reads as a
+	/// dark pattern at worst, on precisely the screen App Review scrutinises.
+	///
+	/// Keyed on ``isDeadEnd``, so the root gate — where there genuinely is nothing to go back
+	/// to — is untouched and cannot be dismissed into a blank app. That is the same question
+	/// the findings escape hatch asks, and it is the reason the property exists rather than
+	/// each site testing ``isRootGate`` for itself.
+	@ViewBuilder
+	private var dismissOverlay: some View {
+		if isDeadEnd.not {
+			Button {
+				dismiss()
+			} label: {
+				// The word, not an ✕. A glyph asks the reader to interpret it, and this is the
+				// one screen where a user who misreads the exit concludes they have to pay.
+				// `L10n.Common.dismiss` already ships in all 17 locales, so saying it costs
+				// nothing — and with real text the label *is* the accessibility label, which is
+				// why no `.accessibilityLabel` is set: adding one would make VoiceOver say it
+				// twice.
+				Text(L10n.Common.dismiss)
+					.font(.body.weight(.semibold))
+					.padding(.horizontal, 14)
+					// 44×44 is Apple's minimum touch target, set explicitly rather than reached
+					// by adding up padding — padding arithmetic is exactly what regresses the
+					// next time someone nudges the insets.
+					.frame(minWidth: 44, minHeight: 44)
+					.background(.thinMaterial, in: Capsule())
+			}
+			.buttonStyle(.plain)
+			// The same blue as Restore, Manage and the legal links: a control, not a caption.
+			// The paywall scrolls *under* this overlay, so the material backing is load-bearing
+			// rather than decorative — without it the word sits on top of moving body text.
+			.tint(Self.interactiveTint)
+			.foregroundStyle(Self.interactiveTint)
+			.padding(.top, 8)
+			.padding(.trailing, 16)
+			.testability(Testability.Button.paywallDismiss)
+		}
+	}
+
+	@ViewBuilder
+	private var signInSheet: some View {
 		// Contextual sign-in from the root paywall (AIA-0536). The account controls above are the
 		// only route a signed-out lapsed subscriber has to their own account, so this must be
 		// reachable without a purchase.
-		.sheet(isPresented: $showSignIn) {
-			if let authState {
-				SignInSheet(authState: authState)
-					// Re-inject across the sheet boundary (AGENTS.md §3): `SignInSheet` uses this to
-					// decide whether to build Clerk's `AuthView`, and the mock path has no configured
-					// Clerk instance, so losing it here traps rather than degrades.
-					.environment(\.usesRealAuth, usesRealAuth)
-			}
+		if let authState {
+			SignInSheet(authState: authState)
+				// Re-inject across the sheet boundary (AGENTS.md §3): `SignInSheet` uses this to
+				// decide whether to build Clerk's `AuthView`, and the mock path has no configured
+				// Clerk instance, so losing it here traps rather than degrades.
+				.environment(\.usesRealAuth, usesRealAuth)
 		}
 	}
 
 	@ViewBuilder
 	private var content: some View {
+		productOrUnavailable
+		cancelFooter
+		restoreButton
+		manageSubscriptionLink
+		legalFooter
+		findingsEscapeHatch
+		rootGateAccountControls
+	}
+
+	@ViewBuilder
+	private var productOrUnavailable: some View {
 		if let product = subscriptionState.products.first {
 			productSection(product)
 		} else {
@@ -779,16 +796,20 @@ struct PaywallView: View {
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.center)
 		}
+	}
 
-		// Where the money goes, once, in the words the user will see on their statement. Rendered
-		// under the action rather than in the card because it answers the question the button
-		// raises — "and then what" — and reads as reassurance there rather than as terms.
+	/// Where the money goes, once, in the words the user will see on their statement. Rendered
+	/// under the action rather than in the card because it answers the question the button
+	/// raises — "and then what" — and reads as reassurance there rather than as terms.
+	private var cancelFooter: some View {
 		Text(L10n.Paywall.cancelFooter)
 			.font(.footnote)
 			.foregroundStyle(.secondary)
 			.multilineTextAlignment(.center)
 			.fixedSize(horizontal: false, vertical: true)
+	}
 
+	private var restoreButton: some View {
 		Button {
 			guard isBusy.not else { return }
 			// Synchronous, before the Task: the body runs on a later turn of the main actor,
@@ -816,24 +837,27 @@ struct PaywallView: View {
 		.tint(Self.interactiveTint)
 		.disabled(inFlight != nil)
 		.testability(Testability.Button.paywallRestore)
+	}
 
-		// Manage existing subscription (cancel / change plan). Always available so a
-		// subscriber can reach Apple's management screen from here.
+	/// Manage existing subscription (cancel / change plan). Always available so a
+	/// subscriber can reach Apple's management screen from here.
+	private var manageSubscriptionLink: some View {
 		Link(L10n.Paywall.manage, destination: .appleManageSubscriptions)
 			.font(.footnote)
 			.tint(Self.interactiveTint)
 			.paywallOutlinedAction()
 			.testability(Testability.Link.paywallManage)
+	}
 
-		legalFooter
-
-		// The wall is otherwise a dead end for the user's own data: Settings — and with it the
-		// findings inventory and its export — sits behind the gate, so an unsubscribed user has no
-		// route to the findings they saved during the free period (AIA-0556). Not free-period copy
-		// and therefore not flag-gated; it is simply absent when there is nothing saved to reach.
-		//
-		// No new data layer: this is the same `FindingRepository` + `FindingExporter` pair that
-		// Settings → Reset → Remove Findings drives, down to the copy.
+	/// The wall is otherwise a dead end for the user's own data: Settings — and with it the
+	/// findings inventory and its export — sits behind the gate, so an unsubscribed user has no
+	/// route to the findings they saved during the free period (AIA-0556). Not free-period copy
+	/// and therefore not flag-gated; it is simply absent when there is nothing saved to reach.
+	///
+	/// No new data layer: this is the same `FindingRepository` + `FindingExporter` pair that
+	/// Settings → Reset → Remove Findings drives, down to the copy.
+	@ViewBuilder
+	private var findingsEscapeHatch: some View {
 		if isDeadEnd, hasSavedFindings {
 			Button {
 				guard isBusy.not, isExportingFindings.not else { return }
@@ -864,17 +888,20 @@ struct PaywallView: View {
 			.padding(.top, 8)
 			.testability(Testability.Button.paywallRemoveFindings)
 		}
+	}
 
-		// Whole-app root gate only: account controls, because Settings is unreachable from behind
-		// the gate. Apple 5.1.1(v).
-		//
-		// Which controls depends on whether anyone is signed in (AIA-0536). A signed-out lapsed
-		// subscriber is the case that forces this: with only Sign Out / Delete shown, they would
-		// have to buy a subscription before they could reach their own account to recover or delete
-		// it. Sign In is the fourth entry point and exists for exactly them.
-		//
-		// `.indeterminate` and `.suspended` deliberately show nothing: the first is transient, and
-		// the second cannot reach Clerk anyway, so offering sign-in there only invites a failure.
+	/// Whole-app root gate only: account controls, because Settings is unreachable from behind
+	/// the gate. Apple 5.1.1(v).
+	///
+	/// Which controls depends on whether anyone is signed in (AIA-0536). A signed-out lapsed
+	/// subscriber is the case that forces this: with only Sign Out / Delete shown, they would
+	/// have to buy a subscription before they could reach their own account to recover or delete
+	/// it. Sign In is the fourth entry point and exists for exactly them.
+	///
+	/// `.indeterminate` and `.suspended` deliberately show nothing: the first is transient, and
+	/// the second cannot reach Clerk anyway, so offering sign-in there only invites a failure.
+	@ViewBuilder
+	private var rootGateAccountControls: some View {
 		if isRootGate, let authState {
 			switch authContext {
 			case .validated:
@@ -1060,6 +1087,12 @@ struct PaywallView: View {
 
 	@ViewBuilder
 	private func productSection(_ product: Product) -> some View {
+		productDetails(product)
+		subscribeButton(product)
+		billingNote(for: product)
+	}
+
+	private func productDetails(_ product: Product) -> some View {
 		VStack(spacing: 4) {
 			Text(product.displayName)
 				.font(.headline)
@@ -1102,7 +1135,9 @@ struct PaywallView: View {
 			}
 			.padding(.top, 4)
 		}
+	}
 
+	private func subscribeButton(_ product: Product) -> some View {
 		Button {
 			// `pendingPurchase` is part of the guard, not just `isBusy` (Copilot, PR #625). The
 			// confirm branch below never sets `inFlight`, so between the tap that raises the alert
@@ -1154,8 +1189,6 @@ struct PaywallView: View {
 		// In non-production builds the purchase runs against Apple's Sandbox (no real
 		// charge); flag the button so testers know it's safe to tap (AIA-0354).
 		.underConstructionBadge()
-
-		billingNote(for: product)
 	}
 
 	/// Commits the purchase. The single place money is ever asked for (AIA-0623).

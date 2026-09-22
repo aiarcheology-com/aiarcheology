@@ -99,23 +99,7 @@ struct DrawerContent: View {
                 // menu is the standard place users look for it.
                 .safeAreaInset(edge: .bottom) { accountFooter }
         }
-        .sheet(isPresented: $showImport, onDismiss: presentTypeReviewIfNeeded) {
-            ModelImportView(
-                onImported: { id, needsReview in
-                    appState.reviewPrompt.recordPositiveMoment(.modelImported)
-                    if needsReview { importedForReviewId = id }
-                },
-                catalogProviders: appState.catalogProviders,
-				catalogSearchManager: appState.catalogSearchManager,
-				nativeConversionSourceCleanupService: appState.nativeConversionSourceCleanupService
-            )
-                .environmentObject(deep)
-                .environmentObject(downloader)
-                // Environment objects do not reliably cross `.sheet` boundaries on Mac
-                // (Designed for iPad) — re-inject, per AGENTS.md §3 (AIA-0350).
-                .environmentObject(appState.featureFlags)
-				.environmentObject(analytics)
-        }
+        .sheet(isPresented: $showImport, onDismiss: presentTypeReviewIfNeeded) { importSheet }
         .sheet(item: $selectedConfigurationId, onDismiss: {
             // Only the post-import type review continues the import flow (AIA-0117); an ordinary
             // configuration sheet closing must not be able to spend a moment, least of all one
@@ -124,91 +108,122 @@ struct DrawerContent: View {
             typeReviewConfigId = nil
             if wasTypeReview { requestReviewIfEarned() }
         }) { configId in
-            if let config = deep.selectConfiguration(configId) {
-                ConfigurationForm(pendingTypeReview: configId == typeReviewConfigId)
-					// ConfigurationForm previews app-provided sounds through AppState; sheets need
-					// explicit reinjection on Mac (Designed for iPad).
-					.environmentObject(appState)
-                    .environmentObject(deep)
-                    .environmentObject(config)
-            }
+            configurationSheet(for: configId)
         }
-        .sheet(isPresented: $showFindings) {
-            FindingsListView(
-                findingRepository: appState.findingRepository,
-                findingsSync: appState.findingsSync,
-                authState: authState
-            ) { url in
-                // Open the captured page: tear down this sheet and the drawer,
-                // then hand the URL to the web screen via chromeState.pageToOpen.
-                showFindings = false
-                drawer.close()
-                chromeState.pageToOpen = url
-            }
-            // Re-inject the context: on Mac (Designed for iPad) SwiftUI does not
-            // reliably carry \.managedObjectContext across the sheet boundary, so
-            // the fetch/distinctLabels would hit the empty default context and crash.
-            .environment(\.managedObjectContext, moc)
-            // Same reason (AIA-0650): the share composer two sheets down reads
-            // `isFindingShareLinkEnabled` live, and this is where the chain starts.
-            .environmentObject(appState.featureFlags)
-            // Same reason again (AIA-740): the back-up button raises its own `SignInSheet`, which
-            // branches on this to decide whether to build Clerk's `AuthView` at all.
-            .environment(\.usesRealAuth, usesRealAuth)
-            // Sized once for the list AND the detail it pushes: both live in the same
-            // `NavigationStack`, and the detail is the one that needs the room — a page address, a
-            // coordinate, a snapshot and four fields.
-            .roomySheet()
-        }
-        .sheet(isPresented: $showSignIn) {
-            SignInSheet(authState: authState)
-                // Re-inject: custom env values don't reliably cross a sheet boundary on Mac
-                // (Designed for iPad) — AGENTS.md §3. `SignInSheet` branches on this to decide
-                // whether to build Clerk's `AuthView` at all, and the mock path has no configured
-                // Clerk instance, so losing it here would trap rather than degrade.
-                .environment(\.usesRealAuth, usesRealAuth)
-        }
+        .sheet(isPresented: $showFindings) { findingsSheet }
+        .sheet(isPresented: $showSignIn) { signInSheet }
         .sheet(item: $settingsPresentation) { presentation in
-            // FindingRepository is a plain (non-ObservableObject) type, so it is passed by
-            // initializer rather than injected as an environment object (AIA-0303), the same way
-            // WebScreen hands it to SaveFindingSheet.
-            SettingsForm(
-                findingRepository: appState.findingRepository,
-                authState: authState,
-                findingsSync: appState.findingsSync,
-                // The free window's end date, so the account section can say plainly what the user
-                // is on — free usage, not a trial (AIA-0556). A value rather than the state object:
-                // it is frozen at grant and cannot change while this sheet is up.
-                freeAccessEndsOn: appState.freeAccess.windowEndsOn,
-                // The days left, as an accessor rather than a value (AIA-0623): the paywall reached
-                // from Settings reads it at the moment Subscribe is tapped, and unlike the end date
-                // above this number moves — the window can run out while the sheet is open.
-                freeAccessDaysRemaining: { appState.freeAccess.windowDaysRemaining },
-                startAtManageAccount: presentation.startsAtManageAccount,
-                // The DEBUG-only reset row (AIA-0826). `nil` in Release, where the row does not
-                // exist to call it — the closure is the only thing that would carry the reset into
-                // a shipping binary, and it is not built there.
-                debugResetFreeAccess: Self.debugResetFreeAccess(appState)
-            )
-                .environmentObject(settings)
-                .environmentObject(chromeState)
-                .environmentObject(detectionState)
-                .environmentObject(subscriptionState)
-				.environmentObject(analytics)
-                // AIA-0115: AppDescriptionView (pushed inside this sheet) reads remote messages,
-                // and environment objects do not reliably cross a `.sheet` boundary on Mac
-                // (Designed for iPad) — re-inject or its @EnvironmentObject traps. See AGENTS §3.
-                //
-                // `featureFlags` was injected here for the same reason until AIA-0455: its only
-                // reader in this subtree was SubscriptionStatusView's refund row. Nothing under
-                // Settings reads the flags now, so re-add this if that ever changes.
-                .environmentObject(appState.messageCenter)
-                .environment(drawer)
-                .environment(tour)
-                // Re-inject: custom env values don't reliably cross the sheet boundary on
-                // Mac (Designed for iPad), same as \.managedObjectContext above (AIA-0385).
-                .environment(\.usesRealAuth, usesRealAuth)
+            settingsSheet(presentation)
         }
+    }
+
+    private var importSheet: some View {
+        ModelImportView(
+            onImported: { id, needsReview in
+                appState.reviewPrompt.recordPositiveMoment(.modelImported)
+                if needsReview { importedForReviewId = id }
+            },
+            catalogProviders: appState.catalogProviders,
+            catalogSearchManager: appState.catalogSearchManager,
+            nativeConversionSourceCleanupService: appState.nativeConversionSourceCleanupService
+        )
+            .environmentObject(deep)
+            .environmentObject(downloader)
+            // Environment objects do not reliably cross `.sheet` boundaries on Mac
+            // (Designed for iPad) — re-inject, per AGENTS.md §3 (AIA-0350).
+            .environmentObject(appState.featureFlags)
+            .environmentObject(analytics)
+    }
+
+    @ViewBuilder
+    private func configurationSheet(for configId: UUID) -> some View {
+        if let config = deep.selectConfiguration(configId) {
+            ConfigurationForm(pendingTypeReview: configId == typeReviewConfigId)
+                // ConfigurationForm previews app-provided sounds through AppState; sheets need
+                // explicit reinjection on Mac (Designed for iPad).
+                .environmentObject(appState)
+                .environmentObject(deep)
+                .environmentObject(config)
+        }
+    }
+
+    private var findingsSheet: some View {
+        FindingsListView(
+            findingRepository: appState.findingRepository,
+            findingsSync: appState.findingsSync,
+            authState: authState
+        ) { url in
+            // Open the captured page: tear down this sheet and the drawer,
+            // then hand the URL to the web screen via chromeState.pageToOpen.
+            showFindings = false
+            drawer.close()
+            chromeState.pageToOpen = url
+        }
+        // Re-inject the context: on Mac (Designed for iPad) SwiftUI does not
+        // reliably carry \.managedObjectContext across the sheet boundary, so
+        // the fetch/distinctLabels would hit the empty default context and crash.
+        .environment(\.managedObjectContext, moc)
+        // Same reason (AIA-0650): the share composer two sheets down reads
+        // `isFindingShareLinkEnabled` live, and this is where the chain starts.
+        .environmentObject(appState.featureFlags)
+        // Same reason again (AIA-740): the back-up button raises its own `SignInSheet`, which
+        // branches on this to decide whether to build Clerk's `AuthView` at all.
+        .environment(\.usesRealAuth, usesRealAuth)
+        // Sized once for the list AND the detail it pushes: both live in the same
+        // `NavigationStack`, and the detail is the one that needs the room — a page address, a
+        // coordinate, a snapshot and four fields.
+        .roomySheet()
+    }
+
+    private var signInSheet: some View {
+        SignInSheet(authState: authState)
+            // Re-inject: custom env values don't reliably cross a sheet boundary on Mac
+            // (Designed for iPad) — AGENTS.md §3. `SignInSheet` branches on this to decide
+            // whether to build Clerk's `AuthView` at all, and the mock path has no configured
+            // Clerk instance, so losing it here would trap rather than degrade.
+            .environment(\.usesRealAuth, usesRealAuth)
+    }
+
+    private func settingsSheet(_ presentation: SettingsPresentation) -> some View {
+        // FindingRepository is a plain (non-ObservableObject) type, so it is passed by
+        // initializer rather than injected as an environment object (AIA-0303), the same way
+        // WebScreen hands it to SaveFindingSheet.
+        SettingsForm(
+            findingRepository: appState.findingRepository,
+            authState: authState,
+            findingsSync: appState.findingsSync,
+            // The free window's end date, so the account section can say plainly what the user
+            // is on — free usage, not a trial (AIA-0556). A value rather than the state object:
+            // it is frozen at grant and cannot change while this sheet is up.
+            freeAccessEndsOn: appState.freeAccess.windowEndsOn,
+            // The days left, as an accessor rather than a value (AIA-0623): the paywall reached
+            // from Settings reads it at the moment Subscribe is tapped, and unlike the end date
+            // above this number moves — the window can run out while the sheet is open.
+            freeAccessDaysRemaining: { appState.freeAccess.windowDaysRemaining },
+            startAtManageAccount: presentation.startsAtManageAccount,
+            // The DEBUG-only reset row (AIA-0826). `nil` in Release, where the row does not
+            // exist to call it — the closure is the only thing that would carry the reset into
+            // a shipping binary, and it is not built there.
+            debugResetFreeAccess: Self.debugResetFreeAccess(appState)
+        )
+            .environmentObject(settings)
+            .environmentObject(chromeState)
+            .environmentObject(detectionState)
+            .environmentObject(subscriptionState)
+            .environmentObject(analytics)
+            // AIA-0115: AppDescriptionView (pushed inside this sheet) reads remote messages,
+            // and environment objects do not reliably cross a `.sheet` boundary on Mac
+            // (Designed for iPad) — re-inject or its @EnvironmentObject traps. See AGENTS §3.
+            //
+            // `featureFlags` was injected here for the same reason until AIA-0455: its only
+            // reader in this subtree was SubscriptionStatusView's refund row. Nothing under
+            // Settings reads the flags now, so re-add this if that ever changes.
+            .environmentObject(appState.messageCenter)
+            .environment(drawer)
+            .environment(tour)
+            // Re-inject: custom env values don't reliably cross the sheet boundary on
+            // Mac (Designed for iPad), same as \.managedObjectContext above (AIA-0385).
+            .environment(\.usesRealAuth, usesRealAuth)
     }
     
     /// The Settings → Debug free-access reset, or `nil` in a shipping build (AIA-0826).
@@ -679,78 +694,9 @@ private struct ConfigurationRow: View {
 
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                // Same normalization the label bubble uses (AIA-0472): blank-after-trim counts as
-                // nameless, so the drawer and the bubble can never disagree about a model's name.
-                Text(DeepConfiguration.displayName(from: configuration.modelDescription))
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .truncationMode(.tail)
-                    .testability(Testability.Label.sideMenuCellDescription)
-                
-                // Author and provenance share one caption line: "AI Archeology · Converted from ONNX".
-                // Either half may be absent — the provenance only after the disk read completes.
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
-
-                // Model type at a glance (Detect / Classify / Disabled) — AIA-0402. Left untagged so
-                // its accessibility label stays the displayed type (a `.testability` tag would
-                // replace the label with the identifier under UI tests).
-                Text(configuration.modelType.localizedName)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
+            configurationInfo
             Spacer()
-            
-            Toggle("", isOn: Binding(
-                get: { configuration.enabled },
-                set: { newValue in
-                    let wasEnabled = configuration.enabled
-                    configuration.enabled = newValue
-                    if let context = configuration.managedObjectContext {
-                        do {
-                            try DeepConfiguration.save(in: context)
-                            // Tour hook (AIA-0333): only after the enable actually persisted, if a
-                            // model was enabled via a real toggle tap during the enable step, reveal
-                            // the bubble's Next. (Normally overlay-driven — tapping the spotlight
-                            // enables a model — so this is the pass-through path; a no-op otherwise.)
-                            if wasEnabled == false, newValue {
-                                tour?.userEnabledModel()
-                            }
-                        } catch {
-                            LoggingPolicy.error("Failed to save configuration toggle", error: error, logger: .configuration)
-                            // Reload from the store so the toggle reflects the persisted
-                            // state instead of silently diverging from it.
-                            context.refresh(configuration, mergeChanges: false)
-                        }
-                    }
-                }
-            ))
-            .tint(configuration.annotationColor)
-            .labelsHidden()
-            .testability(Testability.Toggle.sideMenuCellEnabled)
-            // A Disabled (undetermined-type) model can't run — block enabling it until the user
-            // picks a type in the config form (AIA-0402).
-            .disabled(configuration.modelType == .invalid)
-            // AIA-0757 A4: on the "switch a model on" tour step, ring this switch so it's obvious
-            // it is meant to be turned on. Non-hit-testing decoration (see `TourPulse`), so the
-            // switch underneath stays tappable — the tour's pass-through enable path depends on it.
-            .overlay {
-                if pulsesToggle {
-                    TourPulse(cornerRadius: 22)
-                        // Negative padding grows the ring outward. It has to clear the ring's own
-                        // thickness as well as the switch: `strokeBorder` draws *inward* from the
-                        // frame, so at a 6pt line a -5 inset would put the stroke back on top of
-                        // the switch it is pointing at.
-                        .padding(-11)
-                }
-            }
+            enableToggle
         }
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
@@ -770,6 +716,81 @@ private struct ConfigurationRow: View {
         // and Core Data has nullified the object by then — bridging its non-optional UUID traps
         // (the exact hazard the ForEach above documents; crashed testDrawer_deleteModel_removesCell).
         .task(id: configuration.objectID) { loadProvenance() }
+    }
+
+    private var configurationInfo: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Same normalization the label bubble uses (AIA-0472): blank-after-trim counts as
+            // nameless, so the drawer and the bubble can never disagree about a model's name.
+            Text(DeepConfiguration.displayName(from: configuration.modelDescription))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .truncationMode(.tail)
+                .testability(Testability.Label.sideMenuCellDescription)
+
+            // Author and provenance share one caption line: "AI Archeology · Converted from ONNX".
+            // Either half may be absent — the provenance only after the disk read completes.
+            if let subtitle {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+
+            // Model type at a glance (Detect / Classify / Disabled) — AIA-0402. Left untagged so
+            // its accessibility label stays the displayed type (a `.testability` tag would
+            // replace the label with the identifier under UI tests).
+            Text(configuration.modelType.localizedName)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var enableToggle: some View {
+        Toggle("", isOn: Binding(
+            get: { configuration.enabled },
+            set: { newValue in
+                let wasEnabled = configuration.enabled
+                configuration.enabled = newValue
+                if let context = configuration.managedObjectContext {
+                    do {
+                        try DeepConfiguration.save(in: context)
+                        // Tour hook (AIA-0333): only after the enable actually persisted, if a
+                        // model was enabled via a real toggle tap during the enable step, reveal
+                        // the bubble's Next. (Normally overlay-driven — tapping the spotlight
+                        // enables a model — so this is the pass-through path; a no-op otherwise.)
+                        if wasEnabled == false, newValue {
+                            tour?.userEnabledModel()
+                        }
+                    } catch {
+                        LoggingPolicy.error("Failed to save configuration toggle", error: error, logger: .configuration)
+                        // Reload from the store so the toggle reflects the persisted
+                        // state instead of silently diverging from it.
+                        context.refresh(configuration, mergeChanges: false)
+                    }
+                }
+            }
+        ))
+        .tint(configuration.annotationColor)
+        .labelsHidden()
+        .testability(Testability.Toggle.sideMenuCellEnabled)
+        // A Disabled (undetermined-type) model can't run — block enabling it until the user
+        // picks a type in the config form (AIA-0402).
+        .disabled(configuration.modelType == .invalid)
+        // AIA-0757 A4: on the "switch a model on" tour step, ring this switch so it's obvious
+        // it is meant to be turned on. Non-hit-testing decoration (see `TourPulse`), so the
+        // switch underneath stays tappable — the tour's pass-through enable path depends on it.
+        .overlay {
+            if pulsesToggle {
+                TourPulse(cornerRadius: 22)
+                    // Negative padding grows the ring outward. It has to clear the ring's own
+                    // thickness as well as the switch: `strokeBorder` draws *inward* from the
+                    // frame, so at a 6pt line a -5 inset would put the stroke back on top of
+                    // the switch it is pointing at.
+                    .padding(-11)
+            }
+        }
     }
 
     /// "AI Archeology · Converted from ONNX" — either half alone when the other is missing.

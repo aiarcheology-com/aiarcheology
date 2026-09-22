@@ -393,36 +393,43 @@ final public class Downloader: NSObject, ObservableObject {
         backgroundSession.getTasksWithCompletionHandler { [weak self] _, _, downloadTasks in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-
-                // Build a set of active task IDs for quick lookup
-                var activeTaskIds = Set<UUID>()
-
-                for task in downloadTasks {
-                    guard
-                        let idString = task.taskDescription,
-                        let id = UUID(uuidString: idString)
-                    else {
-                        LoggingPolicy.warning("Background download task missing/invalid taskDescription", logger: .networking)
-                        continue
-                    }
-
-                    activeTaskIds.insert(id)
-                    self.activeDownloads[id] = ActiveDownload(task: task, itemId: id)
-
-                    if let item = DownloadItem.select(id, in: self.dataController.container.viewContext),
-                       item.state != .downloading {
-                        self.transitionAndSave(item, to: .downloading)
-                    }
-                }
-
-                if !downloadTasks.isEmpty {
-                    LoggingPolicy.info("Reconnected \(downloadTasks.count) background download task(s)", logger: .networking)
-                }
-
-                // Recover orphaned downloads: items marked as .downloading but with no active task
-                self.recoverOrphanedDownloads(activeTaskIds: activeTaskIds)
+                self.applyReconnectedDownloadTasks(downloadTasks.map { $0 as any DownloadTaskProtocol })
             }
         }
+    }
+
+    /// Rebuilds `activeDownloads` from already-fetched session tasks and recovers orphans.
+    ///
+    /// Separated from ``reconnectBackgroundSession`` so unit tests can drive the state update with
+    /// fake task ids without creating a real background `URLSession`.
+    func applyReconnectedDownloadTasks(_ downloadTasks: [any DownloadTaskProtocol]) {
+        // Build a set of active task IDs for quick lookup
+        var activeTaskIds = Set<UUID>()
+
+        for task in downloadTasks {
+            guard
+                let idString = task.taskDescription,
+                let id = UUID(uuidString: idString)
+            else {
+                LoggingPolicy.warning("Background download task missing/invalid taskDescription", logger: .networking)
+                continue
+            }
+
+            activeTaskIds.insert(id)
+            self.activeDownloads[id] = ActiveDownload(task: task, itemId: id)
+
+            if let item = DownloadItem.select(id, in: self.dataController.container.viewContext),
+               item.state != .downloading {
+                self.transitionAndSave(item, to: .downloading)
+            }
+        }
+
+        if !downloadTasks.isEmpty {
+            LoggingPolicy.info("Reconnected \(downloadTasks.count) background download task(s)", logger: .networking)
+        }
+
+        // Recover orphaned downloads: items marked as .downloading but with no active task
+        self.recoverOrphanedDownloads(activeTaskIds: activeTaskIds)
     }
 
     /// Recovers downloads that were interrupted by an abrupt app termination.
@@ -430,7 +437,7 @@ final public class Downloader: NSObject, ObservableObject {
     /// Checks for items in `.downloading` state that have no corresponding background task.
     /// - Items with `resumeData`: transition to `.paused` (can be resumed)
     /// - Items without `resumeData`: transition to `.failed` (must restart)
-    private func recoverOrphanedDownloads(activeTaskIds: Set<UUID>) {
+    func recoverOrphanedDownloads(activeTaskIds: Set<UUID>) {
         let ctx = dataController.container.viewContext
         let fetchRequest = DownloadItem.fetchRequest()
         fetchRequest.predicate = NSPredicate(format: "%K == %@", #keyPath(DownloadItem.state_), State.downloading.rawValue)

@@ -221,11 +221,35 @@ actor Detector: IncrementalDetecting {
         return results
     }
 
+    /// Loads `modelURL` on this actor, builds the Vision request here, then runs the pre-sized path.
+    ///
+    /// `MLModel` and `VNCoreMLRequest` are not `Sendable`. Production `detect` creates the request
+    /// on this actor; tests use the same ownership instead of sending a main-actor model across.
+    func detectPreSized(
+        image: UIImage,
+        regions: [CGRect],
+        contract: NativeModelImageSizingContract,
+        modelURL: URL,
+        onPartialResult: @escaping @MainActor @Sendable ([DetectedObject]) -> Void
+    ) async throws -> [DetectedObject] {
+        guard let model = try await Self.loadModel(from: modelURL) else {
+            throw DetectorError.loadError
+        }
+        let detectionRequest = VNCoreMLRequest(model: try VNCoreMLModel(for: model))
+        return await detectPreSized(
+            image: image,
+            regions: regions,
+            contract: contract,
+            using: detectionRequest,
+            onPartialResult: onPartialResult
+        )
+    }
+
     /// Runs a detector that declares the torchvision pre-sizing contract. Every tile is cropped from
     /// the original pixel image, resized and padded to the model's *exact* canvas, then handed to
     /// Vision as a full-frame `.scaleFill` image. Giving Vision an ROI or a non-matching input here
     /// would introduce a second resize and invalidate the device parity evidence.
-    private func detectPreSized(
+    func detectPreSized(
         image: UIImage,
         regions: [CGRect],
         contract: NativeModelImageSizingContract,

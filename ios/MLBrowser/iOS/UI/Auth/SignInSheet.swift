@@ -36,73 +36,10 @@ struct SignInSheet: View {
 		NavigationStack {
 			VStack(spacing: 24) {
 				Spacer()
-
-				Image("AppLogo")
-					.resizable()
-					.scaledToFit()
-					.frame(maxWidth: 160, maxHeight: 160)
-					.accessibilityHidden(true)
-
-				VStack(spacing: 8) {
-					Text(L10n.Auth.SignIn.title)
-						.font(.title).bold()
-						.multilineTextAlignment(.center)
-					// Says what signing in *is*, not what it unlocks (AIA-0455). This read
-					// "Sign in to detect objects on any website", which was false in both
-					// directions: an account does not enable detection, and detection is not
-					// gated — the app has been usable signed out since AIA-0536. A sign-in
-					// screen claiming to unlock the core feature is precisely what a Guideline
-					// 5.1.1(v) review looks for. It stays deliberately plain until the account
-					// carries something a user would want (AIA-0615, findings sync).
-					Text(L10n.Auth.SignIn.subtitleBackup)
-						.font(.body)
-						.foregroundStyle(.secondary)
-						.multilineTextAlignment(.center)
-				}
-				.padding(.horizontal, 32)
-
+				signInLogo
+				signInCopy
 				Spacer()
-
-				VStack(spacing: 16) {
-					Button {
-						// Only present the Clerk sheet on the real-auth path; on the mock path there
-						// is no `AuthView` to show (avoids a blank modal).
-						guard usesRealAuth else { return }
-						authPresented = true
-					} label: {
-						Text(L10n.Auth.SignIn.button)
-							.fontWeight(.bold)
-							.frame(maxWidth: .infinity)
-					}
-					.buttonStyle(.borderedProminent)
-					.tint(.green)
-					.controlSize(.large)
-					.accessibilityHint(Text(L10n.Auth.SignIn.subtitleBackup))
-					.testability(Testability.Button.authSignIn)
-
-					#if DEBUG
-					// Debug builds only, so it cannot ship. Drives the single value both the Clerk
-					// key and the findings Worker read, so the pair cannot come apart (AIA-0791).
-					// The Release-visible switch this replaces wrote a `UserDefaults` value that
-					// only one half of the pair ever read.
-					//
-					// `usesRealAuth` is kept from the code this replaces: on the mock path Clerk is
-					// never configured, and reconfiguring it there is meaningless.
-					if usesRealAuth {
-						Picker(L10n.Auth.Environment.title, selection: $debugEnvironment) {
-							Text(L10n.Auth.Environment.development).tag(BackendEnvironment.development)
-							Text(L10n.Auth.Environment.production).tag(BackendEnvironment.production)
-						}
-						.pickerStyle(.segmented)
-						.onChange(of: debugEnvironment) { _, newEnvironment in
-							Task { await switchBackend(to: newEnvironment) }
-						}
-						.accessibilityLabel(Text(L10n.Auth.Environment.title))
-					}
-					#endif
-				}
-				.padding(.horizontal, 32)
-				.padding(.bottom, 40)
+				signInActions
 			}
 			// Cap width so the button + switch aren't full-bleed on iPad/macOS.
 			.frame(maxWidth: 480)
@@ -130,6 +67,77 @@ struct SignInSheet: View {
 					.environment(\.clerkTheme, .app)
 			}
 		}
+	}
+
+	private var signInLogo: some View {
+		Image("AppLogo")
+			.resizable()
+			.scaledToFit()
+			.frame(maxWidth: 160, maxHeight: 160)
+			.accessibilityHidden(true)
+	}
+
+	private var signInCopy: some View {
+		VStack(spacing: 8) {
+			Text(L10n.Auth.SignIn.title)
+				.font(.title).bold()
+				.multilineTextAlignment(.center)
+			// Says what signing in *is*, not what it unlocks (AIA-0455). This read
+			// "Sign in to detect objects on any website", which was false in both
+			// directions: an account does not enable detection, and detection is not
+			// gated — the app has been usable signed out since AIA-0536. A sign-in
+			// screen claiming to unlock the core feature is precisely what a Guideline
+			// 5.1.1(v) review looks for. It stays deliberately plain until the account
+			// carries something a user would want (AIA-0615, findings sync).
+			Text(L10n.Auth.SignIn.subtitleBackup)
+				.font(.body)
+				.foregroundStyle(.secondary)
+				.multilineTextAlignment(.center)
+		}
+		.padding(.horizontal, 32)
+	}
+
+	private var signInActions: some View {
+		VStack(spacing: 16) {
+			Button {
+				// Only present the Clerk sheet on the real-auth path; on the mock path there
+				// is no `AuthView` to show (avoids a blank modal).
+				guard usesRealAuth else { return }
+				authPresented = true
+			} label: {
+				Text(L10n.Auth.SignIn.button)
+					.fontWeight(.bold)
+					.frame(maxWidth: .infinity)
+			}
+			.buttonStyle(.borderedProminent)
+			.tint(.green)
+			.controlSize(.large)
+			.accessibilityHint(Text(L10n.Auth.SignIn.subtitleBackup))
+			.testability(Testability.Button.authSignIn)
+
+			#if DEBUG
+			// Debug builds only, so it cannot ship. Drives the single value both the Clerk
+			// key and the findings Worker read, so the pair cannot come apart (AIA-0791).
+			// The Release-visible switch this replaces wrote a `UserDefaults` value that
+			// only one half of the pair ever read.
+			//
+			// `usesRealAuth` is kept from the code this replaces: on the mock path Clerk is
+			// never configured, and reconfiguring it there is meaningless.
+			if usesRealAuth {
+				Picker(L10n.Auth.Environment.title, selection: $debugEnvironment) {
+					Text(L10n.Auth.Environment.development).tag(BackendEnvironment.development)
+					Text(L10n.Auth.Environment.production).tag(BackendEnvironment.production)
+				}
+				.pickerStyle(.segmented)
+				.onChange(of: debugEnvironment) { _, newEnvironment in
+					Task { await switchBackend(to: newEnvironment) }
+				}
+				.accessibilityLabel(Text(L10n.Auth.Environment.title))
+			}
+			#endif
+		}
+		.padding(.horizontal, 32)
+		.padding(.bottom, 40)
 	}
 
 	#if DEBUG

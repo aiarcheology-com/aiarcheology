@@ -270,27 +270,33 @@ extension Observability {
 	/// Runs throttle/dedup smoke tests when `SENTRY_THROTTLE_SMOKE_TEST` env var is set.
 	/// - `duplicate`: emits many identical errors (should mostly be deduped)
 	/// - `global`: emits many unique errors (should hit global cap)
-	private static func runSentryThrottleSmokeTestIfEnabled() {
-		guard let mode = AppEnvironment.sentryThrottleSmokeTestMode, !mode.isEmpty else { return }
+	@discardableResult
+	static func runSentryThrottleSmokeTestIfEnabled(
+		mode: String? = AppEnvironment.sentryThrottleSmokeTestMode,
+		emitError: @escaping @Sendable (String, NSError) -> Void = { message, error in
+			LoggingPolicy.error(message, error: error)
+		}
+	) -> Task<Void, Never>? {
+		guard let mode, !mode.isEmpty else { return nil }
 		
 		Logger.logger.info("[SentryThrottle] Starting smoke test with mode: \(mode, privacy: .public)")
 		
-		Task.detached(priority: .background) {
+		return Task.detached(priority: .background) {
 			switch mode {
 			case "duplicate":
 				for _ in 0..<120 {
-					LoggingPolicy.error(
+					emitError(
 						"Sentry throttle smoke test (duplicate)",
-						error: NSError(domain: "SentryThrottleSmokeTest", code: 1)
+						NSError(domain: "SentryThrottleSmokeTest", code: 1)
 					)
 				}
 				Logger.logger.info("[SentryThrottle] Smoke test 'duplicate' completed: sent 120 duplicate events")
 				
 			case "global":
 				for i in 0..<200 {
-					LoggingPolicy.error(
+					emitError(
 						"Sentry throttle smoke test (global)",
-						error: NSError(domain: "SentryThrottleSmokeTest", code: i)
+						NSError(domain: "SentryThrottleSmokeTest", code: i)
 					)
 				}
 				Logger.logger.info("[SentryThrottle] Smoke test 'global' completed: sent 200 unique events")

@@ -1461,6 +1461,101 @@ final class DownloaderTests: XCTestCase {
         downloader.reconnectBackgroundSession()
         XCTAssertEqual(before.keys.sorted(), downloader.activeDownloads.keys.sorted())
     }
+
+    // MARK: - Orphan recovery / reconnect state (AIA-0936)
+
+    private func makeDownloadingItem(
+        progress: Double = 0,
+        resumeData: Data? = nil
+    ) throws -> DownloadItem {
+        let context = dataController.container.viewContext
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model-\(item.entityId.uuidString).mlmodel")
+        item.state = .downloading
+        item.progress = progress
+        item.resumeData = resumeData
+        try DownloadItem.save(in: context)
+        return item
+    }
+
+    func testRecoverOrphanedDownloads_activeTaskId_staysDownloading() throws {
+        let item = try makeDownloadingItem(progress: 0.4)
+        let id = item.entityId
+
+        downloader.recoverOrphanedDownloads(activeTaskIds: [id])
+
+        XCTAssertEqual(
+            try XCTUnwrap(DownloadItem.select(id, in: dataController.container.viewContext)).state,
+            .downloading,
+            "a still-active download must not be deleted or reclassified"
+        )
+        XCTAssertNotNil(DownloadItem.select(id, in: dataController.container.viewContext))
+    }
+
+    func testRecoverOrphanedDownloads_resumeDataPresent_becomesPaused() throws {
+        let item = try makeDownloadingItem(progress: 0.3, resumeData: Data("resume".utf8))
+        let id = item.entityId
+
+        downloader.recoverOrphanedDownloads(activeTaskIds: [])
+
+        let recovered = try XCTUnwrap(DownloadItem.select(id, in: dataController.container.viewContext))
+        XCTAssertEqual(recovered.state, .paused)
+        XCTAssertNotNil(recovered.resumeData)
+    }
+
+    func testRecoverOrphanedDownloads_progressWithoutResumeData_becomesFailed() throws {
+        let item = try makeDownloadingItem(progress: 0.25)
+        let id = item.entityId
+
+        downloader.recoverOrphanedDownloads(activeTaskIds: [])
+
+        let recovered = try XCTUnwrap(DownloadItem.select(id, in: dataController.container.viewContext))
+        XCTAssertEqual(recovered.state, .failed)
+        XCTAssertEqual(recovered.error, L10n.Download.Error.interruptedNoResumeData)
+    }
+
+    func testRecoverOrphanedDownloads_zeroProgressWithoutResumeData_becomesNotStarted() throws {
+        let item = try makeDownloadingItem(progress: 0)
+        let id = item.entityId
+
+        downloader.recoverOrphanedDownloads(activeTaskIds: [])
+
+        XCTAssertEqual(
+            try XCTUnwrap(DownloadItem.select(id, in: dataController.container.viewContext)).state,
+            .notStarted
+        )
+    }
+
+    /// Reconnect state update without a real background URLSession (shouldUseBackgroundSession stays false).
+    func testApplyReconnectedDownloadTasks_resumesKnownTaskWithoutBackgroundSession() throws {
+        XCTAssertFalse(Downloader.shouldUseBackgroundSession)
+
+        let item = try makeDownloadingItem(progress: 0.1)
+        // Leave it non-downloading so reconnect must promote it.
+        item.state = .paused
+        try DownloadItem.save(in: dataController.container.viewContext)
+        let id = item.entityId
+
+        let orphan = try makeDownloadingItem(progress: 0.5)
+        let orphanId = orphan.entityId
+
+        let mockTask = MockDownloadTask(taskDescription: id.uuidString)
+        downloader.applyReconnectedDownloadTasks([mockTask])
+
+        XCTAssertNotNil(downloader.activeDownloads[id], "known task id must rebuild activeDownloads")
+        XCTAssertEqual(
+            try XCTUnwrap(DownloadItem.select(id, in: dataController.container.viewContext)).state,
+            .downloading,
+            "a reconnected task must resume as downloading"
+        )
+        XCTAssertNil(downloader.activeDownloads[orphanId], "orphans are not invented as active tasks")
+        XCTAssertEqual(
+            try XCTUnwrap(DownloadItem.select(orphanId, in: dataController.container.viewContext)).state,
+            .failed,
+            "orphan with progress and no resumeData is recovered as failed, not deleted"
+        )
+        XCTAssertFalse(Downloader.shouldUseBackgroundSession, "reconnect test must not weaken the gate")
+    }
 }
 
 private extension DownloaderTests {

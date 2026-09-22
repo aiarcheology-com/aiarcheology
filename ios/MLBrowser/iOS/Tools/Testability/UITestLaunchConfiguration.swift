@@ -187,7 +187,7 @@ struct UITestLaunchConfiguration: Codable {
 	/// Which page the app opens on. Every branch that cannot be satisfied traps rather than falling
 	/// back, so a misconfigured scenario fails loudly instead of asserting the wrong behaviour.
 	@MainActor
-	private static func applyPageScenario(_ config: UITestLaunchConfiguration, to settings: Settings) {
+	static func applyPageScenario(_ config: UITestLaunchConfiguration, to settings: Settings) {
 		switch config.pageScenario {
 		case .blank:
 			settings.defaultPage = nil
@@ -219,7 +219,7 @@ struct UITestLaunchConfiguration: Codable {
 	/// The remaining deltas: detection toggles, snapshot cadence, the analytics scenario, and the
 	/// seeded free-access window.
 	@MainActor
-	private static func applyDetectionAndAnalyticsDeltas(_ config: UITestLaunchConfiguration, to settings: Settings) {
+	static func applyDetectionAndAnalyticsDeltas(_ config: UITestLaunchConfiguration, to settings: Settings) {
 		if let fullscreen = config.fullscreenDetection {
 			settings.fullscreenDetection = fullscreen
 		}
