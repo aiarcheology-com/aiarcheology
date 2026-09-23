@@ -25,6 +25,10 @@ final class TourState {
 	/// Legacy key from the deleted slideshow. Used only by the one-shot migration.
 	static let legacySlideshowKey = "keepSlideShowActive"
 
+	/// UserDefaults key recording that the payments-off Welcome screen has been presented
+	/// (AIA-0955). Read with `object(forKey:) != nil`, like ``gateKey``.
+	static let introductionShownKey = "hasShownOnboardingIntroduction"
+
 	/// The ordered slice of steps.
 	let steps: [TourStep]
 
@@ -54,6 +58,24 @@ final class TourState {
 	/// `UserDefaults` — observation does not see that write, so a gate deferring on it would never
 	/// learn the tour had finished.
 	var isPendingOrRunning: Bool { isArmed || isActive }
+
+	/// Whether this onboarding still owes the user the Welcome screen that introduces it when
+	/// payments are off (AIA-0955).
+	///
+	/// With payments on, the Welcome screen belongs to the free-access window, which records its
+	/// own presentation durably. With payments off there is no window, so the introduction needs a
+	/// receipt of its own — and it belongs here, because it lives and dies with onboarding: owed
+	/// only when a tour is armed, so a returning install whose tour is long done is never
+	/// introduced to an app it already uses.
+	///
+	/// **Written at presentation, and durably.** ``gateKey`` is written only when the tour reaches
+	/// a terminal state, so an in-memory receipt would put the Welcome screen back in front of a
+	/// tour the user had already started, after a force-quit halfway through it — the payments-on
+	/// path, whose `day0Shown` marker is also written at presentation, shows only the tour again.
+	///
+	/// Stored, so `@Observable` tracks it; the gate reads it next to the payments flag, which is
+	/// the half that decides whether the introduction is the screen to show at all.
+	private(set) var isIntroductionOwed = false
 
 	/// Whether the run in progress is this install's first, as opposed to a Settings → Replay
 	/// (AIA-0567). Gates the terminal funnel events; see ``startIfArmed()``.
@@ -182,6 +204,14 @@ final class TourState {
 	func arm() {
 		guard steps.isEmpty == false, isActive == false else { return }
 		isArmed = true
+		isIntroductionOwed = defaults.object(forKey: Self.introductionShownKey) == nil
+	}
+
+	/// Records that the payments-off Welcome screen is on screen, so it is never owed again
+	/// (AIA-0955). Called at presentation, for the reason ``isIntroductionOwed`` gives.
+	func markIntroductionShown() {
+		defaults.set(true, forKey: Self.introductionShownKey)
+		isIntroductionOwed = false
 	}
 
 	/// Starts an armed tour, once whatever had the screen has given it up (AIA-0567).
@@ -271,6 +301,10 @@ final class TourState {
 		// leave `isPendingOrRunning` true forever and, via `AnalyticsChoiceGate`, defer the consent
 		// question for good.
 		isArmed = false
+		// A tour that ended without its introduction — begun by Settings → Replay while one was
+		// still owed — has nothing left to introduce. Left set, it would raise the Welcome screen
+		// after the onboarding it exists to precede.
+		isIntroductionOwed = false
 		markSeen()
 	}
 
