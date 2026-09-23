@@ -278,7 +278,7 @@ struct SettingsForm: View {
 		case .subscription:
 			SubscriptionStatusView(subscriptionState: subscriptionState)
 		case .deleteAccount:
-			DeleteAccountView(authState: authState)
+			DeleteAccountView(authState: authState, isPaymentsSurfaceEnabled: subscriptionState.isPaymentsSurfaceEnabled)
 		}
 	}
 
@@ -488,26 +488,28 @@ struct SettingsForm: View {
 			.testability(Testability.NavigationLink.settingsReset)
 		}
 
-		Section(footer: subscriptionFootnote.map { Text($0) }) {
-			subscriptionRow
+		// No Subscription section at all with payments off (AIA-0955): the app sells nothing, so a
+		// row naming a plan — "Free Beta" until then — is subscription UI with nothing behind it.
+		if subscriptionState.isPaymentsSurfaceEnabled {
+			Section(footer: subscriptionFootnote.map { Text($0) }) {
+				subscriptionRow
+			}
 		}
 	}
 
 	/// Subscription status and its entry points (AIA-0343), rendered in the ML Browser section.
 	///
-	/// Three states, unchanged by the move: subscribed pushes the status submenu (status, renewal,
-	/// manage/cancel via Apple, restore); payments on with nothing owned opens the paywall — before
-	/// AIA-0556 this was inert, which only became a problem once the free-access window let an
-	/// unentitled user reach Settings at all; payments off shows the "Free Beta" row, where there is
-	/// no gate to pass and no product to buy, so tapping could only lead nowhere.
+	/// Two states, rendered only with payments on: subscribed pushes the status submenu (status,
+	/// renewal, manage/cancel via Apple, restore); nothing owned opens the paywall — before AIA-0556
+	/// this was inert, which only became a problem once the free-access window let an unentitled
+	/// user reach Settings at all. Payments off used to show a "Free Beta" row here; since AIA-0955
+	/// the whole section is withheld instead.
 	@ViewBuilder
 	private var subscriptionRow: some View {
-		if subscriptionState.isPaymentsSurfaceEnabled && subscriptionState.isSubscribed {
+		if subscriptionState.isSubscribed {
 			subscribedStatusRow
-		} else if subscriptionState.isPaymentsSurfaceEnabled {
-			upgradeSubscriptionRow
 		} else {
-			freeBetaSubscriptionRow
+			upgradeSubscriptionRow
 		}
 	}
 
@@ -552,15 +554,6 @@ struct SettingsForm: View {
 		.accessibilityElement(children: .combine)
 		.accessibilityAddTraits(.isButton)
 		.testability(Testability.Button.settingsUpgrade)
-	}
-
-	private var freeBetaSubscriptionRow: some View {
-		HStack {
-			Text(L10n.Auth.Account.subscription)
-			Spacer()
-			Text(L10n.Auth.Account.freeBeta)
-				.foregroundColor(.secondary)
-		}
 	}
 
 	/// The Reset actions, reached via the "Reset" entry in the ML Browser section. "Remove Findings"

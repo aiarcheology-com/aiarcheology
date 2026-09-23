@@ -100,9 +100,16 @@ struct SupportRequestView: View {
 
 	private let recipient = SupportRequest.supportEmailAddress
 
-	init(initialCategory: SupportCategory? = nil, contextURL: String? = nil) {
+	/// The picker's choices — without the purchase category while payments are off (AIA-0955).
+	private let categories: [SupportCategory]
+
+	/// `isPaymentsSurfaceEnabled` is required rather than defaulted: every presenter has the
+	/// launch-captured value, and a default would quietly offer the purchase category in a
+	/// payments-off session from whichever presenter forgot to pass it.
+	init(initialCategory: SupportCategory? = nil, contextURL: String? = nil, isPaymentsSurfaceEnabled: Bool) {
 		self.initialCategory = initialCategory
 		self.contextURL = contextURL
+		self.categories = SupportCategory.offered(isPaymentsSurfaceEnabled: isPaymentsSurfaceEnabled)
 		_category = State(initialValue: initialCategory ?? .bug)
 	}
 
@@ -158,7 +165,7 @@ struct SupportRequestView: View {
 	private var categorySection: some View {
 		Section(L10n.Support.categoryPrompt) {
 			Picker(L10n.Support.categoryPrompt, selection: $category) {
-				ForEach(SupportCategory.allCases) { option in
+				ForEach(categories) { option in
 					Text(option.displayName).tag(option)
 				}
 			}

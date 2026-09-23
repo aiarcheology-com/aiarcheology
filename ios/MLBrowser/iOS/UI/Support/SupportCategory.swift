@@ -30,6 +30,15 @@ enum SupportCategory: String, CaseIterable, Identifiable {
 
 	var id: String { rawValue }
 
+	/// The categories a user may pick from (AIA-0955).
+	///
+	/// With payments off the app sells nothing, so "Purchase or subscription" is withdrawn from the
+	/// picker rather than offered as a category nobody could need. The case itself stays: it is a
+	/// stable inbox tag, and payments can be switched back on.
+	static func offered(isPaymentsSurfaceEnabled: Bool) -> [SupportCategory] {
+		isPaymentsSurfaceEnabled ? allCases : allCases.filter { $0 != .purchase }
+	}
+
 	/// The user-facing name. Localized: this is a visible string (AGENTS.md §8).
 	var displayName: String {
 		switch self {

@@ -96,8 +96,6 @@ internal enum L10n {
     internal enum Account {
       /// Deleting your account does not cancel your subscription. Cancel it in the App Store.
       internal static let deleteBillingNote = L10n.tr("Localizable", "auth.account.deleteBillingNote", fallback: "Deleting your account does not cancel your subscription. Cancel it in the App Store.")
-      /// Free Beta
-      internal static let freeBeta = L10n.tr("Localizable", "auth.account.freeBeta", fallback: "Free Beta")
       /// Manage Account
       internal static let manage = L10n.tr("Localizable", "auth.account.manage", fallback: "Manage Account")
       /// Subscription
