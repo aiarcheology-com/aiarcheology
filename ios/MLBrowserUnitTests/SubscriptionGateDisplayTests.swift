@@ -170,4 +170,34 @@ final class SubscriptionGateDisplayTests: XCTestCase {
 	func testTourStarts_afterAWalledUserBuysTheirWayIntoTheApp() {
 		XCTAssertTrue(mayStart(isShowingContent: true, isWelcomeDue: false, canPresentWelcome: false))
 	}
+
+	// MARK: - Which Welcome screen (AIA-0955)
+
+	private let prompt = FreeAccessPrompt(days: 14, endsOn: Date(timeIntervalSince1970: 1_800_000_000))
+
+	/// Payments on: the window's offer, and never the payments-off introduction — a first run with
+	/// payments on is introduced by the offer itself.
+	func testWelcome_paymentsOn_isTheFreeAccessOffer() {
+		XCTAssertEqual(
+			WelcomePresentation.due(isPaymentsSurfaceEnabled: true, freeAccessPrompt: prompt, isIntroductionOwed: true),
+			.freeAccess(prompt)
+		)
+		XCTAssertNil(
+			WelcomePresentation.due(isPaymentsSurfaceEnabled: true, freeAccessPrompt: nil, isIntroductionOwed: true),
+			"an owed introduction must not surface while payments are on"
+		)
+	}
+
+	/// Payments off: the neutral introduction, and never the priced offer — even when a window
+	/// persisted under payments on still owes one.
+	func testWelcome_paymentsOff_isTheIntroduction_neverThePricedOffer() {
+		XCTAssertEqual(
+			WelcomePresentation.due(isPaymentsSurfaceEnabled: false, freeAccessPrompt: prompt, isIntroductionOwed: true),
+			.introduction
+		)
+		XCTAssertNil(
+			WelcomePresentation.due(isPaymentsSurfaceEnabled: false, freeAccessPrompt: prompt, isIntroductionOwed: false),
+			"a payments-off session raised the priced day-0 offer"
+		)
+	}
 }

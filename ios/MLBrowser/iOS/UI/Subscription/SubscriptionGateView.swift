@@ -95,6 +95,35 @@ enum TourStartDecision {
 	}
 }
 
+/// Which Welcome screen the root gate owes right now, if any (AIA-0955).
+///
+/// Two sources, and the payments flag picks exactly one. With payments on, the free-access window
+/// owes its day-0 offer. With payments off there is no window and no offer, and the screen instead
+/// introduces the onboarding tour — once, on the first run. Resolving both here, from one place, is
+/// what lets the gate's presentation and the tour's start read the same answer: a due screen that
+/// one of them saw and the other did not would either stall the tour for good or start it
+/// underneath the screen.
+enum WelcomePresentation: Equatable {
+	/// The free-access window's day-0 offer (AIA-0567).
+	case freeAccess(FreeAccessPrompt)
+
+	/// The payments-off introduction to the app and its tour, naming no price (AIA-0955).
+	case introduction
+
+	static func due(
+		isPaymentsSurfaceEnabled: Bool,
+		freeAccessPrompt: FreeAccessPrompt?,
+		isIntroductionOwed: Bool
+	) -> WelcomePresentation? {
+		if isPaymentsSurfaceEnabled {
+			return freeAccessPrompt.map(WelcomePresentation.freeAccess)
+		}
+		// Never the priced screen with payments off, whatever a window persisted under payments on
+		// still owes — `FreeAccessState` withholds it too, and this is the second lock.
+		return isIntroductionOwed ? .introduction : nil
+	}
+}
+
 /// Gates the whole app behind an active subscription. **This is the app root** (AIA-0536): it used
 /// to sit inside an auth gate, so nothing here was reachable while signed out. Who you are no
 /// longer decides whether the app renders — StoreKit's free trial counts as active, so trial users
@@ -149,7 +178,7 @@ struct SubscriptionGateView<Content: View>: View {
 	/// Held here rather than read straight off ``FreeAccessState/duePrompt`` because raising it
 	/// *marks it shown*, which immediately makes it no longer due — see
 	/// ``FreeAccessState/markPromptShown()`` for why the marker is written at presentation.
-	@State private var presentedPrompt: FreeAccessPrompt?
+	@State private var presentedPrompt: WelcomePresentation?
 
 	/// This window's claim on the shared Welcome presentation, or `nil` when it has none.
 	///
@@ -210,10 +239,20 @@ struct SubscriptionGateView<Content: View>: View {
 			isShowingContent: display == .content,
 			isWelcomeOnScreenHere: presentedPrompt != nil,
 			isWelcomeOnScreenAnywhere: freeAccess.isWelcomePresented,
-			isWelcomeDue: freeAccess.duePrompt != nil,
+			isWelcomeDue: dueWelcome != nil,
 			canPresentWelcome: canPresentPrompt
 		) else { return }
 		tour.startIfArmed()
+	}
+
+	/// The Welcome screen owed right now — the one answer both ``raisePromptIfDue()`` and
+	/// ``startTourIfClear()`` read (AIA-0955).
+	private var dueWelcome: WelcomePresentation? {
+		WelcomePresentation.due(
+			isPaymentsSurfaceEnabled: subscriptionState.isPaymentsSurfaceEnabled,
+			freeAccessPrompt: freeAccess.duePrompt,
+			isIntroductionOwed: tour.isIntroductionOwed
+		)
 	}
 
 	private var display: RootGateDisplay {
@@ -286,6 +325,13 @@ struct SubscriptionGateView<Content: View>: View {
 			raisePromptIfDue()
 			startTourIfClear()
 		}
+		// The payments-off introduction's counterpart (AIA-0955). It is owed from the arm, before the
+		// first frame, so this mostly matters for the change that *clears* it: another window
+		// presenting the introduction must re-run this window's tour check.
+		.onChange(of: tour.isIntroductionOwed) { _, _ in
+			raisePromptIfDue()
+			startTourIfClear()
+		}
 		// The Welcome screen actually leaving the display is its own event, and the one the tour
 		// waits on. `lowerPrompt()` runs on the tap, while the view is still mounted — its
 		// `onDisappear`, and so the release of the shared count, comes a beat later. Without this the
@@ -317,13 +363,18 @@ struct SubscriptionGateView<Content: View>: View {
 
 	/// Raises whatever the window owes, and marks it shown in the same breath.
 	private func raisePromptIfDue() {
-		guard canPresentPrompt, presentedPrompt == nil, let due = freeAccess.duePrompt else { return }
+		guard canPresentPrompt, presentedPrompt == nil, let due = dueWelcome else { return }
 		presentedPrompt = due
-		// Claimed before `markPromptShown()`, never after. That call clears `duePrompt` on this same
-		// turn, and the resulting publish is what wakes the other window — so the claim has to be
-		// visible by then or the guard is armed after the race it exists to prevent.
+		// Claimed before the screen is marked shown, never after. Marking clears what is due on this
+		// same turn, and the resulting publish is what wakes the other window — so the claim has to
+		// be visible by then or the guard is armed after the race it exists to prevent.
 		welcomeClaim = freeAccess.claimWelcomePresentation()
-		freeAccess.markPromptShown()
+		switch due {
+		case .freeAccess:
+			freeAccess.markPromptShown()
+		case .introduction:
+			tour.markIntroductionShown()
+		}
 	}
 
 	/// Takes the Welcome screen down and hands the floor to the onboarding tour (AIA-0567).
@@ -378,12 +429,16 @@ struct SubscriptionGateView<Content: View>: View {
 	/// ``lowerPrompt()`` is *also* how this comes down when an entitlement arrives from elsewhere, or
 	/// when something else reclaims the screen, and neither of those is somebody choosing to explore
 	/// first. Only the button knows it was a decline, so only the button reports one.
-	private func welcome(for prompt: FreeAccessPrompt) -> some View {
+	private func welcome(for presentation: WelcomePresentation) -> some View {
 		WelcomeView(
 			subscriptionState: subscriptionState,
-			days: prompt.days,
+			offer: Self.offer(for: presentation),
 			continueAction: {
-				analytics.track(.freeAccessContinueTapped)
+				// Only the free-access offer is a funnel stage. The payments-off introduction declines
+				// nothing, and counting it would read every free-mode user as a window turned down.
+				if case .freeAccess = presentation {
+					analytics.track(.freeAccessContinueTapped)
+				}
 				lowerPrompt()
 			}
 		)
@@ -394,5 +449,12 @@ struct SubscriptionGateView<Content: View>: View {
 		// to cover the exits that never reach `lowerPrompt()`: the window being closed with the
 		// screen still up.
 		.onDisappear { releaseWelcomeClaim() }
+	}
+
+	private static func offer(for presentation: WelcomePresentation) -> WelcomeView.Offer {
+		switch presentation {
+		case let .freeAccess(prompt): .freeAccess(days: prompt.days)
+		case .introduction: .none
+		}
 	}
 }
