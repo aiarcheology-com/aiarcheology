@@ -18,10 +18,8 @@ struct ObservationPointView: View {
 	@State private var phasedOut = false
 
 	var body: some View {
-		let boundingBox = observation.boundingBox
 		let circleSize: CGFloat = 60
-		let center = CGPoint(x: boundingBox.midX * geometry.size.width,
-							 y: (1 - boundingBox.midY) * geometry.size.height)
+		let center = DetectionViewport.center(ofNormalized: observation.boundingBox, in: geometry.size)
 		// Marker first, label second (AIA-0765): the filled 60pt disc used to be drawn on top of the
 		// text, which is a large part of why classes were not visible on this symbol.
 		ZStack {

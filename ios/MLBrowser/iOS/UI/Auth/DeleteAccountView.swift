@@ -150,6 +150,19 @@ struct DeleteAccountView: View {
 		}
 	}
 
+	/// The copy for a failed deletion. The stage picks the sentence because the two stages leave
+	/// the cloud copy in different states (AIA-0816). After `.purge` the erase is incomplete —
+	/// some objects may already be gone — so the purge sentence hedges. After `.accountDeletion`
+	/// the purge finished and only the account survives. `cloudDataErased: false` is a build with
+	/// nothing to erase, which says so rather than borrowing the purge hedge.
+	static func deletionFailureMessage(for failure: AccountDeletionFailure) -> String {
+		switch failure {
+		case .purge: L10n.Auth.Account.Delete.failedPurge
+		case .accountDeletion(_, cloudDataErased: true): L10n.Auth.Account.Delete.failedDeletion
+		case .accountDeletion(_, cloudDataErased: false): L10n.Auth.Account.Delete.failedNothingErased
+		}
+	}
+
 	/// Deletes the account and says which half failed when one does.
 	///
 	/// Nothing here dismisses on success, deliberately: `deleteAccount()` ends signed out, and
@@ -170,11 +183,7 @@ struct DeleteAccountView: View {
 				// is the third state: a build with nothing to erase, which says so outright rather
 				// than borrowing the purge copy's hedge. `AuthState` has already reported the
 				// failure at `.error` with the stage named, so nothing is logged again here.
-				let message = switch failure {
-				case .purge: L10n.Auth.Account.Delete.failedPurge
-				case .accountDeletion(_, cloudDataErased: true): L10n.Auth.Account.Delete.failedDeletion
-				case .accountDeletion(_, cloudDataErased: false): L10n.Auth.Account.Delete.failedNothingErased
-				}
+				let message = Self.deletionFailureMessage(for: failure)
 				// Cleared on each failure path and on none of the success path: the account still
 				// exists here and the copy tells the user to try again, so the button they are
 				// told to press has to come back.

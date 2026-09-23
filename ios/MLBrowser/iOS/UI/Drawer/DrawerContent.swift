@@ -750,27 +750,7 @@ private struct ConfigurationRow: View {
     private var enableToggle: some View {
         Toggle("", isOn: Binding(
             get: { configuration.enabled },
-            set: { newValue in
-                let wasEnabled = configuration.enabled
-                configuration.enabled = newValue
-                if let context = configuration.managedObjectContext {
-                    do {
-                        try DeepConfiguration.save(in: context)
-                        // Tour hook (AIA-0333): only after the enable actually persisted, if a
-                        // model was enabled via a real toggle tap during the enable step, reveal
-                        // the bubble's Next. (Normally overlay-driven — tapping the spotlight
-                        // enables a model — so this is the pass-through path; a no-op otherwise.)
-                        if wasEnabled == false, newValue {
-                            tour?.userEnabledModel()
-                        }
-                    } catch {
-                        LoggingPolicy.error("Failed to save configuration toggle", error: error, logger: .configuration)
-                        // Reload from the store so the toggle reflects the persisted
-                        // state instead of silently diverging from it.
-                        context.refresh(configuration, mergeChanges: false)
-                    }
-                }
-            }
+            set: { persistEnabled($0) }
         ))
         .tint(configuration.annotationColor)
         .labelsHidden()
@@ -790,6 +770,25 @@ private struct ConfigurationRow: View {
                     // the switch it is pointing at.
                     .padding(-11)
             }
+        }
+    }
+
+    /// Persists an enable toggle and tells the tour only after that save succeeds.
+    ///
+    /// A failed save refreshes the row from the store so the switch cannot sit on a value the
+    /// context rejected. The tour hook runs only for a real off-to-on change (AIA-0333).
+    private func persistEnabled(_ newValue: Bool) {
+        let wasEnabled = configuration.enabled
+        configuration.enabled = newValue
+        guard let context = configuration.managedObjectContext else { return }
+        do {
+            try DeepConfiguration.save(in: context)
+            if wasEnabled == false, newValue {
+                tour?.userEnabledModel()
+            }
+        } catch {
+            LoggingPolicy.error("Failed to save configuration toggle", error: error, logger: .configuration)
+            context.refresh(configuration, mergeChanges: false)
         }
     }
 
