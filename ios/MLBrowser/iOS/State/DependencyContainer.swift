@@ -248,9 +248,14 @@ class DependencyContainer {
         // *on*, so without this every test that launches `-mockSubscription notSubscribed` to reach
         // the paywall would be handed a 14-day window and land in the app instead — the paywall
         // suites would pass while asserting nothing. Free-access scenarios override it explicitly.
+        //
+        // `isPaymentsEnabled` is baselined *on* for the mirror-image reason (AIA-0955). It now
+        // defaults closed, and every paywall and subscription test in the suite was written against
+        // the payments surface being live. Free-mode scenarios override it to `false` explicitly.
         var overrides: [FeatureFlagKey: Bool] = [
             .isCrossDeviceAnalyticsIdentityEnabled: false,
-            .isFreeAccessPeriodEnabled: false
+            .isFreeAccessPeriodEnabled: false,
+            .isPaymentsEnabled: true
         ]
         guard let raw = UITestLaunchConfiguration.fromEnvironment?.featureFlagOverrides else { return overrides }
         for (key, value) in raw {

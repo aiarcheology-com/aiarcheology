@@ -112,9 +112,11 @@ final class FeatureFlagsTests: XCTestCase {
 	/// payments kill switch could not be turned off. Unit tests could not see it because they
 	/// inject the resolved boolean; this pins the resolution itself.
 	func test_launchCapturedFlag_prefersTheMirrorOverAnUnsyncedSnapshot() {
-		// What a cold launch actually looks like: the snapshot is still compiled defaults...
-		let unsynced = FeatureFlagSnapshot.defaults
-		XCTAssertTrue(unsynced.isPaymentsEnabled, "precondition: the compiled default is open")
+		// What a cold launch actually looks like: the snapshot is unsynced. Payments are pinned
+		// open here because the compiled default has been closed since AIA-0955, and this test is
+		// about the mirror overriding whatever the snapshot says, not about the default itself.
+		let unsynced = FeatureFlagSnapshot(values: [.isPaymentsEnabled: true])
+		XCTAssertTrue(unsynced.isPaymentsEnabled, "precondition: the unsynced snapshot is open")
 
 		// ...while the previous session observed the dashboard turning payments off.
 		let mirror = ["isPaymentsEnabled": false]
@@ -187,6 +189,14 @@ final class FeatureFlagsTests: XCTestCase {
 												   mirror: settings.remoteFlagLaunchValues,
 												   snapshot: .defaults))
 		settings.reset()
+	}
+
+	/// A genuine first launch has no mirror and runs on this default (AIA-0955). Open, a new install
+	/// after the production switch would still meet the priced Welcome screen and be granted a
+	/// free-access window before the dashboard value could reach it.
+	func test_payments_defaultsClosed() {
+		XCTAssertFalse(FeatureFlagKey.isPaymentsEnabled.defaultValue)
+		XCTAssertFalse(LaunchCapturedFlags.resolve(.isPaymentsEnabled, mirror: [:], snapshot: .defaults))
 	}
 
 	func test_defaultsSnapshot_usesEveryKeysDefault() {
