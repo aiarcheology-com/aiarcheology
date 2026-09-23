@@ -282,4 +282,120 @@ final class FreeAccessUITests: UITestCase {
 		)
 		assertExists(AID.paywallContent, false)
 	}
+
+	// MARK: - Payments off (AIA-0955)
+
+	/// A payments-off first run, with the consent question actually unanswered — the suite baseline
+	/// answers it, which is why the ordering tests above cannot see where it lands.
+	private func launchPaymentsOffFirstRun() {
+		launch(
+			LaunchConfig(
+				startOnboardingTour: true,
+				// The free-access flag is switched *on* so the test proves payments-off wins over it:
+				// a window it could grant would bring the priced offer back.
+				featureFlagOverrides: [
+					"isPaymentsEnabled": false,
+					"isFreeAccessPeriodEnabled": true,
+					"isAnalyticsEnabled": true
+				],
+				analyticsScenario: .prompt
+			),
+			mockAuthGate: "ready",
+			mockSubscription: "notSubscribed"
+		)
+	}
+
+	/// Shared tail: Continue hands the screen to the tour, and the consent question waits until the
+	/// tour is over — Welcome → tour → consent, each in turn.
+	private func assertContinueThenTourThenConsent(file: StaticString = #filePath, line: UInt = #line) {
+		assertExists(AID.analyticsChoiceNotNow, false)
+		let continueButton = app.buttons[AID.welcomeContinue]
+		XCTAssertTrue(continueButton.waitForExistence(timeout: 15), "Welcome offered no way past", file: file, line: line)
+		continueButton.tap()
+
+		XCTAssertTrue(
+			element(AID.tourBubble).waitForExistence(timeout: 15),
+			"Continue did not hand the screen to the tour", file: file, line: line
+		)
+		assertExists(AID.analyticsChoiceNotNow, false)
+
+		let skip = app.buttons[AID.tourSkip]
+		XCTAssertTrue(skip.waitForExistence(timeout: 10), "The tour offered no Skip", file: file, line: line)
+		skip.tap()
+
+		XCTAssertTrue(
+			app.buttons[AID.analyticsChoiceNotNow].waitForExistence(timeout: 15),
+			"The consent question never followed the tour", file: file, line: line
+		)
+	}
+
+	/// The payments-off Welcome screen introduces the app and its tour and names nothing that costs
+	/// anything: no headline with a window length, no price note, no "no payment today" reassurances.
+	func testPaymentsOff_firstRun_welcomeCarriesNoOffer_thenTourThenConsent() {
+		launchPaymentsOffFirstRun()
+
+		XCTAssertTrue(element(AID.welcomeIntroBody).waitForExistence(timeout: 15), "No payments-off Welcome screen")
+		assertExists(AID.welcomeHeadline, false)
+		assertExists(AID.welcomePriceNote, false)
+		assertExists(AID.welcomeTerms, false)
+		assertExists(AID.paywallRestore, false)
+
+		assertContinueThenTourThenConsent()
+		assertExists(AID.paywallContent, false)
+	}
+
+	/// The twin with payments on, so the absences above cannot pass merely because the identifiers
+	/// were removed from the screen altogether.
+	func testPaymentsOn_firstRun_welcomeStillCarriesItsOffer_thenTourThenConsent() {
+		launch(
+			LaunchConfig(
+				startOnboardingTour: true,
+				featureFlagOverrides: ["isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true],
+				analyticsScenario: .prompt
+			),
+			mockAuthGate: "ready",
+			mockSubscription: "notSubscribed"
+		)
+
+		XCTAssertTrue(element(AID.welcomeHeadline).waitForExistence(timeout: 15), "No free-access Welcome screen")
+		assertExists(AID.welcomePriceNote, true)
+		assertExists(AID.welcomeTerms, true)
+		assertExists(AID.welcomeIntroBody, false)
+
+		assertContinueThenTourThenConsent()
+	}
+
+	/// A returning install with a window that ran out under payments on: with payments off there is
+	/// no wall and no Welcome screen, just the app.
+	func testPaymentsOff_expiredWindow_neitherWallsNorWelcomes() {
+		launch(
+			LaunchConfig(
+				featureFlagOverrides: ["isPaymentsEnabled": false, "isFreeAccessPeriodEnabled": true],
+				freeAccessAnchorAgeDays: 20
+			),
+			mockAuthGate: "ready",
+			mockSubscription: "notSubscribed"
+		)
+
+		assertExists(AID.cpu, true)
+		assertExists(AID.paywallContent, false)
+		assertExists(AID.welcomeContent, false)
+	}
+
+	/// Settings carries no Subscription section with payments off — neither the upgrade row nor
+	/// the status row.
+	func testPaymentsOff_settingsHasNoSubscriptionSection() {
+		launch(
+			LaunchConfig(featureFlagOverrides: ["isPaymentsEnabled": false]),
+			mockAuthGate: "ready",
+			mockSubscription: "notSubscribed"
+		)
+
+		openSettings()
+		// The row that sat directly above the section: reaching it proves the list is scrolled to
+		// where the section would be, so the absences below are not merely off screen.
+		XCTAssertTrue(scrollTo(AID.settingsAbout), "Settings never showed its About row")
+		XCTAssertFalse(scrollTo(AID.settingsUpgrade, maxSwipes: 3), "Payments-off Settings offered a subscription")
+		assertExists(AID.settingsSubscription, false)
+	}
 }
