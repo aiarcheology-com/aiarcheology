@@ -1401,6 +1401,8 @@ internal enum L10n {
     internal static func headline(_ p1: Int) -> String {
       return L10n.tr("Localizable", "welcome.headline", p1, fallback: "Explore everything free for %lld days")
     }
+    /// Browse any web page and let on-device detection models point out what they find. A short tour shows you how.
+    internal static let introBody = L10n.tr("Localizable", "welcome.introBody", fallback: "Browse any web page and let on-device detection models point out what they find. A short tour shows you how.")
     /// After your free access ends, you can subscribe for %@ to continue using ML Browser.
     internal static func priceNote(_ p1: Any) -> String {
       return L10n.tr("Localizable", "welcome.priceNote", String(describing: p1), fallback: "After your free access ends, you can subscribe for %@ to continue using ML Browser.")

@@ -60671,6 +60671,114 @@
         }
       }
     },
+    "welcome.introBody" : {
+      "comment" : "Welcome screen when payments are off (AIA-0955): what the app does. Must not mention prices, trials, subscriptions or how long anything is free.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تصفّح أي صفحة ويب ودع نماذج الاكتشاف على جهازك تشير إلى ما تجده. ستُريك جولة قصيرة كيف يتم ذلك."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "যেকোনো ওয়েব পেজ ব্রাউজ করুন এবং ডিভাইসে চলা শনাক্তকরণ মডেলগুলোকে যা পায় তা দেখিয়ে দিতে দিন। একটি ছোট ট্যুর আপনাকে দেখাবে কীভাবে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Procházejte libovolnou webovou stránku a nechte detekční modely v zařízení ukázat, co najdou. Krátká prohlídka vám ukáže jak."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Öffne eine beliebige Webseite und lass Erkennungsmodelle direkt auf deinem Gerät zeigen, was sie finden. Eine kurze Tour zeigt dir, wie es geht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse any web page and let on-device detection models point out what they find. A short tour shows you how."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Navega por cualquier página web y deja que los modelos de detección de tu dispositivo señalen lo que encuentran. Un breve recorrido te muestra cómo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "هر صفحهٔ وبی را مرور کنید و بگذارید مدل‌های تشخیص روی دستگاهتان آنچه را پیدا می‌کنند نشان دهند. یک گشت کوتاه روش کار را نشانتان می‌دهد."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Parcourez n’importe quelle page web et laissez les modèles de détection de votre appareil signaler ce qu’ils trouvent. Une courte visite vous montre comment."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "גלשו בכל דף אינטרנט ותנו למודלי הזיהוי שבמכשיר להצביע על מה שהם מוצאים. סיור קצר יראה לכם איך."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "कोई भी वेब पेज ब्राउज़ करें और डिवाइस पर चलने वाले पहचान मॉडल को जो मिले वह दिखाने दें। एक छोटा टूर आपको तरीका दिखाएगा।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Böngéssz bármilyen weboldalt, és hagyd, hogy az eszközödön futó felismerő modellek megmutassák, mit találnak. Egy rövid bemutató megmutatja, hogyan."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Przeglądaj dowolną stronę internetową i pozwól modelom wykrywania działającym na urządzeniu wskazać, co znajdą. Krótka prezentacja pokaże Ci, jak to zrobić."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Открывайте любую веб-страницу, и модели распознавания на устройстве укажут, что они нашли. Короткий тур покажет, как это работает."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Відкривайте будь-яку вебсторінку, і моделі розпізнавання на пристрої вкажуть, що вони знайшли. Короткий тур покаже, як це працює."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "浏览任意网页，让设备上的检测模型标出它们发现的内容。简短的导览会告诉你怎么做。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "瀏覽任何網頁，讓裝置上的偵測模型標示出它們找到的內容。簡短的導覽會告訴你如何操作。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "瀏覽任何網頁，讓裝置上的偵測模型標示出它們找到的內容。簡短的導覽會教你如何操作。"
+          }
+        }
+      }
+    },
     "welcome.priceNote" : {
       "comment" : "Welcome screen: what a subscription costs once the free window ends. %@ is the localized price with its term.",
       "extractionState" : "manual",

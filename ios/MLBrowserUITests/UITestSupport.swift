@@ -208,6 +208,9 @@ enum AID {
 	static let welcomeContent = "_AIA:View.WelcomeContent"
 	static let welcomeContinue = "_AIA:Button.WelcomeContinue"
 	static let welcomeHeadline = "_AIA:Label.WelcomeHeadline"
+	static let welcomePriceNote = "_AIA:Label.WelcomePriceNote"
+	static let welcomeTerms = "_AIA:Label.WelcomeTerms"
+	static let welcomeIntroBody = "_AIA:Label.WelcomeIntroBody"
 
 	// App Messages (AIA-0115). The banner container, its title, and the informational dismiss carry
 	// bare identifiers; the reply buttons and About rows carry a `label:` (the button id / message

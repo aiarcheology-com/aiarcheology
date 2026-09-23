@@ -3,7 +3,8 @@
 //  AI Archeology
 //
 //  The day-0 welcome screen (AIA-0567). Shown once, while the app-managed free-access
-//  window is open, in place of the paywall that used to carry the same message.
+//  window is open, in place of the paywall that used to carry the same message — or, with
+//  payments off, once ahead of the onboarding tour with no offer at all (AIA-0955).
 //
 
 import SwiftUI
@@ -24,7 +25,12 @@ import StoreKit
 /// It is named the way the store names it — never a literal — and vanishes into
 /// ``L10n/Welcome/priceNoteGeneric`` when no product resolves, rather than guessing.
 ///
-/// Deliberately dependency-light: a ``SubscriptionState`` for the price, the granted length, and
+/// Two offers share the screen (AIA-0955). ``Offer/freeAccess(days:)`` is the one above. With payments
+/// off there is no window to explain and nothing that will ever cost anything, so ``Offer/none`` keeps
+/// only the title, a sentence about what the app does, and Continue: no headline, price, footer, or
+/// App Store product fetch. It introduces the onboarding tour rather than an offer.
+///
+/// Deliberately dependency-light: a ``SubscriptionState`` for the price, the offer, and
 /// one way out. No `AuthState` and no `FindingRepository`, because unlike the hard wall this
 /// screen is not a dead end — the whole app is one tap away, and with it every control those
 /// would provide.
@@ -32,13 +38,22 @@ struct WelcomeView: View {
 	@ObservedObject var subscriptionState: SubscriptionState
 	@Environment(\.colorScheme) private var colorScheme
 
-	/// The whole length of the free-access window being granted, in days.
-	///
-	/// Passed in rather than read here: the grant is remote-configurable and this view has no
-	/// business resolving it. Rendered through a **pluralized** string — the value is floored at 1
-	/// (`FreeAccessWindow`), so a flat format would put "free for 1 days" on the first screen a
-	/// new user sees.
-	let days: Int
+	/// What the screen offers.
+	enum Offer: Equatable {
+		/// The free-access window (AIA-0567), with its whole length in days.
+		///
+		/// Passed in rather than read here: the grant is remote-configurable and this view has no
+		/// business resolving it. Rendered through a **pluralized** string — the value is floored at
+		/// 1 (`FreeAccessWindow`), so a flat format would put "free for 1 days" on the first screen a
+		/// new user sees.
+		case freeAccess(days: Int)
+
+		/// Nothing: payments are off (AIA-0955). The screen introduces the app and the tour, and must
+		/// not name a price, a trial, a window length, or a subscription.
+		case none
+	}
+
+	let offer: Offer
 
 	/// What to do when the user takes the offer and enters the app. The screen's only action.
 	let continueAction: () -> Void
@@ -65,17 +80,27 @@ struct WelcomeView: View {
 							// does this; the title and headline were missing it.
 							.fixedSize(horizontal: false, vertical: true)
 
-						Text(L10n.Welcome.headline(days))
-							.font(.headline)
-							.multilineTextAlignment(.center)
-							.fixedSize(horizontal: false, vertical: true)
-							.testability(Testability.Label.welcomeHeadline)
+						switch offer {
+						case let .freeAccess(days):
+							Text(L10n.Welcome.headline(days))
+								.font(.headline)
+								.multilineTextAlignment(.center)
+								.fixedSize(horizontal: false, vertical: true)
+								.testability(Testability.Label.welcomeHeadline)
 
-						Text(L10n.Welcome.body)
-							.font(.body)
-							.foregroundStyle(secondaryTextColor)
-							.multilineTextAlignment(.center)
-							.fixedSize(horizontal: false, vertical: true)
+							Text(L10n.Welcome.body)
+								.font(.body)
+								.foregroundStyle(secondaryTextColor)
+								.multilineTextAlignment(.center)
+								.fixedSize(horizontal: false, vertical: true)
+						case .none:
+							Text(L10n.Welcome.introBody)
+								.font(.body)
+								.foregroundStyle(secondaryTextColor)
+								.multilineTextAlignment(.center)
+								.fixedSize(horizontal: false, vertical: true)
+								.testability(Testability.Label.welcomeIntroBody)
+						}
 					}
 					.padding(.horizontal, 32)
 
@@ -96,6 +121,9 @@ struct WelcomeView: View {
 		}
 		.background(WelcomeBackground())
 		.task {
+			// Only the free-access offer names a price. The payments-off introduction must not reach
+			// the App Store at all: StoreKit is never started in that session (AIA-0955).
+			guard case .freeAccess = offer else { return }
 			// Kept off the launch path exactly as the paywall keeps it: a slow App Store fetch may
 			// delay the price note, never app readiness. Until it answers, the generic sentence
 			// stands — it is true either way.
@@ -119,16 +147,18 @@ struct WelcomeView: View {
 		.controlSize(.large)
 		.testability(Testability.Button.welcomeContinue)
 
-		priceNote
+		if case .freeAccess = offer {
+			priceNote
 
-		// What the offer costs the user right now, stated three ways because "free" is the claim
-		// people trust least. Small and secondary so they read as reassurance under the action
-		// rather than as terms; allowed to claim their full height so a long translation or large
-		// Dynamic Type wraps instead of truncating the word `No` off "No payment today".
-		VStack(spacing: 6) {
-			footerBullet(L10n.Welcome.Footer.noPayment)
-			footerBullet(L10n.Welcome.Footer.noCard)
-			footerBullet(L10n.Welcome.Footer.askLater)
+			// What the offer costs the user right now, stated three ways because "free" is the claim
+			// people trust least. Small and secondary so they read as reassurance under the action
+			// rather than as terms; allowed to claim their full height so a long translation or large
+			// Dynamic Type wraps instead of truncating the word `No` off "No payment today".
+			VStack(spacing: 6) {
+				footerBullet(L10n.Welcome.Footer.noPayment)
+				footerBullet(L10n.Welcome.Footer.noCard)
+				footerBullet(L10n.Welcome.Footer.askLater)
+			}
 		}
 	}
 
@@ -149,12 +179,14 @@ struct WelcomeView: View {
 				// "subscribe for $3.99 slash month" — see PaywallView, where the same pairing is
 				// documented on the price itself.
 				.accessibilityLabel(L10n.Welcome.priceNote(product.spokenPriceWithTerm))
+				.testability(Testability.Label.welcomePriceNote)
 		} else {
 			Text(L10n.Welcome.priceNoteGeneric)
 				.font(.footnote)
 				.foregroundStyle(secondaryTextColor)
 				.multilineTextAlignment(.center)
 				.fixedSize(horizontal: false, vertical: true)
+				.testability(Testability.Label.welcomePriceNote)
 		}
 	}
 
@@ -164,6 +196,7 @@ struct WelcomeView: View {
 			.foregroundStyle(secondaryTextColor)
 			.multilineTextAlignment(.center)
 			.fixedSize(horizontal: false, vertical: true)
+			.testability(Testability.Label.welcomeTerms)
 	}
 
 	/// The `Assets.xcassets` colorset backing Continue — the same one ``PaywallView`` names, so the
@@ -238,7 +271,7 @@ private struct WelcomeBackground: View {
 #Preview("Welcome — 14 days") {
 	WelcomeView(
 		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true),
-		days: 14,
+		offer: .freeAccess(days: 14),
 		continueAction: {}
 	)
 }
@@ -247,7 +280,16 @@ private struct WelcomeBackground: View {
 #Preview("Welcome — 1 day") {
 	WelcomeView(
 		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true),
-		days: 1,
+		offer: .freeAccess(days: 1),
+		continueAction: {}
+	)
+}
+
+/// Payments off (AIA-0955): no headline, price, or footer.
+#Preview("Welcome — payments off") {
+	WelcomeView(
+		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: false),
+		offer: .none,
 		continueAction: {}
 	)
 }
