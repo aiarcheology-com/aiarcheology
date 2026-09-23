@@ -155,7 +155,7 @@ column reads "any" wherever entitlement has already settled the answer.
 |#|isReady|Flag|Entitlement|Free window|Auth context|User sees|Correct?|
 |-|-|-|-|-|-|-|-|
 |1|false|any|any|any|any|`ProgressView`|yes, transient|
-|2|true|off|unobservable|never granted|any|App content; Settings shows "Free Beta"|yes: ship-dark contract, and no window is spent behind a gate that is not showing|
+|2|true|off|unobservable|any|App content, with the payments-off **Welcome screen** over it on a first run only; no Settings Subscription section|yes: free mode (AIA-0955), and no window is spent behind a gate that is not showing — see the note below|
 |3|true|on|subscribed (paid)|any, **expired included**|any|App content; Settings "Active"|yes: entitlement is answered before the window is consulted|
 |4|true|on|subscribed (trial)|any|any|App content; Settings "Trial"|yes: a trial counts as active|
 |5|true|on|not subscribed|unreconciled|any|`ProgressView`|defensive, and not reached as wired: `AppState.initialize` settles the anchor before `isReady`, so this branch exists only so a reordering cannot silently turn "not read yet" into a wall|
@@ -168,6 +168,15 @@ column reads "any" wherever entitlement has already settled the answer.
 |12|true|on|not yet synced|closed|any|Paywall until StoreKit syncs or the user taps Restore|acceptable: Restore is the sanctioned recovery|
 |13|true|on|subscribed|any|indeterminate (launch)|A brief hold until auth resolves a consent scope, then the app|acceptable: the same wait the old `AuthLoadingView` covered — but see the note below|
 |14|true|on|subscribed|any|suspended (offline)|App content, analytics off|yes: no scope can ever be selected, so waiting would never end (#532)|
+
+Row 2 note (AIA-0955): payments off is the app's free mode, not only a dark launch. A first run
+(tour armed) meets a Welcome screen that introduces the app and its tour: title, one sentence, and
+Continue — no headline, price, window length, reassurances, or App Store product fetch. Its receipt
+is durable and belongs to onboarding (`TourState`), written when it is shown, so returning installs
+and a force-quit mid-tour never see it again. A window granted under payments on is still honoured,
+but its unshown day-0 offer is withheld (not cleared) and comes back if payments do. The account
+deletion dialog drops its billing sentence and Manage Subscription, and Support withdraws the
+purchase category, because removing the subscription from sale stops renewals.
 
 Row 6 note: this screen is not the paywall (AIA-0567). `WelcomeView` states what the free window is
 and offers one way in; it carries no Subscribe, no Restore and none of the 3.1.2 disclosures, because

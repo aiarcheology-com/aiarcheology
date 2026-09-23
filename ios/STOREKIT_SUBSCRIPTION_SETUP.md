@@ -176,8 +176,10 @@ $3.99/mo to keep using it.
   returns `.content` for anyone entitled. Apple mandates none, and the sheet could not be made to
   work on iOS-on-Mac. A granted refund still drops the gate — it arrives as a revocation, which is
   a different code path entirely. See `ios/MLBrowser/README.md` → Refunds.
-- Behind the `isPaymentsEnabled` flag (remote via ConfigCat since AIA-0350; compiled default ON,
-  and ON in the submitted build). See FEATUREFLAGS.md.
+- Behind the `isPaymentsEnabled` flag (remote via ConfigCat since AIA-0350). The compiled default
+  was ON through 1.0.8 and is OFF from 1.0.9 (AIA-0955), so a first launch — and any build without
+  a ConfigCat key — runs payments-off; the dashboard value applies from the next launch. To test
+  the paywall locally, relaunch once after the flag has synced. See FEATUREFLAGS.md.
 - Local testing without ASC: Xcode → Scheme → Run → Options → StoreKit Configuration →
   `ios/MLBrowser/Configuration.storekit` (mirrors the product: $3.99 / P1M, 2-week free trial).
   That file configures **nothing** in production — it ships in the bundle but nothing reads it

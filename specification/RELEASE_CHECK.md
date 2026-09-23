@@ -124,6 +124,19 @@ broken feature.** That is the trade this file exists to catch.
 
 ## 1.0.9
 
+- [ ] **Switch payments off after release (AIA-0955).** 1.0.9 compiles `isPaymentsEnabled` as
+      `false` but ships with production ConfigCat still `true`, so it behaves like 1.0.8 from each
+      install's second launch. Once 1.0.9 is live:
+      1. Set production ConfigCat `isPaymentsEnabled` to `false`. It applies on each device's next
+         launch after a sync. **1.0.8 clients read it too**: their payments-off path shows no
+         Welcome screen and hides the Settings subscription rows.
+      2. Remove the subscription from sale in App Store Connect. Per Apple this stops sign-ups
+         **and renewals**, and the Paid Apps Agreement requires full content to eligible
+         subscribers through their current period — the app is free, so that holds.
+      3. On the shipped build, verify both: fresh install → neutral Welcome → tour → consent, no
+         price anywhere; relaunch after the sync → no paywall, no Settings Subscription section.
+      Not ticked from a code read; record the dates and evidence here.
+
 - [ ] **Disable the old Sentry client key.** The DSN that reached a public commit (`2d0d3638`,
       removed in `8738cc7e`) was rotated during AIA-0898, and the old key was deliberately left
       enabled so the 1.0.8 builds already in the field keep reporting crashes. Once 1.0.9 is
