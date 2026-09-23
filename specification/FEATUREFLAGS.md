@@ -101,8 +101,10 @@ but means its switch only reaches clients that successfully fetch.
 first launch has no mirrored dashboard value yet, so that launch runs on the compiled default.
 With the default on, a new install after production switched payments off would still meet the
 priced Welcome screen and be granted a free-access window on its first launch. Closed, the cost
-while production is still on is one free first session; later launches use the mirrored value,
-and upgrades keep theirs. Builds without a ConfigCat key are free. UI tests pin the flag on as
+while production is still on is one free first session: a fresh install meets the neutral
+Welcome screen, the tour and the consent question, and on its second launch the mirrored `true`
+applies, a free-access window is granted, and the priced Welcome screen follows. Upgrades keep
+their mirrored value. Builds without a ConfigCat key are free. UI tests pin the flag on as
 their baseline and override it per scenario.
 
 `isAnalyticsEnabled` defaults to `true`, like the existing flags. This only makes the

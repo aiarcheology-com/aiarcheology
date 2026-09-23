@@ -335,6 +335,13 @@ final class FreeAccessUITests: UITestCase {
 		launchPaymentsOffFirstRun()
 
 		XCTAssertTrue(element(AID.welcomeIntroBody).waitForExistence(timeout: 15), "No payments-off Welcome screen")
+		// The tour must wait behind this screen exactly as it waits behind the offer. Held for the
+		// same reason `testFirstRun_welcomeComesBeforeTheTour` holds: the gate's handlers settle
+		// several seconds into a cold launch, so a short look would report "not yet" as "never".
+		Thread.sleep(forTimeInterval: 8)
+		assertExists(AID.tourBubble, false)
+		assertExists(AID.cpTourStep, false)
+		assertExists(AID.welcomeIntroBody, true)
 		assertExists(AID.welcomeHeadline, false)
 		assertExists(AID.welcomePriceNote, false)
 		assertExists(AID.welcomeTerms, false)
@@ -365,6 +372,39 @@ final class FreeAccessUITests: UITestCase {
 		assertContinueThenTourThenConsent()
 	}
 
+	/// A window granted under payments on whose priced day-0 screen never reached the display — a
+	/// force-quit at the wrong moment. With payments off it must not be raised; the positive twin
+	/// below proves the seed really does owe it.
+	func testPaymentsOff_unshownDay0Window_doesNotRaiseThePricedWelcome() {
+		launch(
+			LaunchConfig(
+				featureFlagOverrides: ["isPaymentsEnabled": false, "isFreeAccessPeriodEnabled": true],
+				freeAccessAnchorAgeDays: 3,
+				freeAccessDay0Unshown: true
+			),
+			mockAuthGate: "ready",
+			mockSubscription: "notSubscribed"
+		)
+
+		assertExists(AID.cpu, true)
+		assertExists(AID.welcomeContent, false)
+		assertExists(AID.welcomeHeadline, false)
+	}
+
+	func testPaymentsOn_unshownDay0Window_stillRaisesThePricedWelcome() {
+		launch(
+			LaunchConfig(
+				featureFlagOverrides: ["isFreeAccessPeriodEnabled": true],
+				freeAccessAnchorAgeDays: 3,
+				freeAccessDay0Unshown: true
+			),
+			mockAuthGate: "ready",
+			mockSubscription: "notSubscribed"
+		)
+
+		assertExists(AID.welcomeHeadline, true)
+	}
+
 	/// A returning install with a window that ran out under payments on: with payments off there is
 	/// no wall and no Welcome screen, just the app.
 	func testPaymentsOff_expiredWindow_neitherWallsNorWelcomes() {
@@ -392,8 +432,9 @@ final class FreeAccessUITests: UITestCase {
 		)
 
 		openSettings()
-		// The row that sat directly above the section: reaching it proves the list is scrolled to
-		// where the section would be, so the absences below are not merely off screen.
+		// A row in the section just above where the Subscription section sat: reaching it proves the
+		// list is scrolled near it. The upgrade row's presence with payments on is proved by
+		// `testSettingsSubscriptionRow_duringTheWindow_opensAPaywallThatIsNotAGate`.
 		XCTAssertTrue(scrollTo(AID.settingsAbout), "Settings never showed its About row")
 		XCTAssertFalse(scrollTo(AID.settingsUpgrade, maxSwipes: 3), "Payments-off Settings offered a subscription")
 		assertExists(AID.settingsSubscription, false)

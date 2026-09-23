@@ -29,7 +29,7 @@ final class FeatureFlagsTests: XCTestCase {
 	/// to `false` by accident still fails `test_defaults_matchShippedBehaviour`, because the only
 	/// way out is to be listed here on purpose. The pairing below then asserts the exception
 	/// positively, so a listed flag that quietly flips back to `true` fails too.
-	private static let failClosedKeys: Set<FeatureFlagKey> = [.isFindingShareLinkEnabled]
+	private static let failClosedKeys: Set<FeatureFlagKey> = [.isFindingShareLinkEnabled, .isPaymentsEnabled]
 
 	/// A share link is worthless until `link.aiarcheology.com` serves an association file, which is
 	/// infrastructure outside this repository. Failing open would let a ConfigCat outage — or a

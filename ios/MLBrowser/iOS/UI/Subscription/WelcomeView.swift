@@ -26,7 +26,7 @@ import StoreKit
 /// ``L10n/Welcome/priceNoteGeneric`` when no product resolves, rather than guessing.
 ///
 /// Two offers share the screen (AIA-0955). ``Offer/freeAccess(days:)`` is the one above. With payments
-/// off there is no window to explain and nothing that will ever cost anything, so ``Offer/none`` keeps
+/// off there is no window to explain and nothing that will ever cost anything, so ``Offer/introduction`` keeps
 /// only the title, a sentence about what the app does, and Continue: no headline, price, footer, or
 /// App Store product fetch. It introduces the onboarding tour rather than an offer.
 ///
@@ -50,7 +50,7 @@ struct WelcomeView: View {
 
 		/// Nothing: payments are off (AIA-0955). The screen introduces the app and the tour, and must
 		/// not name a price, a trial, a window length, or a subscription.
-		case none
+		case introduction
 	}
 
 	let offer: Offer
@@ -93,7 +93,7 @@ struct WelcomeView: View {
 								.foregroundStyle(secondaryTextColor)
 								.multilineTextAlignment(.center)
 								.fixedSize(horizontal: false, vertical: true)
-						case .none:
+						case .introduction:
 							Text(L10n.Welcome.introBody)
 								.font(.body)
 								.foregroundStyle(secondaryTextColor)
@@ -289,7 +289,7 @@ private struct WelcomeBackground: View {
 #Preview("Welcome — payments off") {
 	WelcomeView(
 		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: false),
-		offer: .none,
+		offer: .introduction,
 		continueAction: {}
 	)
 }

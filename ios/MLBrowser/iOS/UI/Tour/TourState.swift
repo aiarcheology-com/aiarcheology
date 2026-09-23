@@ -207,8 +207,9 @@ final class TourState {
 		isIntroductionOwed = defaults.object(forKey: Self.introductionShownKey) == nil
 	}
 
-	/// Records that the payments-off Welcome screen is on screen, so it is never owed again
-	/// (AIA-0955). Called at presentation, for the reason ``isIntroductionOwed`` gives.
+	/// Records that a Welcome screen — either one — is on screen ahead of this onboarding, so the
+	/// payments-off introduction is never owed again (AIA-0955). Called at presentation, for the
+	/// reason ``isIntroductionOwed`` gives.
 	func markIntroductionShown() {
 		defaults.set(true, forKey: Self.introductionShownKey)
 		isIntroductionOwed = false

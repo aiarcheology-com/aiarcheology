@@ -125,11 +125,15 @@ broken feature.** That is the trade this file exists to catch.
 ## 1.0.9
 
 - [ ] **Switch payments off after release (AIA-0955).** 1.0.9 compiles `isPaymentsEnabled` as
-      `false` but ships with production ConfigCat still `true`, so it behaves like 1.0.8 from each
-      install's second launch. Once 1.0.9 is live:
+      `false` but ships with production ConfigCat still `true`. Until the switch, a fresh install's
+      first launch is free (neutral Welcome → tour → consent), and from the second launch it is
+      1.0.8's payments-on experience, including the priced Welcome screen for its new free-access
+      window. Upgrades keep their mirrored value. Once 1.0.9 is live:
       1. Set production ConfigCat `isPaymentsEnabled` to `false`. It applies on each device's next
-         launch after a sync. **1.0.8 clients read it too**: their payments-off path shows no
-         Welcome screen and hides the Settings subscription rows.
+         launch after a sync. **1.0.8 clients read it too**, with 1.0.8's older payments-off path:
+         no paywall, but Settings still shows a "Subscription — Free Beta" row, the deletion dialog
+         keeps its billing sentence, and a window whose day-0 screen was never shown can still
+         raise the priced Welcome. Only 1.0.9 suppresses these.
       2. Remove the subscription from sale in App Store Connect. Per Apple this stops sign-ups
          **and renewals**, and the Paid Apps Agreement requires full content to eligible
          subscribers through their current period — the app is free, so that holds.

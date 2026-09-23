@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 14
+	var version = 15
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -48,6 +48,8 @@ struct LaunchConfig: Encodable {
 	/// i.e. a genuine first install. Every UI-test launch wipes its own storage, so this is the
 	/// only way to reach the expired wall.
 	var freeAccessAnchorAgeDays: Int?
+	/// Seed that anchor with its day-0 screen not yet shown (AIA-0955). `nil` = shown.
+	var freeAccessDay0Unshown: Bool?
 	/// A shared-finding link delivered at launch, as if tapped (AIA-0835).
 	var sharedLinkURL: String?
 

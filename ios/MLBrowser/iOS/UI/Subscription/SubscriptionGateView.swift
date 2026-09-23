@@ -369,12 +369,13 @@ struct SubscriptionGateView<Content: View>: View {
 		// same turn, and the resulting publish is what wakes the other window — so the claim has to
 		// be visible by then or the guard is armed after the race it exists to prevent.
 		welcomeClaim = freeAccess.claimWelcomePresentation()
-		switch due {
-		case .freeAccess:
+		if case .freeAccess = due {
 			freeAccess.markPromptShown()
-		case .introduction:
-			tour.markIntroductionShown()
 		}
+		// Either Welcome screen introduces the onboarding it precedes. Receipting only the payments-off
+		// one would let a user who met the priced screen, then force-quit mid-tour, be welcomed a
+		// second time by the neutral one if payments were switched off before their next launch.
+		tour.markIntroductionShown()
 	}
 
 	/// Takes the Welcome screen down and hands the floor to the onboarding tour (AIA-0567).
@@ -454,7 +455,7 @@ struct SubscriptionGateView<Content: View>: View {
 	private static func offer(for presentation: WelcomePresentation) -> WelcomeView.Offer {
 		switch presentation {
 		case let .freeAccess(prompt): .freeAccess(days: prompt.days)
-		case .introduction: .none
+		case .introduction: .introduction
 		}
 	}
 }
