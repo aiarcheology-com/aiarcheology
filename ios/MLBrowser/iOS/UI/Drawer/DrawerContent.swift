@@ -74,6 +74,11 @@ struct DrawerContent: View {
     /// The configuration ID to show in detail sheet
     @State private var selectedConfigurationId: UUID?
 
+    /// The model awaiting delete confirmation (AIA-0330). Separate from `selectedConfigurationId`,
+    /// which would open the configuration sheet, and a value snapshot rather than the managed
+    /// object, which Core Data may delete or nullify while the alert is up.
+    @State private var pendingModelDeletion: PendingModelDeletion?
+
     /// Set by the import sheet on success; consumed when the import sheet finishes dismissing to
     /// auto-open the new model's settings for type confirmation (AIA-0402).
     @State private var importedForReviewId: UUID?
@@ -98,6 +103,23 @@ struct DrawerContent: View {
                 // model list, and "sign in / who am I" living in the bottom corner of the slide
                 // menu is the standard place users look for it.
                 .safeAreaInset(edge: .bottom) { accountFooter }
+                .alert(
+                    L10n.Alert.DeleteModel.title,
+                    isPresented: Binding(
+                        get: { pendingModelDeletion != nil },
+                        set: { if $0 == false { pendingModelDeletion = nil } }
+                    ),
+                    presenting: pendingModelDeletion
+                ) { pending in
+                    // Deletes by id, so a model already gone by the time this is tapped is a no-op.
+                    Button(L10n.Common.delete, role: .destructive) {
+                        deep.deleteConfiguration(pending.id)
+                    }
+                    .testability(Testability.Button.sideMenuDeleteConfigurationConfirm)
+                    Button(L10n.Common.cancel, role: .cancel) {}
+                } message: { pending in
+                    Text(L10n.Alert.DeleteModel.message(pending.name))
+                }
         }
         .sheet(isPresented: $showImport, onDismiss: presentTypeReviewIfNeeded) { importSheet }
         .sheet(item: $selectedConfigurationId, onDismiss: {
@@ -541,7 +563,10 @@ struct DrawerContent: View {
                         selectedConfigurationId = entityId
                     },
                     onDelete: {
-						deep.deleteConfiguration(entityId)
+                        pendingModelDeletion = PendingModelDeletion(
+                            id: entityId,
+                            name: DeepConfiguration.displayName(from: configuration.modelDescription)
+                        )
                     }
                 )
             }
@@ -673,6 +698,12 @@ private func enableFirstReadyDemoModel(in context: NSManagedObjectContext) -> Bo
 
 // MARK: - Configuration Row
 
+/// A model the user asked to delete from the drawer, held while the confirmation is up (AIA-0330).
+private struct PendingModelDeletion {
+    let id: UUID
+    let name: String
+}
+
 /// A single row in the configurations list.
 /// Uses `.buttonStyle(.borderless)` to isolate gesture handling, enabling
 /// swipe actions to coexist with Toggle on all platforms.
@@ -701,7 +732,7 @@ private struct ConfigurationRow: View {
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
         .buttonStyle(.borderless)
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive, action: onDelete) {
                 Label(L10n.Common.delete, systemImage: "trash")
             }

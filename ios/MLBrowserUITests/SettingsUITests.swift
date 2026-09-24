@@ -276,6 +276,20 @@ final class SettingsUITests: UITestCase {
         XCTAssertTrue(waitForDisappearance(of: deleteAction), "Confirmation should dismiss after Cancel")
     }
 
+    /// AIA-0331: Delete cache asks first, and Cancel dismisses the alert. Wiring only — the wipe
+    /// itself (`WebCacheCleaner.clean()`) has no UI-observable effect to assert on.
+    func testSettings_deleteCache_cancelDismissesConfirmation() {
+        launch()
+        openSettings()
+        XCTAssertTrue(scrollTo(AID.settingsDeleteCache), "Delete cache row missing")
+        element(AID.settingsDeleteCache).tap()
+
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 5), "Delete-cache confirmation not shown")
+        alert.buttons["Cancel"].tap()
+        XCTAssertTrue(waitForDisappearance(of: alert), "Confirmation should dismiss after Cancel")
+    }
+
     func testSettings_dismiss() {
         launch()
         openSettings()

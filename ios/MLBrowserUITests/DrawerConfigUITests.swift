@@ -41,39 +41,45 @@ final class DrawerConfigUITests: UITestCase {
         XCTAssertTrue(flipSwitch(AID.configEnabledToggle), "Model enabled toggle did not change state")
     }
 
-    // AIA-0308: a leftward swipe on a model row reveals the trailing delete action and removes that
-    // row. Originally skipped at AIA-0305 because the swipe never revealed the delete under XCUITest
-    // (suspected drawer-panel drag-gesture conflict). Re-investigated for AIA-0308: the swipe now
-    // reveals reliably (5/5 iterations) with no app-code change — the row's swipe-actions and the
-    // panel's swipe-to-close coexist under the current toolchain. This test re-enables and locks
-    // that behavior. (On-device swipe feel is verified separately.)
-    func testDrawer_deleteModel_removesCell() {
+    /// Opens the drawer and waits until both demo models have seeded, so a count taken afterwards
+    /// is stable (same pattern as testDrawer_listsTwoSeededDemoModels).
+    private func openDrawerWithTwoSeededModels() {
         launch()
         openDrawer()
         XCTAssertTrue(waitForSeededConfigurations(), "Demo configurations were not seeded")
-
-        // Both demo models seed asynchronously; wait for both toggles so the pre-delete count is
-        // stable (same pattern as testDrawer_listsTwoSeededDemoModels).
         let allSeeded = NSPredicate(format: "count == 2")
         let seededExpectation = XCTNSPredicateExpectation(predicate: allSeeded, object: modelToggles())
         XCTAssertEqual(
             XCTWaiter().wait(for: [seededExpectation], timeout: 20), .completed,
             "Expected two seeded demo models before delete"
         )
+    }
 
-        // Swipe the first model row to delete it. With `allowsFullSwipe: true` a fast swipe may
-        // commit the delete outright without leaving the trailing button visible; a partial swipe
-        // instead reveals the button to tap. Handle both: tap the button if it reveals, otherwise
-        // the full swipe already deleted. The post-condition (one model remains) is the source of
-        // truth either way — and still fails if the swipe does nothing (the AIA-0308 regression).
+    /// Swipes the first model row left and taps the revealed Delete action. AIA-0330 turned off
+    /// full swipe, so the swipe always reveals the button rather than deleting outright.
+    private func swipeDeleteFirstModel() {
         let firstRow = app.staticTexts.matching(identifier: AID.configDescription).firstMatch
         XCTAssertTrue(firstRow.waitForExistence(timeout: 5), "No model row to swipe")
         firstRow.swipeLeft()
 
         let deleteButton = app.buttons[AID.configDelete]
-        if deleteButton.waitForExistence(timeout: 5) {
-            deleteButton.tap()
-        }
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 5), "Swipe did not reveal the Delete action")
+        deleteButton.tap()
+    }
+
+    // AIA-0308: a leftward swipe on a model row reveals the trailing delete action and removes that
+    // row. Originally skipped at AIA-0305 because the swipe never revealed the delete under XCUITest
+    // (suspected drawer-panel drag-gesture conflict). Re-investigated for AIA-0308: the swipe now
+    // reveals reliably (5/5 iterations) with no app-code change — the row's swipe-actions and the
+    // panel's swipe-to-close coexist under the current toolchain. (On-device swipe feel is verified
+    // separately.) AIA-0330: the delete now waits for the confirmation alert.
+    func testDrawer_deleteModel_removesCell() {
+        openDrawerWithTwoSeededModels()
+        swipeDeleteFirstModel()
+
+        let confirm = app.buttons[AID.configDeleteConfirm]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Delete-model confirmation not shown")
+        confirm.tap()
 
         // Exactly one model should remain after deleting one.
         let oneRemains = NSPredicate(format: "count == 1")
@@ -82,6 +88,19 @@ final class DrawerConfigUITests: UITestCase {
             XCTWaiter().wait(for: [deletedExpectation], timeout: 10), .completed,
             "Deleting one model should leave exactly one toggle"
         )
+    }
+
+    /// AIA-0330: Cancel on the delete-model confirmation keeps the model.
+    func testDrawer_deleteModel_cancelKeepsModel() {
+        openDrawerWithTwoSeededModels()
+        swipeDeleteFirstModel()
+
+        let confirm = app.buttons[AID.configDeleteConfirm]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Delete-model confirmation not shown")
+        app.alerts.firstMatch.buttons["Cancel"].tap()
+        XCTAssertTrue(waitForDisappearance(of: confirm), "Confirmation should dismiss after Cancel")
+
+        XCTAssertEqual(modelToggles().count, 2, "Cancelling must not delete the model")
     }
 
     // MARK: - AIA-0402: model-type control

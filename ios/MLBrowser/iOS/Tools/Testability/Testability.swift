@@ -76,6 +76,8 @@ extension TestabilityIdentification {
 		case sideMenuClose
 		case sideMenuConfigurationCell
 		case sideMenuDeleteConfiguration
+		// AIA-0330: the delete-model confirmation's destructive action
+		case sideMenuDeleteConfigurationConfirm
 		// Configuration Form
 		case configurationFormConversionLog
 		case configurationFormExport

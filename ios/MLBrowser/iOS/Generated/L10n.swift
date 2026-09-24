@@ -47,6 +47,20 @@ internal enum L10n {
     internal static let title = L10n.tr("Localizable", "adjustment.title", fallback: "Adjustments")
   }
   internal enum Alert {
+    internal enum DeleteCache {
+      /// This deletes all cookies, local storage and cached data for every website. You will be signed out of websites. This cannot be undone.
+      internal static let message = L10n.tr("Localizable", "alert.deleteCache.message", fallback: "This deletes all cookies, local storage and cached data for every website. You will be signed out of websites. This cannot be undone.")
+      /// Delete website data?
+      internal static let title = L10n.tr("Localizable", "alert.deleteCache.title", fallback: "Delete website data?")
+    }
+    internal enum DeleteModel {
+      /// “%@” and its settings will be removed from ML Browser. This cannot be undone.
+      internal static func message(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "alert.deleteModel.message", String(describing: p1), fallback: "“%@” and its settings will be removed from ML Browser. This cannot be undone.")
+      }
+      /// Delete model?
+      internal static let title = L10n.tr("Localizable", "alert.deleteModel.title", fallback: "Delete model?")
+    }
     internal enum Error {
       /// Error
       internal static let title = L10n.tr("Localizable", "alert.error.title", fallback: "Error")
