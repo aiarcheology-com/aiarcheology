@@ -41,17 +41,20 @@ extension URL {
 			throw CocoaError(.fileNoSuchFile)
 		}
 
-		let directoryPath = directoryURL.path
+		// Containment is decided on whole path components (AIA-0606): a bare string prefix also
+		// matched a sibling such as `…/DocumentsBackup` and silently produced a wrong relative
+		// path. The URL must lie strictly inside the directory; the directory itself is not a
+		// file within it. Lexical only, as before — this does not resolve symlinks.
+		let directoryComponents = directoryURL.pathComponents
+		let components = self.pathComponents
 
 		guard
-			self.path.hasPrefix(directoryPath) else {
+			components.count > directoryComponents.count,
+			components.starts(with: directoryComponents) else {
 			throw CocoaError(.fileNoSuchFile)
 		}
 
-		var relativePath = String(self.path.dropFirst(directoryPath.count))
-		if relativePath.hasPrefix("/") {
-			relativePath.removeFirst()
-		}
+		let relativePath = components.dropFirst(directoryComponents.count).joined(separator: "/")
 
 		// .urlPathAllowed keeps "/" and "." intact; .alphanumerics encoded them
 		// ("model.mlmodelc" → "model%2Emlmodelc") and only round-tripped by accident.
