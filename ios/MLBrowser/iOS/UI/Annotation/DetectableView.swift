@@ -229,7 +229,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 				contentGeometryDidChange()
             }
         }
-		.onSnapshot { image, _, request in
+		.onSnapshot { image, _, request, provenance in
 			guard acceptsSnapshot(request) else { return }
 			// Skip detection while content is being manipulated - geometry is changing
 			guard !isInteracting else { return }
@@ -253,7 +253,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 			)
             // Detection pipeline: serialize + coalesce + apply-guard live in the coordinator
             // (AIA-0386). This is the single detection entry point.
-            coordinator.ingest(snapshot: image)
+            coordinator.ingest(snapshot: image, provenance: provenance)
         }
         .onChange(of: isCapturingFinding.wrappedValue) { _, capturing in
             // Entering a capture must also invalidate work already in flight:
@@ -362,6 +362,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 struct AppliedDetectionFrame {
     let image: UIImage
     let results: [DetectionResult]
+    /// Which document the image came from (AIA-0846), so a finding made from this frame is held
+    /// to that document rather than to whatever the browser shows when the finding is saved.
+    /// Defaults to unknown: a frame built outside the snapshot pipeline has no established source.
+    var provenance: SnapshotProvenance = .unknown
 }
 
 // MARK: - SwiftUI Gesture-based Interaction Tracking

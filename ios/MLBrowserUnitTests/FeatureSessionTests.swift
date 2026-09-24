@@ -20,7 +20,8 @@ final class FeatureSessionTests: XCTestCase {
 		let snap = SnapState(settings: settings)
 		let session = DetectionSession(
 			snap: snap,
-			settings: settings
+			settings: settings,
+			captureContext: { nil }
 		)
 
 		// Forces `detectionState` (and its `snapAdjustment`) — the actual isolation proof.

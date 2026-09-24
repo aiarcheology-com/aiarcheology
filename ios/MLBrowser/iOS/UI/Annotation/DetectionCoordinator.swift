@@ -136,8 +136,12 @@ final class DetectionCoordinator: ObservableObject {
 	/// to the newest (a tiled pass — 6 inferences × N detectors — can outlast the snapshot cadence,
 	/// and overlapping passes would apply out of order). Each completed tile can update the current
 	/// snapshot's overlay; every partial and final result receives the same live validity guards.
-	func ingest(snapshot image: UIImage) {
-		queue.enqueue(image) { image, done in
+	func ingest(snapshot image: UIImage, provenance: SnapshotProvenance = .unknown) {
+		queue.enqueue(QueuedSnapshot(image: image, provenance: provenance)) { snapshot, done in
+			let image = snapshot.image
+			// Per pass, never captured from `ingest`'s arguments: the queue re-runs this closure for
+			// a coalesced successor, which must carry its OWN provenance (AIA-0846).
+			let provenance = snapshot.provenance
 			let passID = self.nextPassID
 			self.nextPassID &+= 1
 			let startGeneration = self.generation
@@ -200,7 +204,10 @@ final class DetectionCoordinator: ObservableObject {
 					else { return }
 					// Image and results are applied as ONE value: the cached snapshot is always the exact
 					// frame the displayed boxes came from.
-					self.setApplied(AppliedDetectionFrame(image: image, results: observations), passID: passID)
+					self.setApplied(
+						AppliedDetectionFrame(image: image, results: observations, provenance: provenance),
+						passID: passID
+					)
 				}
 				let observations = await self.detect(image, passTiling, applyIfCurrent)
 				done()
@@ -297,33 +304,40 @@ final class AnnotationSoundEventCoordinator {
 /// overlapping passes able to deliver frame A's boxes after frame B's.
 @MainActor
 final class SnapshotDetectionQueue {
-	typealias Pass = @MainActor (UIImage, _ done: @escaping @MainActor () -> Void) -> Void
+	typealias Pass = @MainActor (QueuedSnapshot, _ done: @escaping @MainActor () -> Void) -> Void
 
 	private(set) var inFlight = false
-	private var pendingImage: UIImage?
+	private var pending: QueuedSnapshot?
 
-	func enqueue(_ image: UIImage, pass: @escaping Pass) {
+	func enqueue(_ snapshot: QueuedSnapshot, pass: @escaping Pass) {
 		guard inFlight.not else {
-			pendingImage = image
+			pending = snapshot
 			return
 		}
-		start(image, pass: pass)
+		start(snapshot, pass: pass)
 	}
 
 	/// Drops a coalesced snapshot (e.g. interaction started — its geometry is stale).
 	func cancelPending() {
-		pendingImage = nil
+		pending = nil
 	}
 
-	private func start(_ image: UIImage, pass: @escaping Pass) {
+	private func start(_ snapshot: QueuedSnapshot, pass: @escaping Pass) {
 		inFlight = true
-		pass(image) { [weak self] in
+		pass(snapshot) { [weak self] in
 			guard let self else { return }
 			self.inFlight = false
-			if let next = self.pendingImage {
-				self.pendingImage = nil
+			if let next = self.pending {
+				self.pending = nil
 				self.start(next, pass: pass)
 			}
 		}
 	}
+}
+
+/// A snapshot waiting for detection, kept together with the document it came from so that a
+/// coalesced successor can never inherit its predecessor's provenance (AIA-0846).
+struct QueuedSnapshot {
+	let image: UIImage
+	let provenance: SnapshotProvenance
 }

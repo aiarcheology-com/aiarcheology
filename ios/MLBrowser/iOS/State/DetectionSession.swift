@@ -24,6 +24,8 @@ final class DetectionSession {
 	private let snap: SnapState
 	private let settings: Settings
 	private let analytics: AnalyticsState?
+	/// The browser's capture context (AIA-0846), stored and handed to the snapshot coordinator.
+	private let captureContext: CaptureContextProvider
 
 	// MARK: - Owned detection feature state (lazy → forced on first access, exactly as before).
 	//
@@ -40,7 +42,10 @@ final class DetectionSession {
 	private(set) lazy var webViewRenderer = WebSnapshotRenderer(adjustment: self.snapAdjustment)
 	/// Persistent across SwiftUI view replacement. It is forced only from the render path, keeping
 	/// DetectionSession's established lazy construction invariant intact.
-	private(set) lazy var snapshotWorkCoordinator = SnapshotWorkCoordinator(renderer: self.webViewRenderer)
+	private(set) lazy var snapshotWorkCoordinator = SnapshotWorkCoordinator(
+		renderer: self.webViewRenderer,
+		captureContext: self.captureContext
+	)
 	private(set) lazy var detectionState = DetectionSessionState(
 		snap: self.snap,
 		settings: self.settings,
@@ -51,10 +56,12 @@ final class DetectionSession {
 	init(
 		snap: SnapState,
 		settings: Settings,
-		analytics: AnalyticsState? = nil
+		analytics: AnalyticsState? = nil,
+		captureContext: @escaping CaptureContextProvider
 	) {
 		self.snap = snap
 		self.settings = settings
 		self.analytics = analytics
+		self.captureContext = captureContext
 	}
 }

@@ -29,6 +29,15 @@ final class MapFrameRegistry {
 
 	private var frames: [WKFrameInfo] = []
 
+	/// Advances when a recorded frame navigated and was superseded by a new handle (AIA-0846): an
+	/// iframe map that loaded a new document after a snapshot is not the map in that snapshot.
+	///
+	/// Deliberately not advanced by a first announcement. The registry script runs in every frame,
+	/// so rotating advertising frames would otherwise make every earlier snapshot look stale, and
+	/// a frame that appears after a snapshot was not in its pixels to begin with. `reset()` needs
+	/// no bump either: it runs on a main-frame commit, which already advances the document revision.
+	private(set) var revision: UInt64 = 0
+
 	/// Child frames worth probing, in the order they announced themselves.
 	///
 	/// The main frame is excluded — the probe always asks it directly, and asking twice would just
@@ -52,6 +61,7 @@ final class MapFrameRegistry {
 		// `WKFrameInfo` exposes publicly.
 		if let stale = frames.firstIndex(where: { $0.supersededBy(frame) }) {
 			frames[stale] = frame
+			revision &+= 1
 			return
 		}
 

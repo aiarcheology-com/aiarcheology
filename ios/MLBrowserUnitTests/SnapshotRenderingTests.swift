@@ -137,7 +137,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
 
     func testInitialRequest_WaitsForAttachedRendererAndConsumer() async {
         let renderer = HeldSnapshotRenderer()
-        let sut = SnapshotWorkCoordinator(renderer: renderer)
+        let sut = SnapshotWorkCoordinator(renderer: renderer, captureContext: { nil })
         let request = SnapshotRequest(runID: 7, sequence: 1)
         var delivered: [SnapshotRequest] = []
 
@@ -152,7 +152,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
             id: UUID(),
             frame: .zero,
             acceptsRequest: { _ in true }
-        ) { _, _, deliveredRequest in
+        ) { _, _, deliveredRequest, _ in
             delivered.append(deliveredRequest)
         }
         await waitForSnapshotCall(renderer, count: 1)
@@ -165,7 +165,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
 
     func testReplacementAndRestart_HoldOnePhysicalSnapshotUntilOldContinuationReturns() async {
         let renderer = HeldSnapshotRenderer()
-        let sut = SnapshotWorkCoordinator(renderer: renderer)
+        let sut = SnapshotWorkCoordinator(renderer: renderer, captureContext: { nil })
         let firstConsumer = UUID()
         let replacementConsumer = UUID()
         let firstRun = SnapshotRequest(runID: 1, sequence: 1)
@@ -178,7 +178,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
             id: firstConsumer,
             frame: .zero,
             acceptsRequest: { _ in true }
-        ) { _, _, _ in
+        ) { _, _, _, _ in
             firstConsumerDeliveries += 1
         }
         sut.enqueue(firstRun)
@@ -192,7 +192,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
             id: replacementConsumer,
             frame: .zero,
             acceptsRequest: { _ in true }
-        ) { _, _, request in
+        ) { _, _, request, _ in
             replacementDeliveries.append(request)
         }
         XCTAssertEqual(renderer.snapshotCallCount, 1, "Never overlap WKWebView.takeSnapshot calls")
@@ -210,7 +210,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
 
     func testRendererReattachment_DiscardsOldPageSnapshotAndReplaysLatestRequest() async {
         let renderer = HeldSnapshotRenderer()
-        let sut = SnapshotWorkCoordinator(renderer: renderer)
+        let sut = SnapshotWorkCoordinator(renderer: renderer, captureContext: { nil })
         let request = SnapshotRequest(runID: 1, sequence: 1)
         var deliveries: [SnapshotRequest] = []
 
@@ -219,7 +219,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
             id: UUID(),
             frame: .zero,
             acceptsRequest: { _ in true }
-        ) { _, _, deliveredRequest in
+        ) { _, _, deliveredRequest, _ in
             deliveries.append(deliveredRequest)
         }
         sut.enqueue(request)
@@ -240,7 +240,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
 
     func testFindingCapture_DiscardsInFlightSnapshotUntilDetectionResumes() async {
         let renderer = HeldSnapshotRenderer()
-        let sut = SnapshotWorkCoordinator(renderer: renderer)
+        let sut = SnapshotWorkCoordinator(renderer: renderer, captureContext: { nil })
         let requestBeforeCapture = SnapshotRequest(runID: 1, sequence: 1)
         let requestAfterCapture = SnapshotRequest(runID: 1, sequence: 2)
         var deliveries: [SnapshotRequest] = []
@@ -250,7 +250,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
             id: UUID(),
             frame: .zero,
             acceptsRequest: { _ in true }
-        ) { _, _, deliveredRequest in
+        ) { _, _, deliveredRequest, _ in
             deliveries.append(deliveredRequest)
         }
         sut.enqueue(requestBeforeCapture)
@@ -274,7 +274,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
 
     func testStoppedRun_DiscardsRetainedRequestBeforeRendererWorkStarts() async {
         let renderer = HeldSnapshotRenderer()
-        let sut = SnapshotWorkCoordinator(renderer: renderer)
+        let sut = SnapshotWorkCoordinator(renderer: renderer, captureContext: { nil })
         let staleRequest = SnapshotRequest(runID: 1, sequence: 1)
         let requestGate = SnapshotRequestGate(activeRunID: staleRequest.runID)
         var deliveries: [SnapshotRequest] = []
@@ -283,7 +283,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
             id: UUID(),
             frame: .zero,
             acceptsRequest: { requestGate.accepts($0) }
-        ) { _, _, deliveredRequest in
+        ) { _, _, deliveredRequest, _ in
             deliveries.append(deliveredRequest)
         }
         sut.enqueue(staleRequest)
