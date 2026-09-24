@@ -839,6 +839,24 @@ extension BrowserStateCaptureURLTests {
 		XCTAssertEqual(recorded, base, "the held URL is recorded as it is, not rewritten from the live map")
 	}
 
+	/// A reload issued before loading ends reopens the address the page wrote while loading, not the
+	/// one it committed at; it must still be recognised as the page's own (raised in review).
+	func testReloadBeforeLoadingEnds_OfAPageThatRewroteWhileLoading_KeepsItsURLAsItsOwn() async throws {
+		let base = URL(string: "held://example.org/map?c=4471000.5,5334000.25")!
+		let (handler, forwarder) = await loadHeld("<img src='tile.png'><p>map</p>", at: base)
+		defer { withExtendedLifetime(forwarder) { handler.releaseAll() } }
+		_ = try? await webView.evaluateJavaScript("history.replaceState(null, '', '/map?c=4471200.5,5334100.25'); true")
+		await settle()
+		XCTAssertEqual(state.captureURL, base, "precondition: the committed address is still the original one")
+		XCTAssertTrue(state.pageMaintainsItsURL, "precondition")
+
+		// The reload commits at the live address, the one the page wrote.
+		state.navigationCommitted(nil, from: webView)
+
+		XCTAssertEqual(state.captureURL?.absoluteString, "held://example.org/map?c=4471200.5,5334100.25")
+		XCTAssertTrue(state.pageMaintainsItsURL)
+	}
+
 	/// Control: the same held load with no rewrite is an ordinary page.
 	func testStillLoadingWithNoURLChange_IsNotPresumed() async {
 		let base = URL(string: "held://example.org/map?c=4471000.5,5334000.25")!
