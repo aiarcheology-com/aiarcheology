@@ -104,7 +104,7 @@ final class FindingRepositoryTests: XCTestCase {
 	/// `gpsPrefill`) carries them into the row unchanged. A user edit still wins, as before.
 	func testSave_ContextBoundCapture_RoundTripsImageBoxPageAndLocationTogether() throws {
 		let pageA = try XCTUnwrap(URL(string: "https://example.org/map#map=15/47.941230/18.709545"))
-		let context = CaptureContext(documentRevision: 3, sourceURL: pageA, liveURL: pageA, frameRevision: 0)
+		let context = CaptureContext(documentRevision: 3, sourceURL: pageA, liveURL: pageA, urlRevision: 0)
 		let box = CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2)
 		let location = MapPageLocation(
 			sourceURL: pageA,

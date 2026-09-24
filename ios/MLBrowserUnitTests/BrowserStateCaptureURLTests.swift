@@ -440,7 +440,33 @@ extension BrowserStateCaptureURLTests {
 		try await assertProbeAnswerDropped { replaceWebView() }
 	}
 
+	/// The page ends where it started, but it was somewhere else while the probe was out; the answer
+	/// may describe the detour.
+	func testProbe_URLRoundTripMidProbe_AnswerDropped_URLKept() async throws {
+		try await assertProbeAnswerDropped {
+			await replaceState("/a#detour")
+			await replaceState("/a")
+		}
+	}
+
 	// MARK: Positive controls
+
+	/// A heavy map app can keep loading long after its document committed, and while it does the
+	/// recorded URL holds still. A pan made then, BEFORE the snapshot, is part of what the image shows,
+	/// so the live map is still asked and its answer kept.
+	func testProbe_RewriteWhileLoadingBeforeTheSnapshot_StillKeepsTheLiveAnswer() async throws {
+		await load("<p>map</p>", at: pageA)
+		state.navigationStarted(nil, from: webView)
+		await replaceState("/a#panned")
+		let context = try XCTUnwrap(state.captureContext)
+		XCTAssertNotEqual(context.sourceURL, context.liveURL, "precondition: the recorded URL is held")
+		let asked = stubResolver()
+
+		let result = await state.resolveCaptureLocation(for: context)
+
+		XCTAssertEqual(asked(), [pageA])
+		XCTAssertEqual(result, .resolved(liveAnswer(for: pageA)))
+	}
 
 	func testProbe_UnchangedPage_KeepsTheLiveAnswer() async throws {
 		await load("<p>map</p>", at: pageA)

@@ -138,7 +138,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 	@discardableResult
 	private func applyFrame(_ coordinator: DetectionCoordinator, results: [DetectionResult]) async -> UIImage {
 		let snapshot = UIImage()
-		coordinator.ingest(snapshot: snapshot)
+		coordinator.ingest(snapshot: snapshot, provenance: .unknown)
 		await awaitDetectSuspended()
 		resumeDetect(with: results)
 		await settle(
@@ -184,7 +184,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 			hasDetectors: { [weak self] in self?.detectorsRegistered ?? true }
 		)
 
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await settle(
 			until: { coordinator.appliedFrame?.results.first?.params.entityId == partial.params.entityId },
 			"the incremental result was not applied before detection completed"
@@ -213,7 +213,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		)
 		coordinator.bindGuards(isInteracting: { false }, isCapturing: { false })
 
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await settle(until: { self.appliedResultEvents.count == 1 }, "partial result did not apply")
 		resumeDetect(with: [final])
 		await settle(until: { self.appliedResultEvents.count == 2 }, "final result did not apply")
@@ -226,7 +226,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 
 	func testLiveInteractionGuard_discards() async {
 		let coordinator = makeCoordinator()
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await awaitDetectSuspended()
 		// Flip the LIVE guard var only — do NOT call setInteracting — so the apply-time read alone
 		// must discard the result.
@@ -239,7 +239,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 
 	func testLiveCaptureGuard_discards() async {
 		let coordinator = makeCoordinator()
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await awaitDetectSuspended()
 		capturing = true
 		resumeDetect(with: [cannedResult()])
@@ -250,7 +250,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 
 	func testStaleGeneration_discards() async {
 		let coordinator = makeCoordinator()
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await awaitDetectSuspended()
 		// Geometry changed after the pass began: its generation is now stale, result must not apply.
 		coordinator.geometryChanged()
@@ -296,7 +296,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 
 		// The swap begins: the old driver is unregistered and the new one is still loading.
 		detectorsRegistered = false
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await awaitDetectSuspended()
 		resumeDetect(with: [])
 		await settleForDiscard()
@@ -326,7 +326,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		XCTAssertNil(coordinator.appliedFrame, "arrange: nothing is displayed yet")
 
 		let first = UIImage()
-		coordinator.ingest(snapshot: first)
+		coordinator.ingest(snapshot: first, provenance: .unknown)
 		await awaitDetectSuspended()
 		resumeDetect(with: [])
 		// `settle(until:)`, never `settleForDiscard()`: this waits for something to HAPPEN, and the
@@ -338,7 +338,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		XCTAssertEqual(coordinator.appliedFrame?.results.count, 0, "a classifier has no boxes to show")
 
 		let second = UIImage()
-		coordinator.ingest(snapshot: second)
+		coordinator.ingest(snapshot: second, provenance: .unknown)
 		await awaitDetectSuspended()
 		resumeDetect(with: [])
 		await settle(
@@ -360,7 +360,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		await applyFrame(coordinator, results: [cannedResult()])
 		XCTAssertEqual(coordinator.appliedFrame?.results.count, 1)
 
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await awaitDetectSuspended()
 		resumeDetect(with: [])
 		await settle(
@@ -379,7 +379,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		detectorsRegistered = false
 
 		let snapshot = UIImage()
-		coordinator.ingest(snapshot: snapshot)
+		coordinator.ingest(snapshot: snapshot, provenance: .unknown)
 		await awaitDetectSuspended()
 		resumeDetect(with: [cannedResult()])
 		await settle(
@@ -675,7 +675,7 @@ final class DetectionFrameProvenanceTests: XCTestCase {
 	private func provenance(_ revision: UInt64) -> SnapshotProvenance {
 		let url = URL(string: "https://example.org/page-\(revision)")
 		return SnapshotProvenance(
-			context: CaptureContext(documentRevision: revision, sourceURL: url, liveURL: url, frameRevision: 0),
+			context: CaptureContext(documentRevision: revision, sourceURL: url, liveURL: url, urlRevision: 0),
 			isCoherent: true
 		)
 	}

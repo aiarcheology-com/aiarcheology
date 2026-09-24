@@ -153,7 +153,7 @@ synchronously on both sides of the snapshot:
 | document revision | a navigation commits (including a same-URL reload, a redirect, a back/forward restore), a web view is attached or invalidated |
 | recorded URL | `captureURL` moves — including a same-document `pushState`/`replaceState` |
 | live URL | `webView.url` moves — which also sees a rewrite while `captureURL` is held during another load |
-| iframe revision | a recorded map iframe navigates and is superseded |
+| URL revision | any URL change the web view reports, so a round trip back to the same address still counts |
 
 The rules that use it:
 
@@ -173,8 +173,10 @@ The rules that use it:
 
 Residuals, stated rather than implied: WebKit may still paint the old document briefly after a
 commit, and there is no public first-paint signal; a map that moves its viewport by script, with no
-URL or iframe change and no user interaction, is not observable (as before); a brand-new iframe that
-appears after the snapshot is not tracked, and was not in the pixels either; and a rewrite made
+URL change and no user interaction, is not observable (as before); a brand-new iframe that
+appears after the snapshot is not tracked, and was not in the pixels either — nor is an existing
+iframe navigating or reloading, because `WKFrameInfo` exposes no frame identity and every frame
+(advertising included) announces itself, so tracking them would mostly track noise; and a rewrite made
 while another document is loading, *before* the snapshot, records the held `captureURL` with the
 same document's live coordinate — the existing "which URL" policy above.
 

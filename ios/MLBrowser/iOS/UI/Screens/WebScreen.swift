@@ -343,6 +343,11 @@ struct WebScreenView: View {
 				if state.isInteracting && isResolvingCapture {
 					abandonPendingCapture()
 				}
+				// A deliberate pan is a new aim, so it earns a fresh reacquire (AIA-0846); only taps
+				// with no movement between them count towards the bound.
+				if state.isInteracting {
+					reacquirePolicy.reset()
+				}
             }
         ) { interactionState in
 			MLWebView(loadRequest, renderer: appState.webViewRenderer, rendererAttached: {
@@ -867,6 +872,9 @@ struct WebScreenView: View {
 		case let .resolved(resolved):
 			location = resolved
 		case .drifted:
+			// Defensive: the context was proven current by `captureSnapshot` in this same main-actor
+			// turn, and `resolveCaptureLocation` classifies before its first suspension. Kept so a
+			// future await between the two cannot silently pair a moved page with this image.
 			guard captureResolutionGeneration == generation, findPickActive else { return }
 			LoggingPolicy.info("Manual finding capture dropped: page moved before its location was read", logger: .ui)
 			abandonPendingCapture()
@@ -961,8 +969,11 @@ struct WebScreenView: View {
 			}
 			var location: MapPageLocation?
 			// A frame whose snapshot straddled a change has no single source; one whose document has
-			// since moved on within itself needs a fresh look before its live map may be asked.
+			// since moved on within itself needs a fresh look before its live map may be asked. A
+			// centre pick is not tied to the frame at all, so for it a frame of any page but the one
+			// on screen is simply retaken: the user was aiming at what they can see.
 			if frame.provenance.isCoherent, let context = frame.provenance.context,
+			   handling == .reacquire || appState.browserState.relation(of: context) == .current,
 			   case let .resolved(resolved) = await appState.browserState.resolveCaptureLocation(for: context) {
 				location = resolved
 			}
@@ -1034,7 +1045,8 @@ struct WebScreenView: View {
 			params: selection?.params,
 			frame: frame,
 			generation: captureResolutionGeneration,
-			ifFrameIsUnsettled: .reacquire
+			// A tap outside every box is a centre-style pick, not tied to the frame's detections.
+			ifFrameIsUnsettled: selection == nil ? .retakeSnapshot : .reacquire
 		)
 	}
 

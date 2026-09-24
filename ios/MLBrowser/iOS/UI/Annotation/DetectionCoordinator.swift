@@ -136,7 +136,7 @@ final class DetectionCoordinator: ObservableObject {
 	/// to the newest (a tiled pass — 6 inferences × N detectors — can outlast the snapshot cadence,
 	/// and overlapping passes would apply out of order). Each completed tile can update the current
 	/// snapshot's overlay; every partial and final result receives the same live validity guards.
-	func ingest(snapshot image: UIImage, provenance: SnapshotProvenance = .unknown) {
+	func ingest(snapshot image: UIImage, provenance: SnapshotProvenance) {
 		queue.enqueue(QueuedSnapshot(image: image, provenance: provenance)) { snapshot, done in
 			let image = snapshot.image
 			// Per pass, never captured from `ingest`'s arguments: the queue re-runs this closure for

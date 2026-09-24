@@ -338,7 +338,7 @@ extension SnapshotWorkCoordinatorTests {
 
     private func context(revision: UInt64, fragment: String = "a") -> CaptureContext {
         let url = URL(string: "https://example.org/map#\(fragment)")
-        return CaptureContext(documentRevision: revision, sourceURL: url, liveURL: url, frameRevision: 0)
+        return CaptureContext(documentRevision: revision, sourceURL: url, liveURL: url, urlRevision: 0)
     }
 
     /// Runs one snapshot, applying `change` while WebKit holds it, and returns the provenance the

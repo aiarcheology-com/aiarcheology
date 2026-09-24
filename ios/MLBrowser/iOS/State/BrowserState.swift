@@ -110,13 +110,14 @@ struct CaptureContext: Equatable, Sendable {
 	/// What WebKit itself reported at the time. Differs from `sourceURL` while another document
 	/// is being fetched, and sees a same-document rewrite before the KVO sink has delivered it.
 	let liveURL: URL?
-	/// `MapFrameRegistry.revision`: an iframe map that navigated or appeared is a different map.
-	let frameRevision: UInt64
+	/// `BrowserState.urlRevision`: every URL change counts, so a round trip back to the same URL
+	/// is still a change.
+	let urlRevision: UInt64
 
 	enum Relation: Equatable {
 		/// Nothing observable changed.
 		case current
-		/// Same document, but its URL, loading state or map frames moved.
+		/// Same document, but its URL moved (as recorded, as WebKit reports it, or away and back).
 		case sameDocumentDrift
 		/// A different document, a different web view, or none at all.
 		case otherDocument
@@ -264,6 +265,9 @@ final class BrowserState: ObservableObject {
 		documentRevision &+= 1
 	}
 
+	/// Advances on every URL change the web view reports, same-document rewrites included.
+	private(set) var urlRevision: UInt64 = 0
+
 	/// Which document, and which state of it, a snapshot came from — or `nil` when no web view is
 	/// attached. Read synchronously on both sides of a snapshot's await; see ``CaptureContext``.
 	var captureContext: CaptureContext? {
@@ -272,7 +276,7 @@ final class BrowserState: ObservableObject {
 			documentRevision: documentRevision,
 			sourceURL: captureURL,
 			liveURL: webView.url,
-			frameRevision: mapFrames.revision
+			urlRevision: urlRevision
 		)
 	}
 
@@ -334,17 +338,13 @@ final class BrowserState: ObservableObject {
 			// someone else's and must not be asked.
 			return urlOnly
 		case .sameDocumentDrift:
-			// Same document, but its URL, frames or loading state moved since the image was taken,
+			// Same document, but its URL moved since the image was taken,
 			// so the live viewport need not be the one in the pixels. The caller decides whether to
 			// take a fresh image or settle for the URL.
 			return .drifted
 		case .current:
 			break
 		}
-		// While a different document is being fetched, the recorded URL deliberately holds the page
-		// on screen and WebKit already reports the next one. The live map cannot then be tied to the
-		// pixels either way, so nothing is asked.
-		guard context.sourceURL == context.liveURL else { return urlOnly }
 		// AIA-0821: the same arbiter that decides whether the script is injected decides whether the
 		// page is questioned. A switch that stopped the injection but still ran JavaScript in the
 		// user's document at capture time would only look like a kill switch.
@@ -356,7 +356,7 @@ final class BrowserState: ObservableObject {
 			{ [mapParserArming] page in mapParserArming.isArmed(for: page) }
 		)
 		// The probe can take seconds, and the page can move during them — a redirect, a reload, a
-		// pushState, an iframe navigating. What comes back then describes whatever is on screen NOW.
+		// pushState. What comes back then describes whatever is on screen NOW.
 		// The URL is kept and the coordinate dropped, rather than the whole result discarded,
 		// because the URL was established with the image and is still the page it belongs to.
 		guard relation(of: context) == .current else { return urlOnly }
@@ -937,6 +937,9 @@ final class BrowserState: ObservableObject {
 	// MARK: - Mirroring
 
 	private func urlChanged(_ url: URL?) {
+		// Counted, not only compared: a map that goes A → B → A while a probe is out ends where it
+		// started, and value equality alone would take B's answer for A's image (AIA-0846).
+		if url != currentURL { urlRevision &+= 1 }
 		currentURL = url
 		// A same-document navigation -- the History-API rewrite a map fires on every pan -- changes
 		// the URL without any commit, so this is the only place it can be picked up.
