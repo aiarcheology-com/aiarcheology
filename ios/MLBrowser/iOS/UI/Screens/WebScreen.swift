@@ -96,6 +96,10 @@ struct InitialWebPageDecision: Equatable {
 	var historyPage: String?
 	/// Onboarding is one-shot. A later recreation of this screen must not force the demo page again.
 	var clearsOnboardingPage: Bool
+	/// Whether the load issued here reopens the saved last page, whose address the map app wrote
+	/// itself (AIA-0875). Only when a load is actually issued: `.unchanged` has no navigation of its
+	/// own to attribute the restore to.
+	var restoresLastPage = false
 
 	static func decide(_ context: InitialWebPageContext) -> InitialWebPageDecision {
 		if context.hasSharedLink {
@@ -127,7 +131,8 @@ struct InitialWebPageDecision: Equatable {
 			// Not a user load: the display gate stays open and KVO fills the bar.
 			let load: InitialWebPageLoad = context.currentInput != lastPage ? .page(lastPage) : .unchanged
 			return InitialWebPageDecision(
-				kind: .last, load: load, historyPage: nil, clearsOnboardingPage: false
+				kind: .last, load: load, historyPage: nil, clearsOnboardingPage: false,
+				restoresLastPage: load != .unchanged
 			)
 		}
 		if let defaultPage = context.defaultPage, defaultPage.lowercased() != "about:blank" {
@@ -540,6 +545,10 @@ struct WebScreenView: View {
 			currentFileURL: loadRequest.fileURL
 		))
         intendedPageKind = decision.kind.rawValue
+        if decision.restoresLastPage {
+            // Before the load is issued, so the commit it produces can be recognised (AIA-0875).
+            appState.browserState.lastPageRestoreRequested(appState.settings.lastPage)
+        }
         switch decision.load {
         case .unchanged:
             break

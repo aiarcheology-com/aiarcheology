@@ -391,6 +391,21 @@ final class InitialWebPageDecisionTests: XCTestCase {
 		XCTAssertEqual(leftOff.historyPage, home)
 	}
 
+	/// AIA-0875: the restore is announced to `BrowserState` only for a load this decision issues, so
+	/// the commit that load produces is the one taken as the app's own saved address.
+	func testOnlyAnIssuedLastPageLoadIsARestore() {
+		let last = "https://example.com/last?c=4471000,5334000"
+		XCTAssertTrue(decide(reopenLastPage: true, lastPage: last).restoresLastPage)
+		XCTAssertFalse(
+			decide(reopenLastPage: true, lastPage: last, currentInput: last).restoresLastPage,
+			"no load is issued, so there is no navigation to attribute the restore to"
+		)
+		XCTAssertFalse(decide(reopenLastPage: false, lastPage: last, defaultPage: last).restoresLastPage,
+		               "the home page is not a saved address, even at the same URL")
+		XCTAssertFalse(decide(hasSharedLink: true, reopenLastPage: true, lastPage: last).restoresLastPage)
+		XCTAssertFalse(decide(onboardingPage: last, reopenLastPage: true, lastPage: last).restoresLastPage)
+	}
+
 	func testMissingLastPageFallsThroughToHome() {
 		let decision = decide(reopenLastPage: true, defaultPage: "https://example.com/home")
 		XCTAssertEqual(decision.kind, .home)

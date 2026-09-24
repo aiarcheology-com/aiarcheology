@@ -123,8 +123,30 @@ this only updates its contents. A URL with no viewport parameter is left untouch
 
 The ordering trap here is real and was shipped once: a live map reports `x, y`, but `ll=` and `pos=`
 are latitude-first, so writing one convention into the other transposes the pair into a
-valid-looking URL pointing somewhere else. The order is chosen by whichever arrangement lands nearer
-the values already present — a comparison, never a conversion.
+valid-looking URL pointing somewhere else. The order is set by the parameter's name, and a name with
+no known convention is refused. (Choosing whichever arrangement lands nearer the old values was
+tried and picks backwards on a large pan.)
+
+**Only a page that does not keep its URL current is refreshed** (AIA-0871). An app that rewrites its
+address as you pan has already published the view, and our reading need not mean the same thing:
+the refresh can only tell degrees from not-degrees, so a map held in one projection whose URL is
+written in another passes unchallenged. The page is treated as keeping its own URL when any of these
+holds for the document on screen (AIA-0875):
+
+- it was seen rewriting its address;
+- its address changed while it was still loading, with no other navigation behind the change (when
+  loading ends this becomes an observed rewrite if the address stayed changed, and is dropped if it
+  went back — the change then belonged to a load that never arrived);
+- it is the page Reopen Last Page brought back, at the address that was saved — that address came
+  from the page itself, which writes the same string again on load, so no rewrite is ever seen;
+- it is a reload of a page that kept its URL.
+
+The cost is deliberate: a genuinely frozen page matching one of these keeps the address it has, through
+reloads, until the user goes to another page. That is stale, not wrong, and the GPS field still comes from the live map. Not
+covered — they still look frozen until the first pan: a pasted share link, Back/Forward to a page
+that had been panned, the reload onto a rebuilt web view after a crash, and a reload issued before
+loading ends of a page that rewrote its address while loading (at commit, that address cannot be
+told apart from the one `load(_:)` publishes for a different page).
 
 ## Which URL, exactly
 
