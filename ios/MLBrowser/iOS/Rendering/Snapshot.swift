@@ -8,7 +8,33 @@
 import SwiftUI
 import Combine
 
-typealias SnapshotProvider = @MainActor (UIImage, CGRect, SnapshotRequest) -> Void
+typealias SnapshotProvider = @MainActor (UIImage, CGRect, SnapshotRequest, SnapshotProvenance) -> Void
+/// Reads the web view's current ``CaptureContext`` (AIA-0846); `nil` when none is attached.
+typealias CaptureContextProvider = @MainActor () -> CaptureContext?
+
+/// Which document a delivered snapshot came from (AIA-0846).
+///
+/// The context is read synchronously before `takeSnapshot` starts and again when it returns.
+/// Detection still receives every image — refusing the ones taken while a map rewrote its URL
+/// would leave the boxes blank for a whole timer period after each pan — but a finding may only be
+/// made from an image whose source is established, so the verdict travels with it.
+struct SnapshotProvenance: Equatable {
+	/// The context read when the snapshot started, or `nil` when the document itself is unknown:
+	/// none was attached at either reading, or a different document was by the end.
+	let context: CaptureContext?
+	/// Whether nothing at all changed while the image was being taken. `false` with a non-nil
+	/// context means the same document, whose URL or map frames moved mid-snapshot.
+	let isCoherent: Bool
+
+	/// A snapshot with no known source. The default for frames built outside the snapshot
+	/// pipeline (tests), so a finding can never treat an unproven image as established.
+	static let unknown = SnapshotProvenance(context: nil, isCoherent: false)
+
+	static func between(start: CaptureContext?, end: CaptureContext?) -> SnapshotProvenance {
+		guard let start, let end, start.documentRevision == end.documentRevision else { return .unknown }
+		return SnapshotProvenance(context: start, isCoherent: start == end)
+	}
+}
 typealias SnapshotRequestAcceptance = @MainActor @Sendable (SnapshotRequest) -> Bool
 
 struct Snapshot {
@@ -60,9 +86,12 @@ final class SnapshotWorkCoordinator {
 		let consumer: Consumer
 		let attachmentGeneration: UInt64
 		let captureGeneration: UInt64
+		/// The capture context when the physical snapshot started (AIA-0846).
+		let startContext: CaptureContext?
 	}
 
 	private let renderer: any SnapshotRendering
+	private let captureContext: CaptureContextProvider
 	private var consumer: Consumer?
 	private var pendingRequest: SnapshotRequest?
 	private var latestRequest: SnapshotRequest?
@@ -73,8 +102,11 @@ final class SnapshotWorkCoordinator {
 	private var rendering = false
 	private var captureActive = false
 
-	init(renderer: any SnapshotRendering) {
+	/// - Parameter captureContext: required rather than defaulted, so a composition that forgets to
+	///   wire the browser cannot compile into one whose every frame has an unknown source.
+	init(renderer: any SnapshotRendering, captureContext: @escaping CaptureContextProvider) {
 		self.renderer = renderer
+		self.captureContext = captureContext
 	}
 
 	func rendererDidAttach() {
@@ -185,7 +217,8 @@ final class SnapshotWorkCoordinator {
 			request: request,
 			consumer: consumer,
 			attachmentGeneration: attachmentGeneration,
-			captureGeneration: captureGeneration
+			captureGeneration: captureGeneration,
+			startContext: captureContext()
 		)
 		let renderer = renderer
 		Task { @MainActor [weak self, renderer] in
@@ -201,7 +234,10 @@ final class SnapshotWorkCoordinator {
 		   consumer?.generation == work.consumer.generation,
 		   attachmentGeneration == work.attachmentGeneration,
 		   captureGeneration == work.captureGeneration {
-			work.consumer.deliver(image, work.consumer.frame, work.request)
+			// Read at the same main-actor turn the image is handed over, so nothing can change between
+			// the verdict and the delivery.
+			let provenance = SnapshotProvenance.between(start: work.startContext, end: captureContext())
+			work.consumer.deliver(image, work.consumer.frame, work.request, provenance)
 		}
 		startNextIfPossible()
 	}
@@ -242,7 +278,7 @@ struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Ne
 						id: consumerID,
 						frame: geometry.frame(in: .local),
 						acceptsRequest: acceptsRequest,
-						deliver: snapshotProvider ?? { _, _, _ in }
+						deliver: snapshotProvider ?? { _, _, _, _ in }
 					)
 				}
 				.onChange(of: geometry.size) { _, _ in
@@ -250,7 +286,7 @@ struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Ne
 						id: consumerID,
 						frame: geometry.frame(in: .local),
 						acceptsRequest: acceptsRequest,
-						deliver: snapshotProvider ?? { _, _, _ in }
+						deliver: snapshotProvider ?? { _, _, _, _ in }
 					)
 				}
 				.onDisappear {
@@ -263,8 +299,8 @@ struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Ne
 extension View {
 		// The snapshot is made from a view wrapped within SnapableGroup and driven by the group's publisher
 	func onSnapshot(perform action: @escaping SnapshotProvider) -> some View {
-		environment(\.snapshotProvider, { image, frame, request in
-			action(image, frame, request)
+		environment(\.snapshotProvider, { image, frame, request, provenance in
+			action(image, frame, request, provenance)
 		})
 	}
 }

@@ -252,6 +252,10 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		webView.uiDelegate = context.coordinator
 		webView.scrollView.delegate = context.coordinator
 		renderer.attach(webView)
+		// Can start a snapshot of THIS web view while `browserState` still describes the previous
+		// one. That is safe only because `browserState.attach` below advances the document
+		// revision, so the snapshot's closing context read differs and the image is marked as having
+		// no established source (AIA-0846). Reordering these must keep that true.
 		rendererAttached?()
 		// The Coordinator needs BrowserState for delegate → state plumbing
 		// (navigation-settled tokens, dismantle teardown).

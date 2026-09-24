@@ -224,6 +224,11 @@ struct WebScreenView: View {
 	/// Invalidates an asynchronous location resolution if the user keeps manipulating the page or
 	/// cancels, so an old aligned frame can never present its form during a newer attempt.
 	@State private var captureResolutionGeneration: UInt64 = 0
+	/// How a detected pick treats a frame that can no longer be tied to the live page (AIA-0846).
+	/// Scoped to one alignment session: reset on entering Find and on leaving it, never by
+	/// `abandonPendingCapture()` — the reacquire IS an abandon, and resetting there would let a
+	/// page that keeps rewriting its URL send the user round the same loop forever.
+	@State private var reacquirePolicy = RetainedFrameReacquirePolicy()
 	/// Freezes DetectableView's displayed frame while the save sheet is up.
 	@State private var isCapturingFinding: Bool = false
 	/// Alignment mode (Find/Store button): the user moves web content until a displayed detection
@@ -337,6 +342,11 @@ struct WebScreenView: View {
 				// settles and a current detection covers the centre again.
 				if state.isInteracting && isResolvingCapture {
 					abandonPendingCapture()
+				}
+				// A deliberate pan is a new aim, so it earns a fresh reacquire (AIA-0846); only taps
+				// with no movement between them count towards the bound.
+				if state.isInteracting {
+					reacquirePolicy.reset()
 				}
             }
         ) { interactionState in
@@ -643,6 +653,7 @@ struct WebScreenView: View {
 			}
             // This is not a capture yet. Keeping the normal interaction lifecycle alive is what
             // lets WKWebView receive pan/pinch gestures and refreshes boxes after it settles.
+            reacquirePolicy.reset()
             findPickActive = true
         }
 
@@ -769,7 +780,8 @@ struct WebScreenView: View {
 				observation: hit.observation,
 				params: hit.params,
 				frame: frame,
-				generation: captureResolutionGeneration
+				generation: captureResolutionGeneration,
+				ifFrameIsUnsettled: .reacquire
 			)
 			return
 		}
@@ -782,7 +794,9 @@ struct WebScreenView: View {
 	///
 	/// The displayed frame is reused when detection is running, so the saved image is the one whose
 	/// boxes the user was looking at. With detection off there is no frame at all and a snapshot is
-	/// taken here — the branch that makes "record a place the models say nothing about" work.
+	/// taken here — the branch that makes "record a place the models say nothing about" work. The
+	/// same fresh snapshot replaces a displayed frame that no longer matches the page (AIA-0846):
+	/// the centre is not tied to any detection in it, so nothing is lost by retaking it.
 	private func captureCentreManually(in size: CGSize) {
 		let observation = DetectedObject(
 			uuid: UUID(),
@@ -800,7 +814,8 @@ struct WebScreenView: View {
 				observation: observation,
 				params: nil,
 				frame: frame,
-				generation: captureResolutionGeneration
+				generation: captureResolutionGeneration,
+				ifFrameIsUnsettled: .retakeSnapshot
 			)
 			return
 		}
@@ -811,33 +826,71 @@ struct WebScreenView: View {
 					isResolvingCapture = false
 				}
 			}
-			LoggingPolicy.info("Manual finding capture: taking web snapshot", logger: .ui)
-			// Resolved BEFORE the snapshot await: the page can navigate while a snapshot is being
-			// taken, and the finding must record the page these pixels came from rather than
-			// whatever the web view moved on to.
-			let resolved = await appState.browserState.resolveCaptureLocation()
-			let image = await appState.webViewRenderer.snapshot()
-			// Checked BEFORE acting on the failure, not only before presenting: this task may have
-			// been superseded while it waited (the user moved the page, then tapped again). A stale
-			// task that called `cancelFindPick()` would tear down the *current* attempt — dropping
-			// the user out of alignment mode, or unfreezing the frame under a sheet the newer
-			// attempt had already presented.
-			guard captureResolutionGeneration == generation, findPickActive else { return }
-			guard let image else {
-				// WebSnapshotRenderer records the concrete WebKit error when one is available.
-				// Cancelling here is the expected fallback for a frame that cannot be snapshotted,
-				// so keep it as a breadcrumb instead of sending a second, context-free Sentry error.
-				LoggingPolicy.warning("Manual finding capture cancelled: snapshot unavailable", logger: .ui)
-				cancelFindPick()
-				return
-			}
-			present(FindingCapture(
-				observation: observation,
-				params: nil,
-				frame: AppliedDetectionFrame(image: image, results: []),
-				location: resolved
-			))
+			await captureFreshSnapshot(observation: observation, generation: generation)
 		}
+	}
+
+	/// Takes a new snapshot and resolves its location against the document it came from.
+	///
+	/// The image comes FIRST, because the image is what the finding is: the snapshot is bound to
+	/// the page it was taken from, and only then is that page asked where it is. Reading the URL
+	/// before an await proves nothing about which document supplies pixels after it (AIA-0846) —
+	/// the previous order resolved a location and then snapshotted whatever had loaded meanwhile.
+	private func captureFreshSnapshot(observation: DetectedObject, generation: UInt64) async {
+		LoggingPolicy.info("Manual finding capture: taking web snapshot", logger: .ui)
+		let renderer = appState.webViewRenderer
+		let snapshot = await appState.browserState.captureSnapshot { await renderer.snapshot() }
+		// Checked BEFORE acting on any outcome, not only before presenting: this task may have been
+		// superseded while it waited (the user moved the page, then tapped again). A stale task that
+		// called `cancelFindPick()` would tear down the *current* attempt — dropping the user out of
+		// alignment mode, or unfreezing the frame under a sheet the newer attempt had already
+		// presented.
+		guard captureResolutionGeneration == generation, findPickActive else { return }
+		let image: UIImage
+		let context: CaptureContext
+		switch snapshot {
+		case .unavailable:
+			// WebSnapshotRenderer records the concrete WebKit error when one is available.
+			// Cancelling here is the expected fallback for a frame that cannot be snapshotted,
+			// so keep it as a breadcrumb instead of sending a second, context-free Sentry error.
+			LoggingPolicy.warning("Manual finding capture cancelled: snapshot unavailable", logger: .ui)
+			cancelFindPick()
+			return
+		case .documentChanged:
+			// The page changed under the snapshot, so the pixels could be either document's. Stay in
+			// alignment mode; the next tap takes a new one. No automatic retry, so a page that never
+			// settles cannot keep this spinning.
+			LoggingPolicy.info("Manual finding capture dropped: page changed during snapshot", logger: .ui)
+			abandonPendingCapture()
+			return
+		case let .captured(captured, capturedContext):
+			image = captured
+			context = capturedContext
+		}
+		let location: MapPageLocation
+		switch await appState.browserState.resolveCaptureLocation(for: context) {
+		case let .resolved(resolved):
+			location = resolved
+		case .drifted:
+			// Defensive: the context was proven current by `captureSnapshot` in this same main-actor
+			// turn, and `resolveCaptureLocation` classifies before its first suspension. Kept so a
+			// future await between the two cannot silently pair a moved page with this image.
+			guard captureResolutionGeneration == generation, findPickActive else { return }
+			LoggingPolicy.info("Manual finding capture dropped: page moved before its location was read", logger: .ui)
+			abandonPendingCapture()
+			return
+		}
+		guard captureResolutionGeneration == generation, findPickActive else { return }
+		present(FindingCapture(
+			observation: observation,
+			params: nil,
+			frame: AppliedDetectionFrame(
+				image: image,
+				results: [],
+				provenance: SnapshotProvenance(context: context, isCoherent: true)
+			),
+			location: location
+		))
 	}
 
 	/// Freezes the displayed frame and opens a new resolution generation. Every capture path goes
@@ -882,8 +935,21 @@ struct WebScreenView: View {
 		showSignInOffer = true
 	}
 
+	/// What a pick does with a retained frame that can no longer be tied to the live page.
+	private enum UnsettledFrameHandling {
+		/// A detected rectangle belongs to that frame, so release it and let detection produce a
+		/// current one (bounded by ``RetainedFrameReacquirePolicy``).
+		case reacquire
+		/// A centre pick is not tied to the frame's detections: take a fresh, context-bound snapshot.
+		case retakeSnapshot
+	}
+
 	/// Resolves the page's URL and, where a map will say, its coordinate — then presents the sheet
 	/// (AIA-0817). Its caller has already frozen the aligned snapshot.
+	///
+	/// The location is resolved for the document the FRAME came from, not for whatever the browser
+	/// shows now (AIA-0846): a frame of another document keeps its own URL with no coordinate, and
+	/// the live map is asked only while it is provably the one in the frame.
 	///
 	/// Asking the live map is asynchronous, so the alignment overlay remains visible until
 	/// `present`. If interaction resumes before that answer arrives, its generation is invalidated
@@ -892,7 +958,8 @@ struct WebScreenView: View {
 		observation: DetectedObject,
 		params: DeepDriverParams?,
 		frame: AppliedDetectionFrame,
-		generation: UInt64
+		generation: UInt64,
+		ifFrameIsUnsettled handling: UnsettledFrameHandling
 	) {
 		Task { @MainActor in
 			defer {
@@ -900,18 +967,61 @@ struct WebScreenView: View {
 					isResolvingCapture = false
 				}
 			}
-			let resolved = await appState.browserState.resolveCaptureLocation()
+			var location: MapPageLocation?
+			// A frame whose snapshot straddled a change has no single source; one whose document has
+			// since moved on within itself needs a fresh look before its live map may be asked. A
+			// centre pick is not tied to the frame at all, so for it a frame of any page but the one
+			// on screen is simply retaken: the user was aiming at what they can see.
+			if frame.provenance.isCoherent, let context = frame.provenance.context,
+			   handling == .reacquire || appState.browserState.relation(of: context) == .current,
+			   case let .resolved(resolved) = await appState.browserState.resolveCaptureLocation(for: context) {
+				location = resolved
+			}
 			// The screen can be unmounted mid-resolve — a mode switch, or the user simply leaving —
 			// and `onDisappear` cancels the pick. Without this the sheet would arrive afterwards, on
 			// a screen the user had already walked away from (raised in review). `present` clears
 			// the flag itself, so this reads it while it still means "the pick is live".
 			guard captureResolutionGeneration == generation, findPickActive else { return }
+			if location == nil {
+				switch handling {
+				case .retakeSnapshot:
+					await captureFreshSnapshot(observation: observation, generation: generation)
+					return
+				case .reacquire:
+					switch reacquirePolicy.frameIsUnsettled(context: frame.provenance.context) {
+					case .reacquire:
+						LoggingPolicy.info("Finding capture: frame no longer matches the page; reacquiring", logger: .ui)
+						reacquireFrame()
+						return
+					case let .recordURLOnly(url):
+						// Already reacquired once in this alignment session and the page moved again.
+						// The frame's own URL, with no coordinate: never the live page's.
+						location = MapPageLocation(sourceURL: url)
+					}
+				}
+			}
+			guard let location else { return }
 			present(FindingCapture(
 				observation: observation,
 				params: params,
 				frame: frame,
-				location: resolved
+				location: location
 			))
+		}
+	}
+
+	/// Releases a frame that cannot be tied to the page so detection replaces it.
+	///
+	/// `abandonPendingCapture()` restarts the detection timer, whose immediate snapshot produces a
+	/// current frame. The onboarding tour froze detection when Find was entered and its one-tap pick
+	/// does not freeze again, so there the pick is cancelled outright; Find starts it afresh.
+	/// With detection paused nothing replaces the frame: the crosshair stays red and a centre tap
+	/// still works through a fresh snapshot.
+	private func reacquireFrame() {
+		if appState.tour.isActive {
+			cancelFindPick()
+		} else {
+			abandonPendingCapture()
 		}
 	}
 
@@ -934,7 +1044,9 @@ struct WebScreenView: View {
 			observation: observation,
 			params: selection?.params,
 			frame: frame,
-			generation: captureResolutionGeneration
+			generation: captureResolutionGeneration,
+			// A tap outside every box is a centre-style pick, not tied to the frame's detections.
+			ifFrameIsUnsettled: selection == nil ? .retakeSnapshot : .reacquire
 		)
 	}
 
@@ -953,6 +1065,7 @@ struct WebScreenView: View {
 	/// afterwards would re-enter `cancelFindPick()` from `present(_:)` and abandon the capture that
 	/// was just built. Same family of hazard as the `pageToOpen` latch documented above (AIA-0657).
 	private func endFindPick() {
+		reacquirePolicy.reset()
 		findPickActive = false
 		appState.chromeState.findPickEnded()
 	}
@@ -1328,5 +1441,36 @@ private struct WebReloadStopButton: View {
 		}
 		.accessibilityLabel(browserState.isLoading ? L10n.Browser.Navigation.stop : L10n.Browser.Navigation.reload)
 		.testability(Testability.Button.webToolbarReload)
+	}
+}
+
+/// Bounds how often a detected pick may release its frame because the frame no longer matches
+/// the page (AIA-0846).
+///
+/// Once per alignment session: the first time, the frame is released so detection can take a
+/// current one; if the page has moved again by the next tap — a page that keeps rewriting its own
+/// URL — the finding is recorded against the frame's own URL with no coordinate rather than
+/// sending the user round the same loop forever. A frame whose document is unknown has no URL to
+/// fall back to, so it is always released; each attempt needs a new tap, so that cannot loop.
+struct RetainedFrameReacquirePolicy: Equatable {
+	enum Decision: Equatable {
+		case reacquire
+		case recordURLOnly(URL?)
+	}
+
+	private(set) var hasReacquired = false
+
+	mutating func reset() {
+		hasReacquired = false
+	}
+
+	/// - Parameter context: the frame's own capture context, `nil` when its document is unknown.
+	mutating func frameIsUnsettled(context: CaptureContext?) -> Decision {
+		guard let context else { return .reacquire }
+		guard hasReacquired else {
+			hasReacquired = true
+			return .reacquire
+		}
+		return .recordURLOnly(context.sourceURL)
 	}
 }

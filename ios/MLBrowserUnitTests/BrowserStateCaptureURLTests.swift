@@ -208,3 +208,370 @@ final class BrowserStateCaptureURLTests: XCTestCase {
 		)
 	}
 }
+
+// MARK: - AIA-0846: the image and its location come from one capture context
+
+/// Holds an async dependency (a snapshot, a map probe) until the test releases it, so the page can
+/// be changed at an exact point between the dependency starting and returning. No sleeps order
+/// anything here: the test waits for the dependency to have *started*, then acts.
+@MainActor
+private final class Held<Value: Sendable> {
+	private var continuation: CheckedContinuation<Value, Never>?
+	private(set) var startCount = 0
+
+	func wait() async -> Value {
+		startCount += 1
+		return await withCheckedContinuation { continuation = $0 }
+	}
+
+	/// Bounded, so a broken seam fails readably instead of hanging the suite.
+	func untilStarted(file: StaticString = #filePath, line: UInt = #line) async {
+		let deadline = Date().addingTimeInterval(5)
+		while continuation == nil {
+			if Date() > deadline {
+				XCTFail("the held dependency never started", file: file, line: line)
+				return
+			}
+			await Task.yield()
+		}
+	}
+
+	func release(_ value: Value) {
+		guard let continuation else { return XCTFail("nothing is held") }
+		self.continuation = nil
+		continuation.resume(returning: value)
+	}
+}
+
+@MainActor
+private final class AskedURLs {
+	var urls: [URL?] = []
+}
+
+extension BrowserStateCaptureURLTests {
+
+	private var pageA: URL { URL(string: "https://example.org/a")! }
+	private var pageB: URL { URL(string: "https://example.org/b")! }
+
+	/// What a live map on the CURRENT page would answer: a real coordinate, so a result that carries
+	/// it is unmistakably the live page's rather than the URL-only floor.
+	private func liveAnswer(for url: URL?) -> MapPageLocation {
+		MapPageLocation(
+			sourceURL: url,
+			reading: MapLocationReading(
+				coordinate: MapCoordinate(latitude: 10.5, longitude: 20.5)!,
+				source: .leaflet
+			)
+		)
+	}
+
+	/// Replaces the real probe with one that records the URL it was asked about and answers from
+	/// `held` when given, immediately otherwise.
+	private func stubResolver(held: Held<MapPageLocation>? = nil) -> () -> [URL?] {
+		let recorder = AskedURLs()
+		let live = liveAnswer(for:)
+		state.locationResolver = { url, _, _, _, _ in
+			recorder.urls.append(url)
+			if let held { return await held.wait() }
+			return live(url)
+		}
+		return { recorder.urls }
+	}
+
+	private func replaceState(_ path: String) async {
+		_ = try? await webView.evaluateJavaScript("history.replaceState(null, '', '\(path)'); true")
+		await settle()
+	}
+
+	/// The web view is torn down and a new one attached, as the AIA-0509 rebuild does.
+	private func replaceWebView() {
+		state.webViewInvalidated()
+		webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 320, height: 240))
+		state.attach(webView)
+	}
+
+	// MARK: Context lifecycle
+
+	func testContext_ReloadOfTheSameURL_IsAnotherDocument() async throws {
+		await load("<p>A</p>", at: pageA)
+		let context = try XCTUnwrap(state.captureContext)
+
+		// A reload commits a new document at the same address. URL equality cannot see it.
+		state.navigationCommitted(nil, from: webView)
+
+		XCTAssertEqual(state.captureURL, pageA)
+		XCTAssertEqual(state.relation(of: context), .otherDocument)
+	}
+
+	func testContext_WebViewReplacement_IsAnotherDocument() async throws {
+		await load("<p>A</p>", at: pageA)
+		let context = try XCTUnwrap(state.captureContext)
+
+		replaceWebView()
+
+		XCTAssertEqual(state.relation(of: context), .otherDocument)
+	}
+
+	func testContext_ReplaceState_IsSameDocumentDrift() async throws {
+		await load("<p>map</p>", at: pageA)
+		let context = try XCTUnwrap(state.captureContext)
+
+		await replaceState("/a#map=15/47.941230/18.709545")
+
+		XCTAssertEqual(state.relation(of: context), .sameDocumentDrift)
+	}
+
+	/// While another document is being fetched `captureURL` deliberately holds still, so a map
+	/// panning underneath would be invisible to it. The live URL is part of the context for exactly
+	/// this: the rewrite still counts as the page having moved.
+	func testContext_RewriteWhileAnotherDocumentLoads_IsStillDrift() async throws {
+		await load("<p>map</p>", at: pageA)
+		let context = try XCTUnwrap(state.captureContext)
+
+		state.navigationStarted(nil, from: webView)
+		await replaceState("/a#moved")
+
+		XCTAssertEqual(state.captureURL, context.sourceURL, "precondition: the recorded URL held still")
+		XCTAssertEqual(state.relation(of: context), .sameDocumentDrift)
+	}
+
+	func testContext_NothingHappened_IsCurrent() async throws {
+		await load("<p>A</p>", at: pageA)
+		let context = try XCTUnwrap(state.captureContext)
+
+		XCTAssertEqual(state.relation(of: context), .current)
+		XCTAssertEqual(context.sourceURL, pageA)
+	}
+
+	// MARK: Scenarios 1 and 2 — a retained frame is never enriched from another page
+
+	func testRetainedFrame_AfterAnotherPageCommits_KeepsItsOwnURL_AndNeverAsksTheNewPage() async throws {
+		await load("<p>A</p>", at: pageA)
+		let frameContext = try XCTUnwrap(state.captureContext)
+		await load("<p>B</p>", at: pageB)
+		let asked = stubResolver()
+
+		let result = await state.resolveCaptureLocation(for: frameContext)
+
+		XCTAssertEqual(result, .resolved(MapPageLocation(sourceURL: pageA)))
+		XCTAssertTrue(asked().isEmpty, "page B must not be probed to describe an image of page A")
+	}
+
+	func testRetainedFrame_AfterASameURLReload_IsNotEnrichedFromTheNewDocument() async throws {
+		await load("<p>A</p>", at: pageA)
+		let frameContext = try XCTUnwrap(state.captureContext)
+		state.navigationCommitted(nil, from: webView)
+		let asked = stubResolver()
+
+		let result = await state.resolveCaptureLocation(for: frameContext)
+
+		XCTAssertEqual(result, .resolved(MapPageLocation(sourceURL: pageA)))
+		XCTAssertTrue(asked().isEmpty)
+	}
+
+	func testRetainedFrame_AfterWebViewReplacement_KeepsItsOwnURL() async throws {
+		await load("<p>A</p>", at: pageA)
+		let frameContext = try XCTUnwrap(state.captureContext)
+		replaceWebView()
+		let asked = stubResolver()
+
+		let result = await state.resolveCaptureLocation(for: frameContext)
+
+		XCTAssertEqual(result, .resolved(MapPageLocation(sourceURL: pageA)))
+		XCTAssertTrue(asked().isEmpty)
+	}
+
+	/// Same document, moved on: the live map need not be showing what the frame shows, so it is not
+	/// asked and the caller is told to get a fresh image.
+	func testRetainedFrame_AfterReplaceState_IsDrifted_AndNotProbed() async throws {
+		await load("<p>map</p>", at: pageA)
+		let frameContext = try XCTUnwrap(state.captureContext)
+		await replaceState("/a#map=15/47.941230/18.709545")
+		let asked = stubResolver()
+
+		let result = await state.resolveCaptureLocation(for: frameContext)
+
+		XCTAssertEqual(result, .drifted)
+		XCTAssertTrue(asked().isEmpty)
+	}
+
+	// MARK: Scenario 4 — the page changes while the probe is out
+
+	private func assertProbeAnswerDropped(
+		when change: () async -> Void,
+		file: StaticString = #filePath,
+		line: UInt = #line
+	) async throws {
+		await load("<p>map</p>", at: pageA)
+		let context = try XCTUnwrap(state.captureContext)
+		let held = Held<MapPageLocation>()
+		let asked = stubResolver(held: held)
+
+		let resolving = Task { await state.resolveCaptureLocation(for: context) }
+		await held.untilStarted(file: file, line: line)
+		await change()
+		held.release(liveAnswer(for: state.captureURL))
+		let result = await resolving.value
+
+		XCTAssertEqual(asked(), [pageA], "the probe was asked about the frame's page", file: file, line: line)
+		XCTAssertEqual(
+			result,
+			.resolved(MapPageLocation(sourceURL: pageA)),
+			"an answer that arrived after the page changed must not be kept",
+			file: file,
+			line: line
+		)
+	}
+
+	func testProbe_AnotherPageCommitsMidProbe_AnswerDropped_URLKept() async throws {
+		try await assertProbeAnswerDropped { await load("<p>B</p>", at: pageB) }
+	}
+
+	/// A redirect is a commit of a different URL; a reload is a commit of the same one.
+	func testProbe_SameURLReloadMidProbe_AnswerDropped_URLKept() async throws {
+		try await assertProbeAnswerDropped { state.navigationCommitted(nil, from: webView) }
+	}
+
+	func testProbe_ReplaceStateMidProbe_AnswerDropped_URLKept() async throws {
+		try await assertProbeAnswerDropped { await replaceState("/a#elsewhere") }
+	}
+
+	func testProbe_WebViewReplacedMidProbe_AnswerDropped_URLKept() async throws {
+		try await assertProbeAnswerDropped { replaceWebView() }
+	}
+
+	/// The page ends where it started, but it was somewhere else while the probe was out; the answer
+	/// may describe the detour.
+	func testProbe_URLRoundTripMidProbe_AnswerDropped_URLKept() async throws {
+		try await assertProbeAnswerDropped {
+			await replaceState("/a#detour")
+			await replaceState("/a")
+		}
+	}
+
+	// MARK: Positive controls
+
+	/// A heavy map app can keep loading long after its document committed, and while it does the
+	/// recorded URL holds still. A pan made then, BEFORE the snapshot, is part of what the image shows,
+	/// so the live map is still asked and its answer kept.
+	func testProbe_RewriteWhileLoadingBeforeTheSnapshot_StillKeepsTheLiveAnswer() async throws {
+		await load("<p>map</p>", at: pageA)
+		state.navigationStarted(nil, from: webView)
+		await replaceState("/a#panned")
+		let context = try XCTUnwrap(state.captureContext)
+		XCTAssertNotEqual(context.sourceURL, context.liveURL, "precondition: the recorded URL is held")
+		let asked = stubResolver()
+
+		let result = await state.resolveCaptureLocation(for: context)
+
+		XCTAssertEqual(asked(), [pageA])
+		XCTAssertEqual(result, .resolved(liveAnswer(for: pageA)))
+	}
+
+	func testProbe_UnchangedPage_KeepsTheLiveAnswer() async throws {
+		await load("<p>map</p>", at: pageA)
+		let context = try XCTUnwrap(state.captureContext)
+		let asked = stubResolver()
+
+		let result = await state.resolveCaptureLocation(for: context)
+
+		XCTAssertEqual(asked(), [pageA])
+		XCTAssertEqual(result, .resolved(liveAnswer(for: pageA)))
+	}
+
+	func testProbe_NoCoordinateAvailable_StillRecordsThePage() async throws {
+		await load("<p>article</p>", at: pageA)
+		let context = try XCTUnwrap(state.captureContext)
+		state.locationResolver = { url, _, _, _, _ in MapPageLocation(sourceURL: url) }
+
+		let result = await state.resolveCaptureLocation(for: context)
+
+		XCTAssertEqual(result, .resolved(MapPageLocation(sourceURL: pageA)))
+	}
+
+	// MARK: Scenario 3 — a fresh snapshot is bound to the page it came from
+
+	private func assertSnapshotRefused(
+		when change: () async -> Void,
+		file: StaticString = #filePath,
+		line: UInt = #line
+	) async {
+		await load("<p>A</p>", at: pageA)
+		let held = Held<String?>()
+
+		let capturing = Task { await state.captureSnapshot { await held.wait() } }
+		await held.untilStarted(file: file, line: line)
+		await change()
+		held.release("pixels of whatever is on screen now")
+
+		guard case .documentChanged = await capturing.value else {
+			return XCTFail("pixels taken across a page change must not be attributed to either page", file: file, line: line)
+		}
+	}
+
+	func testSnapshot_AnotherPageCommitsMidSnapshot_IsRefused() async {
+		await assertSnapshotRefused { await load("<p>B</p>", at: pageB) }
+	}
+
+	func testSnapshot_SameURLReloadMidSnapshot_IsRefused() async {
+		await assertSnapshotRefused { state.navigationCommitted(nil, from: webView) }
+	}
+
+	func testSnapshot_ReplaceStateMidSnapshot_IsRefused() async {
+		await assertSnapshotRefused { await replaceState("/a#elsewhere") }
+	}
+
+	func testSnapshot_WebViewReplacedMidSnapshot_IsRefused() async {
+		await assertSnapshotRefused { replaceWebView() }
+	}
+
+	func testSnapshot_UnchangedPage_IsBoundToIt() async throws {
+		await load("<p>A</p>", at: pageA)
+		let expected = try XCTUnwrap(state.captureContext)
+
+		let result = await state.captureSnapshot { "pixels of A" }
+
+		guard case let .captured(image, context) = result else { return XCTFail("expected a capture") }
+		XCTAssertEqual(image, "pixels of A")
+		XCTAssertEqual(context, expected)
+		XCTAssertEqual(context.sourceURL, pageA)
+	}
+
+	func testSnapshot_NoWebView_IsUnavailable_AndNeverTaken() async {
+		let detached = BrowserState(settings: settings)
+		var taken = false
+
+		let result = await detached.captureSnapshot { () -> String? in
+			taken = true
+			return "pixels"
+		}
+
+		guard case .unavailable = result else { return XCTFail("expected unavailable") }
+		XCTAssertFalse(taken)
+	}
+
+	func testSnapshot_NoImage_IsUnavailable() async {
+		await load("<p>A</p>", at: pageA)
+
+		let result = await state.captureSnapshot { () -> String? in nil }
+
+		guard case .unavailable = result else { return XCTFail("expected unavailable") }
+	}
+
+	/// The whole manual path in order: snapshot first, then the location for THAT snapshot's context.
+	/// Page B committing after the snapshot cannot lend the finding its URL or coordinate.
+	func testFreshCapture_PageChangesAfterTheSnapshot_LocationStaysWithTheImage() async throws {
+		await load("<p>A</p>", at: pageA)
+		let asked = stubResolver()
+
+		guard case let .captured(image, context) = await state.captureSnapshot({ "pixels of A" }) else {
+			return XCTFail("expected a capture")
+		}
+		await load("<p>B</p>", at: pageB)
+		let location = await state.resolveCaptureLocation(for: context)
+
+		XCTAssertEqual(image, "pixels of A")
+		XCTAssertEqual(location, .resolved(MapPageLocation(sourceURL: pageA)))
+		XCTAssertTrue(asked().isEmpty)
+	}
+}

@@ -441,17 +441,21 @@ class DependencyContainer {
 	/// injected into `AppState` (which no longer constructs them). Each session receives the
 	/// same shared singletons, so instances are identical across the graph.
 	func makeAppState() -> AppState {
-		let detection = DetectionSession(
-			snap: snapState,
-			settings: settings,
-			analytics: analyticsState
-		)
 		let browser = BrowserSession(
 			settings: settings,
 			dataController: dataController,
 			// AIA-0509: retry a failed page load when the app becomes active — `didBecomeActive`
 			// rather than `willEnterForeground`, which fires before the app is actually active.
 			activeNotification: UIApplication.didBecomeActiveNotification
+		)
+		let detection = DetectionSession(
+			snap: snapState,
+			settings: settings,
+			analytics: analyticsState,
+			// AIA-0846: every detection snapshot records which document it came from, so a finding
+			// made from it can be held to that document. Read only when a snapshot runs, by which
+			// time the web view (and so `browserState`) exists; nothing is forced here.
+			captureContext: { [weak browser] in browser?.browserState.captureContext }
 		)
 		// The payments flag is resolved once here, at the session boundary, and handed to
 		// the account session as a plain value (AIA-0350) — the app root must not swap

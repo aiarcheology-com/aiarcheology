@@ -18,6 +18,8 @@ Test Focus: The app can now run with no subscription at all. In this build that 
 
 - Delete asks first. Menu > Models: swipe a model left (or long-press it) and tap Delete. An alert should name the model; Cancel keeps it, Delete removes it. A long fast swipe must not delete without the alert. Settings > Delete cache > Delete: an alert should say all cookies and website data will be deleted; Cancel changes nothing.
 
+- Findings on maps: on a map site, tap Find, pan, and store a finding. The saved picture, Page and GPS must all describe the same view. If the page moves or changes as you tap, the crosshair may go red again; tap once more. Report a finding whose picture and Page/GPS disagree.
+
 STILL WORTH RETESTING FROM THE PREVIOUS BUILD
 
 - Large model import: Menu > Models > Import a ~500 MB .tar detector checkpoint. It should either import, or show a clear "not enough memory" message, never make the app vanish. Please send the numbers from the message and the conversion log (Models > failed import > log icon > Share), with your device named. A model that imported fine before but now reports low memory is a bug.

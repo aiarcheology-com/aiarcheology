@@ -12,7 +12,12 @@ import SwiftUI
 enum DetectionPresentation {
 	static func filteredFrame(_ frame: AppliedDetectionFrame?) -> AppliedDetectionFrame? {
 		guard let frame else { return nil }
-		return AppliedDetectionFrame(image: frame.image, results: filteredResults(frame.results))
+		// The provenance travels with the image: the screen's pick flow reads this filtered copy.
+		return AppliedDetectionFrame(
+			image: frame.image,
+			results: filteredResults(frame.results),
+			provenance: frame.provenance
+		)
 	}
 
 	static func filteredResults(_ results: [DetectionResult]) -> [DetectionResult] {

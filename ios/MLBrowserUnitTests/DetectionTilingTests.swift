@@ -370,6 +370,13 @@ final class TileLayoutGeometryTests: XCTestCase {
 
 // MARK: - SnapshotDetectionQueue tests
 
+private extension QueuedSnapshot {
+	/// These tests are about ordering, not provenance (AIA-0846 covers that in DetectionCoordinatorTests).
+	init(_ image: UIImage) {
+		self.init(image: image, provenance: .unknown)
+	}
+}
+
 @MainActor
 final class SnapshotDetectionQueueTests: XCTestCase {
 
@@ -378,7 +385,7 @@ final class SnapshotDetectionQueueTests: XCTestCase {
 		var started: [UIImage] = []
 		let image = UIImage()
 
-		queue.enqueue(image) { image, _ in started.append(image) }
+		queue.enqueue(QueuedSnapshot(image)) { snapshot, _ in started.append(snapshot.image) }
 
 		XCTAssertEqual(started, [image])
 		XCTAssertTrue(queue.inFlight)
@@ -388,17 +395,17 @@ final class SnapshotDetectionQueueTests: XCTestCase {
 		let queue = SnapshotDetectionQueue()
 		var started: [UIImage] = []
 		var completions: [@MainActor () -> Void] = []
-		let pass: SnapshotDetectionQueue.Pass = { image, done in
-			started.append(image)
+		let pass: SnapshotDetectionQueue.Pass = { snapshot, done in
+			started.append(snapshot.image)
 			completions.append(done)
 		}
 		let first = UIImage()
 		let second = UIImage()
 		let third = UIImage()
 
-		queue.enqueue(first, pass: pass)
-		queue.enqueue(second, pass: pass)
-		queue.enqueue(third, pass: pass)
+		queue.enqueue(QueuedSnapshot(first), pass: pass)
+		queue.enqueue(QueuedSnapshot(second), pass: pass)
+		queue.enqueue(QueuedSnapshot(third), pass: pass)
 		// Only the first pass ran; the middle snapshot was coalesced away.
 		XCTAssertEqual(started, [first])
 
@@ -414,13 +421,13 @@ final class SnapshotDetectionQueueTests: XCTestCase {
 		let queue = SnapshotDetectionQueue()
 		var started: [UIImage] = []
 		var completions: [@MainActor () -> Void] = []
-		let pass: SnapshotDetectionQueue.Pass = { image, done in
-			started.append(image)
+		let pass: SnapshotDetectionQueue.Pass = { snapshot, done in
+			started.append(snapshot.image)
 			completions.append(done)
 		}
 
-		queue.enqueue(UIImage(), pass: pass)
-		queue.enqueue(UIImage(), pass: pass)
+		queue.enqueue(QueuedSnapshot(UIImage()), pass: pass)
+		queue.enqueue(QueuedSnapshot(UIImage()), pass: pass)
 		queue.cancelPending()
 		completions[0]()
 
