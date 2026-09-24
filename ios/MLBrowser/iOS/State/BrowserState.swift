@@ -257,13 +257,7 @@ final class BrowserState: ObservableObject {
 	/// another document that is about to be fetched. Treating it as "maintained" is still the safe
 	/// reading, since the only thing it withholds is our own rewrite of the URL; if another document
 	/// does commit, its commit clears this.
-	var hasURLChangeWhileLoading: Bool { urlChangedWhileLoading != nil }
-
-	/// The latest address behind ``hasURLChangeWhileLoading``. Kept, not only flagged, because it is
-	/// the address a reload issued before loading ends will reopen, while `committedURL` still holds
-	/// the one the document committed at. If the change was really a load announcing another
-	/// document, that document committing here is taken as a reload — the same safe direction.
-	private var urlChangedWhileLoading: URL?
+	private(set) var hasURLChangeWhileLoading = false
 
 	/// The Reopen Last Page URL whose load is on its way, consumed by the next commit (AIA-0875).
 	private var pendingLastPageRestore: URL?
@@ -494,7 +488,7 @@ final class BrowserState: ObservableObject {
 		// AIA-0846: whatever the previous instance was showing, an image from it is not from this one.
 		documentChanged()
 		hasObservedSameDocumentURLChange = false
-		urlChangedWhileLoading = nil
+		hasURLChangeWhileLoading = false
 		isOpenedAtAppWrittenURL = false
 		provisionalNavigation = nil
 		isProvisionalNavigationInFlight = false
@@ -698,7 +692,7 @@ final class BrowserState: ObservableObject {
 	func navigationCommitted(_ navigation: WKNavigation?, from webView: WKWebView? = nil) {
 		guard isCurrent(webView), isLatest(navigation) else { return }
 		// AIA-0875: what the outgoing document was, read before anything below replaces it.
-		let previousURLs = [committedURL, urlChangedWhileLoading].compactMap { $0 }
+		let previousURL = committedURL
 		let previousMaintainedItsURL = pageMaintainsItsURL
 		// The document is now the one on screen, so its URL is what a finding should record.
 		committedURL = (webView ?? self.webView)?.url ?? currentURL
@@ -707,13 +701,13 @@ final class BrowserState: ObservableObject {
 		documentChanged()
 		// A new document has its own habits; what the previous one did says nothing about it.
 		hasObservedSameDocumentURLChange = false
-		urlChangedWhileLoading = nil
+		hasURLChangeWhileLoading = false
 		// AIA-0875: except where the new document opens at an address the app itself wrote. The
 		// restore is one-shot — only the first commit after the request can be it, and only at the
 		// address that was saved. A reload of a page that maintained its URL reopens that page's own
 		// address, which it would otherwise have to be seen rewriting all over again.
 		let isRestore = pendingLastPageRestore != nil && committedURL == pendingLastPageRestore
-		let isReloadOfMaintainedPage = previousMaintainedItsURL && committedURL.map(previousURLs.contains) == true
+		let isReloadOfMaintainedPage = previousMaintainedItsURL && previousURL != nil && committedURL == previousURL
 		isOpenedAtAppWrittenURL = isRestore || isReloadOfMaintainedPage
 		pendingLastPageRestore = nil
 		// Every frame handle belonged to the page being replaced.
@@ -855,7 +849,7 @@ final class BrowserState: ObservableObject {
 		committedURL = nil
 		documentChanged()
 		hasObservedSameDocumentURLChange = false
-		urlChangedWhileLoading = nil
+		hasURLChangeWhileLoading = false
 		isOpenedAtAppWrittenURL = false
 		// Whichever path invalidated the instance (rebuild or process death), its committed
 		// document does not survive it (AIA-0552).
@@ -1038,7 +1032,7 @@ final class BrowserState: ObservableObject {
 			// its address while its resources still arrive, or a load not yet announced by
 			// `didStartProvisionalNavigation`; see `hasURLChangeWhileLoading` for why either is
 			// taken as the safe answer.
-			urlChangedWhileLoading = url
+			hasURLChangeWhileLoading = true
 		}
 		// Sticky, and gated on the same reopenability rule persistence uses: KVO drives
 		// `currentURL` to nil when the content process dies, and `file://` fixture URLs
