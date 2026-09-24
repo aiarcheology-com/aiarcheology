@@ -137,6 +137,47 @@ navigation is in flight. That second half is what makes it follow a map pan: `pu
 `replaceState` fire KVO and never commit, and `WKNavigationDelegate` has no public same-document
 callback — the only such method is private SPI and not App Store safe.
 
+## Binding the location to the image
+
+Introduced by AIA-0846. A finding is an image plus a page and, on a map, a coordinate, and those
+come from different awaits: the snapshot, then the live-map probe. The page can commit another
+document, reload the same URL, lose its web view, or rewrite its own URL in between. Reading the
+URL before an await proves nothing about what the next await returns, and URL equality cannot see
+a reload at all.
+
+So every snapshot carries a **capture context** (`CaptureContext` in `BrowserState.swift`), read
+synchronously on both sides of the snapshot:
+
+| Part | Changes when |
+|-|-|
+| document revision | a navigation commits (including a same-URL reload, a redirect, a back/forward restore), a web view is attached or invalidated |
+| recorded URL | `captureURL` moves — including a same-document `pushState`/`replaceState` |
+| live URL | `webView.url` moves — which also sees a rewrite while `captureURL` is held during another load |
+| iframe revision | a recorded map iframe navigates and is superseded |
+
+The rules that use it:
+
+- **A different document** (revision changed, or no web view): the finding keeps the image's own
+  URL and no coordinate. The live page is never probed to describe another page's image.
+- **Same document, moved on** since the image: the live viewport need not be the one in the
+  pixels. A detected pick releases the frame so detection takes a current one; if the page has
+  moved again by the next tap in the same Find session, the image's own URL is recorded with no
+  coordinate. A centre pick simply takes a fresh snapshot.
+- **Unchanged**: the live map is asked, and its answer is kept only if the context is still
+  unchanged when it arrives; otherwise the URL-only floor applies.
+- **A snapshot whose context changed while WebKit took it** still feeds detection — refusing it
+  would leave the boxes blank for a timer period after every pan on a map that rewrites its URL
+  while it glides — but it cannot become a finding as it is: same-document ones follow the "moved
+  on" rule, unknown-document ones are always released.
+- The manual capture takes its image **first** and resolves the location for that image's context.
+
+Residuals, stated rather than implied: WebKit may still paint the old document briefly after a
+commit, and there is no public first-paint signal; a map that moves its viewport by script, with no
+URL or iframe change and no user interaction, is not observable (as before); a brand-new iframe that
+appears after the snapshot is not tracked, and was not in the pixels either; and a rewrite made
+while another document is loading, *before* the snapshot, records the held `captureURL` with the
+same document's live coordinate — the existing "which URL" policy above.
+
 ## Failing without taking the page down
 
 Introduced by AIA-0821. The parser injects a script into every page at document start, and during
