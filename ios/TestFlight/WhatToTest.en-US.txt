@@ -14,6 +14,8 @@ Test Focus: The app can now run with no subscription at all. In this build that 
 
 - If you already have the app installed and just update, nothing should change for you: no new Welcome screen, and your subscription status in Settings as before.
 
+- Crash fix: the app could crash on its own when iOS woke it in the background to check for new messages, often right as you opened it. Keep this build installed with Background App Refresh on (Settings > General > Background App Refresh) and use it normally over a few days. Please report any crash, especially one right after opening the app.
+
 STILL WORTH RETESTING FROM THE PREVIOUS BUILD
 
 - Large model import: Menu > Models > Import a ~500 MB .tar detector checkpoint. It should either import, or show a clear "not enough memory" message, never make the app vanish. Please send the numbers from the message and the conversion log (Models > failed import > log icon > Share), with your device named. A model that imported fine before but now reports low memory is a bug.
