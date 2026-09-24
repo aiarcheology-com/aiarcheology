@@ -328,6 +328,61 @@ final class URLExtensionsTests: XCTestCase {
         }
     }
 
+    // AIA-0606: `…/DocumentsBackup` shares a string prefix with `…/Documents` but is a sibling.
+    // A bare `hasPrefix` accepted it and returned "Backup/model.mlmodel"; it must throw.
+    func testRelativePath_ThrowsForSiblingDirectorySharingNamePrefix() throws {
+        let documents = try FileManager.default.url(
+            for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        )
+        let sibling = documents
+            .deletingLastPathComponent()
+            .appendingPathComponent(documents.lastPathComponent + "Backup", isDirectory: true)
+            .appendingPathComponent("model.mlmodel")
+
+        XCTAssertThrowsError(try sibling.relativePath(from: .documentDirectory)) { error in
+            XCTAssertTrue(error is CocoaError)
+        }
+    }
+
+    func testRelativePath_ThrowsForDotDotComponentClimbingOut() throws {
+        let documents = try FileManager.default.url(
+            for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        )
+        let escaping = documents.appendingPathComponent("Configurations/../../Library/model.mlmodel")
+
+        XCTAssertThrowsError(try escaping.relativePath(from: .documentDirectory)) { error in
+            XCTAssertTrue(error is CocoaError)
+        }
+    }
+
+    func testRelativePath_ThrowsForTheDirectoryItself() throws {
+        let documents = try FileManager.default.url(
+            for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        )
+
+        XCTAssertThrowsError(try documents.relativePath(from: .documentDirectory)) { error in
+            XCTAssertTrue(error is CocoaError)
+        }
+    }
+
+    func testRelativePath_ReturnsComponentsBelowTheDirectory() throws {
+        let documents = try FileManager.default.url(
+            for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        )
+
+        XCTAssertEqual(
+            try documents.appendingPathComponent("model.mlmodelc").relativePath(from: .documentDirectory).relativeString,
+            "model.mlmodelc"
+        )
+        XCTAssertEqual(
+            try documents
+                .appendingPathComponent("Configurations/ABC-123/model.mlmodelc")
+                .relativePath(from: .documentDirectory)
+                .relativeString,
+            "Configurations/ABC-123/model.mlmodelc"
+        )
+    }
+
     func testRelativePath_CompletePath_RoundTripsSpecialCharacters() throws {
         let documents = try FileManager.default.url(
             for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false

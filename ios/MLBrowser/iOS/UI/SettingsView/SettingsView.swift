@@ -433,9 +433,18 @@ struct SettingsForm: View {
 		HStack {
 			Text(L10n.Settings.deleteCache)
 			Spacer()
+			// Confirmed first (AIA-0331): `clean()` wipes every cookie and all website data, not
+			// just the cache, and cannot be undone. Same item-based alert as Restore Defaults.
 			Button(action: {
-				WebCacheCleaner.clean()
-				cleanCacheButtonColor = .blue
+				alertItem = AlertItem(
+					title: Text(L10n.Alert.DeleteCache.title),
+					message: Text(L10n.Alert.DeleteCache.message),
+					primaryButton: .destructive(Text(L10n.Common.delete)) {
+						WebCacheCleaner.clean()
+						cleanCacheButtonColor = .blue
+					},
+					secondaryButton: .cancel()
+				)
 			}) {
 				Text(L10n.Common.delete)
 					.bold()

@@ -133,7 +133,7 @@ enum DownloadedFileNaming {
 	///   values **must not escape this function**. `standardizedFileURL` strips a leading `/private`
 	///   only when the stripped path exists, so it is not a pure function of its input: safe to
 	///   compare with, unsafe to return. The returned URL flows on to `URL.relativePath(from:)`,
-	///   which is a raw `hasPrefix` string test against a freshly-fetched Documents URL, so a
+	///   which is a lexical path-component test against a freshly-fetched Documents URL, so a
 	///   `/private` mismatch introduced here would fail every affected import **on device** while
 	///   passing in the simulator. That asymmetry is the AIA-0603 hazard
 	///   (`CatalogPackageDownloader.destinationURL(for:in:)`), met from the other end.

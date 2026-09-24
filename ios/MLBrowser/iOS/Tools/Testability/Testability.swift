@@ -76,6 +76,9 @@ extension TestabilityIdentification {
 		case sideMenuClose
 		case sideMenuConfigurationCell
 		case sideMenuDeleteConfiguration
+		// AIA-0330: the row's context-menu Delete, and the delete-model confirmation's action
+		case sideMenuDeleteConfigurationMenu
+		case sideMenuDeleteConfigurationConfirm
 		// Configuration Form
 		case configurationFormConversionLog
 		case configurationFormExport

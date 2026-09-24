@@ -119,6 +119,8 @@ enum AID {
 	static let findingsDismiss = "_AIA:Button.FindingsDismiss"
 	static let configEnabledToggle = "_AIA:Toggle.SideMenuCellEnabled"
 	static let configDelete = "_AIA:Button.SideMenuDeleteConfiguration"
+	static let configDeleteMenu = "_AIA:Button.SideMenuDeleteConfigurationMenu"
+	static let configDeleteConfirm = "_AIA:Button.SideMenuDeleteConfigurationConfirm"
 	static let configModelTypePicker = "_AIA:Picker.ConfigurationFormModelType"
 	static let configFormDismiss = "_AIA:Button.ConfigurationFormDismiss"
 	static let configDetectionConfidence = "_AIA:Slider.ConfigurationFormDetectionConfidence"
