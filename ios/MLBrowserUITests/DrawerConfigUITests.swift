@@ -103,6 +103,25 @@ final class DrawerConfigUITests: UITestCase {
         XCTAssertEqual(modelToggles().count, 2, "Cancelling must not delete the model")
     }
 
+    /// AIA-0330: the long-press context-menu Delete also asks first — the alert must present once
+    /// the menu has dismissed — and Cancel keeps the model.
+    func testDrawer_contextMenuDelete_asksFirst_cancelKeepsModel() {
+        openDrawerWithTwoSeededModels()
+        let firstRow = app.staticTexts.matching(identifier: AID.configDescription).firstMatch
+        XCTAssertTrue(firstRow.waitForExistence(timeout: 5), "No model row to long-press")
+        firstRow.press(forDuration: 1.2)
+
+        let menuDelete = app.buttons[AID.configDeleteMenu]
+        XCTAssertTrue(menuDelete.waitForExistence(timeout: 5), "Context menu Delete not shown")
+        menuDelete.tap()
+
+        let confirm = app.buttons[AID.configDeleteConfirm]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Delete-model confirmation not shown from the context menu")
+        app.alerts.firstMatch.buttons["Cancel"].tap()
+        XCTAssertTrue(waitForDisappearance(of: confirm), "Confirmation should dismiss after Cancel")
+        XCTAssertEqual(modelToggles().count, 2, "Cancelling must not delete the model")
+    }
+
     // MARK: - AIA-0402: model-type control
 
     /// Opens the first seeded model's settings and taps its description row.

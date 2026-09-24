@@ -733,15 +733,19 @@ private struct ConfigurationRow: View {
         .onTapGesture { onTap() }
         .buttonStyle(.borderless)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive, action: onDelete) {
+            // Red by tint, not `role: .destructive`: List animates a destructive swipe action's row
+            // away at once, and this one only asks for confirmation (AIA-0330).
+            Button(action: onDelete) {
                 Label(L10n.Common.delete, systemImage: "trash")
             }
+            .tint(.red)
             .testability(Testability.Button.sideMenuDeleteConfiguration)
         }
         .contextMenu {
             Button(role: .destructive, action: onDelete) {
                 Label(L10n.Common.delete, systemImage: "trash")
             }
+            .testability(Testability.Button.sideMenuDeleteConfigurationMenu)
         }
         // Keyed by objectID, NOT entityId: the id is re-evaluated while a swipe-deleted row leaves,
         // and Core Data has nullified the object by then — bridging its non-optional UUID traps
