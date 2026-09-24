@@ -77,7 +77,9 @@ final class DrawerConfigUITests: UITestCase {
         openDrawerWithTwoSeededModels()
         swipeDeleteFirstModel()
 
-        let confirm = app.buttons[AID.configDeleteConfirm]
+        // `.firstMatch`: the alert action reports the identifier on a nested element too, so a
+        // plain query matches twice and cannot be tapped.
+        let confirm = app.buttons[AID.configDeleteConfirm].firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Delete-model confirmation not shown")
         confirm.tap()
 
