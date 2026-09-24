@@ -447,6 +447,7 @@ struct MLBrowser: App {
 				// Passed explicitly: this modifier sits outside the `.environment(\.usesRealAuth)`
 				// injection above, so its sheet cannot inherit the value.
 				usesRealAuth: appState.usesRealAuth,
+				isPaymentsSurfaceEnabled: appState.subscriptionState.isPaymentsSurfaceEnabled,
 				currentURL: { appState.browserState.currentURL?.absoluteString }
 			)
 			// Above the auth/subscription/analytics gates (AIA-0115): a remote message can appear

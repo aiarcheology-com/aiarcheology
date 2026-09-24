@@ -14,6 +14,8 @@ import SwiftUI
 /// change in this screen stores a concrete answer and applies to later screenshots immediately.
 struct SupportSettingsView: View {
 	@EnvironmentObject private var settings: Settings
+	/// For the launch-captured payments flag only (AIA-0955). Reached from Settings, which carries it.
+	@EnvironmentObject private var subscriptionState: SubscriptionState
 	@Environment(\.usesRealAuth) private var usesRealAuth
 
 	@State private var showSupportRequest = false
@@ -40,7 +42,7 @@ struct SupportSettingsView: View {
 			// No category preset: reaching this from Settings says nothing about what is wrong, so
 			// the user picks. The environment value is re-injected because custom values do not
 			// reliably cross sheets on Mac (Designed for iPad).
-			SupportRequestView()
+			SupportRequestView(isPaymentsSurfaceEnabled: subscriptionState.isPaymentsSurfaceEnabled)
 				.environment(\.usesRealAuth, usesRealAuth)
 		}
 	}
@@ -57,5 +59,6 @@ struct SupportSettingsView: View {
 	NavigationStack {
 		SupportSettingsView()
 			.environmentObject(Settings())
+			.environmentObject(SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: false))
 	}
 }

@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 14
+	static let currentVersion = 15
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -108,6 +108,11 @@ struct UITestLaunchConfiguration: Codable {
 	/// `FreeAccessAnchorService.reconciledWindow()` folds an absent durable record into it and
 	/// repairs the mirror on the way past.
 	var freeAccessAnchorAgeDays: Int?
+
+	/// Seed the anchor with its day-0 screen **not yet shown** (AIA-0955). `nil`/`false` keeps the
+	/// default `day0Shown: true`. The one state that owes the priced Welcome screen from a previous
+	/// launch — a force-quit before it rendered — which a payments-off session must not raise.
+	var freeAccessDay0Unshown: Bool?
 
 	/// A shared-finding link to deliver at launch, as if `onOpenURL` had handed it over (AIA-0835).
 	///
@@ -246,7 +251,7 @@ struct UITestLaunchConfiguration: Codable {
 		}
 
 		if let ageDays = config.freeAccessAnchorAgeDays {
-			seedFreeAccessAnchor(ageDays: ageDays, in: settings)
+			seedFreeAccessAnchor(ageDays: ageDays, day0Shown: config.freeAccessDay0Unshown != true, in: settings)
 		}
 	}
 
@@ -257,7 +262,7 @@ struct UITestLaunchConfiguration: Codable {
 	/// screen instead of whatever it named. A real user that far in has already met it, and this
 	/// seeds the state they are actually in.
 	@MainActor
-	private static func seedFreeAccessAnchor(ageDays: Int, in settings: Settings) {
+	private static func seedFreeAccessAnchor(ageDays: Int, day0Shown: Bool, in settings: Settings) {
 		let calendar = Calendar.current
 		// Trap rather than fall back to "no anchor": a scenario that silently degraded into a fresh
 		// install would assert the wrong thing and pass.
@@ -275,7 +280,7 @@ struct UITestLaunchConfiguration: Codable {
 			grantedAt: frozen.grantedAt,
 			expiresAt: frozen.expiresAt,
 			maxObservedDate: frozen.maxObservedDate,
-			day0Shown: true
+			day0Shown: day0Shown
 		)
 		guard let data = try? JSONEncoder().encode(record) else {
 			fatalError("\(environmentKey) could not encode the seeded free-access anchor")

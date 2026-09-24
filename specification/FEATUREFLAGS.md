@@ -21,7 +21,7 @@ or user-control needs before adding a flag; reuse one only when its meaning and 
 | Key | Default | Applies | Gates |
 |-|-|-|-|
 | `isModelCatalogEnabled` | `true` | **live** | The public model-catalog acquisition surface (AIA-0413) |
-| `isPaymentsEnabled` | `true` | **launch only** | The subscription/paywall surface (AIA-0343) |
+| `isPaymentsEnabled` | `false` | **launch only** | The subscription/paywall surface (AIA-0343). Off is the app's free mode (AIA-0955): no paywall, no Settings Subscription section, no billing copy in account deletion, no purchase support category, and a first-run Welcome screen that introduces the tour without naming a price. |
 | `isAnalyticsEnabled` | `true` | **live** | Optional analytics availability: when off, no prompt or Settings control is shown and no provider can activate. When on, users retain their own opt-in/out choice. |
 | `isAppMessagingEnabled` | `true` | **live** | The app→user messaging surface (AIA-0115): whether remotely-published messages render at all. Fails open — safe because the `appMessages` content setting defaults to empty, so an outage shows no messages rather than stale ones. |
 | `isRatingPromptEnabled` | `true` | **live** | The native App Store rating request offered after a positive moment — a finding saved, or a model imported/converted (AIA-0117). When off, the app never asks; the user can still review from the App Store. |
@@ -93,10 +93,19 @@ DependencyContainer  →  AppState.featureFlags  →  views
 
 ## Defaults decide whether a switch fails open or closed
 
-`isModelCatalogEnabled` and `isPaymentsEnabled` default to `true`, so on a fresh offline
-install, a bad SDK key, a missing flag, or a ConfigCat outage, those features **stay on**.
-This preserves shipped behaviour, but means their switches only reach clients that
-successfully fetch.
+`isModelCatalogEnabled` defaults to `true`, so on a fresh offline install, a bad SDK key, a
+missing flag, or a ConfigCat outage, the catalog **stays on**. This preserves shipped behaviour,
+but means its switch only reaches clients that successfully fetch.
+
+`isPaymentsEnabled` defaults to `false` since AIA-0955. It is launch-captured, and a genuine
+first launch has no mirrored dashboard value yet, so that launch runs on the compiled default.
+With the default on, a new install after production switched payments off would still meet the
+priced Welcome screen and be granted a free-access window on its first launch. Closed, the cost
+while production is still on is one free first session: a fresh install meets the neutral
+Welcome screen, the tour and the consent question, and on its second launch the mirrored `true`
+applies, a free-access window is granted, and the priced Welcome screen follows. Upgrades keep
+their mirrored value. Builds without a ConfigCat key are free. UI tests pin the flag on as
+their baseline and override it per scenario.
 
 `isAnalyticsEnabled` defaults to `true`, like the existing flags. This only makes the
 analytics choice available; it does not collect anything by itself. The effective analytics

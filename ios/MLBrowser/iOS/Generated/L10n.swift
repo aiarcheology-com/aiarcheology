@@ -96,8 +96,6 @@ internal enum L10n {
     internal enum Account {
       /// Deleting your account does not cancel your subscription. Cancel it in the App Store.
       internal static let deleteBillingNote = L10n.tr("Localizable", "auth.account.deleteBillingNote", fallback: "Deleting your account does not cancel your subscription. Cancel it in the App Store.")
-      /// Free Beta
-      internal static let freeBeta = L10n.tr("Localizable", "auth.account.freeBeta", fallback: "Free Beta")
       /// Manage Account
       internal static let manage = L10n.tr("Localizable", "auth.account.manage", fallback: "Manage Account")
       /// Subscription
@@ -1401,6 +1399,8 @@ internal enum L10n {
     internal static func headline(_ p1: Int) -> String {
       return L10n.tr("Localizable", "welcome.headline", p1, fallback: "Explore everything free for %lld days")
     }
+    /// Browse any web page and let on-device detection models point out what they find. A short tour shows you how.
+    internal static let introBody = L10n.tr("Localizable", "welcome.introBody", fallback: "Browse any web page and let on-device detection models point out what they find. A short tour shows you how.")
     /// After your free access ends, you can subscribe for %@ to continue using ML Browser.
     internal static func priceNote(_ p1: Any) -> String {
       return L10n.tr("Localizable", "welcome.priceNote", String(describing: p1), fallback: "After your free access ends, you can subscribe for %@ to continue using ML Browser.")

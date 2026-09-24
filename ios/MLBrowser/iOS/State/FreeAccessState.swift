@@ -188,6 +188,15 @@ final class FreeAccessState: ObservableObject {
 	private var window = FreeAccessWindow()
 	private var hasStarted = false
 
+	/// The launch-captured payments flag, as handed to ``start(isEntitled:isPaymentsSurfaceEnabled:)``
+	/// (AIA-0955). `false` until then, which is harmless: nothing publishes before `start`.
+	///
+	/// Kept because the priced Welcome screen can be owed by a window this session did not grant.
+	/// A window granted under 1.0.8 whose day-0 screen never made it on screen — a force-quit at
+	/// the wrong moment — still reads as due after the switch to payments off, and the screen it
+	/// owes names a price, a trial length and a subscription.
+	private var isPaymentsSurfaceEnabled = false
+
 	init(
 		service: FreeAccessAnchorService,
 		isFreeAccessPeriodEnabled: Bool,
@@ -246,6 +255,7 @@ final class FreeAccessState: ObservableObject {
 	func start(isEntitled: Bool, isPaymentsSurfaceEnabled: Bool) {
 		guard hasStarted == false else { return }
 		hasStarted = true
+		self.isPaymentsSurfaceEnabled = isPaymentsSurfaceEnabled
 
 		window = service.reconciledWindow()
 
@@ -297,7 +307,7 @@ final class FreeAccessState: ObservableObject {
 		// outright — and `window_granted` cannot stand in for it, because the two come apart exactly
 		// where it matters: a force-quit between the grant and the presentation.
 		if didMark { analytics?.track(.welcomeShown) }
-		duePrompt = service.duePrompt(for: window)
+		duePrompt = resolvedDuePrompt()
 	}
 
 	// MARK: - Re-evaluation
@@ -346,9 +356,19 @@ final class FreeAccessState: ObservableObject {
 		case .notGranted:
 			availability = .closed
 		}
-		duePrompt = service.duePrompt(for: window)
+		duePrompt = resolvedDuePrompt()
 		windowEndsOn = availability == .open ? window.expiresAt : nil
 		scheduleExpiry()
+	}
+
+	/// What the window owes, withheld entirely while payments are off (AIA-0955).
+	///
+	/// Withheld here rather than cleared in the store: the persisted `day0Shown` marker is left
+	/// exactly as it is, so a later session with payments back on still owes — and shows — the
+	/// screen this one suppressed. Suppressing at the source rather than at the presenter also
+	/// keeps every reader of ``duePrompt`` in agreement, the onboarding tour's gate included.
+	private func resolvedDuePrompt() -> FreeAccessPrompt? {
+		isPaymentsSurfaceEnabled ? service.duePrompt(for: window) : nil
 	}
 
 	/// Arms a one-shot wake-up at the exact expiry instant.

@@ -41,6 +41,11 @@ struct DeleteAccountView: View {
 	/// credential that can reach the remaining data (AIA-0816).
 	@ObservedObject var authState: AuthState
 
+	/// The launch-captured payments flag (AIA-0955). With payments off the app sells nothing, and
+	/// removing the subscription from sale stops renewals, so the dialog drops its billing sentence
+	/// and its Manage Subscription action rather than warning about a charge that cannot happen.
+	let isPaymentsSurfaceEnabled: Bool
+
 	@Environment(\.openURL) private var openURL
 
 	@State private var showConfirmation = false
@@ -91,8 +96,13 @@ struct DeleteAccountView: View {
 	/// Composed here rather than reusing ``PaywallAccountDeletionPrompt``: that type's message ends
 	/// "and you can export them first", a promise this screen deliberately does not make — see the
 	/// type doc above.
-	private static var confirmationMessage: String {
-		L10n.Auth.Account.Delete.messageBilling + "\n\n" + L10n.Auth.Account.Delete.deviceNote
+	///
+	/// With payments off the billing warning gives way to the screen's own footer sentence, which
+	/// says the same irreversibility without mentioning a subscription (AIA-0955). Reused rather
+	/// than a new key: it is the exact statement the screen under the dialog already makes.
+	static func confirmationMessage(isPaymentsSurfaceEnabled: Bool) -> String {
+		let lead = isPaymentsSurfaceEnabled ? L10n.Auth.Account.Delete.messageBilling : L10n.Auth.Account.Delete.footer
+		return lead + "\n\n" + L10n.Auth.Account.Delete.deviceNote
 	}
 
 	var body: some View {
@@ -128,10 +138,12 @@ struct DeleteAccountView: View {
 			isPresented: $showConfirmation,
 			titleVisibility: .visible
 		) {
-			Button(L10n.Paywall.manage) {
-				openURL(.appleManageSubscriptions)
+			if isPaymentsSurfaceEnabled {
+				Button(L10n.Paywall.manage) {
+					openURL(.appleManageSubscriptions)
+				}
+				.testability(Testability.Button.settingsDeleteAccountManage)
 			}
-			.testability(Testability.Button.settingsDeleteAccountManage)
 
 			Button(L10n.Auth.Account.Delete.action, role: .destructive) {
 				delete()
@@ -143,7 +155,7 @@ struct DeleteAccountView: View {
 			// Unconditional, where the wall's equivalent appears only when findings exist: this
 			// screen says the same thing whether or not anything is saved, because "your settings
 			// stay" is true either way and a reader mid-deletion should not have to infer it.
-			Text(Self.confirmationMessage)
+			Text(Self.confirmationMessage(isPaymentsSurfaceEnabled: isPaymentsSurfaceEnabled))
 		}
 		.alert(item: $failure) { item in
 			Alert(title: item.title, message: item.message, dismissButton: item.dismissButton)
