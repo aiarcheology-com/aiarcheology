@@ -659,3 +659,127 @@ final class AnnotationSoundCategoryTests: XCTestCase {
 		)
 	}
 }
+
+// MARK: - AIA-0846: a detection frame keeps the provenance of its own snapshot
+
+@MainActor
+final class DetectionFrameProvenanceTests: XCTestCase {
+
+	private var pending: [(
+		image: UIImage,
+		partial: @MainActor @Sendable ([DetectionResult]) -> Void,
+		finish: CheckedContinuation<[DetectionResult], Never>
+	)] = []
+	private var frames: [AppliedDetectionFrame] = []
+
+	private func provenance(_ revision: UInt64) -> SnapshotProvenance {
+		let url = URL(string: "https://example.org/page-\(revision)")
+		return SnapshotProvenance(
+			context: CaptureContext(documentRevision: revision, sourceURL: url, liveURL: url, frameRevision: 0),
+			isCoherent: true
+		)
+	}
+
+	private func result() -> DetectionResult {
+		(observations: [DetectedObject(
+			uuid: UUID(),
+			labels: [DetectedObject.Label(identifier: "artifact", confidence: 0.9)],
+			confidence: 0.9,
+			boundingBox: CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2),
+			regionIndex: 0
+		)], params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
+	}
+
+	private func untilPassStarted(count: Int) async {
+		let deadline = Date().addingTimeInterval(2)
+		while pending.count < count, Date() < deadline { await Task.yield() }
+		XCTAssertEqual(pending.count, count, "detection pass did not start")
+	}
+
+	private func untilFrames(_ count: Int) async {
+		let deadline = Date().addingTimeInterval(2)
+		while frames.count < count, Date() < deadline { await Task.yield() }
+		XCTAssertEqual(frames.count, count, "frame was not applied")
+	}
+
+	/// Pass A is in flight while B and then C arrive; C replaces B in the one-slot queue. The queue
+	/// re-runs the SAME pass closure for C, so a provenance captured from `ingest`'s arguments instead
+	/// of from the queued item would label C's image with A's page.
+	func testCoalescedSnapshots_EachFrameCarriesItsOwnImageAndProvenance() async {
+		let coordinator = DetectionCoordinator(
+			detect: { [weak self] image, _, partial in
+				await withCheckedContinuation { finish in
+					self?.pending.append((image, partial, finish))
+				}
+			},
+			onFrameChanged: { [weak self] frame in
+				if let frame { self?.frames.append(frame) }
+			}
+		)
+		let imageA = UIImage()
+		let imageB = UIImage()
+		let imageC = UIImage()
+
+		coordinator.ingest(snapshot: imageA, provenance: provenance(1))
+		await untilPassStarted(count: 1)
+		coordinator.ingest(snapshot: imageB, provenance: provenance(2))
+		coordinator.ingest(snapshot: imageC, provenance: provenance(3))
+
+		pending[0].partial([result()])
+		await untilFrames(1)
+		pending[0].finish.resume(returning: [result()])
+		await untilFrames(2)
+		await untilPassStarted(count: 2)
+		XCTAssertTrue(pending[1].image === imageC, "the newest snapshot won the coalesce")
+		pending[1].partial([result()])
+		await untilFrames(3)
+		pending[1].finish.resume(returning: [result()])
+		await untilFrames(4)
+
+		XCTAssertEqual(frames.map(\.provenance), [provenance(1), provenance(1), provenance(3), provenance(3)])
+		XCTAssertTrue(frames[0].image === imageA && frames[1].image === imageA)
+		XCTAssertTrue(frames[2].image === imageC && frames[3].image === imageC)
+	}
+
+	/// The screen reads the confidence-filtered copy of the frame, so the filter must not drop it.
+	func testFilteredFrame_PreservesProvenance() {
+		let frame = AppliedDetectionFrame(image: UIImage(), results: [result()], provenance: provenance(7))
+		XCTAssertEqual(DetectionPresentation.filteredFrame(frame)?.provenance, provenance(7))
+	}
+
+	/// A frame built outside the snapshot pipeline has no established source.
+	func testFrameDefault_IsUnknownProvenance() {
+		XCTAssertEqual(AppliedDetectionFrame(image: UIImage(), results: []).provenance, .unknown)
+	}
+
+	// MARK: The detected-pick reacquire bound (WebScreen's alignment session)
+
+	func testReacquirePolicy_FirstDriftReacquires_SecondRecordsTheFramesOwnURL() {
+		var policy = RetainedFrameReacquirePolicy()
+		let context = provenance(1).context
+
+		XCTAssertEqual(policy.frameIsUnsettled(context: context), .reacquire)
+		XCTAssertEqual(
+			policy.frameIsUnsettled(context: context),
+			.recordURLOnly(URL(string: "https://example.org/page-1")),
+			"a page that keeps moving must not send the user round the same loop forever"
+		)
+	}
+
+	func testReacquirePolicy_ResetStartsANewAlignmentSession() {
+		var policy = RetainedFrameReacquirePolicy()
+		_ = policy.frameIsUnsettled(context: provenance(1).context)
+
+		policy.reset()
+
+		XCTAssertEqual(policy.frameIsUnsettled(context: provenance(1).context), .reacquire)
+	}
+
+	/// With no known document there is no URL to fall back to, so it always reacquires — never the
+	/// live page's URL. Each attempt needs a new tap, so this cannot loop by itself.
+	func testReacquirePolicy_UnknownDocument_AlwaysReacquires() {
+		var policy = RetainedFrameReacquirePolicy()
+		XCTAssertEqual(policy.frameIsUnsettled(context: nil), .reacquire)
+		XCTAssertEqual(policy.frameIsUnsettled(context: nil), .reacquire)
+	}
+}

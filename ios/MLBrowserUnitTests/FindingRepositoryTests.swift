@@ -70,6 +70,85 @@ final class FindingRepositoryTests: XCTestCase {
 		)
 	}
 
+	// MARK: - AIA-0846: a saved finding is coherent end to end
+
+	/// An image whose centre pixel is a colour no other test uses, so the stored PNG can be told
+	/// apart from any other page's pixels.
+	private func markedImage(_ marker: UIColor) -> UIImage {
+		let format = UIGraphicsImageRendererFormat()
+		format.scale = 1
+		return UIGraphicsImageRenderer(size: CGSize(width: 10, height: 10), format: format).image { ctx in
+			marker.setFill()
+			ctx.fill(CGRect(x: 0, y: 0, width: 10, height: 10))
+		}
+	}
+
+	private func centrePixel(of image: UIImage?) -> [UInt8]? {
+		guard let cgImage = image?.cgImage else { return nil }
+		var pixel = [UInt8](repeating: 0, count: 4)
+		let drawn = pixel.withUnsafeMutableBytes { buffer -> Bool in
+			guard let context = CGContext(
+				data: buffer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+				space: CGColorSpaceCreateDeviceRGB(),
+				bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+			) else { return false }
+			context.draw(cgImage, in: CGRect(x: -CGFloat(cgImage.width) / 2, y: -CGFloat(cgImage.height) / 2,
+			                                 width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
+			return true
+		}
+		return drawn ? pixel : nil
+	}
+
+	/// The image, its detection box, its page and its coordinate are all the ones captured together
+	/// under one context, and the sheet's own prefill path (page text from `pageURL`, GPS from
+	/// `gpsPrefill`) carries them into the row unchanged. A user edit still wins, as before.
+	func testSave_ContextBoundCapture_RoundTripsImageBoxPageAndLocationTogether() throws {
+		let pageA = try XCTUnwrap(URL(string: "https://example.org/map#map=15/47.941230/18.709545"))
+		let context = CaptureContext(documentRevision: 3, sourceURL: pageA, liveURL: pageA, frameRevision: 0)
+		let box = CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2)
+		let location = MapPageLocation(
+			sourceURL: pageA,
+			reading: MapLocationReading(coordinate: try XCTUnwrap(MapCoordinate(latitude: 47.94123, longitude: 18.709545)), source: .leaflet)
+		)
+		let capture = FindingCapture(
+			observation: DetectedObject(uuid: UUID(), labels: [], confidence: 0.9, boundingBox: box, regionIndex: 0),
+			params: nil,
+			frame: AppliedDetectionFrame(
+				image: markedImage(.red),
+				results: [],
+				provenance: SnapshotProvenance(context: context, isCoherent: true)
+			),
+			location: location
+		)
+		let gps = try XCTUnwrap(capture.location.gpsPrefill)
+
+		let finding = try sut.save(
+			capture: capture,
+			image: capture.frame.image,
+			box: box,
+			metadata: FindingMetadata(
+				title: "Coherent", label: "", note: "", author: "", gps: gps,
+				page: FindingPageURL.resolve(edited: capture.pageURL?.absoluteString ?? "", captured: capture.pageURL)
+			)
+		)
+		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
+
+		XCTAssertEqual(capture.frame.provenance.context?.sourceURL, capture.pageURL, "the image's page is the recorded page")
+		XCTAssertEqual(finding.page, pageA)
+		XCTAssertEqual(finding.gps_, gps)
+		XCTAssertEqual(finding.captureBoxX, box.minX)
+		XCTAssertEqual(finding.captureBoxY, box.minY)
+		XCTAssertEqual(finding.captureBoxWidth, box.width)
+		XCTAssertEqual(finding.captureBoxHeight, box.height)
+		// Tolerant per channel: the PNG round trip may move a channel by a unit through colour
+		// management, which says nothing about WHICH image was stored.
+		let stored = try XCTUnwrap(centrePixel(of: FindingScreenshotStore.load(filename: finding.screenshotFilename)))
+		XCTAssertTrue(
+			stored[0] > 240 && stored[1] < 16 && stored[2] < 16,
+			"the stored pixels are the captured (red-marked) image, got \(stored)"
+		)
+	}
+
 	func testSave_validFinding_persistsReadyRowAndScreenshot() throws {
 		let box = CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)
 		let finding = try sut.save(

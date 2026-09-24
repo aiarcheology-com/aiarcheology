@@ -321,3 +321,81 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
         XCTAssertEqual(deliveries().count, count, file: file, line: line)
     }
 }
+
+// MARK: - AIA-0846: every delivered snapshot states which document it came from
+
+/// The browser's capture context as the coordinator reads it; the test moves it mid-snapshot.
+@MainActor
+private final class ContextSource {
+    var current: CaptureContext?
+
+    init(_ current: CaptureContext?) {
+        self.current = current
+    }
+}
+
+extension SnapshotWorkCoordinatorTests {
+
+    private func context(revision: UInt64, fragment: String = "a") -> CaptureContext {
+        let url = URL(string: "https://example.org/map#\(fragment)")
+        return CaptureContext(documentRevision: revision, sourceURL: url, liveURL: url, frameRevision: 0)
+    }
+
+    /// Runs one snapshot, applying `change` while WebKit holds it, and returns the provenance the
+    /// consumer received with the image.
+    private func deliveredProvenance(
+        startingAt start: CaptureContext?,
+        change: (ContextSource) -> Void,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async -> SnapshotProvenance? {
+        let renderer = HeldSnapshotRenderer()
+        let source = ContextSource(start)
+        let sut = SnapshotWorkCoordinator(renderer: renderer, captureContext: { source.current })
+        var delivered: [(SnapshotRequest, SnapshotProvenance)] = []
+        sut.rendererDidAttach()
+        sut.registerConsumer(id: UUID(), frame: .zero, acceptsRequest: { _ in true }) { _, _, request, provenance in
+            delivered.append((request, provenance))
+        }
+        sut.enqueue(SnapshotRequest(runID: 1, sequence: 1))
+        await waitForSnapshotCall(renderer, count: 1, file: file, line: line)
+
+        change(source)
+        renderer.completeNext(with: UIImage())
+        await waitForDeliveries(count: 1, deliveries: { delivered.map(\.0) }, file: file, line: line)
+        return delivered.first?.1
+    }
+
+    func testProvenance_UnchangedPage_IsTheContextAndCoherent() async {
+        let start = context(revision: 4)
+        let provenance = await deliveredProvenance(startingAt: start) { _ in }
+        XCTAssertEqual(provenance, SnapshotProvenance(context: start, isCoherent: true))
+    }
+
+    /// Same document, URL rewritten mid-snapshot: the image still reaches detection (so boxes do
+    /// not vanish on a map that rewrites its URL while it glides), but not as an established source.
+    func testProvenance_SameDocumentRewriteMidSnapshot_KeepsTheStartContext_NotCoherent() async {
+        let start = context(revision: 4)
+        let provenance = await deliveredProvenance(startingAt: start) { source in
+            source.current = self.context(revision: 4, fragment: "b")
+        }
+        XCTAssertEqual(provenance, SnapshotProvenance(context: start, isCoherent: false))
+    }
+
+    func testProvenance_CommitMidSnapshot_IsUnknown() async {
+        let provenance = await deliveredProvenance(startingAt: context(revision: 4)) { source in
+            source.current = self.context(revision: 5)
+        }
+        XCTAssertEqual(provenance, .unknown)
+    }
+
+    /// `MLWebView.makeUIView` notifies the coordinator before `BrowserState.attach` runs, so a
+    /// snapshot of the NEW web view can start while the context still describes the old one. The
+    /// attach advancing the revision is what marks that image as unknown.
+    func testProvenance_WebViewAttachedMidSnapshot_IsUnknown() async {
+        let provenance = await deliveredProvenance(startingAt: nil) { source in
+            source.current = self.context(revision: 1)
+        }
+        XCTAssertEqual(provenance, .unknown)
+    }
+}

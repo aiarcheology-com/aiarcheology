@@ -132,8 +132,10 @@ enum ContextBoundSnapshot<Image> {
 	case documentChanged
 }
 
+extension ContextBoundSnapshot: Sendable where Image: Sendable {}
+
 /// The outcome of ``BrowserState/resolveCaptureLocation(for:)``.
-enum CaptureResolution {
+enum CaptureResolution: Equatable {
 	case resolved(MapPageLocation)
 	/// The document is the same but has moved since the image; a fresh image is needed before its
 	/// live map may be asked (see `specification/MAP_LOCATION.md`, "Binding the location to the
