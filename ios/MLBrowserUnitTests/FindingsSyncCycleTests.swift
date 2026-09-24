@@ -6,6 +6,7 @@
 //
 
 import CoreData
+import SwiftUI
 import UIKit
 import XCTest
 @testable import ML_Browser
@@ -1469,4 +1470,182 @@ extension FindingsSyncCycleTests {
 		)
 	}
 
+}
+
+// MARK: - Sync is not owned by the findings sheet (AIA-0893)
+
+/// Holds the first upload until the test lets it go, so a cycle can be caught mid-flight.
+///
+/// A lock rather than actor state: the stub answers on URLSession's own thread, and it has to block
+/// there -- that is what keeps the cycle suspended inside a real request while the test acts.
+private final class FirstUploadGate: @unchecked Sendable {
+	private let lock = NSLock()
+	private var hasHeld = false
+	private var didExpire = false
+	private let release = DispatchSemaphore(value: 0)
+	let reached: XCTestExpectation
+
+	init(reached: XCTestExpectation) { self.reached = reached }
+
+	/// True when the hold gave up on its own. The cycle then carried on without the test, so nothing
+	/// the test did afterwards happened "while the upload was in flight" -- a result to fail on.
+	var expired: Bool { lock.withLock { didExpire } }
+
+	/// Blocks the first PUT only. Bounded, so a broken test fails on its assertions instead of hanging.
+	func holdIfFirstUpload(_ request: URLRequest) {
+		guard request.httpMethod == "PUT" else { return }
+		let isFirst = lock.withLock {
+			defer { hasHeld = true }
+			return hasHeld == false
+		}
+		guard isFirst else { return }
+		reached.fulfill()
+		if release.wait(timeout: .now() + 10) == .timedOut {
+			lock.withLock { didExpire = true }
+		}
+	}
+
+	func open() { release.signal() }
+}
+
+extension FindingsSyncCycleTests {
+
+	/// Answers each leg of an upload and the pull in the shape the transport decodes, holding the
+	/// first upload at `gate`. An incomplete stub would end the cycle as a transport failure, which
+	/// would read as "sync stopped" for the wrong reason.
+	private func stubWorkerHoldingTheFirstUpload(of id: UUID, at gate: FirstUploadGate) {
+		let idString = id.uuidString
+		StubWorkerProtocol.handler = { request in
+			gate.holdIfFirstUpload(request)
+			if request.httpMethod == "PUT", request.url?.path.hasSuffix("/meta") == true {
+				return (200, StubWorkerProtocol.json([
+					"finding": [
+						"id": idString, "modifiedAt": 1, "receivedAt": 2,
+						"deleted": false, "bytes": 1, "hasImage": true
+					],
+					"usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			if request.url?.path.hasSuffix("/image") == true {
+				return (200, StubWorkerProtocol.json([
+					"modifiedAt": 1, "bytes": 1, "usage": ["used": 1, "limit": 52_428_800]
+				]))
+			}
+			return (200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 1, "limit": 52_428_800]
+			]))
+		}
+	}
+
+	/// The whole cycle happened: the finding was committed (`PUT …/meta`), and the pull that ends a
+	/// cycle ran after the held upload rather than the cycle stopping at it.
+	private func assertTheCycleRanToTheEnd(for id: UUID, file: StaticString = #filePath, line: UInt = #line) {
+		let requests = StubWorkerProtocol.requests
+		let commit = requests.firstIndex { $0.hasPrefix("PUT") && $0.contains(id.uuidString) && $0.contains("/meta") }
+		let lastPull = requests.lastIndex { $0.hasPrefix("GET") }
+		XCTAssertNotNil(commit, "the finding must have been committed to the cloud: \(requests)", file: file, line: line)
+		if let commit, let lastPull {
+			XCTAssertGreaterThan(lastPull, commit, "the pull must run after the upload: \(requests)", file: file, line: line)
+		} else {
+			XCTFail("the cycle must end with a pull: \(requests)", file: file, line: line)
+		}
+		XCTAssertEqual(
+			sut.backupStates[id], .backedUp,
+			"the finding must be recorded as backed up once the cycle finishes",
+			file: file, line: line
+		)
+	}
+
+	/// The issue's suspicion, tested through the real view: open the findings list, let the sync it
+	/// starts reach the network, press Synchronize, close the list, and the sync must still finish
+	/// -- with the button's answer waiting for the next time the list opens.
+	///
+	/// It does because nothing about sync belongs to the sheet. The coordinator is app-scoped
+	/// (`DependencyContainer.findingsSync`, held by `AppState`), the cycle is an unstructured task it
+	/// stores itself, and the list only *asks* for a cycle -- its `onDisappear` cancels an archive
+	/// import and nothing else. A change that tied the cycle to the view (a `.task` modifier, or a
+	/// cancel on disappear) would leave an upload half-done every time the user closed the list.
+	func testASyncTheFindingsListStartedFinishesAfterTheListCloses() async throws {
+		let finding = try saveFinding(title: "Saved before opening the list")
+		let id = finding.entityId
+		let account = try XCTUnwrap(auth.accountIdentifier)
+		let gate = FirstUploadGate(reached: expectation(description: "the list's sync reached an upload"))
+		stubWorkerHoldingTheFirstUpload(of: id, at: gate)
+		XCTAssertTrue(StubWorkerProtocol.requests.isEmpty, "precondition: only the list may start this cycle")
+
+		let scene = try XCTUnwrap(
+			UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first,
+			"hosting the list needs the test host's window scene"
+		)
+		let presenter = UIViewController()
+		let window = UIWindow(windowScene: scene)
+		window.rootViewController = presenter
+		window.isHidden = false
+		defer {
+			window.isHidden = true
+			window.rootViewController = nil
+		}
+
+		// Presented modally, the way the drawer's `.sheet` puts it on screen.
+		let flags = FeatureFlagsState(provider: StaticFeatureFlagProvider())
+		var sheet: UIHostingController<AnyView>? = UIHostingController(rootView: AnyView(
+			FindingsListView(findingRepository: repository, findingsSync: sut, authState: AuthState(provider: auth)) { _ in }
+				.environment(\.managedObjectContext, moc)
+				.environmentObject(flags)
+		))
+		weak var presentedList = sheet
+		if let sheet {
+			await withCheckedContinuation { done in presenter.present(sheet, animated: false) { done.resume() } }
+		}
+
+		// The list's own `onAppear` started the cycle, and it is now suspended inside an upload.
+		await fulfillment(of: [gate.reached], timeout: 10)
+		// The Synchronize button, as the list's bar calls it: the returned task is dropped.
+		XCTAssertNotNil(sut.synchronizeNow(expectedAccount: account), "precondition: the press was accepted")
+		XCTAssertTrue(sut.isBackingUp, "precondition: the button shows it is working")
+
+		// Close the list while that upload is still in flight, and wait until it is really gone.
+		await withCheckedContinuation { done in presenter.dismiss(animated: false) { done.resume() } }
+		sheet = nil
+		let gone = Date().addingTimeInterval(5)
+		while presentedList != nil, Date() < gone {
+			try await Task.sleep(for: .milliseconds(20))
+		}
+		XCTAssertNil(presentedList, "precondition: the list must be gone before the upload answers")
+		XCTAssertNotEqual(sut.backupStates[id], .backedUp, "precondition: the upload was still in flight")
+
+		gate.open()
+		let deadline = Date().addingTimeInterval(10)
+		while sut.isBackingUp || sut.backupStates[id] != .backedUp, Date() < deadline {
+			try await Task.sleep(for: .milliseconds(20))
+		}
+		XCTAssertFalse(gate.expired, "the upload must have been held until after the list closed")
+		assertTheCycleRanToTheEnd(for: id)
+		XCTAssertFalse(sut.isBackingUp, "the button must not reopen still spinning")
+		XCTAssertEqual(sut.lastSynchronize, .succeeded, "the press is owed its answer when the list reopens")
+	}
+
+	/// Closing the list mid pull-to-refresh cancels the task `.refreshable` runs, and that task is
+	/// awaiting the cycle. Awaiting must not become owning: cancelling the waiter has to leave the
+	/// cycle -- and the upload inside it -- running. `syncNow()` hands back an unstructured task, and
+	/// cancelling whoever awaits its `value` does not propagate into it.
+	func testClosingTheListDuringPullToRefreshDoesNotCancelTheSync() async throws {
+		let finding = try saveFinding(title: "Saved before pulling to refresh")
+		let id = finding.entityId
+		let gate = FirstUploadGate(reached: expectation(description: "the refresh's cycle reached an upload"))
+		stubWorkerHoldingTheFirstUpload(of: id, at: gate)
+
+		// What `.refreshable { await findingsSync.syncNow()?.value }` runs, as the task SwiftUI owns.
+		let refresh = Task { @MainActor [sut] in await sut?.syncNow()?.value }
+		await fulfillment(of: [gate.reached], timeout: 10)
+
+		refresh.cancel()
+		gate.open()
+		// Returns only once the cycle has: cancelling a waiter does not cut its wait short.
+		await refresh.value
+
+		XCTAssertFalse(gate.expired, "the upload must have been held until after the refresh was cancelled")
+		assertTheCycleRanToTheEnd(for: id)
+	}
 }
