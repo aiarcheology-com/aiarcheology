@@ -61,12 +61,14 @@ final class BackgroundDownloadAppDelegate: NSObject, UIApplicationDelegate {
 		// Register the background app-refresh handler before launch completes (BGTaskScheduler
 		// requires registration during launch). `using: nil` runs the handler on a background queue;
 		// the handler hops to the main actor for the actual work.
+		// Pass the `nonisolated` function itself, never a closure literal: a closure written here
+		// inherits this method's @MainActor isolation, and Swift 6 guards it with a main-queue
+		// assertion that traps when BGTaskScheduler invokes it on its background queue (AIA-0554).
 		BGTaskScheduler.shared.register(
 			forTaskWithIdentifier: Self.messagesRefreshTaskIdentifier,
-			using: nil
-		) { task in
-			Self.handleMessagesRefresh(task)
-		}
+			using: nil,
+			launchHandler: Self.handleMessagesRefresh
+		)
 
 		// Ask for the first refresh window. Submit errors are expected on the simulator (BGTask
 		// submission is unsupported there) and are logged-and-ignored.
