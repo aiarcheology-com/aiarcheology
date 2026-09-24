@@ -234,8 +234,20 @@ final class BrowserState: ObservableObject {
 	/// settle callback at all, which would otherwise leave the in-flight marker set and freeze the
 	/// capture URL for the rest of the session — every later map pan silently unrecorded.
 	private func resyncCommittedURL() {
+		let wasFetchingAnotherDocument = isProvisionalNavigationInFlight || isUserLoadPending
 		provisionalNavigation = nil
 		isProvisionalNavigationInFlight = false
+		// AIA-0875: loading has ended, so a change held back while it ran is no longer ambiguous. The
+		// document still showing a different address than it committed at, with nothing else being
+		// fetched, rewrote it itself; an address that went back, or a navigation that was still
+		// pending, belonged to a load that never arrived and says nothing about this page.
+		if hasURLChangeWhileLoading {
+			if wasFetchingAnotherDocument.not, webView?.isLoading == false,
+			   let committedURL, let url = webView?.url, url != committedURL {
+				hasObservedSameDocumentURLChange = true
+			}
+			hasURLChangeWhileLoading = false
+		}
 		if let url = webView?.url { committedURL = url }
 	}
 
@@ -255,8 +267,9 @@ final class BrowserState: ObservableObject {
 	/// address while its tiles were still arriving was never seen doing so. Kept apart from
 	/// ``hasObservedSameDocumentURLChange`` because it is weaker evidence: the change may belong to
 	/// another document that is about to be fetched. Treating it as "maintained" is still the safe
-	/// reading, since the only thing it withholds is our own rewrite of the URL; if another document
-	/// does commit, its commit clears this.
+	/// reading, since the only thing it withholds is our own rewrite of the URL. It lasts only as long
+	/// as the load: when loading ends `resyncCommittedURL` either confirms it as an observed rewrite
+	/// or drops it, and a commit clears it.
 	private(set) var hasURLChangeWhileLoading = false
 
 	/// The Reopen Last Page URL whose load is on its way, consumed by the next commit (AIA-0875).
@@ -280,14 +293,22 @@ final class BrowserState: ObservableObject {
 	/// on a site whose URL and map hold different projections, into a link to somewhere else.
 	///
 	/// Accepted cost: a genuinely frozen page reopened by Reopen Last Page, or one that changed its
-	/// address once while loading, keeps that address until the next navigation instead of having
-	/// its viewport refreshed. That URL is stale rather than wrong, and the GPS field still comes
+	/// address once while loading, keeps that address — through reloads of it, until the user goes
+	/// elsewhere — instead of having its viewport refreshed. That URL is stale rather than wrong, and the GPS field still comes
 	/// from the live map. Not covered: a pasted share link, Back/Forward to a page that had been
 	/// panned, the reload onto a rebuilt web view after a crash, and a reload issued before loading
 	/// ends of a page that rewrote its address while loading (at commit that address cannot be told
 	/// from one `load(_:)` published for another page) — all still look frozen until the first pan.
 	var pageMaintainsItsURL: Bool {
 		hasObservedSameDocumentURLChange || hasURLChangeWhileLoading || isOpenedAtAppWrittenURL
+	}
+
+	/// Forgets everything known about whether the document's URL is its own, for a new document or
+	/// a new web view (AIA-0875).
+	private func resetURLOwnership() {
+		hasObservedSameDocumentURLChange = false
+		hasURLChangeWhileLoading = false
+		isOpenedAtAppWrittenURL = false
 	}
 
 	/// The initial load is about to reopen the last page (AIA-0875). Consumed by the next commit,
@@ -488,9 +509,7 @@ final class BrowserState: ObservableObject {
 		committedURL = nil
 		// AIA-0846: whatever the previous instance was showing, an image from it is not from this one.
 		documentChanged()
-		hasObservedSameDocumentURLChange = false
-		hasURLChangeWhileLoading = false
-		isOpenedAtAppWrittenURL = false
+		resetURLOwnership()
 		provisionalNavigation = nil
 		isProvisionalNavigationInFlight = false
 		subscriptions.removeAll()
@@ -694,15 +713,16 @@ final class BrowserState: ObservableObject {
 		guard isCurrent(webView), isLatest(navigation) else { return }
 		// AIA-0875: what the outgoing document was, read before anything below replaces it.
 		let previousURL = committedURL
-		let previousMaintainedItsURL = pageMaintainsItsURL
+		// Only what is known about the ADDRESS carries over. A change seen while loading is a guess
+		// about the page, not its URL, and must not outlive the load it was made in.
+		let previousMaintainedItsURL = hasObservedSameDocumentURLChange || isOpenedAtAppWrittenURL
 		// The document is now the one on screen, so its URL is what a finding should record.
 		committedURL = (webView ?? self.webView)?.url ?? currentURL
 		// A new document even when the URL is unchanged (a reload): an image of the previous one must
 		// not be paired with this one's map (AIA-0846).
 		documentChanged()
 		// A new document has its own habits; what the previous one did says nothing about it.
-		hasObservedSameDocumentURLChange = false
-		hasURLChangeWhileLoading = false
+		resetURLOwnership()
 		// AIA-0875: except where the new document opens at an address the app itself wrote. The
 		// restore is one-shot — only the first commit after the request can be it, and only at the
 		// address that was saved. A reload of a page that maintained its URL reopens that page's own
@@ -849,9 +869,7 @@ final class BrowserState: ObservableObject {
 		// finding captured before the replacement lands could name the previous page.
 		committedURL = nil
 		documentChanged()
-		hasObservedSameDocumentURLChange = false
-		hasURLChangeWhileLoading = false
-		isOpenedAtAppWrittenURL = false
+		resetURLOwnership()
 		// Whichever path invalidated the instance (rebuild or process death), its committed
 		// document does not survive it (AIA-0552).
 		hasCommittedContent = false

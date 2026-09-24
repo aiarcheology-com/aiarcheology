@@ -839,6 +839,46 @@ extension BrowserStateCaptureURLTests {
 		XCTAssertEqual(recorded, base, "the held URL is recorded as it is, not rewritten from the live map")
 	}
 
+	/// When loading ends, a change that stayed made is the page's own rewrite: it becomes an
+	/// observation, and the recorded URL catches up with it.
+	func testURLChangeWhileLoading_BecomesAnObservedRewrite_WhenLoadingEnds() async throws {
+		let base = URL(string: "held://example.org/map?c=4471000.5,5334000.25")!
+		let (handler, forwarder) = await loadHeld("<img src='tile.png'><p>map</p>", at: base)
+		defer { withExtendedLifetime(forwarder) { handler.releaseAll() } }
+		_ = try? await webView.evaluateJavaScript("history.replaceState(null, '', '/map?c=4471200.5,5334100.25'); true")
+		await settle()
+		XCTAssertTrue(state.hasURLChangeWhileLoading, "precondition")
+
+		handler.releaseAll()
+		await waitUntil { webView.isLoading == false }
+		await settle()
+
+		XCTAssertTrue(state.hasObservedSameDocumentURLChange)
+		XCTAssertFalse(state.hasURLChangeWhileLoading, "the guess must not outlive the load")
+		XCTAssertEqual(state.captureURL?.absoluteString, "held://example.org/map?c=4471200.5,5334100.25")
+	}
+
+	/// A load requested and then stopped publishes its address before WebKit announces it, which
+	/// looks exactly like a rewrite while loading. When the load ends without arriving, that guess
+	/// must be dropped, or a frozen page would lose its refresh until the user went elsewhere
+	/// (raised in review).
+	func testLoadThatNeverArrives_DoesNotLeaveThePagePresumedMaintained() async throws {
+		let base = URL(string: "held://example.org/map?c=4471000.5,5334000.25")!
+		let (handler, forwarder) = await loadHeld("<img src='tile.png'><p>map</p>", at: base)
+		defer { withExtendedLifetime(forwarder) { handler.releaseAll() } }
+
+		webView.load(URLRequest(url: URL(string: "held://example.org/elsewhere")!))
+		await settle()
+		XCTAssertTrue(webView.isLoading, "precondition: the other page is being fetched")
+		webView.stopLoading()
+		await waitUntil { webView.isLoading == false }
+		await settle()
+
+		XCTAssertFalse(state.hasURLChangeWhileLoading)
+		XCTAssertFalse(state.hasObservedSameDocumentURLChange)
+		XCTAssertFalse(state.pageMaintainsItsURL)
+	}
+
 	/// Control: the same held load with no rewrite is an ordinary page.
 	func testStillLoadingWithNoURLChange_IsNotPresumed() async {
 		let base = URL(string: "held://example.org/map?c=4471000.5,5334000.25")!

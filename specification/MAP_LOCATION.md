@@ -134,13 +134,15 @@ written in another passes unchallenged. The page is treated as keeping its own U
 holds for the document on screen (AIA-0875):
 
 - it was seen rewriting its address;
-- its address changed while it was still loading, with no other navigation behind the change;
+- its address changed while it was still loading, with no other navigation behind the change (when
+  loading ends this becomes an observed rewrite if the address stayed changed, and is dropped if it
+  went back — the change then belonged to a load that never arrived);
 - it is the page Reopen Last Page brought back, at the address that was saved — that address came
   from the page itself, which writes the same string again on load, so no rewrite is ever seen;
 - it is a reload of a page that kept its URL.
 
-The cost is deliberate: a genuinely frozen page matching one of these keeps the address it has until
-the next navigation. That is stale, not wrong, and the GPS field still comes from the live map. Not
+The cost is deliberate: a genuinely frozen page matching one of these keeps the address it has, through
+reloads, until the user goes to another page. That is stale, not wrong, and the GPS field still comes from the live map. Not
 covered — they still look frozen until the first pan: a pasted share link, Back/Forward to a page
 that had been panned, the reload onto a rebuilt web view after a crash, and a reload issued before
 loading ends of a page that rewrote its address while loading (at commit, that address cannot be
