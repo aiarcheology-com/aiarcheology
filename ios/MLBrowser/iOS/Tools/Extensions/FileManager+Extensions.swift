@@ -33,7 +33,7 @@ extension FileManager {
 		try fm.createDirectory(at: targetDirectory, withIntermediateDirectories: true)
 		
 		let targetURL = targetDirectory.appendingPathComponent(sourceURL.lastPathComponent)
-
+		
 		// The existing target is deleted next. When the source *is* that file, reached through a
 		// path that no lexical check recognises (a symlink, a `/private` alias, `..`), deleting
 		// it would destroy the model before the copy or move could read it (AIA-0963). Only
@@ -41,14 +41,14 @@ extension FileManager {
 		if isSameFile(sourceURL, targetURL) {
 			throw ModelFileStorageError.fileOperationFailed
 		}
-
+		
 		if fm.fileExists(atPath: targetURL.path) {
 			try fm.removeItem(at: targetURL)
 		}
-
+		
 		return targetURL
 	}
-
+	
 	/// Whether both URLs name the same existing file, compared by filesystem identity rather than
 	/// by path. `false` when either identity cannot be read, for example because the target does
 	/// not exist yet; storage then proceeds exactly as it did before this guard.
@@ -62,7 +62,7 @@ extension FileManager {
 		}
 		return lhsID.isEqual(rhsID)
 	}
-
+	
 	/// Moves a downloaded model file to the app's Documents directory.
 	/// Use this for temporary download files that should be removed from source.
 	/// - Parameters:
@@ -116,7 +116,7 @@ extension FileManager {
 		guard let documentsURL = fileManager.documentDirectory else {
 			throw ModelFileStorageError.cannotAccessDocuments
 		}
-
+		
 		// Rejected rather than copied. A `..` path can name the copy target itself, such as
 		// `Configurations/<id>/../<id>/model`, and `prepareTargetURL` deletes the target before
 		// copying, which would destroy the source. Documents itself is not a model file.
@@ -125,18 +125,18 @@ extension FileManager {
 			|| sourceComponents == documentsURL.pathComponents {
 			throw ModelFileStorageError.fileOperationFailed
 		}
-
+		
 		if sourceURL.isStrictlyContained(in: documentsURL) {
 			return sourceURL
 		}
-
+		
 		// Decides move versus copy, so a false positive would move a user's file out of its original
 		// location: only the real temporary and Caches directories count, never a `tmp` or `Caches`
 		// component elsewhere.
 		let temporaryRoots = [fileManager.temporaryDirectory]
 			+ fileManager.urls(for: .cachesDirectory, in: .userDomainMask)
 		let isTemporaryFile = temporaryRoots.contains { sourceURL.isStrictlyContained(in: $0) }
-
+		
 		if preferMove && isTemporaryFile {
 			return try moveModelToDocuments(from: sourceURL, configurationId: configurationId)
 		} else {
