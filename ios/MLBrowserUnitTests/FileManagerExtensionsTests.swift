@@ -343,6 +343,7 @@ final class FileManagerExtensionsTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
         
         try FileManager.default.createDirectory(at: cachesSubdir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: cachesSubdir) }
         
         let cachesFile = cachesSubdir.appendingPathComponent("model.mlmodel")
         try "content".write(to: cachesFile, atomically: true, encoding: .utf8)
@@ -355,8 +356,7 @@ final class FileManagerExtensionsTests: XCTestCase {
         
         XCTAssertFalse(FileManager.default.fileExists(atPath: cachesFile.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: destinationURL.path))
-        
-        try? FileManager.default.removeItem(at: cachesSubdir)
+
     }
     
     // MARK: - storeModelInDocuments containment (AIA-0963)
@@ -398,13 +398,17 @@ final class FileManagerExtensionsTests: XCTestCase {
     /// `Configurations/<id>/../<id>/model` names the copy target itself, which is deleted before the
     /// copy. It must be rejected, and the model must survive.
     func test_storeModelInDocuments_rejectsDotDotPathAndKeepsTheFile() throws {
-        let configDir = try XCTUnwrap(FileManager.deepConfigurationDirectory(id: testConfigurationId))
+        // Stored under *another* configuration, so the copy target is a different file and only the
+        // explicit `.`/`..` rejection, not the same-file guard, can stop this.
+        let otherID = UUID()
+        let configDir = try XCTUnwrap(FileManager.deepConfigurationDirectory(id: otherID))
         try FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: configDir) }
         let storedFile = configDir.appendingPathComponent("model.mlmodel")
         try "content".write(to: storedFile, atomically: true, encoding: .utf8)
         let escapingURL = configDir
             .appendingPathComponent("..")
-            .appendingPathComponent(testConfigurationId.uuidString)
+            .appendingPathComponent(otherID.uuidString)
             .appendingPathComponent("model.mlmodel")
         XCTAssertTrue(escapingURL.pathComponents.contains(".."), "fixture must keep its `..` component")
         
@@ -430,6 +434,24 @@ final class FileManagerExtensionsTests: XCTestCase {
         
         XCTAssertThrowsError(
             try FileManager.storeModelInDocuments(from: aliasedFile, configurationId: testConfigurationId)
+        ) { error in
+            XCTAssertEqual(error as? ModelFileStorageError, .fileOperationFailed)
+        }
+        XCTAssertEqual(try String(contentsOf: storedFile, encoding: .utf8), "content")
+    }
+    
+    /// The source is a symlink *file* pointing at the stored model. Resource values describe the
+    /// link itself, so identity must be read after resolving it.
+    func test_storeModelInDocuments_rejectsSymlinkToTheTargetAndKeepsTheFile() throws {
+        let configDir = try XCTUnwrap(FileManager.deepConfigurationDirectory(id: testConfigurationId))
+        try FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
+        let storedFile = configDir.appendingPathComponent("model.mlmodel")
+        try "content".write(to: storedFile, atomically: true, encoding: .utf8)
+        let link = testDirectory.appendingPathComponent("model.mlmodel")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: storedFile)
+        
+        XCTAssertThrowsError(
+            try FileManager.storeModelInDocuments(from: link, configurationId: testConfigurationId)
         ) { error in
             XCTAssertEqual(error as? ModelFileStorageError, .fileOperationFailed)
         }

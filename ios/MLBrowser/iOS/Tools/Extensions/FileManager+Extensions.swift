@@ -50,13 +50,14 @@ extension FileManager {
 	}
 	
 	/// Whether both URLs name the same existing file, compared by filesystem identity rather than
-	/// by path. `false` when either identity cannot be read, for example because the target does
-	/// not exist yet; storage then proceeds exactly as it did before this guard.
+	/// by path. Symlinks are resolved first, because resource values describe a link itself rather
+	/// than the file it points to. `false` when either identity cannot be read, for example because
+	/// the target does not exist yet; storage then proceeds exactly as it did before this guard.
 	private static func isSameFile(_ lhs: URL, _ rhs: URL) -> Bool {
 		let key: Set<URLResourceKey> = [.fileResourceIdentifierKey]
 		guard
-			let lhsID = try? lhs.resourceValues(forKeys: key).fileResourceIdentifier,
-			let rhsID = try? rhs.resourceValues(forKeys: key).fileResourceIdentifier
+			let lhsID = try? lhs.resolvingSymlinksInPath().resourceValues(forKeys: key).fileResourceIdentifier,
+			let rhsID = try? rhs.resolvingSymlinksInPath().resourceValues(forKeys: key).fileResourceIdentifier
 		else {
 			return false
 		}
@@ -65,6 +66,7 @@ extension FileManager {
 	
 	/// Moves a downloaded model file to the app's Documents directory.
 	/// Use this for temporary download files that should be removed from source.
+	/// Throws ``ModelFileStorageError/fileOperationFailed`` when the source already is the target file.
 	/// - Parameters:
 	///   - sourceURL: The temporary location of the downloaded file
 	///   - configurationId: The UUID of the configuration to store the file under
@@ -79,6 +81,7 @@ extension FileManager {
 	/// Copies an external model file to the app's Documents directory.
 	/// Use this for file picker imports where the source should be preserved.
 	/// Handles security-scoped resource access for sandboxed file picker URLs.
+	/// Throws ``ModelFileStorageError/fileOperationFailed`` when the source already is the target file.
 	/// - Parameters:
 	///   - sourceURL: The external file URL (e.g., from file picker)
 	///   - configurationId: The UUID of the configuration to store the file under
@@ -104,12 +107,13 @@ extension FileManager {
 	///   - configurationId: The UUID of the configuration to store the file under
 	///   - preferMove: If true and file is in a temp location, moves instead of copying
 	/// - Returns: The URL of the file in Documents, or the original URL if already there
-	/// - Throws: ``ModelFileStorageError/fileOperationFailed`` for the Documents directory itself or
-	///   a source path with a `.`/`..` component (see below).
+	/// - Throws: ``ModelFileStorageError/fileOperationFailed`` for the Documents directory itself, a
+	///   source path with a `.`/`..` component (see below), or a source that is the target file
+	///   under another spelling.
 	///
 	/// Every location test here is ``URL/isStrictlyContained(in:)``, the same lexical,
 	/// whole-component check that ``URL/relativePath(from:)`` applies to the returned URL, so the
-	/// two cannot disagree (AIA-0963). They are not standardized, for the reason documented on the
+	/// two apply one rule (AIA-0963). They are not standardized, for the reason documented on the
 	/// helper. A lexical miss on the temporary-location test produces a copy, which is always safe.
 	static func storeModelInDocuments(from sourceURL: URL, configurationId: UUID, preferMove: Bool = false) throws -> URL {
 		let fileManager = FileManager.default
@@ -135,9 +139,7 @@ extension FileManager {
 		// component elsewhere.
 		let temporaryRoots = [fileManager.temporaryDirectory]
 			+ fileManager.urls(for: .cachesDirectory, in: .userDomainMask)
-		let isTemporaryFile = temporaryRoots.contains { sourceURL.isStrictlyContained(in: $0) }
-		
-		if preferMove && isTemporaryFile {
+		if preferMove && temporaryRoots.contains(where: { sourceURL.isStrictlyContained(in: $0) }) {
 			return try moveModelToDocuments(from: sourceURL, configurationId: configurationId)
 		} else {
 			return try copyModelToDocuments(from: sourceURL, configurationId: configurationId)
