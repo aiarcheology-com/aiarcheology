@@ -142,7 +142,9 @@ holds for the document on screen (AIA-0875):
 The cost is deliberate: a genuinely frozen page matching one of these keeps the address it has until
 the next navigation. That is stale, not wrong, and the GPS field still comes from the live map. Not
 covered — they still look frozen until the first pan: a pasted share link, Back/Forward to a page
-that had been panned, and the reload onto a rebuilt web view after a crash.
+that had been panned, the reload onto a rebuilt web view after a crash, and a reload issued before
+loading ends of a page that rewrote its address while loading (at commit, that address cannot be
+told apart from the one `load(_:)` publishes for a different page).
 
 ## Which URL, exactly
 

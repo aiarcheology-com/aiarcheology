@@ -283,8 +283,9 @@ final class BrowserState: ObservableObject {
 	/// address once while loading, keeps that address until the next navigation instead of having
 	/// its viewport refreshed. That URL is stale rather than wrong, and the GPS field still comes
 	/// from the live map. Not covered: a pasted share link, Back/Forward to a page that had been
-	/// panned, and the reload onto a rebuilt web view after a crash — all still look frozen until
-	/// the first pan.
+	/// panned, the reload onto a rebuilt web view after a crash, and a reload issued before loading
+	/// ends of a page that rewrote its address while loading (at commit that address cannot be told
+	/// from one `load(_:)` published for another page) — all still look frozen until the first pan.
 	var pageMaintainsItsURL: Bool {
 		hasObservedSameDocumentURLChange || hasURLChangeWhileLoading || isOpenedAtAppWrittenURL
 	}
