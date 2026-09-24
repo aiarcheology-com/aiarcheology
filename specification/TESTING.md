@@ -205,6 +205,20 @@ Until #850 introduces and validates a selector, preserve these gates and use the
 local verification relevant. Documentation-only changes need checks of links, commands, and
 consistency, without launching app tests solely for prose.
 
+### Merging without CI
+
+The "Required Actions checks" ruleset (develop and main) requires Code Analysis, Architecture
+Tests, Every string translated in every locale, and Native Model Converter Tests. It has no bypass
+actors, so `gh pr merge --admin` is refused while those checks cannot run (for example, when Actions
+billing is exhausted). With the user's approval for that merge:
+
+1. Run each required check's local equivalent (SwiftLint, Harmonize, localization, and the converter
+   suite when the diff reaches the root package) and record the results in the PR.
+2. Resolve every review thread.
+3. Disable the ruleset's enforcement, merge with `--admin`, and immediately re-enable it in the same
+   command sequence, re-enabling even if the merge fails.
+4. Confirm the ruleset reports `active` before continuing.
+
 ## Weighted-CRAP baseline
 
 `./scripts/slopguard-baseline.sh` collects the AIA-0901 measurements. Commit tracked changes

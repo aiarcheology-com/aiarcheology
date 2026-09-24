@@ -63,6 +63,8 @@ resources, Xcode configuration, and iOS tests. Load references only when relevan
 - Read the entire issue thread, including comments, before implementation.
 - Every issue belongs to [AI Archeology, project #1](https://github.com/orgs/aiarcheology-com/projects/1).
   New issues start at **Todo**. Verify project status after changing it.
+- Work a batch of issues serially unless told otherwise: finish one (merged, issue closed, board
+  **Done**) before starting the next. Agents share the simulator, DerivedData, and `develop`.
 - Use `AIA-XXXX: <summary>` issue titles. Branches are `<type>/AIA-XXXX/description`, with
   `feature`, `fix`, `doc`, or `test`. Commit summaries are imperative and prefixed `[AIA-XXXX]`
   (or multiple relevant keys). Explain material tradeoffs in the body.
@@ -74,6 +76,8 @@ resources, Xcode configuration, and iOS tests. Load references only when relevan
   Never use `develop` as a PR source (head): automatic head-branch deletion can remove it when
   an administrator bypasses its deletion protection. Keep automatic branch deletion enabled.
   Pushing `release/*` triggers paid Xcode Cloud work; follow the release guidance below.
+- Merge without passing CI only with the user's approval, following
+  [merging without CI](specification/TESTING.md#merging-without-ci); never leave a ruleset disabled.
 - Closing keywords do not auto-close issues merged into `develop`, the
   non-default branch. Close the issue and move its project status to **Done** after verified
   completion within the user's requested delivery scope; record any unmerged or local-only work.
