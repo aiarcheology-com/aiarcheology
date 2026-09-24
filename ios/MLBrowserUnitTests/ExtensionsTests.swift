@@ -344,6 +344,17 @@ final class URLExtensionsTests: XCTestCase {
         }
     }
 
+    func testRelativePath_ThrowsForDotDotComponentClimbingOut() throws {
+        let documents = try FileManager.default.url(
+            for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        )
+        let escaping = documents.appendingPathComponent("Configurations/../../Library/model.mlmodel")
+
+        XCTAssertThrowsError(try escaping.relativePath(from: .documentDirectory)) { error in
+            XCTAssertTrue(error is CocoaError)
+        }
+    }
+
     func testRelativePath_ThrowsForTheDirectoryItself() throws {
         let documents = try FileManager.default.url(
             for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false

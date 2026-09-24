@@ -202,7 +202,7 @@ final class ImportedContainerRoutingTests: XCTestCase {
 	///
 	/// `standardizedFileURL` strips a leading `/private` only when the stripped path **exists**, so a
 	/// standardised return value would diverge from the stored file's own directory on device and
-	/// then fail `URL.relativePath(from:)`, which is a raw string prefix test — deleting the
+	/// then fail `URL.relativePath(from:)`, which is a lexical path-component test — deleting the
 	/// configuration and failing the import.
 	///
 	/// - Important: the fixture must be a directory that **really exists**, or this test is inert.

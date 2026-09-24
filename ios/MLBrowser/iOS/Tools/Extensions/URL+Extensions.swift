@@ -44,17 +44,20 @@ extension URL {
 		// Containment is decided on whole path components (AIA-0606): a bare string prefix also
 		// matched a sibling such as `…/DocumentsBackup` and silently produced a wrong relative
 		// path. The URL must lie strictly inside the directory; the directory itself is not a
-		// file within it. Lexical only, as before — this does not resolve symlinks.
+		// file within it, and a `.`/`..` component below it could climb back out. Lexical only,
+		// as before — this does not resolve symlinks or a `/private` prefix.
 		let directoryComponents = directoryURL.pathComponents
 		let components = self.pathComponents
+		let relativeComponents = components.dropFirst(directoryComponents.count)
 
 		guard
 			components.count > directoryComponents.count,
-			components.starts(with: directoryComponents) else {
+			components.starts(with: directoryComponents),
+			relativeComponents.allSatisfy({ $0 != "." && $0 != ".." }) else {
 			throw CocoaError(.fileNoSuchFile)
 		}
 
-		let relativePath = components.dropFirst(directoryComponents.count).joined(separator: "/")
+		let relativePath = relativeComponents.joined(separator: "/")
 
 		// .urlPathAllowed keeps "/" and "." intact; .alphanumerics encoded them
 		// ("model.mlmodelc" → "model%2Emlmodelc") and only round-tripped by accident.
