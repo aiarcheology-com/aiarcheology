@@ -61,57 +61,63 @@ extension FileManager {
 	}
 	
 	/// Whether `targetURL` lies strictly inside `sourceURL`. Decided lexically on whole path
-	/// components, and also by filesystem identity for each existing ancestor of the target, because
-	/// an alias of the container (a symlink, a `/private` spelling, a `..` component) passes the
-	/// lexical check. That costs one identity read per ancestor, a dozen at most. For a source that
-	/// exists, the identity walk alone would decide; the lexical test is the cheap, spelled-out form
-	/// of the same rule and needs no filesystem access.
+	/// components, and also by filesystem identity for every proper prefix of the target's path,
+	/// because an alias of the container (a symlink, a `/private` spelling, a `..` component) passes
+	/// the lexical check. Walking prefixes rather than repeatedly deleting the last component means a
+	/// `..` in the path cannot end the walk early. The source's identity is read once, then one
+	/// identity read per prefix, a dozen at most. For a source that exists, the identity walk alone
+	/// would decide; the lexical test is the cheap, spelled-out form of the same rule and needs no
+	/// filesystem access.
 	private static func isTarget(_ targetURL: URL, insideSource sourceURL: URL) -> Bool {
 		if targetURL.isStrictlyContained(in: sourceURL) {
 			return true
 		}
-		var ancestor = targetURL.deletingLastPathComponent()
-		while true {
-			if isSameFile(sourceURL, ancestor) {
-				return true
-			}
-			let parent = ancestor.deletingLastPathComponent()
-			if parent.pathComponents.count >= ancestor.pathComponents.count {
-				return false
-			}
-			ancestor = parent
+		guard let sourceID = fileIdentity(of: sourceURL) else {
+			return false
+		}
+		let components = targetURL.pathComponents
+		return (1..<components.count).contains { count in
+			let ancestor = URL(fileURLWithPath: NSString.path(withComponents: Array(components.prefix(count))))
+			return fileIdentity(of: ancestor)?.isEqual(sourceID) == true
 		}
 	}
 	
 	/// Whether both URLs name the same existing file, compared by filesystem identity rather than
-	/// by path. Symlinks are resolved first, because resource values describe a link itself rather
-	/// than the file it points to. `false` when either identity cannot be read, for example because
-	/// the target does not exist yet; storage then proceeds exactly as it did before this guard.
+	/// by path. `false` when either identity cannot be read, for example because the target does not
+	/// exist yet; storage then proceeds exactly as it did before this guard.
 	private static func isSameFile(_ lhs: URL, _ rhs: URL) -> Bool {
-		let key: Set<URLResourceKey> = [.fileResourceIdentifierKey]
-		guard
-			let lhsID = try? lhs.resolvingSymlinksInPath().resourceValues(forKeys: key).fileResourceIdentifier,
-			let rhsID = try? rhs.resolvingSymlinksInPath().resourceValues(forKeys: key).fileResourceIdentifier
-		else {
+		guard let lhsID = fileIdentity(of: lhs), let rhsID = fileIdentity(of: rhs) else {
 			return false
 		}
 		return lhsID.isEqual(rhsID)
+	}
+	
+	/// The filesystem identity of the item `url` names, or `nil` when it cannot be read. Symlinks are
+	/// resolved first, because resource values describe a link itself rather than the file it points to.
+	private static func fileIdentity(of url: URL) -> (any NSCopying & NSSecureCoding & NSObjectProtocol)? {
+		try? url.resolvingSymlinksInPath().resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier
 	}
 	
 	/// Puts a new item at `targetURL` without losing the one already there (AIA-0967).
 	///
 	/// `stage` writes the new item to a hidden sibling of the target, in the same directory and so on
 	/// the same volume. Only when that succeeds does `replaceItemAt` swap it in; the old item is
-	/// removed after the swap, never before. Any failure removes the staged item and rethrows, leaving
-	/// an existing target exactly as it was. `.usingNewMetadataOnly` keeps the result identical to a
-	/// fresh store, as the previous delete-then-place order produced.
+	/// removed after the swap, never before. If staging fails, the partial staged item is removed. If
+	/// the swap fails, `unstage` disposes of the staged item (a move puts it back at its source), and
+	/// an original that `replaceItemAt` had already moved aside is put back, so the existing target
+	/// stays in place. `.usingNewMetadataOnly` keeps the result identical to a fresh store, as the
+	/// previous delete-then-place order produced. The cost of keeping the old item until the new one
+	/// is complete: a copy briefly needs space for both, where the old order needed space for one.
+	/// A move is a rename and needs none.
 	///
 	/// A crash between staging and swapping leaves a `.<name>.staging-<UUID>` sibling, possibly as
 	/// large as the model. Nothing else removes it: a configuration with a download item keeps its
 	/// directory on deletion. So every install first sweeps stale siblings for its own name, as the
 	/// converter does for its `.partial-` files. That assumes one install at a time per target:
-	/// `Downloader.downloadTapped` ignores a start while a catalog item is downloading, and every
-	/// other store has a fresh configuration ID or a unique download filename.
+	/// `Downloader.downloadTapped` ignores a start while a catalog item is downloading, imports run
+	/// one at a time (`ModelImportView.startImport`), a retried conversion's source is already inside
+	/// Documents and is not installed again, and every other store has a fresh configuration ID or a
+	/// unique download filename.
 	///
 	/// A loaded model is not affected by the swap. Only a catalog re-download reuses both a
 	/// configuration ID and a filename, and catalog artifacts are sources (`.mlmodel`, `.mlpackage`,
@@ -120,7 +126,13 @@ extension FileManager {
 	/// compiles the new one. A converted `.onnx` keeps its existing converted model until the import
 	/// flow converts again. A compile that is reading the old file at the moment of the swap can fail
 	/// with an error; it cannot damage either stored model.
-	private static func installItem(at targetURL: URL, stage: (URL) throws -> Void) throws {
+	///
+	/// - Returns: The URL that now holds the new item, as `replaceItemAt` reports it.
+	private static func installItem(
+		at targetURL: URL,
+		stage: (URL) throws -> Void,
+		unstage: (URL) -> Void
+	) throws -> URL {
 		let fileManager = FileManager.default
 		let directory = targetURL.deletingLastPathComponent()
 		let stagingPrefix = ".\(targetURL.lastPathComponent).staging-"
@@ -133,20 +145,54 @@ extension FileManager {
 		let stagingURL = directory.appendingPathComponent(stagingPrefix + UUID().uuidString)
 		do {
 			try stage(stagingURL)
-			if fileManager.fileExists(atPath: targetURL.path) {
-				_ = try fileManager.replaceItemAt(targetURL, withItemAt: stagingURL, options: .usingNewMetadataOnly)
-			} else {
-				try fileManager.moveItem(at: stagingURL, to: targetURL)
-			}
 		} catch {
 			try? fileManager.removeItem(at: stagingURL)
 			throw error
 		}
+		
+		do {
+			guard fileManager.fileExists(atPath: targetURL.path) else {
+				try fileManager.moveItem(at: stagingURL, to: targetURL)
+				return targetURL
+			}
+			do {
+				let installedURL = try fileManager.replaceItemAt(
+					targetURL,
+					withItemAt: stagingURL,
+					options: .usingNewMetadataOnly
+				)
+				return installedURL ?? targetURL
+			} catch {
+				restoreOriginal(at: targetURL, after: error)
+				throw error
+			}
+		} catch {
+			unstage(stagingURL)
+			throw error
+		}
+	}
+	
+	/// The user-info key under which a failed `replaceItemAt` reports where it left the original.
+	/// Foundation documents the string in `NSFileManager.h` but exports no Swift constant for it.
+	private static let originalItemLocationKey = "NSFileOriginalItemLocationKey"
+	
+	/// `replaceItemAt` does not promise to leave the original where it was when it fails; when it has
+	/// moved the original aside, the error names where. Put it back, best effort.
+	private static func restoreOriginal(at targetURL: URL, after error: Error) {
+		let fileManager = FileManager.default
+		guard
+			fileManager.fileExists(atPath: targetURL.path).not,
+			let originalURL = (error as NSError).userInfo[originalItemLocationKey] as? URL
+		else {
+			return
+		}
+		try? fileManager.moveItem(at: originalURL, to: targetURL)
 	}
 	
 	/// Moves a downloaded model file to the app's Documents directory.
 	/// Use this for temporary download files that should be removed from source.
-	/// An existing file of the same name is replaced only once the move has succeeded (AIA-0967).
+	/// An existing file of the same name is replaced only once the move has succeeded (AIA-0967);
+	/// if the replacement fails, the download is moved back to `sourceURL`.
 	/// Throws ``ModelFileStorageError/fileOperationFailed`` when the source already is the target
 	/// file or contains the target (AIA-0968).
 	/// - Parameters:
@@ -159,12 +205,20 @@ extension FileManager {
 		configurationId: UUID,
 		documentsURL: URL? = FileManager.default.documentDirectory
 	) throws -> URL {
+		let fileManager = FileManager.default
 		let targetURL = try prepareTargetURL(from: sourceURL, configurationId: configurationId, documentsURL: documentsURL)
-		try installItem(at: targetURL) { stagingURL in
-			try FileManager.default.moveItem(at: sourceURL, to: stagingURL)
-		}
-		LoggingPolicy.debug("Model moved to: \(targetURL.path)", logger: .storage)
-		return targetURL
+		let installedURL = try installItem(
+			at: targetURL,
+			stage: { stagingURL in try fileManager.moveItem(at: sourceURL, to: stagingURL) },
+			unstage: { stagingURL in
+				// Leaves no staged item either way; a download that cannot go back is fetched again.
+				if (try? fileManager.moveItem(at: stagingURL, to: sourceURL)) == nil {
+					try? fileManager.removeItem(at: stagingURL)
+				}
+			}
+		)
+		LoggingPolicy.debug("Model moved to: \(installedURL.path)", logger: .storage)
+		return installedURL
 	}
 	
 	/// Copies an external model file to the app's Documents directory.
@@ -190,12 +244,15 @@ extension FileManager {
 			}
 		}
 		
+		let fileManager = FileManager.default
 		let targetURL = try prepareTargetURL(from: sourceURL, configurationId: configurationId, documentsURL: documentsURL)
-		try installItem(at: targetURL) { stagingURL in
-			try FileManager.default.copyItem(at: sourceURL, to: stagingURL)
-		}
-		LoggingPolicy.debug("Model copied to: \(targetURL.path)", logger: .storage)
-		return targetURL
+		let installedURL = try installItem(
+			at: targetURL,
+			stage: { stagingURL in try fileManager.copyItem(at: sourceURL, to: stagingURL) },
+			unstage: { stagingURL in try? fileManager.removeItem(at: stagingURL) }
+		)
+		LoggingPolicy.debug("Model copied to: \(installedURL.path)", logger: .storage)
+		return installedURL
 	}
 	
 	/// Stores a model file in the app's Documents directory.

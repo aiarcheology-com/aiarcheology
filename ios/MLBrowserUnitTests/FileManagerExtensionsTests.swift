@@ -609,6 +609,80 @@ final class FileManagerExtensionsTests: XCTestCase {
         XCTAssertEqual(try configDirectoryListing(in: documents), [unrelated.lastPathComponent, "model.mlmodel"].sorted())
     }
     
+    /// Makes the installed model immutable, so the swap itself fails after staging has succeeded:
+    /// the failure the missing-source tests cannot reach.
+    private func lockAgainstReplacement(_ url: URL) throws {
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: url.path)
+        addTeardownBlock {
+            try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: url.path)
+        }
+    }
+    
+    /// A downloaded model that was moved into staging but could not be swapped in goes back to its
+    /// source; removing the staged item would lose the download as well.
+    func test_moveModelToDocuments_returnsTheDownloadWhenTheSwapFails() throws {
+        let (_, documents) = try makeFixtureContainer()
+        let existing = try installExistingModel(named: "model.mlmodel", content: "installed", in: documents)
+        try lockAgainstReplacement(existing)
+        let source = testDirectory.appendingPathComponent("model.mlmodel")
+        try "downloaded".write(to: source, atomically: true, encoding: .utf8)
+        
+        XCTAssertThrowsError(
+            try FileManager.moveModelToDocuments(
+                from: source,
+                configurationId: testConfigurationId,
+                documentsURL: documents
+            )
+        )
+        
+        XCTAssertEqual(try String(contentsOf: existing, encoding: .utf8), "installed")
+        XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "downloaded")
+        XCTAssertEqual(try configDirectoryListing(in: documents), ["model.mlmodel"])
+    }
+    
+    func test_copyModelToDocuments_keepsExistingModelWhenTheSwapFails() throws {
+        let (_, documents) = try makeFixtureContainer()
+        let existing = try installExistingModel(named: "model.mlmodel", content: "installed", in: documents)
+        try lockAgainstReplacement(existing)
+        let source = testDirectory.appendingPathComponent("model.mlmodel")
+        try "picked".write(to: source, atomically: true, encoding: .utf8)
+        
+        XCTAssertThrowsError(
+            try FileManager.copyModelToDocuments(
+                from: source,
+                configurationId: testConfigurationId,
+                documentsURL: documents
+            )
+        )
+        
+        XCTAssertEqual(try String(contentsOf: existing, encoding: .utf8), "installed")
+        XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "picked")
+        XCTAssertEqual(try configDirectoryListing(in: documents), ["model.mlmodel"])
+    }
+    
+    /// A `..` at the end of the Documents path defeats the lexical check and must not end the
+    /// identity walk before it reaches the container. (A move, so a missing guard cannot start a
+    /// recursive copy: renaming a directory into itself fails.)
+    func test_moveModelToDocuments_rejectsAncestorOfDocumentsSpelledWithDotDot() throws {
+        let (container, documents) = try makeFixtureContainerWithContent()
+        let dotDotDocuments = documents.appendingPathComponent("Sub").appendingPathComponent("..")
+        XCTAssertFalse(
+            FileManager.configurationDirectory(id: testConfigurationId, in: dotDotDocuments).isStrictlyContained(in: container),
+            "fixture must defeat the lexical check"
+        )
+        
+        XCTAssertThrowsError(
+            try FileManager.moveModelToDocuments(
+                from: container,
+                configurationId: testConfigurationId,
+                documentsURL: dotDotDocuments
+            )
+        ) { error in
+            XCTAssertEqual(error as? ModelFileStorageError, .fileOperationFailed)
+        }
+        try assertNothingChanged(in: container, documents: documents)
+    }
+    
     // MARK: - A source that contains its target (AIA-0968)
     
     /// A tiny fixture container: a parent of Documents with one file beside it. If the guard were
