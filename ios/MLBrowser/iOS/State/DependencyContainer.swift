@@ -16,8 +16,9 @@ import UIKit
 
 /// The app's **single composition root** (AIA-0385). Owns every shared service (Core Data,
 /// settings, snap/deep state, downloader, demo data, auth/subscription providers) and builds
-/// the fully-wired `AppState` via `makeAppState()`. Nothing outside bootstrap (`@main` app
-/// entry + the background-session `UIApplicationDelegate`) may touch `DependencyContainer.shared`;
+/// the fully-wired `AppState` via `makeAppState()`. Nothing outside bootstrap (the app entry points
+/// `MLBrowser` and the headless `MLBrowserHeadless`, plus the background-session
+/// `UIApplicationDelegate`) may touch `DependencyContainer.shared`;
 /// in particular Views never do — they read what they need from `AppState` / the environment.
 @MainActor
 class DependencyContainer {
@@ -134,6 +135,14 @@ class DependencyContainer {
     /// real provider (the mock is `#if DEBUG`, so it can never ship).
     let usesMockSubscription: Bool = {
         #if DEBUG
+        #if AIA_APP_INTERFACE_headless
+        // Headless (AIA-0970): `simctl launch` never applies the scheme's StoreKit configuration, so
+        // real StoreKit is always "not subscribed" there. A launch opts into the mock explicitly with
+        // `-mockSubscription`, which the handshake echoes; without it the real provider is used.
+        if HeadlessLaunchOptions.current.mockSubscription != nil {
+            return true
+        }
+        #endif
         return AppEnvironment.isRunningUITests
             || AppEnvironment.isRunningUnderAnyTests
         #else
@@ -179,6 +188,11 @@ class DependencyContainer {
     /// actually guarantees a Release build reaches the Keychain.
     lazy var freeAccessDurableStore: FreeAccessAnchorDurableStore = {
         #if DEBUG
+        // Headless installations (AIA-0970) are simulator devices that are erased for a fresh run.
+        // The Keychain anchor would survive that and poison every later "fresh install".
+        if AppEnvironment.isHeadlessBuild {
+            return EphemeralFreeAccessAnchorStore()
+        }
         if AppEnvironment.isRunningUITests
             || AppEnvironment.isRunningUnderAnyTests
             || AppEnvironment.isRunningInPreviews {
@@ -222,6 +236,16 @@ class DependencyContainer {
     /// drop `featureFlagOverrides` on the floor — the overrides would appear to work while
     /// the app answered from the network.
     lazy var featureFlagProvider: FeatureFlagProviding = {
+        #if DEBUG && AIA_APP_INTERFACE_headless
+        // Headless flag pins (AIA-0970), layered over the live provider. Upstream of
+        // `FeatureFlagsState`, so the launch mirror records pinned values too.
+        let pins = HeadlessLaunchOptions.current.flagOverrides
+        if pins.isEmpty == false {
+            let live: FeatureFlagProviding = ConfigCatFeatureFlagProvider(sdkKey: ConfigCatFeatureFlagProvider.sdkKeyFromInfoPlist())
+                ?? StaticFeatureFlagProvider()
+            return OverridingFeatureFlagProvider(base: live, overrides: pins)
+        }
+        #endif
         if AppEnvironment.isRunningUITests
             || AppEnvironment.isRunningUnderAnyTests
             || AppEnvironment.isRunningInPreviews {

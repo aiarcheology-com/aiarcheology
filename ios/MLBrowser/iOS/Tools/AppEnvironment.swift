@@ -52,6 +52,19 @@ enum AppEnvironment {
         #endif
     }()
 
+    // MARK: - Build interface (AIA-0970)
+
+    /// Whether this is the headless build: `AIA_APP_INTERFACE = headless`, which the build only
+    /// accepts for Debug against the development backend. A compile-time fact, unlike the test
+    /// markers below, so nothing at launch can turn it on.
+    static let isHeadlessBuild: Bool = {
+        #if DEBUG && AIA_APP_INTERFACE_headless
+        return true
+        #else
+        return false
+        #endif
+    }()
+
     // MARK: - Runtime detection (tests)
 
     /// True whenever *any* XCTest bundle is driving this process.

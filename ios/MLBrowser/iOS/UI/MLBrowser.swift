@@ -220,7 +220,7 @@ final class BackgroundTaskAssertion {
 	}
 }
 
-@main
+/// The app with its UI. `AppEntry` launches it, or the headless build in its place (AIA-0970).
 struct MLBrowser: App {
 	@UIApplicationDelegateAdaptor(BackgroundDownloadAppDelegate.self) var appDelegate
 	@StateObject private var appState: AppState

@@ -37,16 +37,27 @@ It is the app's **single** composition root (AIA-0385): it constructor-injects a
 `AppState` via `makeAppState()`. `AppState` holds those injected instances and never reaches back
 into `DependencyContainer.shared`; Views never touch `.shared` either (they read from `AppState` or
 a dedicated environment value such as `\.usesRealAuth`). The only `.shared` sites are bootstrap —
-the `@main` entry and the background-session `UIApplicationDelegate`, which run outside the SwiftUI
-graph.
+the app entry points (`MLBrowser`, and `MLBrowserHeadless` in a headless build) and the
+background-session `UIApplicationDelegate`, which run outside the SwiftUI graph.
 
 Test isolation lives here: in DEBUG under tests, `usesMockAuth` / `usesMockSubscription`
 swap in in-memory mock providers so unit/UI tests never touch Clerk or StoreKit. The mocks
-are `#if DEBUG`, so they can never ship in Release/TestFlight.
+are `#if DEBUG`, so they can never ship in Release/TestFlight. The headless build selects its
+few explicit launch options here too (`HeadlessLaunchOptions`, AIA-0970), never through the test markers.
 
 ## App entry & gating
 
-`MLBrowser/iOS/UI/MLBrowser.swift` — `@main struct MLBrowser: App`. The root `AppState`
+`MLBrowser/iOS/UI/AppEntry.swift` — `@main enum AppEntry` launches `MLBrowser` (the SwiftUI app,
+`UI/MLBrowser.swift`) or, when built with `AIA_APP_INTERFACE = headless`, `MLBrowserHeadless`
+(`Headless/Entry/`), the same app without its views (see `specification/HEADLESS.md`).
+
+Both entries bootstrap through `AppRuntime` (`State/AppRuntime.swift`): observability, Clerk, then
+the composition root, in that order. `AppRuntime.start()` then runs the process-level work that
+used to hang off the root scene — store-dependent services, the detailed-log brake,
+background/foreground handling, and auth, which starts only once `AppState.isReady`. Presentation
+stays in the UI entry: overlays, URL intake, the production banner, and the Clerk session watcher.
+
+The root `AppState`
 (`@StateObject`) is built by `DependencyContainer.makeAppState()`: it receives the shared services
 by constructor injection (`snap`, `deep`, `dataController`, `settings`, `downloader`,
 `demoDataManager`, auth/subscription providers) and additionally owns the view-derived state
@@ -114,12 +125,13 @@ Production. Views observe `FeatureFlagsState` directly rather than through `AppS
 
 | Dir | Contents |
 |-|-|
-| `UI/` | SwiftUI views by feature (`Screens`, `Drawer`, `Auth`, `Subscription`, `Findings`, `Annotation`, `Tour`, `SettingsView`, …); app entry `MLBrowser.swift` |
+| `UI/` | SwiftUI views by feature (`Screens`, `Drawer`, `Auth`, `Subscription`, `Findings`, `Annotation`, `Tour`, `SettingsView`, …); app entry `AppEntry.swift` and `MLBrowser.swift` |
 | `State/` | State objects, `DependencyContainer`, `DataController`, auth/subscription providers |
 | `Drivers/` | Detection engine: `Driver`, `DeepDriver`, `Detector`, `Classificator`, `DetectionTiling`, demo models |
 | `Rendering/` | WebView snapshotting: `WebViewRenderer`, `DefaultRenderer`, `Snapshot` |
 | `Persistence/` | Core Data classes, `.xcdatamodeld`, migrations |
 | `Services/` | Stateless workers (e.g. `ModelLoadingService`) |
+| `Headless/` | The headless build (AIA-0970): screens and actions over `AppState`, launch options, and the `Entry/` app; see `specification/HEADLESS.md` |
 | `Tools/` | Cross-cutting helpers: reporting/observability, testability, extensions, localization |
 | `Resources/`, `Assets/`, `Generated/` | `Localizable.xcstrings`, assets, generated `L10n.swift` |
 

@@ -140,6 +140,7 @@
 		8AD3A8342B2F02280058E018 /* DownloadItem+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD3A8322B2F02280058E018 /* DownloadItem+CoreDataProperties.swift */; };
 		8ADCE5D52B1EA15200B5EAED /* NSManagedObjectContext+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ADCE5D42B1EA15200B5EAED /* NSManagedObjectContext+Extensions.swift */; };
 		8AE0BC042A97B0B30086DDF9 /* MLBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC032A97B0B30086DDF9 /* MLBrowser.swift */; };
+		AA0970400000000000000002 /* AppEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970400000000000000001 /* AppEntry.swift */; };
 		8AE0BC062A97B0B30086DDF9 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC052A97B0B30086DDF9 /* ContentView.swift */; };
 		8AE0BC082A97B0B40086DDF9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8AE0BC072A97B0B40086DDF9 /* Assets.xcassets */; };
 		8AE0BC0B2A97B0B40086DDF9 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8AE0BC0A2A97B0B40086DDF9 /* Preview Assets.xcassets */; };
@@ -184,6 +185,7 @@
 		945C55822ED71234007DD8FB /* StringExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55812ED71234007DD8FB /* StringExtensionsTests.swift */; };
 		945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55832ED71234007DD8FB /* SettingsTests.swift */; };
 		AA0970110000000000000002 /* AppRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970110000000000000001 /* AppRuntimeTests.swift */; };
+		AA0970410000000000000002 /* HeadlessLaunchOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */; };
 		945C55862ED71234007DD8FB /* DeepConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55852ED71234007DD8FB /* DeepConfigurationTests.swift */; };
 		945C55882ED71234007DD8FB /* TestabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55872ED71234007DD8FB /* TestabilityTests.swift */; };
 		946200F12ED70AEC0047336A /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946200F02ED70AE60047336A /* AppEnvironment.swift */; };
@@ -325,6 +327,9 @@
 		AA0643020000000000000002 /* SupportLogSealerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0643020000000000000001 /* SupportLogSealerTests.swift */; };
 		AA0643030000000000000002 /* SupportLogFormat in Frameworks */ = {isa = PBXBuildFile; productRef = AA0643030000000000000001 /* SupportLogFormat */; };
 		AA0643040000000000000002 /* SupportLogFormat in Frameworks */ = {isa = PBXBuildFile; productRef = AA0643040000000000000001 /* SupportLogFormat */; };
+		AA0970300000000000000002 /* HeadlessKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA0970300000000000000001 /* HeadlessKit */; };
+		AA0970310000000000000002 /* HeadlessKitTransport in Frameworks */ = {isa = PBXBuildFile; productRef = AA0970310000000000000001 /* HeadlessKitTransport */; };
+		AA0970320000000000000002 /* HeadlessKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA0970320000000000000001 /* HeadlessKit */; };
 		AB71300000000000000A002 /* FindingArchiveImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71300000000000000A001 /* FindingArchiveImport.swift */; };
 		AB71300000000000000B002 /* FindingArchiveImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71300000000000000B001 /* FindingArchiveImportTests.swift */; };
 		ABAA0115000000000000B001 /* AppMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A001 /* AppMessage.swift */; };
@@ -578,6 +583,7 @@
 		8AD3A8322B2F02280058E018 /* DownloadItem+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DownloadItem+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		8ADCE5D42B1EA15200B5EAED /* NSManagedObjectContext+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSManagedObjectContext+Extensions.swift"; sourceTree = "<group>"; };
 		8AE0BC032A97B0B30086DDF9 /* MLBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLBrowser.swift; sourceTree = "<group>"; };
+		AA0970400000000000000001 /* AppEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEntry.swift; sourceTree = "<group>"; };
 		8AE0BC052A97B0B30086DDF9 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		8AE0BC072A97B0B40086DDF9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8AE0BC0A2A97B0B40086DDF9 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -622,6 +628,7 @@
 		945C55812ED71234007DD8FB /* StringExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringExtensionsTests.swift; sourceTree = "<group>"; };
 		945C55832ED71234007DD8FB /* SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTests.swift; sourceTree = "<group>"; };
 		AA0970110000000000000001 /* AppRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRuntimeTests.swift; sourceTree = "<group>"; };
+		AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessLaunchOptionsTests.swift; sourceTree = "<group>"; };
 		945C55852ED71234007DD8FB /* DeepConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepConfigurationTests.swift; sourceTree = "<group>"; };
 		945C55872ED71234007DD8FB /* TestabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestabilityTests.swift; sourceTree = "<group>"; };
 		946200F02ED70AE60047336A /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
@@ -866,6 +873,11 @@
 			path = MLBrowserArchitectureTests;
 			sourceTree = "<group>";
 		};
+		AA0970200000000000000001 /* Headless */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Headless;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -880,6 +892,8 @@
 				9407A5E82FE4A9AE0097FB7B /* ClerkKitUI in Frameworks */,
 				B10000000000000000000007 /* NativeModelConverter in Frameworks */,
 				AA0643030000000000000002 /* SupportLogFormat in Frameworks */,
+				AA0970300000000000000002 /* HeadlessKit in Frameworks */,
+				AA0970310000000000000002 /* HeadlessKitTransport in Frameworks */,
 			);
 		};
 		8AE0BC132A97B0B40086DDF9 /* Frameworks */ = {
@@ -887,6 +901,7 @@
 			files = (
 				B10000000000000000000009 /* NativeModelConverter in Frameworks */,
 				AA0643040000000000000002 /* SupportLogFormat in Frameworks */,
+				AA0970320000000000000002 /* HeadlessKit in Frameworks */,
 			);
 		};
 		8AE0BC1D2A97B0B40086DDF9 /* Frameworks */ = {
@@ -1010,6 +1025,7 @@
 				940A10072F0500020000A007 /* Generated */,
 				A1B2C3D42F0104A300000001 /* Services */,
 				8A61C5122AB9A85900BF72BE /* State */,
+				AA0970200000000000000001 /* Headless */,
 				8A61C5112AB9A85400BF72BE /* UI */,
 			);
 			path = iOS;
@@ -1030,6 +1046,7 @@
 				8AC393B92B2B9E5600C9BA57 /* SettingsView */,
 				2170366AF837CF0F524CF382 /* Tour */,
 				8AE0BC032A97B0B30086DDF9 /* MLBrowser.swift */,
+				AA0970400000000000000001 /* AppEntry.swift */,
 				8AE0BC052A97B0B30086DDF9 /* ContentView.swift */,
 				8A112CB82ABDE0BB00786384 /* WebView.swift */,
 				8A4F0E942F110A0300ABCDEF /* WebLoadFailureOverlay.swift */,
@@ -1402,6 +1419,7 @@
 				9A0C1EAA2F3D00010000000A /* SentryBreadcrumbGuardTests.swift */,
 				945C55832ED71234007DD8FB /* SettingsTests.swift */,
 				AA0970110000000000000001 /* AppRuntimeTests.swift */,
+				AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */,
 				94D79C922EE37DBF0027C9FA /* SequenceExtensionsTests.swift */,
 				94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */,
 				945C55812ED71234007DD8FB /* StringExtensionsTests.swift */,
@@ -1722,7 +1740,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8AE0BC2A2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowser" */;
 			buildPhases = (
-				9407910000000000000000A7 /* Validate backend environment */,
+				9407910000000000000000A7 /* Validate build parameters */,
 				946203352F04B4950052CB32 /* SwiftLint (RUN_SWIFTLINT) */,
 				940A10092F0500030000A009 /* SwiftGen (RUN_SWIFTGEN) */,
 				8AE0BBFC2A97B0B30086DDF9 /* Sources */,
@@ -1735,6 +1753,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				946200EC2ED6FF520047336A /* Testability */,
+				AA0970200000000000000001 /* Headless */,
 			);
 			name = MLBrowser;
 			packageProductDependencies = (
@@ -1746,6 +1765,8 @@
 				A35000000000000000000003 /* TelemetryDeck */,
 				B10000000000000000000006 /* NativeModelConverter */,
 				AA0643030000000000000001 /* SupportLogFormat */,
+				AA0970300000000000000001 /* HeadlessKit */,
+				AA0970310000000000000001 /* HeadlessKitTransport */,
 			);
 			productName = MLBrowser;
 			productReference = D6E1AE1C3040CA74006FA5FE /* ML Browser.app */;
@@ -1769,6 +1790,7 @@
 			packageProductDependencies = (
 				B10000000000000000000008 /* NativeModelConverter */,
 				AA0643040000000000000001 /* SupportLogFormat */,
+				AA0970320000000000000001 /* HeadlessKit */,
 			);
 			productName = MLBrowserTests;
 			productReference = 8AE0BC162A97B0B40086DDF9 /* MLBrowserUnitTests.xctest */;
@@ -1924,10 +1946,10 @@
 			shellPath = /bin/bash;
 			shellScript = "\"$SRCROOT/../scripts/embed_apple_test_models.sh\"\n";
 		};
-		9407910000000000000000A7 /* Validate backend environment */ = {
+		9407910000000000000000A7 /* Validate build parameters */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			name = "Validate backend environment";
+			name = "Validate build parameters";
 			shellPath = /bin/sh;
 			shellScript = (
 				"# Guards the failure mode #error structurally cannot: SWIFT_ACTIVE_COMPILATION_CONDITIONS",
@@ -1938,6 +1960,22 @@
 				"    development|production) ;;",
 				"    *)",
 				"        echo \"error: AIA_BACKEND_ENVIRONMENT must be exactly 'development' or 'production', with no extra words (got '${AIA_BACKEND_ENVIRONMENT}')\"",
+				"        exit 1",
+				"        ;;",
+				"esac",
+				"",
+				"# The headless build serves commands on a loopback socket and is automation only (AIA-0970):",
+				"# Debug, against the development backend, never anything that could ship or reach production.",
+				"case \"${AIA_APP_INTERFACE}\" in",
+				"    ui) ;;",
+				"    headless)",
+				"        if [ \"${CONFIGURATION}\" != \"Debug\" ] || [ \"${AIA_BACKEND_ENVIRONMENT}\" != \"development\" ]; then",
+				"            echo \"error: AIA_APP_INTERFACE=headless needs CONFIGURATION=Debug and AIA_BACKEND_ENVIRONMENT=development (got '${CONFIGURATION}', '${AIA_BACKEND_ENVIRONMENT}')\"",
+				"            exit 1",
+				"        fi",
+				"        ;;",
+				"    *)",
+				"        echo \"error: AIA_APP_INTERFACE must be exactly 'ui' or 'headless' (got '${AIA_APP_INTERFACE}')\"",
 				"        exit 1",
 				"        ;;",
 				"esac",
@@ -2181,6 +2219,7 @@
 				E8E2DAA150D7FFF0DE8A580E /* TourBubble.swift in Sources */,
 				001369B340919454DB66C1A1 /* TourOverlay.swift in Sources */,
 				8AE0BC042A97B0B30086DDF9 /* MLBrowser.swift in Sources */,
+				AA0970400000000000000002 /* AppEntry.swift in Sources */,
 				8AC393C82B2BA0EC00C9BA57 /* PrivacyPolicyView.swift in Sources */,
 				8AC650A52B2B4BE200922648 /* DeepConfiguration.swift in Sources */,
 				8A112CB92ABDE0BB00786384 /* WebView.swift in Sources */,
@@ -2404,6 +2443,7 @@
 				945C55822ED71234007DD8FB /* StringExtensionsTests.swift in Sources */,
 				945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */,
 				AA0970110000000000000002 /* AppRuntimeTests.swift in Sources */,
+				AA0970410000000000000002 /* HeadlessLaunchOptionsTests.swift in Sources */,
 				63CDF1E9BC41E124832411D6 /* TourStateTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
 				94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */,
@@ -2625,6 +2665,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 94FFB9D92EE7009B0049A549 /* Secrets.xcconfig */;
 			buildSettings = {
+				AIA_APP_INTERFACE = ui;
 				AIA_BACKEND_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -2659,7 +2700,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) AIA_BACKEND_ENV_$(AIA_BACKEND_ENVIRONMENT)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) AIA_BACKEND_ENV_$(AIA_BACKEND_ENVIRONMENT) AIA_APP_INTERFACE_$(AIA_APP_INTERFACE)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -2669,6 +2710,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 94FFB9D92EE7009B0049A549 /* Secrets.xcconfig */;
 			buildSettings = {
+				AIA_APP_INTERFACE = ui;
 				AIA_BACKEND_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=iphoneos*]" = AppIcon;
@@ -2704,7 +2746,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) AIA_BACKEND_ENV_$(AIA_BACKEND_ENVIRONMENT)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) AIA_BACKEND_ENV_$(AIA_BACKEND_ENVIRONMENT) AIA_APP_INTERFACE_$(AIA_APP_INTERFACE)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -3003,6 +3045,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B1000000000000000000000A /* XCLocalSwiftPackageReference ".." */;
 			productName = SupportLogFormat;
+		};
+		AA0970300000000000000001 /* HeadlessKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1000000000000000000000A /* XCLocalSwiftPackageReference ".." */;
+			productName = HeadlessKit;
+		};
+		AA0970310000000000000001 /* HeadlessKitTransport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1000000000000000000000A /* XCLocalSwiftPackageReference ".." */;
+			productName = HeadlessKitTransport;
+		};
+		AA0970320000000000000001 /* HeadlessKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1000000000000000000000A /* XCLocalSwiftPackageReference ".." */;
+			productName = HeadlessKit;
 		};
 		B10000000000000000000006 /* NativeModelConverter */ = {
 			isa = XCSwiftPackageProductDependency;

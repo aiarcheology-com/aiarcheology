@@ -89,6 +89,29 @@ A scenario is a JSON file. Decoding is strict: an unknown key anywhere is an err
 - **`capture`** maps a variable to a pointer. Later steps use `${variable}`. A string that is exactly `${variable}` keeps the value's JSON type. `${env:NAME}` reads the runner's environment. Credentials belong there, never in a scenario file. In a `matches` pattern, a substituted value is matched literally, never as regex syntax.
 - The **runner** launches the installations, runs the steps in order, stops at the first failure, always runs `teardown` (continuing past teardown failures), and terminates what it launched. The `ScenarioReport` lists every failed expectation and keeps the full response of a failed step.
 
+## ML Browser's headless build
+
+ML Browser builds without its UI when `AIA_APP_INTERFACE=headless` is passed to `xcodebuild`:
+
+```sh
+xcodebuild build -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -configuration Debug \
+  -destination "generic/platform=iOS Simulator" -derivedDataPath .deriveddata-headless \
+  AIA_APP_INTERFACE=headless
+```
+
+- **Same app.** `AppEntry` launches `MLBrowserHeadless` instead of `MLBrowser`. It keeps the same app delegate, bootstrap and `AppRuntime`, and the same composition root. Only the views are replaced: the one window shows a status line, and a `HeadlessServer` takes their place.
+- **Real composition.** The headless build uses what a Debug build uses: Clerk's development instance, the development findings backend, ConfigCat's Test environment, and persistent storage. Each simulator device is one installation of the app.
+- **Launch options.** Pass them as launch arguments. Each is echoed in the handshake `metadata` and in `context`.
+  - `-mockSubscription subscribed|notSubscribed` is needed because `simctl launch` never applies the scheme's StoreKit configuration, so real StoreKit is always "not subscribed" there.
+  - `-headlessFlag key=true|false` is repeatable and pins a feature flag over the live provider. A scenario pins every flag it asserts on, because the Test environment can change under it.
+- **Endpoint.** The server publishes `Library/Application Support/Headless/endpoint.json` in the app's data container (`xcrun simctl get_app_container <device> com.aiarcheology.ios data`).
+- **Never production.** Three independent locks keep headless automation away from production data:
+  1. The build's validation phase refuses `headless` outside `Debug` with the `development` backend.
+  2. The server refuses to start unless the backend is `development`, and the in-app backend switch is disabled.
+  3. The handshake reports `backendEnvironment`, so a launcher can refuse anything else.
+- **Screens so far.** The only routes are `launching`, then `ready` once `AppState` is ready, plus the `ready` wait condition. The screens after launch, the `ProjectTool headless` launcher, and the scenarios are the next step of AIA-0970.
+- **Things a run cannot control:** remote `appMessages` can change during a run, and a live message may raise a notification-authorization alert on the device. Neither may be asserted. Choosing `allow` at analytics consent sends TelemetryDeck signals, which the SDK marks as test-mode in Debug.
+
 ## Compatibility
 
 `Command`, `Expectation`, and the error-code set can grow. Adopters should not switch over them exhaustively without a `default`. New protocol fields are always optional. A change that an older peer would misread bumps `HeadlessProtocol.version`, and the handshake then rejects the mismatch.

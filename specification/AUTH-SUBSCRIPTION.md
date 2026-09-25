@@ -121,7 +121,7 @@ artifacts can be asserted about from shell. `ClerkAuthProvider.publishableKey` a
 
 The compilation condition alone is not a sufficient guard. `SWIFT_ACTIVE_COMPILATION_CONDITIONS`
 is a whitespace-separated **list**, so `AIA_BACKEND_ENVIRONMENT="development production"` still
-defines `AIA_BACKEND_ENV_development` and compiles clean. The "Validate backend environment" run
+defines `AIA_BACKEND_ENV_development` and compiles clean. The "Validate build parameters" run
 script phase does the exact-string comparison that catches that; both guards are needed.
 
 Two settings, one string: the target-level `SWIFT_ACTIVE_COMPILATION_CONDITIONS` **must** keep its

@@ -1,0 +1,88 @@
+//
+//  MLBrowserHeadless.swift
+//  AI Archeology
+//
+//  AIA-0970: the app without its UI.
+//
+
+#if DEBUG && AIA_APP_INTERFACE_headless
+import HeadlessKit
+import HeadlessKitTransport
+import SwiftUI
+
+/// ML Browser without its UI, driven over a loopback socket (`specification/HEADLESS.md`).
+///
+/// The same process as the app: the same delegate, the same bootstrap, the same `AppRuntime`, the
+/// same composition root. Only the views are replaced — by one static status line, because an iOS
+/// app always has a window — and a `HeadlessServer` takes their place as the way in.
+///
+/// Built only with `AIA_APP_INTERFACE = headless`, which the build refuses outside Debug against the
+/// development backend.
+struct MLBrowserHeadless: App {
+	@UIApplicationDelegateAdaptor(BackgroundDownloadAppDelegate.self) var appDelegate
+	@StateObject private var appState: AppState
+	private let runtime: AppRuntime
+	@State private var server = HeadlessServerController()
+
+	init() {
+		let appState = AppRuntime.bootstrap(container: DependencyContainer.shared)
+		_appState = StateObject(wrappedValue: appState)
+		runtime = AppRuntime(appState: appState)
+	}
+
+	var body: some Scene {
+		WindowGroup {
+			// Not localized, deliberately: a developer-only status line in a Debug-only build, kept out
+			// of the string catalog with `verbatim`.
+			Text(verbatim: server.status)
+				.font(.system(.footnote, design: .monospaced))
+				.padding()
+				.task {
+					runtime.start()
+					await server.start(appState: appState)
+				}
+		}
+	}
+}
+
+/// Owns the loopback server for the life of the process.
+@MainActor
+@Observable
+final class HeadlessServerController {
+
+	private(set) var status = "ML Browser headless: starting"
+	private var server: HeadlessServer?
+
+	/// Where clients find the endpoint: inside the app's own data container, which the launching
+	/// tool reads with `simctl get_app_container … data`.
+	static var endpointFile: URL {
+		URL.applicationSupportDirectory.appending(path: "Headless/endpoint.json")
+	}
+
+	func start(appState: AppState) async {
+		guard server == nil else { return }
+		// The third lock on production data, after the build-time check and the launching tool's:
+		// a headless process never serves commands against anything but the development backend.
+		guard BackendEnvironment.current == .development else {
+			status = "ML Browser headless: refused — backend is \(BackendEnvironment.current.rawValue)"
+			LoggingPolicy.error("Headless server refused: not on the development backend", logger: .lifecycle)
+			return
+		}
+		let application = MLBrowserHeadlessApplication(
+			appState: appState,
+			launchOptions: HeadlessLaunchOptions.current.json
+		)
+		let server = HeadlessServer(session: HeadlessSession(application: application), endpointFile: Self.endpointFile)
+		self.server = server
+		do {
+			let endpoint = try await server.start()
+			status = "ML Browser headless: listening on \(endpoint.host):\(endpoint.port)"
+			LoggingPolicy.info("Headless server listening on port \(endpoint.port)", logger: .lifecycle)
+		} catch {
+			self.server = nil
+			status = "ML Browser headless: server failed to start"
+			LoggingPolicy.error("Headless server failed to start", error: error, logger: .lifecycle)
+		}
+	}
+}
+#endif

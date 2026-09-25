@@ -86,6 +86,9 @@ extension BackendEnvironment {
 
     @MainActor
     static func `switch`(to environment: BackendEnvironment) async -> Bool {
+        // The headless build is automation, and automation never touches production data
+        // (AIA-0970): it stays on the backend it was built for.
+        guard AppEnvironment.isHeadlessBuild == false else { return false }
         // The re-entrancy guard comes FIRST, before the already-there check. The other order has
         // a race: with a switch to production in flight, `current` still reads development, so a
         // second tap back to development would take the already-there path and report success —
