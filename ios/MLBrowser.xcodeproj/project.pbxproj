@@ -183,6 +183,7 @@
 		945C55802ED61234007DD8FB /* DownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C557F2ED61234007DD8FB /* DownloaderTests.swift */; };
 		945C55822ED71234007DD8FB /* StringExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55812ED71234007DD8FB /* StringExtensionsTests.swift */; };
 		945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55832ED71234007DD8FB /* SettingsTests.swift */; };
+		AA0970110000000000000002 /* AppRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970110000000000000001 /* AppRuntimeTests.swift */; };
 		945C55862ED71234007DD8FB /* DeepConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55852ED71234007DD8FB /* DeepConfigurationTests.swift */; };
 		945C55882ED71234007DD8FB /* TestabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55872ED71234007DD8FB /* TestabilityTests.swift */; };
 		946200F12ED70AEC0047336A /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946200F02ED70AE60047336A /* AppEnvironment.swift */; };
@@ -246,6 +247,7 @@
 		94F1631700000000000000C2 /* DetectionCountCheckpointUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F1631700000000000000C1 /* DetectionCountCheckpointUITests.swift */; };
 		94F1631800000000000000D2 /* StubDownloadURLProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F1631800000000000000D1 /* StubDownloadURLProtocolTests.swift */; };
 		94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4012ECE46C60047B283 /* DependencyContainer.swift */; };
+		AA0970100000000000000002 /* AppRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970100000000000000001 /* AppRuntime.swift */; };
 		94FCC4032ECE46C60047B283 /* DemoDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4002ECE46C60047B283 /* DemoDataManager.swift */; };
 		94FCC4052ECFD7730047B283 /* DriversTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4042ECFD7730047B283 /* DriversTests.swift */; };
 		94FCC4062ED062CF0047B283 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
@@ -619,6 +621,7 @@
 		945C557F2ED61234007DD8FB /* DownloaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloaderTests.swift; sourceTree = "<group>"; };
 		945C55812ED71234007DD8FB /* StringExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringExtensionsTests.swift; sourceTree = "<group>"; };
 		945C55832ED71234007DD8FB /* SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTests.swift; sourceTree = "<group>"; };
+		AA0970110000000000000001 /* AppRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRuntimeTests.swift; sourceTree = "<group>"; };
 		945C55852ED71234007DD8FB /* DeepConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepConfigurationTests.swift; sourceTree = "<group>"; };
 		945C55872ED71234007DD8FB /* TestabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestabilityTests.swift; sourceTree = "<group>"; };
 		946200F02ED70AE60047336A /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
@@ -682,6 +685,7 @@
 		94F1631800000000000000D1 /* StubDownloadURLProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDownloadURLProtocolTests.swift; sourceTree = "<group>"; };
 		94FCC4002ECE46C60047B283 /* DemoDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManager.swift; sourceTree = "<group>"; };
 		94FCC4012ECE46C60047B283 /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
+		AA0970100000000000000001 /* AppRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRuntime.swift; sourceTree = "<group>"; };
 		94FCC4042ECFD7730047B283 /* DriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriversTests.swift; sourceTree = "<group>"; };
 		94FF0001000000000000B001 /* FeatureFlagProviding.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureFlagProviding.swift; sourceTree = "<group>"; };
 		94FF0001000000000000B002 /* ConfigCatFeatureFlagProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConfigCatFeatureFlagProvider.swift; sourceTree = "<group>"; };
@@ -1065,6 +1069,7 @@
 				8AC6509C2B2B48D500922648 /* Appstate.swift */,
 				94FCC4002ECE46C60047B283 /* DemoDataManager.swift */,
 				94FCC4012ECE46C60047B283 /* DependencyContainer.swift */,
+				AA0970100000000000000001 /* AppRuntime.swift */,
 				8AC650A62B2B4C5600922648 /* DataController.swift */,
 				8AC650A42B2B4BE200922648 /* DeepConfiguration.swift */,
 				8AD3A82D2B2EF9490058E018 /* Downloader.swift */,
@@ -1396,6 +1401,7 @@
 				9A0C1EAA2F3D000100000007 /* SentryEventGuardTests.swift */,
 				9A0C1EAA2F3D00010000000A /* SentryBreadcrumbGuardTests.swift */,
 				945C55832ED71234007DD8FB /* SettingsTests.swift */,
+				AA0970110000000000000001 /* AppRuntimeTests.swift */,
 				94D79C922EE37DBF0027C9FA /* SequenceExtensionsTests.swift */,
 				94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */,
 				945C55812ED71234007DD8FB /* StringExtensionsTests.swift */,
@@ -2244,6 +2250,7 @@
 				8A7740D92B19299F002E90D9 /* UIImage+Extensions.swift in Sources */,
 				8AC393D62B2BA33400C9BA57 /* Annotator.swift in Sources */,
 				94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */,
+				AA0970100000000000000002 /* AppRuntime.swift in Sources */,
 				94FCC4032ECE46C60047B283 /* DemoDataManager.swift in Sources */,
 				8AC7CDED2AE7FCED00871074 /* SnapState.swift in Sources */,
 				8AD3A8302B2EFA3E0058E018 /* Annotation.swift in Sources */,
@@ -2396,6 +2403,7 @@
 				94929E832ED65555001A4C63 /* LowerPriorityTests.swift in Sources */,
 				945C55822ED71234007DD8FB /* StringExtensionsTests.swift in Sources */,
 				945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */,
+				AA0970110000000000000002 /* AppRuntimeTests.swift in Sources */,
 				63CDF1E9BC41E124832411D6 /* TourStateTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
 				94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */,
