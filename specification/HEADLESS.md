@@ -59,9 +59,9 @@ The protocol is JSON Lines over TCP on `127.0.0.1`: one JSON document per line, 
 
    The other commands are `help` and `actions`. Arguments are validated against the action's parameters before the handler runs. Unknown names and wrong types are rejected. Textual forms such as `"3"` and `"true"` are converted to the declared type.
 3. **Responses.** Every response carries `id`, `ok`, `route`, `state`, `actions`, `context`, an optional `result`, and an optional `error` of the form `{code, message}`. App-level failures are responses, not dropped connections. Error codes: `malformedRequest`, `unknownCommand`, `unknownAction`, `unknownCondition`, `unreachable`, `invalidArgument`, `actionFailed`, `timeout`, `unauthorized`, `protocolMismatch`. Codes are an open set.
-4. **Ordering.** Commands run one at a time in arrival order, across all connections.
+4. **Ordering.** Commands run one at a time. Each connection is answered in request order. Requests from different connections interleave in no guaranteed order.
 
-`HeadlessServer` binds an ephemeral port. It writes `{host, port, token}` atomically, with mode `0600`, to the endpoint file, and removes the file on `stop()`. `HeadlessClient` reports a refused connection as `notRunning`: the app is not running or was suspended.
+`HeadlessServer` binds an ephemeral port. It writes `{host, port, token}` atomically, with mode `0600`, to the endpoint file, and removes the file on `stop()`. A killed app cannot remove its file, so a launcher must not treat the file as proof that the app is running. `HeadlessClient` reports a refused connection as `notRunning`: the app is not running, or was suspended. A connection that sends no valid hello within 10 seconds is closed.
 
 ## Scenarios (schema v1)
 
@@ -86,5 +86,9 @@ A scenario is a JSON file. Decoding is strict: an unknown key anywhere is an err
 - **`installations`** are independent copies of the app, each with its own data. `launch` is opaque to the runner; the adopter's `InstallationLauncher` interprets it.
 - A **step** does at most one of `goto`, `perform`, `wait` or `relaunch`. A step with none of them observes the current screen. `on` is required when there are several installations.
 - **`expect`** accepts `route`, `equals`, `exists`, `absent`, `matches` (a regex against a string), and `error` (the command must fail with that code). Pointers address the response document: `/route`, `/state/…`, `/context/…`, `/result/…`, `/error/code`. A response carrying an error fails the step unless an `error` expectation names it.
-- **`capture`** maps a variable to a pointer. Later steps use `${variable}`. A string that is exactly `${variable}` keeps the value's JSON type. `${env:NAME}` reads the runner's environment. Credentials belong there, never in a scenario file.
+- **`capture`** maps a variable to a pointer. Later steps use `${variable}`. A string that is exactly `${variable}` keeps the value's JSON type. `${env:NAME}` reads the runner's environment. Credentials belong there, never in a scenario file. In a `matches` pattern, a substituted value is matched literally, never as regex syntax.
 - The **runner** launches the installations, runs the steps in order, stops at the first failure, always runs `teardown` (continuing past teardown failures), and terminates what it launched. The `ScenarioReport` lists every failed expectation and keeps the full response of a failed step.
+
+## Compatibility
+
+`Command`, `Expectation`, and the error-code set can grow. Adopters should not switch over them exhaustively without a `default`. New protocol fields are always optional. A change that an older peer would misread bumps `HeadlessProtocol.version`, and the handshake then rejects the mismatch.

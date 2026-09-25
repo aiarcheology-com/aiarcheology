@@ -204,7 +204,7 @@ public struct ScenarioRunner: Sendable {
 		case .absent(let pointer):
 			return document.value(at: pointer).map { "\(pointer): expected nothing, found \($0.jsonString)" }
 		case .matches(let pointer, let pattern):
-			let regex = try NSRegularExpression(pattern: try substitution.apply(to: pattern))
+			let regex = try NSRegularExpression(pattern: try substitution.apply(toPattern: pattern))
 			guard let text = document.value(at: pointer)?.stringValue else {
 				let found = document.value(at: pointer)?.jsonString ?? "nothing"
 				return "\(pointer): expected a string matching /\(pattern)/, found \(found)"
@@ -248,7 +248,8 @@ struct Substitution {
 	let variables: [String: JSONValue]
 	let environment: [String: String]
 
-	private static let pattern: NSRegularExpression = {
+	/// A `${…}` placeholder; group 1 is the name.
+	static let placeholder: NSRegularExpression = {
 		do {
 			return try NSRegularExpression(pattern: #"\$\{([^}]+)\}"#)
 		} catch {
@@ -277,23 +278,36 @@ struct Substitution {
 	}
 
 	func apply(to text: String) throws -> String {
-		let matches = Self.pattern.matches(in: text, range: NSRange(text.startIndex..., in: text))
-		var result = text
-		for match in matches.reversed() {
+		try replacingPlaceholders(in: text) { Self.text(of: $0) }
+	}
+
+	/// Substitutes into a regular expression, escaping each value so it matches literally: a
+	/// captured `a.b` must match `a.b`, not `axb`.
+	func apply(toPattern pattern: String) throws -> String {
+		try replacingPlaceholders(in: pattern) { NSRegularExpression.escapedPattern(for: Self.text(of: $0)) }
+	}
+
+	private static func text(of value: JSONValue) -> String {
+		value.stringValue ?? value.jsonString
+	}
+
+	/// Builds the result front to back from the original, so no index is used after a mutation.
+	private func replacingPlaceholders(in text: String, render: (JSONValue) -> String) throws -> String {
+		var result = ""
+		var cursor = text.startIndex
+		for match in Self.placeholder.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
 			guard let whole = Range(match.range, in: text), let name = Range(match.range(at: 1), in: text) else { continue }
-			let replacement: String
-			switch try resolve(String(text[name])) {
-			case .string(let string): replacement = string
-			case let other: replacement = other.jsonString
-			}
-			result.replaceSubrange(whole, with: replacement)
+			result += text[cursor..<whole.lowerBound]
+			result += render(try resolve(String(text[name])))
+			cursor = whole.upperBound
 		}
+		result += text[cursor...]
 		return result
 	}
 
 	private func wholeVariable(_ text: String) throws -> JSONValue? {
 		let range = NSRange(text.startIndex..., in: text)
-		guard let match = Self.pattern.firstMatch(in: text, range: range), match.range == range,
+		guard let match = Self.placeholder.firstMatch(in: text, range: range), match.range == range,
 			  let name = Range(match.range(at: 1), in: text) else { return nil }
 		return try resolve(String(text[name]))
 	}

@@ -212,10 +212,11 @@ public final class HeadlessSession {
 		guard seconds.isFinite, seconds > 0 else {
 			throw HeadlessError(.invalidArgument, "timeout must be a positive number of seconds")
 		}
-		let duration = Duration.milliseconds(Int64((seconds * 1000).rounded(.up)))
-		guard duration <= maximumWaitTimeout else {
+		// Compared in seconds, before any integer conversion: `Int64(1e30 * 1000)` traps, and a
+		// client must not be able to crash the app by sending a large number.
+		guard seconds <= Double(maximumWaitTimeout.components.seconds) else {
 			throw HeadlessError(.invalidArgument, "timeout must not exceed \(maximumWaitTimeout)")
 		}
-		return duration
+		return .milliseconds(Int64((seconds * 1000).rounded(.up)))
 	}
 }

@@ -130,10 +130,11 @@ public struct Request: Codable, Sendable, Equatable {
 				timeout: try container.decodeIfPresent(Double.self, forKey: .timeout)
 			)
 		default:
-			throw DecodingError.dataCorruptedError(
-				forKey: .command,
-				in: container,
-				debugDescription: "Unknown command '\(name)'"
+			// A readable request naming a command this build does not have: the client learns that
+			// precisely, rather than as a generic malformed request.
+			throw HeadlessError(
+				.unknownCommand,
+				"Unknown command '\(name)' (commands: help, state, actions, perform, goto, wait)"
 			)
 		}
 	}
@@ -192,6 +193,31 @@ public struct Response: Codable, Sendable, Equatable {
 		self.context = context
 		self.result = result
 		self.error = error
+	}
+
+	private enum CodingKeys: String, CodingKey {
+		case id, ok, route, state, actions, context, result, error
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+		id = try container.decode(String.self, forKey: .id)
+		ok = try container.decode(Bool.self, forKey: .ok)
+		route = try container.decode(Route.self, forKey: .route)
+		state = try container.decode(JSONValue.self, forKey: .state)
+		actions = try container.decode([ActionSpec].self, forKey: .actions)
+		context = try container.decode(JSONValue.self, forKey: .context)
+		result = try container.decodeIfPresent(JSONValue.self, forKey: .result)
+		error = try container.decodeIfPresent(HeadlessError.self, forKey: .error)
+		// `ok` is redundant with `error` on purpose — it is what a person scanning the JSON reads —
+		// so a response where they disagree is malformed, not something to guess about.
+		guard ok == (error == nil) else {
+			throw DecodingError.dataCorruptedError(
+				forKey: .ok,
+				in: container,
+				debugDescription: "'ok' is \(ok) but 'error' is \(error == nil ? "absent" : "present")"
+			)
+		}
 	}
 
 	/// The response exactly as it travels, as one JSON document — so a JSON pointer written against

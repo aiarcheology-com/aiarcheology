@@ -22,10 +22,7 @@ final class TransportTests: XCTestCase {
 	override func setUp() async throws {
 		app = CounterApp()
 		directory = FileManager.default.temporaryDirectory.appendingPathComponent("HeadlessKitTests-\(UUID().uuidString)")
-		server = HeadlessServer(
-			session: HeadlessSession(application: app, pollInterval: .milliseconds(5)),
-			endpointFile: directory.appendingPathComponent("endpoint.json")
-		)
+		server = makeServer()
 	}
 
 	override func tearDown() async throws {
@@ -34,6 +31,16 @@ final class TransportTests: XCTestCase {
 		server = nil
 		app = nil
 	}
+
+	private func makeServer(handshakeTimeout: Duration = HeadlessServer.defaultHandshakeTimeout) -> HeadlessServer {
+		HeadlessServer(
+			session: HeadlessSession(application: app, pollInterval: .milliseconds(5)),
+			endpointFile: directory.appendingPathComponent("endpoint.json"),
+			handshakeTimeout: handshakeTimeout
+		)
+	}
+
+	// MARK: - Client and server
 
 	func testClientDrivesTheAppOverLoopback() async throws {
 		let endpoint = try await server.start()
@@ -55,12 +62,53 @@ final class TransportTests: XCTestCase {
 		XCTAssertEqual(app.count, 2)
 	}
 
+	func testConcurrentStartsShareOneListener() async throws {
+		let server: HeadlessServer = self.server
+		async let first = server.start()
+		async let second = server.start()
+		let (a, b) = try await (first, second)
+		XCTAssertEqual(a, b)
+	}
+
+	func testConcurrentConnectsOpenOneConnection() async throws {
+		let endpoint = try await server.start()
+		let client = HeadlessClient(endpoint: endpoint)
+		async let first = client.connect()
+		async let second = client.connect()
+		let (a, b) = try await (first, second)
+		XCTAssertEqual(a, b)
+		_ = try await client.send(.state)
+		XCTAssertEqual(server.connectionCount, 1)
+		await client.close()
+	}
+
+	func testATimedOutClientReportsATimeoutAndRecovers() async throws {
+		let endpoint = try await server.start()
+		let client = HeadlessClient(endpoint: endpoint, requestTimeout: .milliseconds(200))
+		do {
+			_ = try await client.send(.wait(condition: "count-at-least", arguments: ["value": 1], timeout: 0.5))
+			XCTFail("the request outlived the client's timeout")
+		} catch let error as HeadlessTransportError {
+			XCTAssertEqual(error.kind, .timeout, "\(error)")
+		}
+		// The app is still finishing the abandoned wait; the next request queues behind it and may
+		// itself time out once. What matters is that the client reconnects and gets an answer.
+		var recovered: Response?
+		for _ in 0..<20 where recovered == nil {
+			recovered = try? await client.send(.state) // A timeout here is expected while the app catches up.
+		}
+		XCTAssertEqual(recovered?.route, "home")
+		await client.close()
+	}
+
 	func testTheEndpointFileIsPublishedPrivatelyAndRemovedOnStop() async throws {
 		let file = directory.appendingPathComponent("endpoint.json")
 		let endpoint = try await server.start()
 		XCTAssertEqual(try HeadlessEndpoint.read(from: file), endpoint)
 		let permissions = try FileManager.default.attributesOfItem(atPath: file.path)[.posixPermissions] as? NSNumber
 		XCTAssertEqual(permissions?.intValue, 0o600)
+		let leftovers = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+		XCTAssertEqual(leftovers, ["endpoint.json"], "no staging file is left behind")
 		server.stop()
 		XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
 	}
@@ -90,21 +138,39 @@ final class TransportTests: XCTestCase {
 		}
 	}
 
+	// MARK: - The wire, independently of the client
+
 	func testRawProtocol() async throws {
 		let endpoint = try await server.start()
 		let lines = try await RawSocket.exchange(port: endpoint.port, send: [
 			#"{"hello":{"protocolVersion":1,"token":"\#(endpoint.token)"}}"#,
 			#"{"id":"7","command":"teleport"}"#,
-			#"{"id":"8","command":"state"}"#
-		], expectLines: 3)
+			#"{"id":"8","command":"state"}"#,
+			#"{"#
+		], expectLines: 4)
 		let decoder = HeadlessCoding.makeDecoder()
-		XCTAssertNotNil(try? decoder.decode(JSONValue.self, from: Data(lines[0].utf8)).value(at: "/hello/metadata"))
-		let malformed = try decoder.decode(Response.self, from: Data(lines[1].utf8))
-		XCTAssertEqual(malformed.id, "7", "the id is echoed even when the request is unreadable")
-		XCTAssertEqual(malformed.error?.code, .malformedRequest)
+		XCTAssertNotNil(try decoder.decode(JSONValue.self, from: Data(lines[0].utf8)).value(at: "/hello/metadata"))
+		let unknown = try decoder.decode(Response.self, from: Data(lines[1].utf8))
+		XCTAssertEqual(unknown.id, "7", "the id is echoed")
+		XCTAssertEqual(unknown.error?.code, .unknownCommand)
 		let state = try decoder.decode(Response.self, from: Data(lines[2].utf8))
 		XCTAssertEqual(state.id, "8")
 		XCTAssertTrue(state.ok)
+		let malformed = try decoder.decode(Response.self, from: Data(lines[3].utf8))
+		XCTAssertEqual(malformed.error?.code, .malformedRequest)
+	}
+
+	func testAClientThatStopsSendingStillGetsItsAnswers() async throws {
+		let endpoint = try await server.start()
+		// `printf 'hello\nrequest\n' | nc` shape: everything, then end-of-stream at once.
+		let lines = try await RawSocket.exchange(port: endpoint.port, send: [
+			#"{"hello":{"protocolVersion":1,"token":"\#(endpoint.token)"}}"#,
+			#"{"id":"1","command":"perform","action":"increment-slowly"}"#,
+			#"{"id":"2","command":"state"}"#
+		], expectLines: 3, halfClose: true)
+		let last = try HeadlessCoding.makeDecoder().decode(Response.self, from: Data(lines[2].utf8))
+		XCTAssertEqual(last.id, "2")
+		XCTAssertEqual(last.state, ["count": 1])
 	}
 
 	func testTheFirstLineMustBeAHelloWithTheRightVersion() async throws {
@@ -117,6 +183,28 @@ final class TransportTests: XCTestCase {
 			expectLines: 1
 		)
 		XCTAssertTrue(oldVersion[0].contains("protocolMismatch"), oldVersion[0])
+	}
+
+	func testNothingAfterARejectedHelloIsAnswered() async throws {
+		let endpoint = try await server.start()
+		let lines = try await RawSocket.exchange(port: endpoint.port, send: [
+			#"{"hello":{"protocolVersion":1,"token":"wrong"}}"#,
+			#"{"id":"1","command":"perform","action":"increment"}"#,
+			#"{"id":"2","command":"state"}"#
+		], expectLines: 1, readUntilClosed: true)
+		XCTAssertEqual(lines.count, 1, "\(lines)")
+		XCTAssertTrue(lines[0].contains("unauthorized"), lines[0])
+		XCTAssertEqual(app.count, 0)
+	}
+
+	func testASilentConnectionIsClosedAfterTheHandshakeTimeout() async throws {
+		server.stop()
+		server = makeServer(handshakeTimeout: .milliseconds(100))
+		let endpoint = try await server.start()
+		let lines = try await RawSocket.exchange(port: endpoint.port, send: [], expectLines: 1, readUntilClosed: true)
+		XCTAssertEqual(lines.count, 1, "\(lines)")
+		XCTAssertTrue(lines[0].contains("unauthorized"), lines[0])
+		XCTAssertEqual(server.connectionCount, 0)
 	}
 
 	// MARK: - Framing
@@ -140,7 +228,15 @@ private enum RawSocket {
 		let description: String
 	}
 
-	static func exchange(port: UInt16, send lines: [String], expectLines count: Int) async throws -> [String] {
+	/// Sends `lines`, then reads until `expectLines` lines arrived — or, with `readUntilClosed`,
+	/// until the server closes the connection.
+	static func exchange(
+		port: UInt16,
+		send lines: [String],
+		expectLines count: Int,
+		halfClose: Bool = false,
+		readUntilClosed: Bool = false
+	) async throws -> [String] {
 		try await Task.detached {
 			let descriptor = socket(AF_INET, SOCK_STREAM, 0)
 			guard descriptor >= 0 else { throw Failure(description: "socket failed") }
@@ -157,11 +253,16 @@ private enum RawSocket {
 				}
 			}
 			guard connected == 0 else { throw Failure(description: "connect failed") }
-			let payload = Array((lines.joined(separator: "\n") + "\n").utf8)
-			guard write(descriptor, payload, payload.count) == payload.count else { throw Failure(description: "write failed") }
+			if lines.isEmpty == false {
+				let payload = Array((lines.joined(separator: "\n") + "\n").utf8)
+				guard write(descriptor, payload, payload.count) == payload.count else { throw Failure(description: "write failed") }
+			}
+			if halfClose {
+				shutdown(descriptor, SHUT_WR)
+			}
 			var received = Data()
 			var chunk = [UInt8](repeating: 0, count: 4096)
-			while received.filter({ $0 == 0x0A }).count < count {
+			while readUntilClosed || received.filter({ $0 == 0x0A }).count < count {
 				let read = recv(descriptor, &chunk, chunk.count, 0)
 				guard read > 0 else { break }
 				received.append(contentsOf: chunk[0..<read])

@@ -108,6 +108,12 @@ public struct WaitConditionSpec: Codable, Hashable, Sendable {
 	public let name: String
 	public let summary: String
 	public let parameters: [ParameterSpec]
+
+	public init(name: String, summary: String, parameters: [ParameterSpec] = []) {
+		self.name = name
+		self.summary = summary
+		self.parameters = parameters
+	}
 }
 
 /// A named state a client can wait for, such as "the model finished loading".

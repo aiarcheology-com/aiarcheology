@@ -99,15 +99,38 @@ public struct Scenario: Codable, Sendable, Equatable {
 					}
 				}
 				for expectation in step.expect {
-					if case .matches(_, let pattern) = expectation {
-						do {
-							_ = try NSRegularExpression(pattern: pattern)
-						} catch {
-							throw ScenarioError("\(label): invalid regular expression \(pattern)")
-						}
-					}
+					try Self.validate(expectation, label: label)
 				}
 			}
+		}
+	}
+
+	private static func validate(_ expectation: Expectation, label: String) throws {
+		let pointer: String
+		switch expectation {
+		case .route, .error:
+			return
+		case .equals(let target, _), .exists(let target), .absent(let target):
+			pointer = target
+		case .matches(let target, let pattern):
+			pointer = target
+			// Placeholders are filled at run time, with the value matched literally, so the pattern
+			// is checked with each one standing in as a plain literal.
+			let checked = Substitution.placeholder.stringByReplacingMatches(
+				in: pattern,
+				range: NSRange(pattern.startIndex..., in: pattern),
+				withTemplate: "x"
+			)
+			do {
+				_ = try NSRegularExpression(pattern: checked)
+			} catch {
+				throw ScenarioError("\(label): invalid regular expression \(pattern)")
+			}
+		}
+		// A pointer without the leading slash addresses nothing, so `absent` would always pass and
+		// the others would always fail with a misleading "found nothing".
+		guard pointer.isEmpty || pointer.hasPrefix("/") else {
+			throw ScenarioError("\(label): '\(pointer)' is not a JSON pointer (it must start with /)")
 		}
 	}
 
@@ -150,7 +173,8 @@ public struct Installation: Codable, Sendable, Equatable {
 ///
 /// A step with no command observes the current screen. Every string in a command or an
 /// expectation may use `${variable}` (captured earlier) and `${env:NAME}` (from the runner's
-/// environment) — credentials belong in the environment, never in a scenario file.
+/// environment) — credentials belong in the environment, never in a scenario file. In a `matches`
+/// pattern a substituted value is matched literally, never as regex syntax.
 public struct Step: Codable, Sendable, Equatable {
 
 	public let name: String?
@@ -290,11 +314,43 @@ public enum Expectation: Codable, Sendable, Equatable {
 	private struct PointerValue: Codable {
 		let pointer: String
 		let value: JSONValue
+
+		private enum CodingKeys: String, CodingKey, CaseIterable {
+			case pointer, value
+		}
+
+		init(pointer: String, value: JSONValue) {
+			self.pointer = pointer
+			self.value = value
+		}
+
+		init(from decoder: Decoder) throws {
+			try StrictKeys.check(decoder, allowed: CodingKeys.allCases)
+			let container = try decoder.container(keyedBy: CodingKeys.self)
+			pointer = try container.decode(String.self, forKey: .pointer)
+			value = try container.decode(JSONValue.self, forKey: .value)
+		}
 	}
 
 	private struct PointerRegex: Codable {
 		let pointer: String
 		let regex: String
+
+		private enum CodingKeys: String, CodingKey, CaseIterable {
+			case pointer, regex
+		}
+
+		init(pointer: String, regex: String) {
+			self.pointer = pointer
+			self.regex = regex
+		}
+
+		init(from decoder: Decoder) throws {
+			try StrictKeys.check(decoder, allowed: CodingKeys.allCases)
+			let container = try decoder.container(keyedBy: CodingKeys.self)
+			pointer = try container.decode(String.self, forKey: .pointer)
+			regex = try container.decode(String.self, forKey: .regex)
+		}
 	}
 
 	public init(from decoder: Decoder) throws {

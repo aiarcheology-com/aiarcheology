@@ -103,6 +103,24 @@ final class ScenarioTests: XCTestCase {
 		XCTAssertTrue(missing.failures.contains { $0.contains("WHO") }, missing.failures.joined(separator: "\n"))
 	}
 
+	func testAVariableInARegexIsMatchedLiterally() async throws {
+		let json = #"""
+		{
+		  "schemaVersion": 1, "name": "regex",
+		  "installations": { "a": {} },
+		  "steps": [
+		    { "perform": { "action": "rename", "arguments": { "name": "a.b" } }, "capture": { "name": "/result/name" } },
+		    { "perform": { "action": "rename", "arguments": { "name": "${env:SECOND}" } },
+		      "expect": [ { "matches": { "pointer": "/result/name", "regex": "^${name}$" } } ] }
+		  ]
+		}
+		"""#
+		let literal = try await run(json, environment: ["SECOND": "a.b"])
+		XCTAssertTrue(literal.passed, literal.failures.joined(separator: "\n"))
+		let wildcard = try await run(json, environment: ["SECOND": "axb"])
+		XCTAssertFalse(wildcard.passed, "a captured '.' must not act as a regex wildcard")
+	}
+
 	func testTheRunStopsAtTheFirstFailureButTeardownStillRuns() async throws {
 		let launcher = FakeLauncher()
 		let report = try await run(#"""
@@ -201,7 +219,9 @@ final class ScenarioTests: XCTestCase {
 			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": { "lunch": {} } }, "steps": [] }"#,
 			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "expcet": [] } ] }"#,
 			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "perform": { "action": "a", "args": {} } } ] }"#,
-			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "expect": [ { "equal": {} } ] } ] }"#
+			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "expect": [ { "equal": {} } ] } ] }"#,
+			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "expect": [ { "equals": { "pointer": "/a", "value": 1, "vaule": 2 } } ] } ] }"#,
+			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "expect": [ { "matches": { "pointer": "/a", "regex": "x", "flags": "i" } } ] } ] }"#
 		]
 		for json in misspelt {
 			XCTAssertThrowsError(try HeadlessCoding.makeDecoder().decode(Scenario.self, from: Data(json.utf8)), json)
@@ -216,7 +236,11 @@ final class ScenarioTests: XCTestCase {
 			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "on": "c", "goto": "home" } ] }"#,
 			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "goto": "home", "relaunch": true } ] }"#,
 			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "capture": { "v": "state" } } ] }"#,
-			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "expect": [ { "matches": { "pointer": "/a", "regex": "(" } } ] } ] }"#
+			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "expect": [ { "matches": { "pointer": "/a", "regex": "(" } } ] } ] }"#,
+			// Without the leading slash these address nothing: `absent` would always pass.
+			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "expect": [ { "absent": "state/error" } ] } ] }"#,
+			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "expect": [ { "equals": { "pointer": "state/a", "value": 1 } } ] } ] }"#,
+			#"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [ { "expect": [ { "exists": "state" } ] } ] }"#
 		]
 		for json in invalid {
 			XCTAssertThrowsError(try scenario(json), json)

@@ -21,6 +21,22 @@ public struct ScenarioReport: Codable, Sendable, Equatable {
 	public let completedAllSteps: Bool
 	public let durationSeconds: Double
 
+	public init(
+		scenario: String,
+		setupFailure: String?,
+		steps: [StepReport],
+		teardown: [StepReport],
+		completedAllSteps: Bool,
+		durationSeconds: Double
+	) {
+		self.scenario = scenario
+		self.setupFailure = setupFailure
+		self.steps = steps
+		self.teardown = teardown
+		self.completedAllSteps = completedAllSteps
+		self.durationSeconds = durationSeconds
+	}
+
 	public var passed: Bool {
 		setupFailure == nil
 			&& completedAllSteps

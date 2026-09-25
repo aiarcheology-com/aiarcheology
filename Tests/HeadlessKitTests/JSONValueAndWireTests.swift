@@ -76,9 +76,20 @@ final class JSONValueAndWireTests: XCTestCase {
 		XCTAssertEqual(try encode(requests[4]), #"{"command":"goto","id":"5","route":"drawer"}"#)
 	}
 
-	func testUnknownCommandIsADecodingError() {
-		XCTAssertThrowsError(try decode(Request.self, #"{"id":"1","command":"teleport"}"#))
-		XCTAssertThrowsError(try decode(Request.self, #"{"id":"1","command":"perform"}"#), "perform needs an action")
+	func testAnUnknownCommandIsReportedAsSuch() {
+		XCTAssertThrowsError(try decode(Request.self, #"{"id":"1","command":"teleport"}"#)) { error in
+			XCTAssertEqual((error as? HeadlessError)?.code, .unknownCommand)
+		}
+		XCTAssertThrowsError(try decode(Request.self, #"{"id":"1","command":"perform"}"#), "perform needs an action") { error in
+			XCTAssertTrue(error is DecodingError)
+		}
+	}
+
+	func testAResponseWhoseOkContradictsItsErrorIsMalformed() {
+		let base = #""id":"1","route":"home","state":{},"actions":[],"context":{}"#
+		XCTAssertThrowsError(try decode(Response.self, "{\(base),\"ok\":true,\"error\":{\"code\":\"timeout\",\"message\":\"m\"}}"))
+		XCTAssertThrowsError(try decode(Response.self, "{\(base),\"ok\":false}"))
+		XCTAssertNoThrow(try decode(Response.self, "{\(base),\"ok\":true}"))
 	}
 
 	// MARK: - Responses

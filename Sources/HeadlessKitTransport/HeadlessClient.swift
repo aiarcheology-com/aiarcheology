@@ -34,51 +34,72 @@ public actor HeadlessClient: HeadlessDriving {
 		self.requestTimeout = requestTimeout
 	}
 
-	/// Opens the connection and performs the handshake. Idempotent.
+	/// Opens the connection and performs the handshake. Idempotent, and safe to call concurrently
+	/// with itself and with `send`: it waits its turn like any exchange.
 	@discardableResult
 	public func connect() async throws -> ServerHello {
-		if let serverHello { return serverHello }
-		guard endpoint.port != 0, let port = NWEndpoint.Port(rawValue: endpoint.port) else {
-			throw HeadlessTransportError(.connectionFailed, "invalid port \(endpoint.port)")
-		}
-		let connection = NWConnection(host: NWEndpoint.Host(endpoint.host), port: port, using: .tcp)
-		self.connection = connection
-		try await withTimeout { try await Self.waitUntilReady(connection, queue: self.queue) }
-		try await write(LineBuffer.line(Envelope.ClientHelloLine(hello: ClientHello(token: endpoint.token))))
-		let line = try await withTimeout { try await self.readLine() }
-		let decoder = HeadlessCoding.makeDecoder()
-		if let hello = try? decoder.decode(Envelope.ServerHelloLine.self, from: line).hello {
-			serverHello = hello
-			return hello
-		}
-		close()
-		if let rejection = try? decoder.decode(Envelope.ErrorLine.self, from: line).error {
-			throw HeadlessTransportError(.handshakeRejected, rejection.description)
-		}
-		throw HeadlessTransportError(.malformedMessage, "the server did not answer the hello")
+		try await serialized { try await self.establish() }
 	}
 
 	public func send(_ command: Command) async throws -> Response {
-		let previous = tail
-		let exchange = Task {
-			await previous?.value
-			return try await self.exchange(command)
-		}
-		// Only the ordering is chained; the outcome reaches the caller through `exchange.value`.
-		tail = Task { _ = await exchange.result }
-		return try await exchange.value
+		try await serialized { try await self.exchange(command) }
 	}
 
+	/// Drops the connection and anything half-read from it; the next call reconnects.
 	public func close() {
 		connection?.cancel()
 		connection = nil
 		serverHello = nil
+		// Bytes from a dead connection must not prefix the next connection's first line.
+		buffer = LineBuffer()
+		lines.removeAll()
+	}
+
+	/// Runs `operation` after every earlier one has finished. Actor isolation alone is not enough:
+	/// an exchange suspends while reading, and a second exchange entering then would read the
+	/// first one's response.
+	private func serialized<T: Sendable>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+		let previous = tail
+		let current = Task {
+			await previous?.value
+			return try await operation()
+		}
+		// Only the ordering is chained; the outcome reaches the caller through `current.value`.
+		tail = Task { _ = await current.result }
+		return try await current.value
+	}
+
+	private func establish() async throws -> ServerHello {
+		if let serverHello { return serverHello }
+		guard endpoint.port != 0, let port = NWEndpoint.Port(rawValue: endpoint.port) else {
+			throw HeadlessTransportError(.connectionFailed, "invalid port \(endpoint.port)")
+		}
+		close()
+		let connection = NWConnection(host: NWEndpoint.Host(endpoint.host), port: port, using: .tcp)
+		self.connection = connection
+		do {
+			try await withTimeout { try await Self.waitUntilReady(connection, queue: self.queue) }
+			try await write(LineBuffer.line(Envelope.ClientHelloLine(hello: ClientHello(token: endpoint.token))))
+			let line = try await withTimeout { try await self.readLine() }
+			let decoder = HeadlessCoding.makeDecoder()
+			if let hello = try? decoder.decode(Envelope.ServerHelloLine.self, from: line).hello {
+				serverHello = hello
+				return hello
+			}
+			if let rejection = try? decoder.decode(Envelope.ErrorLine.self, from: line).error {
+				throw HeadlessTransportError(.handshakeRejected, rejection.description)
+			}
+			throw HeadlessTransportError(.malformedMessage, "the server did not answer the hello")
+		} catch {
+			close()
+			throw error
+		}
 	}
 
 	// MARK: - Exchange
 
 	private func exchange(_ command: Command) async throws -> Response {
-		try await connect()
+		_ = try await establish()
 		nextID += 1
 		let id = String(nextID)
 		try await write(LineBuffer.line(Request(id: id, command: command)))
@@ -131,18 +152,31 @@ public actor HeadlessClient: HeadlessDriving {
 	/// what unblocks a read still waiting on the socket.
 	private func withTimeout<T: Sendable>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
 		let timeout = requestTimeout
-		return try await withThrowingTaskGroup(of: T.self) { group in
-			group.addTask { try await operation() }
-			group.addTask {
-				try await Task.sleep(for: timeout)
-				await self.close()
+		let expiry = Expiry()
+		do {
+			return try await withThrowingTaskGroup(of: T.self) { group in
+				group.addTask { try await operation() }
+				group.addTask {
+					try await Task.sleep(for: timeout)
+					// The operation may have won while this slept; it cancelled us, so stop here.
+					try Task.checkCancellation()
+					expiry.mark()
+					await self.close()
+					throw HeadlessTransportError(.timeout, "no answer within \(timeout)")
+				}
+				defer { group.cancelAll() }
+				guard let first = try await group.next() else {
+					throw HeadlessTransportError(.closed, "no result")
+				}
+				return first
+			}
+		} catch {
+			// Closing the connection completes the pending read with "closed", which can reach the
+			// group before the timeout's own error does. The caller must still learn it timed out.
+			if expiry.hasExpired {
 				throw HeadlessTransportError(.timeout, "no answer within \(timeout)")
 			}
-			defer { group.cancelAll() }
-			guard let first = try await group.next() else {
-				throw HeadlessTransportError(.closed, "no result")
-			}
-			return first
+			throw error
 		}
 	}
 
@@ -190,6 +224,21 @@ public actor HeadlessClient: HeadlessDriving {
 				}
 			}
 		}
+	}
+}
+
+/// Whether a request's timeout fired, readable from any task.
+private final class Expiry: @unchecked Sendable {
+	// @unchecked: every access to `expired` is under `lock`.
+	private let lock = NSLock()
+	private var expired = false
+
+	func mark() {
+		lock.withLock { expired = true }
+	}
+
+	var hasExpired: Bool {
+		lock.withLock { expired }
 	}
 }
 

@@ -152,7 +152,7 @@ final class HeadlessSessionTests: XCTestCase {
 	func testWaitRejectsUnknownConditionsAndBadTimeouts() async {
 		let unknown = await send(.wait(condition: "sunrise", arguments: [:], timeout: nil))
 		XCTAssertEqual(unknown.error?.code, .unknownCondition)
-		for timeout in [0, -1, 601, .infinity] as [Double] {
+		for timeout in [0, -1, 601, 1e30, .infinity, .nan] as [Double] {
 			let response = await send(.wait(condition: "route", arguments: ["route": "home"], timeout: timeout))
 			XCTAssertEqual(response.error?.code, .invalidArgument, "timeout \(timeout)")
 		}
@@ -163,8 +163,8 @@ final class HeadlessSessionTests: XCTestCase {
 	func testCommandsRunOneAtATimeInArrivalOrder() async {
 		let session: HeadlessSession = self.session
 		let slow = Task { await session.handle(Request(id: "a", command: .perform(action: "increment-slowly", arguments: [:]))) }
-		// Main-actor jobs run in order, so yielding lets `slow` enter `handle` and suspend in its
-		// handler before the next request arrives.
+		// Main-actor jobs run in order, so yielding lets `slow` enter `handle`, whose chaining is
+		// synchronous: from then on the next request is queued behind it, wherever it has got to.
 		await Task.yield()
 		XCTAssertEqual(app.count, 0, "precondition: the first command is still in flight")
 		let observed = await session.handle(Request(id: "b", command: .state))
