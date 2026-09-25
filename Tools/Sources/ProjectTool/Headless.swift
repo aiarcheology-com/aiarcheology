@@ -19,7 +19,7 @@ struct Headless: AsyncParsableCommand {
 	static let configuration = CommandConfiguration(
 		commandName: "headless",
 		abstract: "Build, run and drive the headless ML Browser (AIA-0970).",
-		subcommands: [Build.self, Up.self, Exec.self, Down.self, Reset.self, Test.self]
+		subcommands: [Build.self, Launch.self, Exec.self, Down.self, Reset.self, Test.self]
 	)
 
 	struct Build: AsyncParsableCommand {
@@ -30,8 +30,10 @@ struct Headless: AsyncParsableCommand {
 		}
 	}
 
-	struct Up: AsyncParsableCommand {
+	/// `headless up`.
+	struct Launch: AsyncParsableCommand {
 		static let configuration = CommandConfiguration(
+			commandName: "up",
 			abstract: "Install and launch the headless app on an installation's own simulator, keeping its data."
 		)
 
@@ -328,10 +330,10 @@ struct HeadlessSimulator {
 	private func ensureDevice() throws -> String {
 		precondition(HeadlessDevice.isToolDevice(named: deviceName), "only aia-headless- devices are ever touched")
 		if let udid = try existingDevice() { return udid }
-		let sdk = String(decoding: try process("/usr/bin/xcrun", ["xcodebuild", "-version", "-sdk", "iphonesimulator", "SDKVersion"]), as: UTF8.self)
+		let sdk = (String(bytes: try process("/usr/bin/xcrun", ["xcodebuild", "-version", "-sdk", "iphonesimulator", "SDKVersion"]), encoding: .utf8) ?? "")
 			.trimmingCharacters(in: .whitespacesAndNewlines)
 		let choice = try HeadlessSimulatorChoice.choose(runtimesJSON: simctlOutput(["list", "runtimes", "-j"]), sdkVersion: sdk)
-		let udid = String(decoding: try simctlOutput(["create", deviceName, choice.deviceTypeIdentifier, choice.runtimeIdentifier]), as: UTF8.self)
+		let udid = (String(bytes: try simctlOutput(["create", deviceName, choice.deviceTypeIdentifier, choice.runtimeIdentifier]), encoding: .utf8) ?? "")
 			.trimmingCharacters(in: .whitespacesAndNewlines)
 		print("Created \(deviceName) (\(udid))")
 		return udid
@@ -343,7 +345,7 @@ struct HeadlessSimulator {
 	}
 
 	private func endpointFile(udid: String) throws -> URL {
-		let container = String(decoding: try simctlOutput(["get_app_container", udid, HeadlessDevice.bundleIdentifier, "data"]), as: UTF8.self)
+		let container = (String(bytes: try simctlOutput(["get_app_container", udid, HeadlessDevice.bundleIdentifier, "data"]), encoding: .utf8) ?? "")
 			.trimmingCharacters(in: .whitespacesAndNewlines)
 		return URL(fileURLWithPath: container).appendingPathComponent(HeadlessDevice.endpointPath)
 	}
@@ -385,7 +387,7 @@ struct HeadlessSimulator {
 		let errorData = errors.fileHandleForReading.readDataToEndOfFile()
 		task.waitUntilExit()
 		guard task.terminationStatus == 0 else {
-			let message = String(decoding: errorData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+			let message = (String(bytes: errorData, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 			throw ValidationError("\(([executable] + arguments).joined(separator: " ")) failed: \(message)")
 		}
 		return data
