@@ -227,6 +227,33 @@ final class DeepStateTests: XCTestCase {
         XCTFail("pollUntilAsync timed out after \(timeout)s waiting for condition")
     }
 
+    // MARK: - setEnabled (AIA-0970): the drawer switch and the headless actions share it
+
+    func testSetEnabled_reportsTheChange_andSaves() throws {
+        let config = deepState.createConfiguration()
+        config.modelType = .detector
+        config.enabled = false
+        try DeepConfiguration.save(in: dataController.container.viewContext)
+
+        XCTAssertEqual(try deepState.setEnabled(true, for: config), .turnedOn)
+        XCTAssertEqual(try deepState.setEnabled(true, for: config), .unchanged)
+        XCTAssertEqual(try deepState.setEnabled(false, for: config), .turnedOff)
+        XCTAssertFalse(dataController.container.viewContext.hasChanges, "each change is saved")
+    }
+
+    func testSetEnabled_refusesAModelWithoutAType() throws {
+        let config = deepState.createConfiguration()
+        config.modelType = .invalid
+        config.enabled = false
+        try DeepConfiguration.save(in: dataController.container.viewContext)
+
+        XCTAssertThrowsError(try deepState.setEnabled(true, for: config)) { error in
+            XCTAssertEqual(error as? DeepState.EnableError, .invalidModelType)
+        }
+        XCTAssertFalse(config.enabled)
+        XCTAssertEqual(try deepState.setEnabled(false, for: config), .unchanged, "switching it off stays allowed")
+    }
+
     func testTemporaryConfigurationCleanup() {
         deepState.createTemportaryConfiguration()
         XCTAssertNotNil(deepState.newConfiguration)

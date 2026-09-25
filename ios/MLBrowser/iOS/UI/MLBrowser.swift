@@ -438,6 +438,84 @@ struct MLBrowser: App {
 	}
 }
 
+/// What the analytics consent gate shows (AIA-0447), decided from state alone.
+///
+/// Extracted from `AnalyticsChoiceGate` for the reason `RootGateDisplay` was: the headless build
+/// (AIA-0970) must know whether the question is on screen, and a second copy of these rules would
+/// drift. The view keeps what only a view can know — whether content has ever been shown.
+enum AnalyticsChoiceDisplay: Equatable {
+	case choice
+	case content
+	case hold
+
+	/// Whether the consent question must wait rather than be put to the user right now.
+	///
+	/// Three independent reasons, all of them about *when* to ask rather than whether analytics may
+	/// run: a sign-out that revealed an unanswered anonymous bucket (AIA-0536), a free-access window
+	/// granted on this launch that its Welcome screen has not introduced yet (AIA-0556), and an
+	/// onboarding tour that has not had its turn (AIA-0567). Consent fails closed while any of them
+	/// holds, so waiting costs nothing.
+	///
+	/// The third is what makes the new first-run order actually hold. Welcome's Continue releases
+	/// the second reason, and without this the consent question would land on top of the tour that
+	/// same tap starts. It is deliberately `isPendingOrRunning` and not `isActive`: on the launch
+	/// after a force-quit over the Welcome screen the tour is merely *armed* when this gate first
+	/// computes — `day0Shown` is durable, but `isDay0AcknowledgementPending` is in-memory and so
+	/// false — and an `isActive` test would flash the consent screen full-width, unmounting
+	/// `ContentView`, before the gate above had started anything.
+	static func isAskDeferred(
+		afterSignOut: Bool,
+		isDay0AcknowledgementPending: Bool,
+		isTourPendingOrRunning: Bool
+	) -> Bool {
+		afterSignOut || isDay0AcknowledgementPending || isTourPendingOrRunning
+	}
+
+	/// Whether the question is asked *over* content the user is already using.
+	///
+	/// Deferred asks stay silent: a sign-out is a disengagement act, and a first-run window is still
+	/// being explained. Analytics simply stays off; the question returns at the next arrival,
+	/// sign-in, explicit reset, or once the day-0 paywall has been seen.
+	static func asksOverContent(
+		presentation: AnalyticsConsentPresentation,
+		hasEverShownContent: Bool,
+		isAskDeferred: Bool
+	) -> Bool {
+		hasEverShownContent && presentation == .ask && !isAskDeferred
+	}
+
+	static func resolve(
+		presentation: AnalyticsConsentPresentation,
+		hasEverShownContent: Bool,
+		isAskDeferred: Bool
+	) -> AnalyticsChoiceDisplay {
+		switch presentation {
+		// Asking is a full screen only on the way *in*. Afterwards it must not replace the root:
+		// under paywall-first, signing in happens mid-session by design, and a first sign-in — or an
+		// A→B switch, or a sign-out for anyone whose anonymous bucket is unanswered — selects a new
+		// scope with no stored choice, which lands here. Swapping the root then destroys the
+		// `WKWebView` the user is looking at, along with the page, scroll position and history.
+		// Before the cut-over this was unreachable: consent could only ever be asked at launch.
+		//
+		// A deferred ask takes the same branch for a different reason: the question is not refused,
+		// it is queued behind the paywall that explains the free window, and content goes up first.
+		case .ask: (hasEverShownContent || isAskDeferred) ? .content : .choice
+		case .resolved: .content
+		// Holding is only right *before* anything has been shown, and only while the wait is going
+		// to end. Afterwards the user is already in the app, and an unresolved scope is not a reason
+		// to throw them out of it — analytics simply fails closed until it resolves.
+		case .pending: hasEverShownContent ? .content : .hold
+		// **Never hold on `.unavailable`.** It means no scope can be selected *at all* — the session
+		// cannot be verified — so the wait would never end. On a cold launch in airplane mode an
+		// entitled user reaches exactly this state, and holding here would strand them on a spinner
+		// in front of an app whose features are entirely on-device. That is the lockout AIA-0536
+		// exists to remove (#532); it must not come back through the consent gate. They go in, with
+		// analytics off until a scope can be resolved.
+		case .unavailable: .content
+		}
+	}
+}
+
 /// Shows the analytics choice — now after login + paywall (AIA-0447) — until the user has answered
 /// it, then renders its content. Keeping this as a distinct observed view is important: `AppState`
 /// does not republish nested objects.
@@ -481,67 +559,31 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 	/// overlay instead of a root swap that would take the tour's web view with it.
 	@State private var hasEverShownContent = false
 
-	private enum Display: Equatable {
-		case choice
-		case content
-		case hold
-	}
-
-	/// Whether the consent question must wait rather than be put to the user right now.
-	///
-	/// Three independent reasons, all of them about *when* to ask rather than whether analytics may
-	/// run: a sign-out that revealed an unanswered anonymous bucket (AIA-0536), a free-access window
-	/// granted on this launch that its Welcome screen has not introduced yet (AIA-0556), and an
-	/// onboarding tour that has not had its turn (AIA-0567). Consent fails closed while any of them
-	/// holds, so waiting costs nothing.
-	///
-	/// The third is what makes the new first-run order actually hold. Welcome's Continue releases
-	/// the second reason, and without this the consent question would land on top of the tour that
-	/// same tap starts. It is deliberately `isPendingOrRunning` and not `isActive`: on the launch
-	/// after a force-quit over the Welcome screen the tour is merely *armed* when this gate first
-	/// computes — `day0Shown` is durable, but `isDay0AcknowledgementPending` is in-memory and so
-	/// false — and an `isActive` test would flash the consent screen full-width, unmounting
-	/// `ContentView`, before the gate above had started anything.
+	/// Whether the consent question must wait — see ``AnalyticsChoiceDisplay/isAskDeferred(afterSignOut:isDay0AcknowledgementPending:isTourPendingOrRunning:)``.
 	private var isAskDeferred: Bool {
-		analytics.isAskDeferredAfterSignOut
-			|| freeAccess.isDay0AcknowledgementPending
-			|| tour.isPendingOrRunning
+		AnalyticsChoiceDisplay.isAskDeferred(
+			afterSignOut: analytics.isAskDeferredAfterSignOut,
+			isDay0AcknowledgementPending: freeAccess.isDay0AcknowledgementPending,
+			isTourPendingOrRunning: tour.isPendingOrRunning
+		)
 	}
 
 	/// Whether the consent question is being asked *over* content the user is already using, rather
 	/// than as the screen they arrive at. Rendered as an overlay in that case — see ``body``.
 	private var asksOverContent: Bool {
-		// Deferred asks stay silent: a sign-out is a disengagement act, and a first-run window is
-		// still being explained. Analytics simply stays off; the question returns at the next
-		// arrival, sign-in, explicit reset, or once the day-0 paywall has been seen.
-		hasEverShownContent && analytics.consentPresentation == .ask && !isAskDeferred
+		AnalyticsChoiceDisplay.asksOverContent(
+			presentation: analytics.consentPresentation,
+			hasEverShownContent: hasEverShownContent,
+			isAskDeferred: isAskDeferred
+		)
 	}
 
-	private var display: Display {
-		switch analytics.consentPresentation {
-		// Asking is a full screen only on the way *in*. Afterwards it must not replace the root:
-		// under paywall-first, signing in happens mid-session by design, and a first sign-in — or an
-		// A→B switch, or a sign-out for anyone whose anonymous bucket is unanswered — selects a new
-		// scope with no stored choice, which lands here. Swapping the root then destroys the
-		// `WKWebView` the user is looking at, along with the page, scroll position and history.
-		// Before the cut-over this was unreachable: consent could only ever be asked at launch.
-		//
-		// A deferred ask takes the same branch for a different reason: the question is not refused,
-		// it is queued behind the paywall that explains the free window, and content goes up first.
-		case .ask: (hasEverShownContent || isAskDeferred) ? .content : .choice
-		case .resolved: .content
-		// Holding is only right *before* anything has been shown, and only while the wait is going
-		// to end. Afterwards the user is already in the app, and an unresolved scope is not a reason
-		// to throw them out of it — analytics simply fails closed until it resolves.
-		case .pending: hasEverShownContent ? .content : .hold
-		// **Never hold on `.unavailable`.** It means no scope can be selected *at all* — the session
-		// cannot be verified — so the wait would never end. On a cold launch in airplane mode an
-		// entitled user reaches exactly this state, and holding here would strand them on a spinner
-		// in front of an app whose features are entirely on-device. That is the lockout AIA-0536
-		// exists to remove (#532); it must not come back through the consent gate. They go in, with
-		// analytics off until a scope can be resolved.
-		case .unavailable: .content
-		}
+	private var display: AnalyticsChoiceDisplay {
+		AnalyticsChoiceDisplay.resolve(
+			presentation: analytics.consentPresentation,
+			hasEverShownContent: hasEverShownContent,
+			isAskDeferred: isAskDeferred
+		)
 	}
 
 	var body: some View {

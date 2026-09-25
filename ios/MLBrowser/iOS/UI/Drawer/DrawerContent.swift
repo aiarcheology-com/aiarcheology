@@ -47,17 +47,9 @@ struct DrawerContent: View {
     @EnvironmentObject private var authState: AuthState
 	@EnvironmentObject private var analytics: AnalyticsState
 
-    @FetchRequest(
-        entity: DeepConfiguration.entity(),
-        sortDescriptors: [
-            NSSortDescriptor(keyPath: \DeepConfiguration.creationDate_, ascending: false)
-        ],
-        predicate: NSPredicate(
-            format: "%K == %@",
-            #keyPath(DeepConfiguration.lifeCycleString),
-            CoreDataManageableState.ready.rawValue
-        )
-    ) private var configurations: FetchedResults<DeepConfiguration>
+    /// Ready models, newest first — shared with the headless drawer screen (AIA-0970).
+    @FetchRequest(fetchRequest: DeepConfiguration.drawerListFetchRequest())
+    private var configurations: FetchedResults<DeepConfiguration>
     
     /// Controls the model import sheet
     @State private var showImport = false
@@ -709,6 +701,7 @@ private struct PendingModelDeletion {
 /// swipe actions to coexist with Toggle on all platforms.
 private struct ConfigurationRow: View {
     @ObservedObject var configuration: DeepConfiguration
+    @EnvironmentObject private var deep: DeepState
     /// The tour engine, poked when a demo model is enabled during the enable-model step (AIA-0333).
     var tour: TourState?
     /// True for the one row the tour's enable step will switch on — see
@@ -808,22 +801,17 @@ private struct ConfigurationRow: View {
         }
     }
 
-    /// Persists an enable toggle and tells the tour only after that save succeeds.
-    ///
-    /// A failed save refreshes the row from the store so the switch cannot sit on a value the
-    /// context rejected. The tour hook runs only for a real off-to-on change (AIA-0333).
+    /// Persists an enable toggle through `DeepState.setEnabled` — the same call the headless build
+    /// makes (AIA-0970) — and tells the tour only after that save succeeds, and only for a real
+    /// off-to-on change (AIA-0333).
     private func persistEnabled(_ newValue: Bool) {
-        let wasEnabled = configuration.enabled
-        configuration.enabled = newValue
-        guard let context = configuration.managedObjectContext else { return }
         do {
-            try DeepConfiguration.save(in: context)
-            if wasEnabled == false, newValue {
+            if try deep.setEnabled(newValue, for: configuration) == .turnedOn {
                 tour?.userEnabledModel()
             }
         } catch {
-            LoggingPolicy.error("Failed to save configuration toggle", error: error, logger: .configuration)
-            context.refresh(configuration, mergeChanges: false)
+            // Already logged, and the row restored from the store, by `setEnabled`. The switch
+            // re-renders from that value; there is nothing further to undo here.
         }
     }
 

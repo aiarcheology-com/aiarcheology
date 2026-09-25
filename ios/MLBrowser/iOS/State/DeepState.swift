@@ -175,6 +175,46 @@ final class DeepState: ObservableObject {
 		repository.select(entityId)
 	}
 
+	/// What `setEnabled(_:for:)` changed.
+	enum EnableChange: Equatable {
+		case unchanged
+		case turnedOn
+		case turnedOff
+	}
+
+	enum EnableError: Error, Equatable {
+		/// The model's type is undetermined, so it cannot run; the drawer disables its switch too.
+		case invalidModelType
+	}
+
+	/// Switches a model on or off and saves it: the one implementation behind the drawer's switch
+	/// and the headless `enable`/`disable` actions (AIA-0970). The driver then loads or unloads from
+	/// the saved change, through the configuration observer, as for any other edit.
+	///
+	/// A failed save restores the row from the store, so a switch cannot sit on a value the context
+	/// rejected, and rethrows.
+	@discardableResult
+	func setEnabled(_ enabled: Bool, for configuration: DeepConfiguration) throws -> EnableChange {
+		if enabled, configuration.modelType == .invalid {
+			throw EnableError.invalidModelType
+		}
+		let wasEnabled = configuration.enabled
+		configuration.enabled = enabled
+		guard let context = configuration.managedObjectContext else { return .unchanged }
+		do {
+			try DeepConfiguration.save(in: context)
+		} catch {
+			LoggingPolicy.error("Failed to save configuration toggle", error: error, logger: .configuration)
+			context.refresh(configuration, mergeChanges: false)
+			throw error
+		}
+		switch (wasEnabled, enabled) {
+		case (false, true): return .turnedOn
+		case (true, false): return .turnedOff
+		default: return .unchanged
+		}
+	}
+
 	func saveConfigurations() {
 		do {
 			try repository.save()

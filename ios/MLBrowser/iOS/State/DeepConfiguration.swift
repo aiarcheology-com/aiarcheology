@@ -258,3 +258,22 @@ extension DeepConfiguration {
 		"deepConfiguration.detection.confidence.\(id.uuidString)"
 	}
 }
+
+// MARK: - The drawer's model list (AIA-0970)
+
+extension DeepConfiguration {
+
+	/// The models the drawer lists: ready configurations, newest first. One definition for the
+	/// drawer's `@FetchRequest` and the headless build's drawer screen, so both show the same models
+	/// in the same order.
+	static func drawerListFetchRequest() -> NSFetchRequest<DeepConfiguration> {
+		let request: NSFetchRequest<DeepConfiguration> = DeepConfiguration.fetchRequest()
+		request.sortDescriptors = [NSSortDescriptor(keyPath: \DeepConfiguration.creationDate_, ascending: false)]
+		request.predicate = NSPredicate(
+			format: "%K == %@",
+			#keyPath(DeepConfiguration.lifeCycleString),
+			CoreDataManageableState.ready.rawValue
+		)
+		return request
+	}
+}
