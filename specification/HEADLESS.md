@@ -109,7 +109,26 @@ xcodebuild build -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -configu
   1. The build's validation phase refuses `headless` outside `Debug` with the `development` backend.
   2. The server refuses to start unless the backend is `development`, and the in-app backend switch is disabled.
   3. The handshake reports `backendEnvironment`, so a launcher can refuse anything else.
-- **Screens so far.** The only routes are `launching`, then `ready` once `AppState` is ready, plus the `ready` wait condition. The screens after launch, the `ProjectTool headless` launcher, and the scenarios are the next step of AIA-0970.
+- **Screens.** Every screen is derived from `AppState`, using the pure deciders the gate views read (`RootGateDisplay`, `WelcomePresentation`, `TourStartDecision`, `AnalyticsChoiceDisplay`). Each action calls the method the UI calls.
+
+  | Route | Shown when | Actions |
+  |-|-|-|
+  | `launching` | `AppState` is not ready | none |
+  | `gate` | the paywall, the free-access hold, or a Welcome screen, which the headless build cannot drive yet | none; `state` shows the gate inputs |
+  | `tour` | the onboarding tour is armed or running | `skip` |
+  | `consent` | the analytics question is on screen, or held (`state.pending`) | `allow`, `deny` (none while pending) |
+  | `home` | the app proper, menu closed | `open-drawer` → `drawer` |
+  | `drawer` | the menu is open | `close` → `home`; `enable id=…` (returns once the model has loaded, fails with the load error); `disable id=…` |
+
+  `drawer` state lists the menu's own models, from the same fetch as the view: `{id, name, type, enabled, loaded}`. The wait conditions are `ready`, `model-loaded id=…`, and the built-in `route route=…`. `context.gate` reports the gate inputs with every response.
+- **Tooling.** `scripts/headless.sh` wraps `ProjectTool headless`:
+  - `build`
+  - `up --state a [--mock-subscription subscribed] [--flag key=true…]`
+  - `exec --state a <command>`, for example `exec --state a perform enable id=…`
+  - `down --state a` and `reset --state a`
+  - `test [files…]`, which runs every `ios/HeadlessScenarios/*.json` by default
+
+  It creates and uses only simulators named `aia-headless-<state>` and never touches any other device. It builds into `.deriveddata-headless`, so the app module `unittest.sh` reuses is not rebuilt. A scenario's first launch of an installation erases its device, making it a fresh install. `relaunch` keeps its data and does not reinstall. Reinstalling moves the app's data container, and preference writes the system has not yet flushed would be lost with the move. A relaunch quits the app the way a force-quit does, so a preference written in the moment before it can still be lost, as on a device.
 - **Things a run cannot control:** remote `appMessages` can change during a run, and a live message may raise a notification-authorization alert on the device. Neither may be asserted. Choosing `allow` at analytics consent sends TelemetryDeck signals, which the SDK marks as test-mode in Debug.
 
 ## Compatibility

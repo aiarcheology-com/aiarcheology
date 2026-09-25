@@ -512,6 +512,76 @@ final class ArchitectureTests: XCTestCase {
         }
     }
 
+    // MARK: - Headless build (AIA-0970)
+
+    /// The headless build's command server must exist only in that build. Every file that imports the
+    /// transport, starts a `HeadlessServer` or names an `NWListener` is wrapped whole in
+    /// `#if DEBUG && AIA_APP_INTERFACE_headless`, so no shipping configuration can compile a listener
+    /// into the app. The build's validation phase refuses the headless interface outside Debug; this
+    /// is the source-side half of the same lock.
+    func testHeadlessCommandServerExistsOnlyInTheHeadlessBuild() {
+        let guardLine = "#if DEBUG && AIA_APP_INTERFACE_headless"
+        var wrapped: [String] = []
+        var offenders: [String] = []
+        for fileURL in Self.productionSwiftFiles() {
+            let relativePath = Self.relativePath(for: fileURL)
+            let lines: [String]
+            do {
+                lines = try Self.readLines(of: fileURL)
+            } catch {
+                XCTFail("Headless transport scan could not read \(relativePath): \(error) — failing closed.")
+                continue
+            }
+            let code = lines
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { $0.isEmpty == false && $0.hasPrefix("//") == false }
+            let usesTransport = code.contains { line in
+                line == "import HeadlessKitTransport" || line.contains("NWListener") || line.contains("HeadlessServer(")
+            }
+            guard usesTransport else { continue }
+            if code.first == guardLine, code.last == "#endif" {
+                wrapped.append(relativePath)
+            } else {
+                offenders.append(relativePath)
+            }
+        }
+        XCTAssertTrue(
+            offenders.isEmpty,
+            """
+            These files use the headless command server outside the headless build. Wrap the whole file in
+            `\(guardLine)` … `#endif`, as `Headless/Entry/MLBrowserHeadless.swift` is:
+            \(offenders.joined(separator: "\n"))
+            """
+        )
+        // Fail closed: the headless entry uses the transport, so an empty result means the scan broke.
+        XCTAssertFalse(wrapped.isEmpty, "No file uses the headless transport — the scan is broken, not clean.")
+    }
+
+    /// Headless adapters describe screens over `AppState` and call its methods; they have no business
+    /// with views. `Headless/Entry/` holds the SwiftUI app the headless build launches, and is exempt.
+    func testHeadlessAdaptersDoNotImportUIFrameworks() {
+        let root = Self.productionIOSRootURL().appendingPathComponent("Headless", isDirectory: true)
+        let files = Self.swiftFiles(under: root).filter { Self.relativePath(for: $0).contains("/Headless/Entry/") == false }
+        XCTAssertFalse(files.isEmpty, "No Swift files under \(root.path) outside Entry/ — the scan is broken, not clean.")
+        var offenders: [ImportFinding] = []
+        for fileURL in files {
+            let relativePath = Self.relativePath(for: fileURL)
+            do {
+                let lines = try Self.readLines(of: fileURL)
+                offenders += Self.findImports(inLines: lines, relativePath: relativePath, modules: ["SwiftUI", "UIKit"])
+            } catch {
+                XCTFail("Headless adapter scan could not read \(relativePath): \(error) — failing closed.")
+            }
+        }
+        XCTAssertTrue(
+            offenders.isEmpty,
+            """
+            Headless adapters must not import SwiftUI or UIKit — call the state objects the views call instead:
+            \(offenders.map { "\($0.relativePath):\($0.lineNumber)  \($0.line)" }.joined(separator: "\n"))
+            """
+        )
+    }
+
     /// Privacy invariant (AIA-0392): finding screenshots are written ONLY by `FindingRepository`,
     /// the single auditable on-device write path (images never leave the device except via explicit
     /// user export). Any other PRODUCTION caller of `FindingScreenshotStore.save` is an unreviewed
