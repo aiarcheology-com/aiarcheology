@@ -16,6 +16,7 @@ it is not implemented. Selection today is manual and does not replace existing r
 | Native model conversion and package behavior | Root `swift test` on macOS. External ONNX, Apple reference, and checkpoint coverage needs the fixture setup below; a bare green run can include skips. |
 | Shared support-log format | `swift test --filter SupportLogFormatTests`; shared format changes also need affected app/backend consumer checks. SwiftPM filtering selects execution, not necessarily compilation of other targets. |
 | Headless screen/action package and scenarios | `swift test --filter HeadlessKitTests` on macOS, including loopback transport tests; also part of the root package CI job. See [HEADLESS.md](HEADLESS.md). |
+| Headless build of the app | The Debug build with `AIA_APP_INTERFACE=headless`, using the command in [HEADLESS.md](HEADLESS.md#ml-browsers-headless-build). No other gate compiles `Headless/Entry/`, so run it for changes to `AppState`, `AppRuntime`, the composition root or `Headless/`. Use its own DerivedData (`.deriveddata-headless`). |
 | ProjectTool | `swift test --package-path Tools` |
 | Credential-delivery shell logic | `./scripts/test_deliver_credentials.sh` uses its hermetic test harness. |
 | Architecture and source/resource invariants | `./scripts/harmonize.sh` uses the macOS `MLBrowserArchitectureTests` scheme and `MLBrowserUnitTestsHarmonize` plan. It reads repository files from disk. |

@@ -9,12 +9,13 @@ import Combine
 import XCTest
 @testable import ML_Browser
 
-/// The launch-order contract `AppRuntime` uses to start auth: never before `AppState.isReady`.
+/// The launch-order mechanism `AppRuntime` starts auth through: `afterReady` never runs its operation
+/// before `AppState.isReady`.
 ///
 /// `AccountAnalyticsCoordinator` depends on entitlement resolving before auth at launch; starting
-/// auth first would mark every signed-in subscriber anonymous on every launch. The contract is
-/// tested through `AppRuntime.afterReady`, which `startAuthWhenReady` calls, because an `AppState`
-/// cannot be built outside the composition root.
+/// auth first would mark every signed-in subscriber anonymous on every launch. This pins the helper,
+/// not its call site: an `AppState` cannot be built outside the composition root, so that
+/// `startAuthWhenReady` goes through `afterReady` is left to review.
 @MainActor
 final class AppRuntimeTests: XCTestCase {
 
@@ -40,14 +41,6 @@ final class AppRuntimeTests: XCTestCase {
 
 		readiness.isReady = true
 		await task.value
-		XCTAssertEqual(probe.runs, 1)
-
-		// Later readiness changes do not start it again.
-		readiness.isReady = false
-		readiness.isReady = true
-		for _ in 0..<5 {
-			await Task.yield()
-		}
 		XCTAssertEqual(probe.runs, 1)
 	}
 

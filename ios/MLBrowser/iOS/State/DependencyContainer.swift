@@ -131,8 +131,9 @@ class DependencyContainer {
 
     /// Whether the subscription layer uses the in-memory mock instead of StoreKit.
     /// DEBUG-only and gated on test runs, mirroring `usesMockAuth`: UI tests and unit
-    /// tests must never touch StoreKit / the App Store. Release builds always use the
-    /// real provider (the mock is `#if DEBUG`, so it can never ship).
+    /// tests must never touch StoreKit / the App Store. The headless build opts in per launch
+    /// with `-mockSubscription` (AIA-0970). Release builds always use the real provider (the
+    /// mock is `#if DEBUG`, so it can never ship).
     let usesMockSubscription: Bool = {
         #if DEBUG
         #if AIA_APP_INTERFACE_headless
@@ -241,9 +242,7 @@ class DependencyContainer {
         // `FeatureFlagsState`, so the launch mirror records pinned values too.
         let pins = HeadlessLaunchOptions.current.flagOverrides
         if pins.isEmpty == false {
-            let live: FeatureFlagProviding = ConfigCatFeatureFlagProvider(sdkKey: ConfigCatFeatureFlagProvider.sdkKeyFromInfoPlist())
-                ?? StaticFeatureFlagProvider()
-            return OverridingFeatureFlagProvider(base: live, overrides: pins)
+            return OverridingFeatureFlagProvider(base: Self.makeLiveFeatureFlagProvider(), overrides: pins)
         }
         #endif
         if AppEnvironment.isRunningUITests
@@ -254,9 +253,15 @@ class DependencyContainer {
                 appMessagesJSON: UITestLaunchConfiguration.fromEnvironment?.appMessagesJSON ?? ""
             )
         }
-        return ConfigCatFeatureFlagProvider(sdkKey: ConfigCatFeatureFlagProvider.sdkKeyFromInfoPlist())
-            ?? StaticFeatureFlagProvider()
+        return Self.makeLiveFeatureFlagProvider()
     }()
+
+    /// ConfigCat, or the compiled defaults when there is no SDK key. One definition for the app and
+    /// the headless build's pinned provider, so neither can drift from the other.
+    private static func makeLiveFeatureFlagProvider() -> FeatureFlagProviding {
+        ConfigCatFeatureFlagProvider(sdkKey: ConfigCatFeatureFlagProvider.sdkKeyFromInfoPlist())
+            ?? StaticFeatureFlagProvider()
+    }
 
     /// Scenario flag overrides from the UI-test launch configuration (AIA-0350). Empty for
     /// unit tests and for UI tests that do not vary a flag, leaving every compiled default.

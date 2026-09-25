@@ -149,12 +149,16 @@ final class AppRuntime {
 	/// Starts auth only once `AppState` is ready, as the view root did: `.authLifecycle` was applied
 	/// to content mounted only after `isReady`. `AccountAnalyticsCoordinator` depends on that order —
 	/// entitlement resolves before auth at launch, and starting auth first would mark every signed-in
-	/// subscriber anonymous on every launch. The foreground refresh is armed at the same point.
+	/// subscriber anonymous on every launch.
+	///
+	/// The foreground refresh is armed at the same point and *before* the first check is awaited, as
+	/// the view armed both together: that check is a network round trip, and a foreground during it
+	/// must still queue a re-evaluation (`AuthState.refresh()` coalesces into `refreshPending`).
 	private func startAuthWhenReady() {
 		let appState = appState
 		tasks.append(Self.afterReady(appState.$isReady) { [weak self] in
-			await appState.authState.start()
 			self?.observeForegroundForAuth()
+			await appState.authState.start()
 		})
 	}
 
