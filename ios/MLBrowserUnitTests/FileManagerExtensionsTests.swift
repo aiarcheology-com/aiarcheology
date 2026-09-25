@@ -481,6 +481,209 @@ final class FileManagerExtensionsTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: sourceFile.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: destinationURL.path))
     }
+    
+    // MARK: - Replacing an existing model (AIA-0967)
+    
+    /// A fixture `Container/Documents` under this test's temporary directory, so these tests never
+    /// store into, or copy, the real app container.
+    private func makeFixtureContainer() throws -> (container: URL, documents: URL) {
+        let container = testDirectory.appendingPathComponent("Container")
+        let documents = container.appendingPathComponent("Documents")
+        try FileManager.default.createDirectory(at: documents, withIntermediateDirectories: true)
+        return (container, documents)
+    }
+    
+    /// Writes `content` as an installed model named `name` under the fixture Documents.
+    private func installExistingModel(named name: String, content: String, in documents: URL) throws -> URL {
+        let configDir = FileManager.configurationDirectory(id: testConfigurationId, in: documents)
+        try FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
+        let target = configDir.appendingPathComponent(name)
+        try content.write(to: target, atomically: true, encoding: .utf8)
+        return target
+    }
+    
+    private func configDirectoryListing(in documents: URL) throws -> [String] {
+        let configDir = FileManager.configurationDirectory(id: testConfigurationId, in: documents)
+        return try FileManager.default.contentsOfDirectory(atPath: configDir.path).sorted()
+    }
+    
+    /// A re-download whose move fails (here the staged package has vanished) must leave the model
+    /// that was installed before it. Deleting the target first would lose it.
+    func test_moveModelToDocuments_keepsExistingModelWhenReplacementFails() throws {
+        let (_, documents) = try makeFixtureContainer()
+        let existing = try installExistingModel(named: "model.mlmodel", content: "installed", in: documents)
+        let missingSource = testDirectory.appendingPathComponent("model.mlmodel")
+        
+        XCTAssertThrowsError(
+            try FileManager.moveModelToDocuments(
+                from: missingSource,
+                configurationId: testConfigurationId,
+                documentsURL: documents
+            )
+        )
+        
+        XCTAssertEqual(try String(contentsOf: existing, encoding: .utf8), "installed")
+        XCTAssertEqual(try configDirectoryListing(in: documents), ["model.mlmodel"])
+    }
+    
+    func test_copyModelToDocuments_keepsExistingModelWhenReplacementFails() throws {
+        let (_, documents) = try makeFixtureContainer()
+        let existing = try installExistingModel(named: "model.mlmodel", content: "installed", in: documents)
+        let missingSource = testDirectory.appendingPathComponent("model.mlmodel")
+        
+        XCTAssertThrowsError(
+            try FileManager.copyModelToDocuments(
+                from: missingSource,
+                configurationId: testConfigurationId,
+                documentsURL: documents
+            )
+        )
+        
+        XCTAssertEqual(try String(contentsOf: existing, encoding: .utf8), "installed")
+        XCTAssertEqual(try configDirectoryListing(in: documents), ["model.mlmodel"])
+    }
+    
+    /// A catalog package is a directory: the new package replaces the installed one, and no staged
+    /// item is left beside it.
+    func test_moveModelToDocuments_replacesExistingPackageAndLeavesNoStagedItem() throws {
+        let (_, documents) = try makeFixtureContainer()
+        let configDir = FileManager.configurationDirectory(id: testConfigurationId, in: documents)
+        let installedPackage = configDir.appendingPathComponent("model.mlpackage")
+        try FileManager.default.createDirectory(at: installedPackage, withIntermediateDirectories: true)
+        try "installed".write(to: installedPackage.appendingPathComponent("weights"), atomically: true, encoding: .utf8)
+        try "stale".write(to: installedPackage.appendingPathComponent("only-in-old"), atomically: true, encoding: .utf8)
+        let newPackage = testDirectory.appendingPathComponent("staging").appendingPathComponent("model.mlpackage")
+        try FileManager.default.createDirectory(at: newPackage, withIntermediateDirectories: true)
+        try "downloaded".write(to: newPackage.appendingPathComponent("weights"), atomically: true, encoding: .utf8)
+        
+        let result = try FileManager.moveModelToDocuments(
+            from: newPackage,
+            configurationId: testConfigurationId,
+            documentsURL: documents
+        )
+        
+        XCTAssertEqual(result.pathComponents, installedPackage.pathComponents)
+        XCTAssertEqual(try String(contentsOf: result.appendingPathComponent("weights"), encoding: .utf8), "downloaded")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: result.appendingPathComponent("only-in-old").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: newPackage.path))
+        XCTAssertEqual(try configDirectoryListing(in: documents), ["model.mlpackage"])
+    }
+    
+    func test_copyModelToDocuments_replacesExistingFileAndLeavesNoStagedItem() throws {
+        let (_, documents) = try makeFixtureContainer()
+        _ = try installExistingModel(named: "model.mlmodel", content: "installed", in: documents)
+        let source = testDirectory.appendingPathComponent("model.mlmodel")
+        try "picked".write(to: source, atomically: true, encoding: .utf8)
+        
+        let result = try FileManager.copyModelToDocuments(
+            from: source,
+            configurationId: testConfigurationId,
+            documentsURL: documents
+        )
+        
+        XCTAssertEqual(try String(contentsOf: result, encoding: .utf8), "picked")
+        XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "picked")
+        XCTAssertEqual(try configDirectoryListing(in: documents), ["model.mlmodel"])
+    }
+    
+    /// A staged item left by a crash between staging and swapping is swept by the next install of
+    /// the same name. Nothing else would ever remove it.
+    func test_moveModelToDocuments_removesStagedItemLeftByAnEarlierInstall() throws {
+        let (_, documents) = try makeFixtureContainer()
+        _ = try installExistingModel(named: "model.mlmodel", content: "installed", in: documents)
+        let configDir = FileManager.configurationDirectory(id: testConfigurationId, in: documents)
+        let leftover = configDir.appendingPathComponent(".model.mlmodel.staging-\(UUID().uuidString)")
+        try "orphan".write(to: leftover, atomically: true, encoding: .utf8)
+        let unrelated = configDir.appendingPathComponent(".other.mlmodel.staging-\(UUID().uuidString)")
+        try "someone else's".write(to: unrelated, atomically: true, encoding: .utf8)
+        let source = testDirectory.appendingPathComponent("model.mlmodel")
+        try "downloaded".write(to: source, atomically: true, encoding: .utf8)
+        
+        let result = try FileManager.moveModelToDocuments(
+            from: source,
+            configurationId: testConfigurationId,
+            documentsURL: documents
+        )
+        
+        XCTAssertEqual(try String(contentsOf: result, encoding: .utf8), "downloaded")
+        XCTAssertEqual(try configDirectoryListing(in: documents), [unrelated.lastPathComponent, "model.mlmodel"].sorted())
+    }
+    
+    // MARK: - A source that contains its target (AIA-0968)
+    
+    /// A tiny fixture container: a parent of Documents with one file beside it. If the guard were
+    /// missing, the copy of this tree into its own descendant is what a test would start, so it has
+    /// to stay small.
+    private func makeFixtureContainerWithContent() throws -> (container: URL, documents: URL) {
+        let fixture = try makeFixtureContainer()
+        let library = fixture.container.appendingPathComponent("Library")
+        try FileManager.default.createDirectory(at: library, withIntermediateDirectories: true)
+        try "prefs".write(to: library.appendingPathComponent("prefs.plist"), atomically: true, encoding: .utf8)
+        return fixture
+    }
+    
+    private func assertNothingChanged(in container: URL, documents: URL, file: StaticString = #filePath, line: UInt = #line) throws {
+        let fileManager = FileManager.default
+        XCTAssertEqual(try fileManager.contentsOfDirectory(atPath: container.path).sorted(), ["Documents", "Library"], file: file, line: line)
+        XCTAssertEqual(try fileManager.contentsOfDirectory(atPath: documents.path), [], file: file, line: line)
+        XCTAssertEqual(
+            try String(contentsOf: container.appendingPathComponent("Library/prefs.plist"), encoding: .utf8),
+            "prefs",
+            file: file,
+            line: line
+        )
+    }
+    
+    func test_storeModelInDocuments_rejectsAncestorOfDocumentsAndCreatesNothing() throws {
+        let (container, documents) = try makeFixtureContainerWithContent()
+        
+        XCTAssertThrowsError(
+            try FileManager.storeModelInDocuments(
+                from: container,
+                configurationId: testConfigurationId,
+                documentsURL: documents
+            )
+        ) { error in
+            XCTAssertEqual(error as? ModelFileStorageError, .fileOperationFailed)
+        }
+        try assertNothingChanged(in: container, documents: documents)
+    }
+    
+    /// `Downloader` calls `moveModelToDocuments` directly, bypassing `storeModelInDocuments`.
+    func test_moveModelToDocuments_rejectsAncestorOfDocumentsAndCreatesNothing() throws {
+        let (container, documents) = try makeFixtureContainerWithContent()
+        
+        XCTAssertThrowsError(
+            try FileManager.moveModelToDocuments(
+                from: container,
+                configurationId: testConfigurationId,
+                documentsURL: documents
+            )
+        ) { error in
+            XCTAssertEqual(error as? ModelFileStorageError, .fileOperationFailed)
+        }
+        try assertNothingChanged(in: container, documents: documents)
+    }
+    
+    /// The container reached through a symlink passes the lexical containment test; filesystem
+    /// identity of the target's ancestors still recognises it.
+    func test_storeModelInDocuments_rejectsAliasOfAncestorOfDocuments() throws {
+        let (container, documents) = try makeFixtureContainerWithContent()
+        let alias = testDirectory.appendingPathComponent("ContainerAlias")
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: container)
+        XCTAssertFalse(documents.isStrictlyContained(in: alias), "fixture must defeat the lexical check")
+        
+        XCTAssertThrowsError(
+            try FileManager.storeModelInDocuments(
+                from: alias,
+                configurationId: testConfigurationId,
+                documentsURL: documents
+            )
+        ) { error in
+            XCTAssertEqual(error as? ModelFileStorageError, .fileOperationFailed)
+        }
+        try assertNothingChanged(in: container, documents: documents)
+    }
 }
 
 // MARK: - ModelFileStorageError Tests
