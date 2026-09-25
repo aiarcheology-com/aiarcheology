@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "name": "fresh-install-enable-model",
+  "installations": {
+    "a": {
+      "launch": {
+        "mockSubscription": "subscribed",
+        "flags": { "isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": false, "isCrossDeviceAnalyticsIdentityEnabled": false }
+      }
+    }
+  },
+  "steps": [
+    { "name": "a fresh install finishes launching into the tour",
+      "wait": { "condition": "ready", "timeout": 120 },
+      "expect": [ { "route": "tour" }, { "equals": { "pointer": "/context/backendEnvironment", "value": "development" } } ] },
+    { "name": "skip the tour", "perform": { "action": "skip" }, "expect": [ { "route": "consent" } ] },
+    { "name": "decline analytics", "perform": { "action": "deny" }, "expect": [ { "route": "home" } ] },
+    { "name": "no teleporting: home does not lead back to consent", "goto": "consent",
+      "expect": [ { "error": "unreachable" }, { "route": "home" } ] },
+    { "name": "open the menu", "goto": "drawer",
+      "capture": { "model": "/state/models/0/id" },
+      "expect": [ { "route": "drawer" }, { "exists": "/state/models/0/id" } ] },
+    { "name": "switch the first model on and wait for it to load",
+      "perform": { "action": "enable", "arguments": { "id": "${model}" } },
+      "expect": [ { "equals": { "pointer": "/result/loaded", "value": true } } ] },
+    { "name": "the menu shows it on and loaded",
+      "expect": [
+        { "equals": { "pointer": "/state/models/0/id", "value": "${model}" } },
+        { "equals": { "pointer": "/state/models/0/enabled", "value": true } },
+        { "equals": { "pointer": "/state/models/0/loaded", "value": true } }
+      ] }
+  ]
+}

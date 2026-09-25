@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "name": "relaunch-keeps-state",
+  "installations": {
+    "a": {
+      "launch": {
+        "mockSubscription": "subscribed",
+        "flags": { "isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": false, "isCrossDeviceAnalyticsIdentityEnabled": false }
+      }
+    }
+  },
+  "steps": [
+    { "name": "launch", "wait": { "condition": "ready", "timeout": 120 }, "expect": [ { "route": "tour" } ] },
+    { "name": "skip the tour", "perform": { "action": "skip" }, "expect": [ { "route": "consent" } ] },
+    { "name": "decline analytics", "perform": { "action": "deny" }, "expect": [ { "route": "home" } ] },
+    { "name": "open the menu", "goto": "drawer",
+      "capture": { "model": "/state/models/0/id", "gate": "/context/gate" } },
+    { "name": "switch the first model on", "perform": { "action": "enable", "arguments": { "id": "${model}" } },
+      "expect": [ { "equals": { "pointer": "/result/loaded", "value": true } } ] },
+    { "name": "quit and reopen the app", "relaunch": true },
+    { "name": "onboarding is not repeated", "wait": { "condition": "ready", "timeout": 120 },
+      "expect": [ { "route": "home" } ] },
+    { "name": "the gate inputs are the same as before the relaunch, pins included",
+      "expect": [ { "equals": { "pointer": "/context/gate", "value": "${gate}" } } ] },
+    { "name": "the model comes back loaded", "wait": { "condition": "model-loaded", "arguments": { "id": "${model}" }, "timeout": 120 } },
+    { "name": "and switched on in the menu", "goto": "drawer",
+      "expect": [
+        { "equals": { "pointer": "/state/models/0/id", "value": "${model}" } },
+        { "equals": { "pointer": "/state/models/0/enabled", "value": true } }
+      ] }
+  ]
+}

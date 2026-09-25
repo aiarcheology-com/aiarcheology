@@ -25,19 +25,27 @@ let package = Package(
     targets: [
         // Pure, testable logic. A test target cannot `@testable import` an executable target,
         // so anything worth asserting on lives here rather than in ProjectTool itself.
-        .target(name: "ProjectToolCore"),
+        .target(
+            name: "ProjectToolCore",
+            dependencies: [.product(name: "HeadlessKit", package: "NativeModelConverter")]
+        ),
         .executableTarget(
             name: "ProjectTool",
             dependencies: [
                 "ProjectToolCore",
                 // 2. Depend on the product in your executable target
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                .product(name: "SupportLogFormat", package: "NativeModelConverter")
+                .product(name: "SupportLogFormat", package: "NativeModelConverter"),
+                // The headless build's tooling (AIA-0970): the client and the scenario runner
+                // the app's own package ships, so the tool and the app cannot disagree on the wire.
+                .product(name: "HeadlessKit", package: "NativeModelConverter"),
+                .product(name: "HeadlessKitTransport", package: "NativeModelConverter"),
+                .product(name: "HeadlessScenario", package: "NativeModelConverter")
             ]
         ),
         .testTarget(
             name: "ProjectToolCoreTests",
-            dependencies: ["ProjectToolCore"]
+            dependencies: ["ProjectToolCore", .product(name: "HeadlessKit", package: "NativeModelConverter")]
         )
     ]
 )
