@@ -15,6 +15,7 @@ it is not implemented. Selection today is manual and does not replace existing r
 | Map parsing and browser integration | App unit target: URL/type/resolver tests plus probe, installation, arming, and WebKit integration tests. Parser-only coverage does not establish browser installation behavior. See [MAP_LOCATION.md](MAP_LOCATION.md). |
 | Native model conversion and package behavior | Root `swift test` on macOS. External ONNX, Apple reference, and checkpoint coverage needs the fixture setup below; a bare green run can include skips. |
 | Shared support-log format | `swift test --filter SupportLogFormatTests`; shared format changes also need affected app/backend consumer checks. SwiftPM filtering selects execution, not necessarily compilation of other targets. |
+| Headless screen/action package and scenarios | `swift test --filter HeadlessKitTests` on macOS, including loopback transport tests; also part of the root package CI job. See [HEADLESS.md](HEADLESS.md). |
 | ProjectTool | `swift test --package-path Tools` |
 | Credential-delivery shell logic | `./scripts/test_deliver_credentials.sh` uses its hermetic test harness. |
 | Architecture and source/resource invariants | `./scripts/harmonize.sh` uses the macOS `MLBrowserArchitectureTests` scheme and `MLBrowserUnitTestsHarmonize` plan. It reads repository files from disk. |

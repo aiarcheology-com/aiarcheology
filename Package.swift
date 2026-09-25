@@ -18,6 +18,14 @@ let package = Package(
 		// inside the first is a package-resolution risk not worth taking for a naming
 		// preference. See AIA-0643.
 		.library(name: "SupportLogFormat", targets: ["SupportLogFormat"]),
+		// Drive an app through screens and actions without its UI (AIA-0970). App-agnostic and
+		// dependency-free on purpose: ML Browser is only the first adopter, and another SwiftUI app
+		// must be able to take these three products without anything from this repository. They
+		// live here for the same resolution reason as SupportLogFormat above; moving them to their
+		// own repository later changes no code.
+		.library(name: "HeadlessKit", targets: ["HeadlessKit"]),
+		.library(name: "HeadlessKitTransport", targets: ["HeadlessKitTransport"]),
+		.library(name: "HeadlessScenario", targets: ["HeadlessScenario"]),
 		.executable(name: "native-model-converter", targets: ["NativeModelConverterCLI"]),
 		.executable(name: "native-model-evaluator", targets: ["NativeModelEvaluatorCLI"]),
 		// Local evidence runner for the real ADAF detector. It intentionally exercises the emitted
@@ -27,6 +35,9 @@ let package = Package(
 	targets: [
 		.target(name: "NativeModelConverter"),
 		.target(name: "SupportLogFormat"),
+		.target(name: "HeadlessKit"),
+		.target(name: "HeadlessKitTransport", dependencies: ["HeadlessKit"]),
+		.target(name: "HeadlessScenario", dependencies: ["HeadlessKit"]),
 		.executableTarget(name: "NativeModelConverterCLI", dependencies: ["NativeModelConverter"]),
 		.executableTarget(name: "NativeModelEvaluatorCLI"),
 		.executableTarget(name: "ADAFDetectorParityRunner", dependencies: ["NativeModelConverter"]),
@@ -38,6 +49,10 @@ let package = Package(
 		.testTarget(
 			name: "SupportLogFormatTests",
 			dependencies: ["SupportLogFormat"]
+		),
+		.testTarget(
+			name: "HeadlessKitTests",
+			dependencies: ["HeadlessKit", "HeadlessKitTransport", "HeadlessScenario"]
 		)
 	]
 )
