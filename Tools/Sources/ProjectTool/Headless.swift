@@ -130,8 +130,18 @@ struct Headless: AsyncParsableCommand {
 				throw ValidationError("no scenarios found")
 			}
 			var failed: [String] = []
+			var installations: Set<String> = []
 			for path in paths {
-				let scenario = try Scenario.load(contentsOf: path)
+				let scenario: Scenario
+				do {
+					scenario = try Scenario.load(contentsOf: path)
+				} catch {
+					// One unreadable file must not stop the others, or leave their simulators running.
+					failed.append(path.lastPathComponent)
+					print("❌ \(path.lastPathComponent): \(error)")
+					continue
+				}
+				installations.formUnion(scenario.installations.keys)
 				print("▶︎ \(scenario.name)")
 				let report = await ScenarioRunner(launcher: SimulatorLauncher()).run(scenario)
 				for step in report.steps + report.teardown {
@@ -145,7 +155,7 @@ struct Headless: AsyncParsableCommand {
 					report.failures.forEach { print("   \($0)") }
 				}
 			}
-			for installation in Set(try paths.flatMap { try Scenario.load(contentsOf: $0).installations.keys }) {
+			for installation in installations {
 				try? HeadlessSimulator(installation: installation).shutdown() // Best effort: frees the Simulator after the run.
 			}
 			if failed.isEmpty == false {
@@ -244,14 +254,8 @@ struct HeadlessSimulator {
 		if install {
 			try simctl(["install", udid, HeadlessWorkspace.app.path])
 		}
-		// A stale file from a previous launch must not be mistaken for this one's.
-		if let stale = try? endpointFile(udid: udid) {
-			try? FileManager.default.removeItem(at: stale) // Absent is fine.
-		}
-		try await launchApp(udid: udid, arguments: arguments)
-		let endpoint = try await waitForEndpoint(udid: udid)
-		let client = HeadlessClient(endpoint: endpoint)
-		let hello = try await client.connect()
+		let pid = try await launchApp(udid: udid, arguments: arguments)
+		let (client, hello) = try await connectWhenListening(udid: udid, pid: pid)
 		// The launcher's lock on production data; the build and the app hold the other two.
 		guard hello.metadata["backendEnvironment"] == "development" else {
 			await client.close()
@@ -267,17 +271,24 @@ struct HeadlessSimulator {
 	/// `NSPOSIXErrorDomain` 3 even after `bootstatus -b` reports the device booted, and succeeds
 	/// seconds later (seen on Xcode 27.2 beta). There is no finer readiness signal to wait on, so the
 	/// launch itself is retried a bounded number of times, each failure reported.
-	private func launchApp(udid: String, arguments: [String]) async throws {
+	/// - Returns: the launched process id, when `simctl` reports it.
+	private func launchApp(udid: String, arguments: [String]) async throws -> Int32? {
 		let attempts = 5
 		for attempt in 1...attempts {
+			// A stale file — from a previous run, or from an attempt that reported failure but started
+			// the app anyway before the next attempt replaced it — must not be read as this launch's.
+			removeEndpointFile(udid: udid)
 			do {
-				try simctl(["launch", "--terminate-running-process", udid, HeadlessDevice.bundleIdentifier] + arguments)
-				return
+				let output = try simctl(["launch", "--terminate-running-process", udid, HeadlessDevice.bundleIdentifier] + arguments)
+				// "com.aiarcheology.ios: 12345"
+				let text = (String(bytes: output, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+				return text.split(separator: ":").last.flatMap { Int32($0.trimmingCharacters(in: .whitespaces)) }
 			} catch where attempt < attempts {
 				print("  launch attempt \(attempt) on \(deviceName) failed; retrying: \(error)")
 				try await Task.sleep(for: .seconds(2))
 			}
 		}
+		return nil
 	}
 
 	func readEndpoint() throws -> HeadlessEndpoint {
@@ -314,13 +325,21 @@ struct HeadlessSimulator {
 			let name: String
 			let udid: String
 			let state: String
+			let isAvailable: Bool?
 		}
 		let devices: [String: [Device]]
 	}
 
 	private func existingDevice() throws -> String? {
 		let list = try JSONDecoder().decode(DeviceList.self, from: simctlOutput(["list", "devices", "-j"]))
-		let matches = list.devices.values.flatMap { $0 }.filter { $0.name == deviceName }
+		var matches = list.devices.values.flatMap { $0 }.filter { $0.name == deviceName }
+		// A device of ours left on a runtime that has since been removed cannot boot: delete it, and a
+		// fresh one is created on a current runtime.
+		for stale in matches where stale.isAvailable == false {
+			try simctl(["delete", stale.udid])
+			print("Deleted \(deviceName) (\(stale.udid)): its runtime is no longer available")
+		}
+		matches.removeAll { $0.isAvailable == false }
 		guard matches.count <= 1 else {
 			throw ValidationError("several simulators are named \(deviceName); delete the extras")
 		}
@@ -350,16 +369,37 @@ struct HeadlessSimulator {
 		return URL(fileURLWithPath: container).appendingPathComponent(HeadlessDevice.endpointPath)
 	}
 
-	private func waitForEndpoint(udid: String) async throws -> HeadlessEndpoint {
+	private func removeEndpointFile(udid: String) {
+		guard let file = try? endpointFile(udid: udid) else { return } // No container yet: nothing stale.
+		try? FileManager.default.removeItem(at: file) // Absent is fine.
+	}
+
+	/// Waits for the launched app to publish its endpoint and accept the handshake.
+	///
+	/// A refused connection is not final while the deadline lasts: the file found may belong to a
+	/// process the launch retry has since replaced, and the live one rewrites it once listening.
+	private func connectWhenListening(udid: String, pid: Int32?) async throws -> (HeadlessClient, ServerHello) {
 		let file = try endpointFile(udid: udid)
 		let deadline = Date().addingTimeInterval(120)
+		var lastError: Error?
 		while Date() < deadline {
+			// Simulator apps are host processes. One that has gone away will never listen: say so now
+			// rather than after the deadline. A malformed launch option stops the app on purpose.
+			if let pid, kill(pid, 0) != 0, errno == ESRCH {
+				throw ValidationError("the app on \(deviceName) exited during launch; check its launch options (an unknown -headlessFlag key stops it) and the device log")
+			}
 			if FileManager.default.fileExists(atPath: file.path) {
-				return try HeadlessEndpoint.read(from: file)
+				do {
+					let client = HeadlessClient(endpoint: try HeadlessEndpoint.read(from: file))
+					let hello = try await client.connect()
+					return (client, hello)
+				} catch let error as HeadlessTransportError where error.kind == .notRunning {
+					lastError = error
+				}
 			}
 			try await Task.sleep(for: .milliseconds(250))
 		}
-		throw ValidationError("the app on \(deviceName) published no endpoint within 120 s; is this the headless build?")
+		throw ValidationError("the app on \(deviceName) did not accept a connection within 120 s (\(lastError.map { "\($0)" } ?? "no endpoint published")); is this the headless build?")
 	}
 
 	// MARK: - Processes
@@ -383,13 +423,35 @@ struct HeadlessSimulator {
 		task.standardOutput = output
 		task.standardError = errors
 		try task.run()
+		// Both pipes drained at once: reading one to its end while the child fills the other's buffer
+		// would deadlock on a chatty tool.
+		let errorReader = PipeDrain(errors.fileHandleForReading)
 		let data = output.fileHandleForReading.readDataToEndOfFile()
-		let errorData = errors.fileHandleForReading.readDataToEndOfFile()
+		let errorData = errorReader.wait()
 		task.waitUntilExit()
 		guard task.terminationStatus == 0 else {
 			let message = (String(bytes: errorData, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 			throw ValidationError("\(([executable] + arguments).joined(separator: " ")) failed: \(message)")
 		}
+		return data
+	}
+}
+
+/// Reads a pipe to its end on a background thread.
+private final class PipeDrain: @unchecked Sendable {
+	// @unchecked: `data` is written once by the reader before `done` is signalled, and read only after.
+	private var data = Data()
+	private let done = DispatchSemaphore(value: 0)
+
+	init(_ handle: FileHandle) {
+		DispatchQueue.global(qos: .utility).async {
+			self.data = handle.readDataToEndOfFile()
+			self.done.signal()
+		}
+	}
+
+	func wait() -> Data {
+		done.wait()
 		return data
 	}
 }

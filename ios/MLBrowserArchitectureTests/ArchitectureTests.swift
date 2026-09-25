@@ -536,10 +536,13 @@ final class ArchitectureTests: XCTestCase {
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { $0.isEmpty == false && $0.hasPrefix("//") == false }
             let usesTransport = code.contains { line in
-                line == "import HeadlessKitTransport" || line.contains("NWListener") || line.contains("HeadlessServer(")
+                // `import HeadlessKitTransport`, `@_exported import …`, `import struct HeadlessKitTransport.X`.
+                let importsTransport = line.contains("import ") && (line.hasSuffix(" HeadlessKitTransport")
+                    || line.contains(" HeadlessKitTransport ") || line.contains(" HeadlessKitTransport."))
+                return importsTransport || line.contains("NWListener") || line.contains("HeadlessServer(")
             }
             guard usesTransport else { continue }
-            if code.first == guardLine, code.last == "#endif" {
+            if Self.isWhollyGuarded(code, by: guardLine) {
                 wrapped.append(relativePath)
             } else {
                 offenders.append(relativePath)
@@ -555,6 +558,25 @@ final class ArchitectureTests: XCTestCase {
         )
         // Fail closed: the headless entry uses the transport, so an empty result means the scan broke.
         XCTAssertFalse(wrapped.isEmpty, "No file uses the headless transport — the scan is broken, not clean.")
+    }
+
+    /// Whether every line of `code` sits inside one `guardLine` block: it opens the file, closes at the
+    /// last line, and no `#else`/`#elseif` of it — nor a closing and reopening — lets code escape.
+    private static func isWhollyGuarded(_ code: [String], by guardLine: String) -> Bool {
+        guard code.first == guardLine, code.last?.hasPrefix("#endif") == true else { return false }
+        var depth = 0
+        for (index, line) in code.enumerated() {
+            if line.hasPrefix("#if") {
+                depth += 1
+            } else if line.hasPrefix("#endif") {
+                depth -= 1
+                // Closing the outer block before the last line would leave the rest unguarded.
+                if depth == 0, index != code.count - 1 { return false }
+            } else if depth == 1, line.hasPrefix("#else") || line.hasPrefix("#elseif") {
+                return false
+            }
+        }
+        return depth == 0
     }
 
     /// Headless adapters describe screens over `AppState` and call its methods; they have no business

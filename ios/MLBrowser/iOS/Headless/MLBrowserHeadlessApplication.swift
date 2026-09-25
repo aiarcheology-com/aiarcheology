@@ -118,7 +118,12 @@ private extension HeadlessRouteDecision {
 			"isPaymentsSurfaceEnabled": .bool(isPaymentsSurfaceEnabled),
 			"isSubscribed": .bool(isSubscribed),
 			"freeAccess": .string(freeAccess.headlessName),
-			"welcomeDue": .bool(freeAccessPrompt != nil || isIntroductionOwed),
+			// The same single source the gate uses: the payments flag picks the prompt or the introduction.
+			"welcomeDue": .bool(WelcomePresentation.due(
+				isPaymentsSurfaceEnabled: isPaymentsSurfaceEnabled,
+				freeAccessPrompt: freeAccessPrompt,
+				isIntroductionOwed: isIntroductionOwed
+			) != nil),
 			"isDay0AcknowledgementPending": .bool(isDay0AcknowledgementPending),
 			"tourPendingOrRunning": .bool(isTourPendingOrRunning),
 			"consent": .string(consentPresentation.headlessName)
@@ -232,6 +237,8 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 				"name": .string(DeepConfiguration.displayName(from: configuration.modelDescription)),
 				"type": .string(configuration.modelType.rawValue),
 				"enabled": .bool(configuration.enabled),
+				// The menu disables the switch of a model without a type; `enable` refuses it too.
+				"canEnable": .bool(configuration.modelType != .invalid),
 				"loaded": .bool(Self.isLoaded(configuration.entityId, in: deep))
 			]
 		}
@@ -288,8 +295,10 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 		let settled = try await HeadlessWait.until(timeout: enabled ? loadTimeout : .seconds(10)) {
 			loadFailure.error != nil || isLoaded(id, in: deep) == enabled
 		}
-		if let error = loadFailure.error {
-			throw HeadlessError(.actionFailed, "the model did not load: \(error.localizedDescription)")
+		// `DeepState` publishes errors from every model and from cleanup, not only this load, so an error
+		// fails the action only if this model did not reach the requested state after all.
+		if let error = loadFailure.error, isLoaded(id, in: deep) != enabled {
+			throw HeadlessError(.actionFailed, "the model did not \(enabled ? "load" : "unload"): \(error.localizedDescription)")
 		}
 		guard settled else {
 			throw HeadlessError(.timeout, "the model did not \(enabled ? "load" : "unload") in time")

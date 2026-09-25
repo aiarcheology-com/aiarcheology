@@ -75,16 +75,9 @@ struct HeadlessRouteDecision: Equatable {
 		}
 
 		if isTourPendingOrRunning {
-			// An armed tour starts as soon as the content shows, unless a Welcome screen has the floor
-			// — the case just excluded. `TourStartDecision` is the gate's own rule for that.
-			let mayStart = TourStartDecision.mayStart(
-				isShowingContent: true,
-				isWelcomeOnScreenHere: false,
-				isWelcomeOnScreenAnywhere: isWelcomePresented,
-				isWelcomeDue: dueWelcome != nil,
-				canPresentWelcome: canPresentWelcome
-			)
-			return mayStart || isTourActive ? .tour : .gate
+			// An armed tour starts as soon as the content shows unless a Welcome screen has the floor,
+			// and every such case returned `gate` above — so `TourStartDecision.mayStart` holds here.
+			return .tour
 		}
 
 		let isAskDeferred = AnalyticsChoiceDisplay.isAskDeferred(

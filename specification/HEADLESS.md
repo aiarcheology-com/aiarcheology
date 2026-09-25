@@ -120,7 +120,7 @@ xcodebuild build -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -configu
   | `home` | the app proper, menu closed | `open-drawer` → `drawer` |
   | `drawer` | the menu is open | `close` → `home`; `enable id=…` (returns once the model has loaded, fails with the load error); `disable id=…` |
 
-  `drawer` state lists the menu's own models, from the same fetch as the view: `{id, name, type, enabled, loaded}`. The wait conditions are `ready`, `model-loaded id=…`, and the built-in `route route=…`. `context.gate` reports the gate inputs with every response.
+  `drawer` state lists the menu's own models, from the same fetch as the view: `{id, name, type, enabled, canEnable, loaded}`. The wait conditions are `ready`, `model-loaded id=…`, and the built-in `route route=…`. `context.gate` reports the gate inputs with every response.
 - **Tooling.** `scripts/headless.sh` wraps `ProjectTool headless`:
   - `build`
   - `up --state a [--mock-subscription subscribed] [--flag key=true…]`
