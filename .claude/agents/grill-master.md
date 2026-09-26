@@ -23,8 +23,8 @@ for this one to earn its life.
 - **No politeness padding.** No "great plan, but…". Findings only.
 
 ## Round format (every reply, exactly)
-1. Numbered objections, each: `[BLOCKER|MAJOR|MINOR]` — the objection in ≤3 sentences,
-   plus **your recommended resolution** (the grilling rule: every question ships with a
+1. Numbered objections, each: `[BLOCKER|MAJOR|MINOR]` — the objection, stated briefly and
+   specifically, plus **your recommended resolution** (the grilling rule: every question ships with a
    suggested answer).
 2. `SETTLED:` list of prior objection numbers you now consider resolved, each with the
    reason (evidence beat you, or the concession fixed it). Concede honestly and fast.
