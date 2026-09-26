@@ -39,7 +39,7 @@ public struct Scenario: Codable, Sendable, Equatable {
 	public let installations: [String: Installation]
 	public let steps: [Step]
 	/// Runs after `steps` whatever happened in them — to clean up anything a run created outside the
-	/// installations, such as server-side data.
+	/// installations, such as server-side data. Only these steps may be `bestEffort`.
 	public let teardown: [Step]
 
 	public init(
@@ -68,6 +68,14 @@ public struct Scenario: Codable, Sendable, Equatable {
 		installations = try container.decode([String: Installation].self, forKey: .installations)
 		steps = try container.decode([Step].self, forKey: .steps)
 		teardown = try container.decodeIfPresent([Step].self, forKey: .teardown) ?? []
+		// Rejected while reading, not only by `validate()`: a best-effort *step* would be an assertion
+		// that cannot fail, which is exactly what strict decoding exists to prevent.
+		if let index = steps.firstIndex(where: \.bestEffort) {
+			throw DecodingError.dataCorrupted(.init(
+				codingPath: container.codingPath + [CodingKeys.steps],
+				debugDescription: "steps[\(index)]: bestEffort is only allowed in teardown"
+			))
+		}
 	}
 
 	/// Reads and validates a scenario file.
@@ -91,6 +99,9 @@ public struct Scenario: Codable, Sendable, Equatable {
 				let label = "'\(name)' \(phase)[\(index)]"
 				guard step.actionCount <= 1 else {
 					throw ScenarioError("\(label): a step does at most one of goto, perform, wait, relaunch")
+				}
+				guard step.bestEffort == false || phase == "teardown" else {
+					throw ScenarioError("\(label): bestEffort is only allowed in teardown")
 				}
 				_ = try installation(for: step, label: label)
 				for (variable, pointer) in step.capture {
@@ -187,6 +198,11 @@ public struct Step: Codable, Sendable, Equatable {
 	public let expect: [Expectation]
 	/// Variable name → JSON pointer into this step's response document.
 	public let capture: [String: String]
+	/// Teardown only: a failure is reported as a warning instead of failing the run.
+	///
+	/// For cleanup that must be attempted from wherever a failed run stopped, where the same step
+	/// has nothing to do after a successful one — signing out, say, when the steps already did.
+	public let bestEffort: Bool
 
 	public init(
 		name: String? = nil,
@@ -196,7 +212,8 @@ public struct Step: Codable, Sendable, Equatable {
 		wait: Wait? = nil,
 		relaunch: Bool = false,
 		expect: [Expectation] = [],
-		capture: [String: String] = [:]
+		capture: [String: String] = [:],
+		bestEffort: Bool = false
 	) {
 		self.name = name
 		self.on = on
@@ -206,6 +223,7 @@ public struct Step: Codable, Sendable, Equatable {
 		self.relaunch = relaunch
 		self.expect = expect
 		self.capture = capture
+		self.bestEffort = bestEffort
 	}
 
 	var actionCount: Int {
@@ -213,7 +231,7 @@ public struct Step: Codable, Sendable, Equatable {
 	}
 
 	private enum CodingKeys: String, CodingKey, CaseIterable {
-		case name, on, goto, perform, wait, relaunch, expect, capture
+		case name, on, goto, perform, wait, relaunch, expect, capture, bestEffort
 	}
 
 	public init(from decoder: Decoder) throws {
@@ -227,6 +245,7 @@ public struct Step: Codable, Sendable, Equatable {
 		relaunch = try container.decodeIfPresent(Bool.self, forKey: .relaunch) ?? false
 		expect = try container.decodeIfPresent([Expectation].self, forKey: .expect) ?? []
 		capture = try container.decodeIfPresent([String: String].self, forKey: .capture) ?? [:]
+		bestEffort = try container.decodeIfPresent(Bool.self, forKey: .bestEffort) ?? false
 	}
 
 	public func encode(to encoder: Encoder) throws {
@@ -239,6 +258,7 @@ public struct Step: Codable, Sendable, Equatable {
 		if relaunch { try container.encode(true, forKey: .relaunch) }
 		if expect.isEmpty == false { try container.encode(expect, forKey: .expect) }
 		if capture.isEmpty == false { try container.encode(capture, forKey: .capture) }
+		if bestEffort { try container.encode(true, forKey: .bestEffort) }
 	}
 }
 

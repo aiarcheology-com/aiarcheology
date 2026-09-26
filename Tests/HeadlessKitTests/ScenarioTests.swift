@@ -144,6 +144,64 @@ final class ScenarioTests: XCTestCase {
 		XCTAssertEqual(launcher.log, ["launch a", "terminate a"])
 	}
 
+	// MARK: - Best-effort teardown (AIA-0974)
+
+	func testABestEffortTeardownFailureIsAWarningNotAFailedRun() async throws {
+		let report = try await run(#"""
+		{
+		  "schemaVersion": 1, "name": "cleanup-from-anywhere",
+		  "installations": { "a": {} },
+		  "steps": [ { "perform": { "action": "increment" } } ],
+		  "teardown": [
+		    { "name": "sign out if still in", "goto": "settings", "bestEffort": true },
+		    { "name": "cleanup", "perform": { "action": "increment" } }
+		  ]
+		}
+		"""#)
+		XCTAssertTrue(report.passed, report.failures.joined(separator: "\n"))
+		XCTAssertEqual(report.failures, [])
+		XCTAssertEqual(report.warnings.count, 1)
+		XCTAssertTrue(report.warnings[0].hasPrefix(#"teardown[0] "sign out if still in" (best effort): "#), report.warnings[0])
+		XCTAssertTrue(report.warnings[0].contains("unreachable"), report.warnings[0])
+		XCTAssertEqual(report.teardown.map(\.passed), [false, true], "the failed best-effort step does not stop the rest")
+		// The report's own JSON says which failure was tolerated, so nothing downstream reads it as a pass.
+		let json = String(decoding: try HeadlessCoding.makeEncoder().encode(report), as: UTF8.self)
+		XCTAssertTrue(json.contains(#""bestEffort":true"#), json)
+	}
+
+	func testAnOrdinaryTeardownFailureStillFailsTheRun() async throws {
+		let report = try await run(#"""
+		{
+		  "schemaVersion": 1, "name": "strict-cleanup",
+		  "installations": { "a": {} },
+		  "steps": [ { "perform": { "action": "increment" } } ],
+		  "teardown": [ { "name": "cleanup", "goto": "settings" } ]
+		}
+		"""#)
+		XCTAssertFalse(report.passed)
+		XCTAssertEqual(report.warnings, [])
+		XCTAssertEqual(report.failures.count, 1)
+		XCTAssertTrue(report.failures[0].hasPrefix(#"teardown[0] "cleanup": "#), report.failures[0])
+	}
+
+	func testBestEffortIsRejectedOutsideTeardown() throws {
+		let inSteps = #"""
+		{ "schemaVersion": 1, "name": "x", "installations": { "a": {} },
+		  "steps": [ { "perform": { "action": "increment" }, "bestEffort": true } ] }
+		"""#
+		XCTAssertThrowsError(try HeadlessCoding.makeDecoder().decode(Scenario.self, from: Data(inSteps.utf8)),
+			"the decoder itself refuses a best-effort step")
+		// Built in code rather than decoded, validation refuses it too.
+		let built = Scenario(name: "x", installations: ["a": Installation()], steps: [Step(perform: Perform(action: "increment"), bestEffort: true)])
+		XCTAssertThrowsError(try built.validate())
+
+		let inTeardown = #"""
+		{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [],
+		  "teardown": [ { "perform": { "action": "increment" }, "bestEffort": true } ] }
+		"""#
+		XCTAssertNoThrow(try scenario(inTeardown))
+	}
+
 	func testAnErrorResponseFailsAStepUnlessItIsExpected() async throws {
 		let unexpected = try await run(#"""
 		{ "schemaVersion": 1, "name": "e1", "installations": { "a": {} }, "steps": [ { "goto": "settings" } ] }
@@ -262,7 +320,7 @@ final class ScenarioTests: XCTestCase {
 				Step(wait: Wait(condition: "route", arguments: ["route": "home"], timeout: 1)),
 				Step(relaunch: true, expect: [.equals(pointer: "/a", value: 1), .exists(pointer: "/b"), .absent(pointer: "/c"), .matches(pointer: "/d", regex: "x")])
 			],
-			teardown: [Step(perform: Perform(action: "close"))]
+			teardown: [Step(perform: Perform(action: "close")), Step(goto: "home", bestEffort: true)]
 		)
 		let data = try HeadlessCoding.makeEncoder().encode(original)
 		XCTAssertEqual(try HeadlessCoding.makeDecoder().decode(Scenario.self, from: data), original)

@@ -62,7 +62,8 @@ public struct ScenarioRunner: Sendable {
 			}
 		}
 		// Teardown runs even after a failure — that is its purpose — and continues past its own
-		// failures, so one broken cleanup does not leave the rest undone.
+		// failures, so one broken cleanup does not leave the rest undone. A `bestEffort` step's
+		// failure is reported as a warning rather than failing the run.
 		for (index, step) in scenario.teardown.enumerated() {
 			let installation = try? scenario.installation(for: step, label: "")
 			if let installation, run.drivers[installation] == nil { continue }
@@ -134,7 +135,8 @@ public struct ScenarioRunner: Sendable {
 			command: command,
 			route: response?.route,
 			failures: failures,
-			response: failures.isEmpty ? nil : response?.document
+			response: failures.isEmpty ? nil : response?.document,
+			bestEffort: step.bestEffort
 		)
 	}
 
