@@ -24,6 +24,9 @@ enum HeadlessRoute: String, CaseIterable {
 	case home
 	/// The app proper, drawer open.
 	case drawer
+	/// The account screen, over the open menu: sign in while signed out, the signed-in account
+	/// otherwise.
+	case account
 }
 
 /// What the app shows, decided from the same state — and the same pure deciders — the root views
@@ -50,6 +53,9 @@ struct HeadlessRouteDecision: Equatable {
 	/// Whether the app proper has been on screen in this process — the memory the gate views keep
 	/// in their own `@State`, kept by the headless application instead.
 	var hasEverShownContent: Bool
+	/// Whether the account screen is up — the sign-in sheet or the account's Settings, `@State` in the
+	/// drawer, kept by the headless application instead. Only meaningful while the drawer is open.
+	var isAccountPresented: Bool
 
 	var route: HeadlessRoute {
 		guard isReady else { return .launching }
@@ -99,13 +105,15 @@ struct HeadlessRouteDecision: Equatable {
 			return .consent
 		}
 
-		return isDrawerOpen ? .drawer : .home
+		// The account screen is raised from the drawer's footer and never shows without the drawer.
+		guard isDrawerOpen else { return .home }
+		return isAccountPresented ? .account : .drawer
 	}
 
 	/// Whether `route` puts the app proper on screen, which is what the gates remember.
 	static func showsContent(_ route: HeadlessRoute) -> Bool {
 		switch route {
-		case .tour, .home, .drawer: true
+		case .tour, .home, .drawer, .account: true
 		case .launching, .gate, .consent: false
 		}
 	}

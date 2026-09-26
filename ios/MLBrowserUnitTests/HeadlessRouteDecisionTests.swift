@@ -29,7 +29,8 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 			consentPresentation: .ask,
 			isAskDeferredAfterSignOut: false,
 			isDrawerOpen: false,
-			hasEverShownContent: false
+			hasEverShownContent: false,
+			isAccountPresented: false
 		)
 		adjust(&decision)
 		return decision
@@ -55,6 +56,30 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 			$0.isDrawerOpen = true
 		}
 		XCTAssertEqual(open.route, .drawer)
+	}
+
+	func test_theAccountScreen_showsOnlyOverTheOpenDrawer() {
+		let content: (inout HeadlessRouteDecision) -> Void = {
+			$0.isTourPendingOrRunning = false
+			$0.consentPresentation = .resolved
+		}
+		XCTAssertEqual(decision { content(&$0); $0.isDrawerOpen = true; $0.isAccountPresented = true }.route, .account)
+		XCTAssertEqual(decision { content(&$0); $0.isDrawerOpen = true; $0.isAccountPresented = false }.route, .drawer)
+		XCTAssertEqual(
+			decision { content(&$0); $0.isDrawerOpen = false; $0.isAccountPresented = true }.route,
+			.home,
+			"the account screen never shows without the drawer"
+		)
+	}
+
+	func test_aConsentAskOverContent_winsOverTheAccountScreen() {
+		// After a sign-in the new account's consent question can take the screen from the account UI.
+		XCTAssertEqual(decision {
+			$0.isTourPendingOrRunning = false
+			$0.hasEverShownContent = true
+			$0.isDrawerOpen = true
+			$0.isAccountPresented = true
+		}.route, .consent)
 	}
 
 	func test_thePaywallAndTheHold_areGates() {
@@ -94,7 +119,7 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 	}
 
 	func test_showsContent() {
-		XCTAssertEqual(HeadlessRoute.allCases.filter(HeadlessRouteDecision.showsContent), [.tour, .home, .drawer])
+		XCTAssertEqual(HeadlessRoute.allCases.filter(HeadlessRouteDecision.showsContent), [.tour, .home, .drawer, .account])
 	}
 }
 

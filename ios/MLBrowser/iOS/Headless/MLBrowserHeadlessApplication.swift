@@ -24,6 +24,8 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	private let launchOptions: JSONValue
 	/// The gates' memory of having shown the app proper, kept here because it is `@State` in them.
 	private var hasEverShownContent = false
+	/// What the drawer's views present, kept here because it is `@State` in them.
+	private let presentation = HeadlessPresentation()
 
 	init(appState: AppState, launchOptions: JSONValue) {
 		self.appState = appState
@@ -53,7 +55,8 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 		case .tour: return HeadlessTourScreen(tour: appState.tour)
 		case .consent: return HeadlessConsentScreen(analytics: appState.analytics)
 		case .home: return HeadlessHomeScreen(chromeState: appState.chromeState)
-		case .drawer: return HeadlessDrawerScreen(appState: appState)
+		case .drawer: return HeadlessDrawerScreen(appState: appState, presentation: presentation)
+		case .account: return HeadlessAccountScreen(appState: appState, presentation: presentation)
 		}
 	}
 
@@ -66,7 +69,11 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 			"gate": decision.gateInputs,
 			"auth": [
 				"gate": .string(appState.authState.gate.headlessName),
-				"usesRealAuth": .bool(appState.usesRealAuth)
+				"usesRealAuth": .bool(appState.usesRealAuth),
+				"signedIn": .bool(HeadlessAccountScreen.isSignedIn(appState.authState)),
+				// The backend still holds a user, whatever the gate says: proves a sign-out really
+				// ended the session.
+				"accountPresent": .bool(appState.authState.isProviderSignedIn)
 			]
 		]
 	}
@@ -86,12 +93,20 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 					throw HeadlessError(.invalidArgument, "'id' is not a model id")
 				}
 				return HeadlessDrawerScreen.isLoaded(id, in: appState.deep)
+			},
+			WaitCondition("signed-in", summary: "A validated account is signed in.") { _ in
+				HeadlessAccountScreen.isSignedIn(appState.authState)
 			}
 		]
 	}
 
 	private func routeDecision() -> HeadlessRouteDecision {
-		HeadlessRouteDecision(
+		let isDrawerOpen = appState.chromeState.presentedSideMenu
+		// The account UI is presented from the drawer; closing the drawer by any path dismisses it.
+		if isDrawerOpen == false {
+			presentation.isAccountPresented = false
+		}
+		return HeadlessRouteDecision(
 			isReady: appState.isReady,
 			isPaymentsSurfaceEnabled: appState.subscriptionState.isPaymentsSurfaceEnabled,
 			isSubscribed: appState.subscriptionState.isSubscribed,
@@ -104,8 +119,9 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 			isTourPendingOrRunning: appState.tour.isPendingOrRunning,
 			consentPresentation: appState.analytics.consentPresentation,
 			isAskDeferredAfterSignOut: appState.analytics.isAskDeferredAfterSignOut,
-			isDrawerOpen: appState.chromeState.presentedSideMenu,
-			hasEverShownContent: hasEverShownContent
+			isDrawerOpen: isDrawerOpen,
+			hasEverShownContent: hasEverShownContent,
+			isAccountPresented: presentation.isAccountPresented
 		)
 	}
 }
@@ -223,6 +239,7 @@ struct HeadlessHomeScreen: HeadlessScreen {
 @MainActor
 struct HeadlessDrawerScreen: HeadlessScreen {
 	let appState: AppState
+	let presentation: HeadlessPresentation
 
 	var route: Route { "drawer" }
 
@@ -247,8 +264,9 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 
 	func actions() -> [HeadlessAction] {
 		let appState = appState
+		let presentation = presentation
 		let id = ParameterSpec("id", .string, summary: "The model id, from state.models.")
-		return [
+		var actions = [
 			HeadlessAction("close", summary: "Close the menu.", navigatesTo: "home") { _ in
 				appState.chromeState.togglingSideMenu()
 				return nil
@@ -260,6 +278,22 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 				try await Self.setEnabled(false, arguments: arguments, appState: appState)
 			}
 		]
+		// The footer's own switch: a Sign In row while anonymous, the account row once validated, and
+		// nothing to tap while auth is resolving or offline.
+		switch appState.authState.effectiveContext {
+		case .anonymous, .validated:
+			actions.append(HeadlessAction(
+				"open-account",
+				summary: "Open the account screen: sign in, or the signed-in account.",
+				navigatesTo: "account"
+			) { _ in
+				presentation.isAccountPresented = true
+				return nil
+			})
+		case .suspended, .indeterminate:
+			break
+		}
+		return actions
 	}
 
 	/// The drawer's own list: the same fetch its `@FetchRequest` runs.
@@ -329,7 +363,8 @@ private final class LoadFailureProbe {
 // Spelled out rather than taken from `String(describing:)`: scenarios assert on these strings, and
 // they must not follow a case rename or depend on how a build renders a type.
 
-private extension AuthGate {
+/// Not `private`: the account screen reports the gate when a sign-in does not settle.
+extension AuthGate {
 	var headlessName: String {
 		switch self {
 		case .checkingSession: "checkingSession"
