@@ -55,6 +55,8 @@ struct SupportSettingsView: View {
 	}
 }
 
+// Debug-only, like PaywallView's previews: `MockSubscriptionProvider` does not exist in Release.
+#if DEBUG
 #Preview {
 	NavigationStack {
 		SupportSettingsView()
@@ -62,3 +64,4 @@ struct SupportSettingsView: View {
 			.environmentObject(SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: false))
 	}
 }
+#endif
