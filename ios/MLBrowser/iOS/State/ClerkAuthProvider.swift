@@ -279,7 +279,6 @@ extension ClerkAuthProvider {
     }
 }
 
-
 /// In-memory ``AuthProviding`` for UI tests and SwiftUI previews. Compiled out of
 /// Release/TestFlight builds (`#if DEBUG`) so the auth bypass cannot ship.
 ///
