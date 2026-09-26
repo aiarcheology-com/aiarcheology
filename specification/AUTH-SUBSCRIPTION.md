@@ -146,6 +146,39 @@ has no receipt at that path, and an iPhone restored from backup has none until
 Sentry sampling, StoreKit sandbox detection, and (pre-existing, load-bearing, out of scope here)
 `DataController`'s mapping-model inference and its destructive store-recovery gate.
 
+## Signing in without the UI (Debug only, AIA-0974)
+
+The headless build (`specification/HEADLESS.md`) has no Clerk `AuthView` to present, so it signs in
+through Clerk's own API instead. That surface is compiled only into Debug builds; a Release build's
+`AuthProviding` is exactly what it was.
+
+- `AuthProviding.signIn(emailAddress:code:)` is a `#if DEBUG` requirement with **no default
+  implementation**, so a conformer whose signature drifts fails to compile instead of silently
+  inheriting a stub.
+- `ClerkAuthProvider` signs in with the email code (`Clerk.shared.auth.signInWithEmailCode`, then
+  `verifyCode`). For an address Clerk does not know (`form_identifier_not_found`) it signs up first,
+  the two paths `AuthView` takes. The development instance requires first name, last name and a
+  password at sign-up. The password is random, never stored or logged, and never used again: every
+  later sign-in uses the email code. The method returns only once Clerk reports a signed-in user.
+- Only **Clerk test addresses** are accepted: the local part ends in `+clerk_test`
+  (`ClerkTestAddress`). The check runs before any request, so automation can never send a code to
+  a real inbox or sign in to a real account. In test mode Clerk sends no email to these addresses
+  and accepts the fixed code `424242`
+  ([Clerk docs](https://clerk.com/docs/guides/development/testing/test-emails-and-phones)).
+- `MockAuthProvider.signIn` throws rather than pretending. A Debug build without Clerk keys falls
+  back to the mock, and a mock that "signed in" would let a headless run pass a sign-in scenario
+  without ever reaching Clerk.
+- `AuthState.signIn` calls the provider, then `refresh()` — what `SignInSheet` runs when Clerk's
+  sheet closes — so the gate, the account identity and the consent scope move exactly as they do
+  after a sign-in in the app. Sign-out is the existing `AuthState.signOut()`.
+- `AuthState.isProviderSignedIn` (Debug) reports whether Clerk itself still holds a user. It can
+  differ from the gate after a sign-out whose server call failed, because `signOut()` publishes
+  `.signedOut` regardless; headless scenarios read it to prove the session really ended.
+
+The headless build does not mount `ClerkSessionWatcher`, which is a view. A session revoked on the
+server while a headless run is signed in is therefore noticed at the next foreground re-validation
+(`AppRuntime`), not immediately.
+
 ## State table
 
 Axes: `isReady` × payments flag × entitlement × free-access window × auth context. Auth no longer

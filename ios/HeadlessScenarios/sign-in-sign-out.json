@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "name": "sign-in-sign-out",
+  "installations": {
+    "a": {
+      "launch": {
+        "mockSubscription": "subscribed",
+        "flags": {
+          "isPaymentsEnabled": true,
+          "isFreeAccessPeriodEnabled": false,
+          "isCrossDeviceAnalyticsIdentityEnabled": true,
+          "isAnalyticsEnabled": true
+        }
+      }
+    }
+  },
+  "steps": [
+    { "name": "a fresh install launches on real Clerk auth, signed out",
+      "wait": { "condition": "ready", "timeout": 120 },
+      "expect": [
+        { "route": "tour" },
+        { "equals": { "pointer": "/context/backendEnvironment", "value": "development" } },
+        { "equals": { "pointer": "/context/auth/usesRealAuth", "value": true } },
+        { "equals": { "pointer": "/context/auth/signedIn", "value": false } }
+      ] },
+    { "name": "skip the tour", "perform": { "action": "skip" }, "expect": [ { "route": "consent" } ] },
+    { "name": "decline analytics for this device", "perform": { "action": "deny" }, "expect": [ { "route": "home" } ] },
+    { "name": "open the menu", "goto": "drawer", "expect": [ { "route": "drawer" } ] },
+    { "name": "open the account screen", "goto": "account",
+      "expect": [ { "route": "account" }, { "equals": { "pointer": "/state/signedIn", "value": false } } ] },
+    { "name": "a real address is refused before anything reaches Clerk",
+      "perform": { "action": "sign-in", "arguments": { "email": "jane@example.com", "code": "424242" } },
+      "expect": [ { "error": "invalidArgument" }, { "route": "account" } ] },
+    { "name": "sign in to the automation account through Clerk's own API",
+      "perform": { "action": "sign-in", "arguments": { "email": "aia-headless+clerk_test@example.com", "code": "424242" } },
+      "expect": [ { "equals": { "pointer": "/result/signedIn", "value": true } } ] },
+    { "name": "the new account's analytics question takes the screen",
+      "wait": { "condition": "route", "arguments": { "route": "consent" }, "timeout": 30 },
+      "expect": [
+        { "equals": { "pointer": "/context/auth/gate", "value": "ready" } },
+        { "equals": { "pointer": "/context/auth/signedIn", "value": true } },
+        { "equals": { "pointer": "/context/auth/accountPresent", "value": true } }
+      ] },
+    { "name": "decline analytics for the account", "perform": { "action": "deny" }, "expect": [ { "route": "drawer" } ] },
+    { "name": "the account screen shows the signed-in account", "goto": "account",
+      "expect": [ { "route": "account" }, { "equals": { "pointer": "/state/signedIn", "value": true } } ] },
+    { "name": "sign out", "perform": { "action": "sign-out" },
+      "expect": [
+        { "route": "drawer" },
+        { "equals": { "pointer": "/context/auth/gate", "value": "signedOut" } },
+        { "equals": { "pointer": "/context/auth/signedIn", "value": false } },
+        { "equals": { "pointer": "/context/auth/accountPresent", "value": false } },
+        { "equals": { "pointer": "/context/gate/consent", "value": "resolved" } }
+      ] }
+  ],
+  "teardown": [
+    { "name": "answer a pending analytics question", "perform": { "action": "deny" }, "bestEffort": true },
+    { "name": "reach the menu", "goto": "drawer", "bestEffort": true },
+    { "name": "reach the account screen", "goto": "account", "bestEffort": true },
+    { "name": "end any session this run left open", "perform": { "action": "sign-out" }, "bestEffort": true }
+  ]
+}

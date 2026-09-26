@@ -165,7 +165,7 @@ final class ScenarioTests: XCTestCase {
 		XCTAssertTrue(report.warnings[0].contains("unreachable"), report.warnings[0])
 		XCTAssertEqual(report.teardown.map(\.passed), [false, true], "the failed best-effort step does not stop the rest")
 		// The report's own JSON says which failure was tolerated, so nothing downstream reads it as a pass.
-		let json = String(decoding: try HeadlessCoding.makeEncoder().encode(report), as: UTF8.self)
+		let json = try XCTUnwrap(String(bytes: HeadlessCoding.makeEncoder().encode(report), encoding: .utf8))
 		XCTAssertTrue(json.contains(#""bestEffort":true"#), json)
 	}
 
