@@ -224,7 +224,12 @@ enum HeadlessWorkspace {
 			"-skipPackagePluginValidation",
 			"-skipMacroValidation",
 			"-quiet",
-			"AIA_APP_INTERFACE=headless"
+			"AIA_APP_INTERFACE=headless",
+			// No crash reporting from automation (AIA-0975): Sentry's "Github Alert" rule turns the first
+			// error or fatal event of any environment into a GitHub issue, and scenario runs provoke
+			// failures on purpose. The app disables Sentry when the DSN is empty. Remove this line once
+			// that rule ignores the development environment.
+			"SENTRY_DSN="
 		])
 		guard status == 0 else { throw ExitCode(status) }
 	}

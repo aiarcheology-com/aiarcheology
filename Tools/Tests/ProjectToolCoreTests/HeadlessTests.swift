@@ -34,12 +34,12 @@ final class HeadlessDeviceTests: XCTestCase {
 final class HeadlessLaunchArgumentsTests: XCTestCase {
 
 	/// A scratch tree per test: `<scratch>/repo` is the repository, `<scratch>/outside` is not.
-	private var scratch: URL!
+	/// XCTest makes one instance per test, so each test gets its own directory.
+	private let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("HeadlessLaunchArgumentsTests-\(UUID().uuidString)")
 	private var repository: URL { scratch.appendingPathComponent("repo") }
 	private var outside: URL { scratch.appendingPathComponent("outside") }
 
 	override func setUpWithError() throws {
-		scratch = FileManager.default.temporaryDirectory.appendingPathComponent("HeadlessLaunchArgumentsTests-\(UUID().uuidString)")
 		try FileManager.default.createDirectory(at: repository.appendingPathComponent("images/nested"), withIntermediateDirectories: true)
 		try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
 		for path in ["images/site.png", "images/-site.png", "images/aerial.JPG", "images/nested/trench.jpeg", "images/nested/site.png", "images/notes.txt"] {
@@ -49,7 +49,7 @@ final class HeadlessLaunchArgumentsTests: XCTestCase {
 	}
 
 	override func tearDownWithError() throws {
-		if let scratch { try FileManager.default.removeItem(at: scratch) }
+		try FileManager.default.removeItem(at: scratch)
 	}
 
 	private func make(_ options: JSONValue, root: URL? = nil) throws -> HeadlessLaunch {
