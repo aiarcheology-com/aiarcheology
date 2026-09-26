@@ -33,17 +33,53 @@ final class HeadlessDeviceTests: XCTestCase {
 
 final class HeadlessLaunchArgumentsTests: XCTestCase {
 
+	/// A scratch tree per test: `<scratch>/repo` is the repository, `<scratch>/outside` is not.
+	private var scratch: URL!
+	private var repository: URL { scratch.appendingPathComponent("repo") }
+	private var outside: URL { scratch.appendingPathComponent("outside") }
+
+	override func setUpWithError() throws {
+		scratch = FileManager.default.temporaryDirectory.appendingPathComponent("HeadlessLaunchArgumentsTests-\(UUID().uuidString)")
+		try FileManager.default.createDirectory(at: repository.appendingPathComponent("images/nested"), withIntermediateDirectories: true)
+		try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+		for path in ["images/site.png", "images/-site.png", "images/aerial.JPG", "images/nested/trench.jpeg", "images/nested/site.png", "images/notes.txt"] {
+			try Data("image".utf8).write(to: repository.appendingPathComponent(path))
+		}
+		try Data("secret".utf8).write(to: outside.appendingPathComponent("secret.png"))
+	}
+
+	override func tearDownWithError() throws {
+		if let scratch { try FileManager.default.removeItem(at: scratch) }
+	}
+
+	private func make(_ options: JSONValue, root: URL? = nil) throws -> HeadlessLaunch {
+		try HeadlessLaunchArguments.make(from: options, repositoryRoot: root ?? repository)
+	}
+
+	/// The error's description, so each rejection is proven to be for the reason under test.
+	private func rejection(_ options: JSONValue, root: URL? = nil) -> String? {
+		do {
+			_ = try make(options, root: root)
+			return nil
+		} catch let error as HeadlessLaunchArguments.Invalid {
+			return error.description
+		} catch {
+			return "unexpected \(error)"
+		}
+	}
+
 	func testOptionsBecomeLaunchArgumentsInAStableOrder() throws {
-		let arguments = try HeadlessLaunchArguments.make(from: [
+		let launch = try make([
 			"mockSubscription": "subscribed",
 			"flags": ["isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": false]
 		])
-		XCTAssertEqual(arguments, [
+		XCTAssertEqual(launch.arguments, [
 			"-mockSubscription", "subscribed",
 			"-headlessFlag", "isFreeAccessPeriodEnabled=false",
 			"-headlessFlag", "isPaymentsEnabled=true"
 		])
-		XCTAssertEqual(try HeadlessLaunchArguments.make(from: [:]), [])
+		XCTAssertEqual(launch.stagedImages, [])
+		XCTAssertEqual(try make([:]), HeadlessLaunch(arguments: [], stagedImages: []))
 	}
 
 	func testMistakesAreErrors() {
@@ -52,11 +88,95 @@ final class HeadlessLaunchArgumentsTests: XCTestCase {
 			["mockSubscriptions": "subscribed"],
 			["mockSubscription": "yes"],
 			["flags": ["isPaymentsEnabled": "true"]],
-			["flags": true]
+			["flags": true],
+			["stages": ["images/site.png"]]
 		]
 		for options in invalid {
-			XCTAssertThrowsError(try HeadlessLaunchArguments.make(from: options), options.jsonString)
+			XCTAssertThrowsError(try make(options), options.jsonString)
 		}
+	}
+
+	func testStagedImagesBecomeNamesInTheListedOrderAfterTheOtherOptions() throws {
+		let launch = try make([
+			"mockSubscription": "notSubscribed",
+			"stage": ["images/nested/trench.jpeg", "images/site.png", "images/aerial.JPG"]
+		])
+		XCTAssertEqual(launch.arguments, [
+			"-mockSubscription", "notSubscribed",
+			"-headlessStagedImage", "trench.jpeg",
+			"-headlessStagedImage", "site.png",
+			"-headlessStagedImage", "aerial.JPG"
+		])
+		XCTAssertEqual(launch.stagedImages.map(\.name), ["trench.jpeg", "site.png", "aerial.JPG"])
+		let resolvedRepository = repository.resolvingSymlinksInPath().path
+		for image in launch.stagedImages {
+			XCTAssertTrue(image.source.path.hasPrefix(resolvedRepository + "/"), image.source.path)
+			XCTAssertTrue(FileManager.default.fileExists(atPath: image.source.path), image.source.path)
+		}
+		XCTAssertFalse(launch.arguments.contains { $0.contains("/") }, "the app is never handed a host path")
+	}
+
+	func testStageMustBeAnArrayOfStrings() {
+		XCTAssertEqual(rejection(["stage": "images/site.png"]), "stage must be an array of repository-relative image paths")
+		XCTAssertEqual(rejection(["stage": ["images": "site.png"]]), "stage must be an array of repository-relative image paths")
+		XCTAssertEqual(rejection(["stage": [1]]), "stage entries must be strings, got 1")
+		XCTAssertEqual(rejection(["stage": [["images/site.png"]]])?.hasPrefix("stage entries must be strings"), true)
+	}
+
+	func testUnusableEntriesAreRejectedForTheirReason() {
+		let cases: [(entry: String, reason: String)] = [
+			("", "must be non-empty"),
+			(outside.appendingPathComponent("secret.png").path, "must be relative"),
+			("../outside/secret.png", "resolves outside the repository"),
+			("images/../../outside/secret.png", "resolves outside the repository"),
+			("images/missing.png", "does not exist"),
+			("images/nested", "is not a regular file"),
+			("images/notes.txt", "must be a .png, .jpg or .jpeg image"),
+			("images/-site.png", "has a name starting with '-'")
+		]
+		for (entry, reason) in cases {
+			let description = rejection(["stage": [.string(entry)]])
+			XCTAssertTrue(description?.contains(reason) == true, "\(entry): \(description ?? "accepted")")
+		}
+	}
+
+	func testTwoImagesWithOneNameAreRejected() throws {
+		XCTAssertEqual(
+			rejection(["stage": ["images/site.png", "images/nested/site.png"]]),
+			"stage lists more than one image named 'site.png'; the app sees names only"
+		)
+		XCTAssertEqual(
+			rejection(["stage": ["images/site.png", "images/site.png"]]),
+			"stage lists more than one image named 'site.png'; the app sees names only"
+		)
+		// The copies land on a case-insensitive file system, where these are one file.
+		try FileManager.default.copyItem(at: repository.appendingPathComponent("images/site.png"), to: repository.appendingPathComponent("SITE.png"))
+		XCTAssertEqual(
+			rejection(["stage": ["images/site.png", "SITE.png"]]),
+			"stage lists more than one image named 'SITE.png'; the app sees names only"
+		)
+	}
+
+	func testARepositoryReachedThroughASymlinkIsStillTheRepository() throws {
+		let link = scratch.appendingPathComponent("repo-link")
+		try FileManager.default.createSymbolicLink(at: link, withDestinationURL: repository)
+		let launch = try make(["stage": ["images/site.png"]], root: link)
+		XCTAssertEqual(launch.arguments, ["-headlessStagedImage", "site.png"])
+		XCTAssertEqual(launch.stagedImages.first?.source.path, repository.appendingPathComponent("images/site.png").resolvingSymlinksInPath().path)
+	}
+
+	func testASymlinkInsideTheRepositoryCannotReachOutsideIt() throws {
+		try FileManager.default.createSymbolicLink(at: repository.appendingPathComponent("escape"), withDestinationURL: outside)
+		try FileManager.default.createSymbolicLink(at: repository.appendingPathComponent("images/leak.png"), withDestinationURL: outside.appendingPathComponent("secret.png"))
+		for root in [repository, scratch.appendingPathComponent("repo/.")] {
+			XCTAssertEqual(rejection(["stage": ["escape/secret.png"]], root: root), "stage entry 'escape/secret.png' resolves outside the repository")
+			XCTAssertEqual(rejection(["stage": ["images/leak.png"]], root: root), "stage entry 'images/leak.png' resolves outside the repository")
+		}
+		// A sibling whose name merely starts with the repository's is outside it too.
+		let sibling = scratch.appendingPathComponent("repo-other")
+		try FileManager.default.createDirectory(at: sibling, withIntermediateDirectories: true)
+		try Data("image".utf8).write(to: sibling.appendingPathComponent("x.png"))
+		XCTAssertEqual(rejection(["stage": ["../repo-other/x.png"]]), "stage entry '../repo-other/x.png' resolves outside the repository")
 	}
 }
 

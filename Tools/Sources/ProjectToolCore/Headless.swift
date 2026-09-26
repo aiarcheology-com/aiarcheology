@@ -20,6 +20,10 @@ public enum HeadlessDevice {
 	public static let bundleIdentifier = "com.aiarcheology.ios"
 	/// Where the app publishes its endpoint, relative to its data container.
 	public static let endpointPath = "Library/Application Support/Headless/endpoint.json"
+	/// Where the launcher copies a launch's staged images, relative to the app's data container. The
+	/// app is told only each file's name (`-headlessStagedImage <name>`), never a host path, and reads
+	/// it from here: its own sandbox, reachable without any network download.
+	public static let stagedImagesPath = "Library/Application Support/Headless/Staged"
 
 	public struct InvalidName: Error, CustomStringConvertible {
 		public let name: String
@@ -44,25 +48,41 @@ public enum HeadlessDevice {
 	}
 }
 
-/// Turns a scenario installation's `launch` block into the app's launch arguments.
+/// An image the launcher copies from the repository into the app's data container before a launch.
+public struct StagedImage: Equatable {
+	/// The file in the repository, symlinks resolved.
+	public let source: URL
+	/// The file's name in `HeadlessDevice.stagedImagesPath`, and the only thing the app is told.
+	public let name: String
+}
+
+/// What one launch needs: the app's launch arguments and the images to stage before it starts.
+public struct HeadlessLaunch: Equatable {
+	public let arguments: [String]
+	public let stagedImages: [StagedImage]
+}
+
+/// Turns a scenario installation's `launch` block into the app's launch arguments and the images to
+/// stage.
 ///
 /// ```json
-/// { "mockSubscription": "subscribed", "flags": { "isPaymentsEnabled": true } }
+/// { "mockSubscription": "subscribed", "flags": { "isPaymentsEnabled": true }, "stage": ["ios/Fixtures/site.png"] }
 /// ```
 ///
-/// Strict, like the scenario format: an unknown key or a non-boolean flag is an error, not a
-/// silently ignored option.
+/// Strict, like the scenario format: an unknown key, a non-boolean flag or an unusable image is an
+/// error, not a silently ignored option.
 public enum HeadlessLaunchArguments {
 
 	public struct Invalid: Error, CustomStringConvertible {
 		public let description: String
 	}
 
-	public static func make(from options: JSONValue) throws -> [String] {
+	/// - Parameter repositoryRoot: what `stage` paths are relative to, and must stay inside.
+	public static func make(from options: JSONValue, repositoryRoot: URL) throws -> HeadlessLaunch {
 		guard let members = options.objectValue else {
 			throw Invalid(description: "launch options must be an object")
 		}
-		let unknown = Set(members.keys).subtracting(["mockSubscription", "flags"])
+		let unknown = Set(members.keys).subtracting(["mockSubscription", "flags", "stage"])
 		guard unknown.isEmpty else {
 			throw Invalid(description: "unknown launch option(s): \(unknown.sorted().joined(separator: ", "))")
 		}
@@ -84,7 +104,66 @@ public enum HeadlessLaunchArguments {
 				arguments += ["-headlessFlag", "\(key)=\(value)"]
 			}
 		}
-		return arguments
+		var stagedImages: [StagedImage] = []
+		if let stage = members["stage"] {
+			guard let entries = stage.arrayValue else {
+				throw Invalid(description: "stage must be an array of repository-relative image paths")
+			}
+			// Case-insensitively: the host's default file system, where the copies land, would
+			// otherwise let one silently replace the other.
+			var names: Set<String> = []
+			for entry in entries {
+				guard let path = entry.stringValue else {
+					throw Invalid(description: "stage entries must be strings, got \(entry.jsonString)")
+				}
+				let image = try stagedImage(path, repositoryRoot: repositoryRoot)
+				guard names.insert(image.name.lowercased()).inserted else {
+					throw Invalid(description: "stage lists more than one image named '\(image.name)'; the app sees names only")
+				}
+				stagedImages.append(image)
+				arguments += ["-headlessStagedImage", image.name]
+			}
+		}
+		return HeadlessLaunch(arguments: arguments, stagedImages: stagedImages)
+	}
+
+	/// Validates one `stage` entry: a relative path to an existing regular png/jpg/jpeg file inside
+	/// the repository.
+	///
+	/// Containment compares path components of the root and the candidate, both standardized and
+	/// symlink-resolved the same way — never a string prefix (`/repo-other` is not inside `/repo`),
+	/// and never a lexical check alone, which a symlink inside the repository pointing out of it
+	/// would pass. Existence is checked first: `resolvingSymlinksInPath` drops a `/private` prefix
+	/// only for a path that exists, so a missing file would otherwise read as an escape.
+	static func stagedImage(_ entry: String, repositoryRoot: URL) throws -> StagedImage {
+		guard entry.isEmpty == false else {
+			throw Invalid(description: "stage entries must be non-empty paths")
+		}
+		guard entry.hasPrefix("/") == false else {
+			throw Invalid(description: "stage entry '\(entry)' must be relative to the repository root")
+		}
+		let root = repositoryRoot.standardizedFileURL.resolvingSymlinksInPath()
+		let candidate = repositoryRoot.appendingPathComponent(entry).standardizedFileURL.resolvingSymlinksInPath()
+		guard FileManager.default.fileExists(atPath: candidate.path) else {
+			throw Invalid(description: "stage entry '\(entry)' does not exist")
+		}
+		guard candidate.pathComponents.starts(with: root.pathComponents),
+			  candidate.pathComponents.count > root.pathComponents.count else {
+			throw Invalid(description: "stage entry '\(entry)' resolves outside the repository")
+		}
+		let isRegularFile = (try? candidate.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) ?? false // Unreadable is not a usable file either.
+		guard isRegularFile else {
+			throw Invalid(description: "stage entry '\(entry)' is not a regular file")
+		}
+		let name = URL(fileURLWithPath: entry).lastPathComponent
+		// The name travels as a launch-argument value; a leading '-' would read as another option.
+		guard name.hasPrefix("-") == false else {
+			throw Invalid(description: "stage entry '\(entry)' has a name starting with '-'")
+		}
+		guard ["png", "jpg", "jpeg"].contains(URL(fileURLWithPath: name).pathExtension.lowercased()) else {
+			throw Invalid(description: "stage entry '\(entry)' must be a .png, .jpg or .jpeg image")
+		}
+		return StagedImage(source: candidate, name: name)
 	}
 }
 

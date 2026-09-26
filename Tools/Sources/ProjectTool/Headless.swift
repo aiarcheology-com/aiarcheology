@@ -46,6 +46,9 @@ struct Headless: AsyncParsableCommand {
 		@Option(name: .long, help: "Pin a feature flag, key=true|false (repeatable).")
 		var flag: [String] = []
 
+		@Option(name: .long, help: "Stage a .png/.jpg/.jpeg from the repository, path relative to its root, in the app's container (repeatable).")
+		var image: [String] = []
+
 		func run() async throws {
 			var options: [String: JSONValue] = [:]
 			if let mockSubscription { options["mockSubscription"] = .string(mockSubscription) }
@@ -58,6 +61,8 @@ struct Headless: AsyncParsableCommand {
 				flags[parts[0]] = .bool(value)
 			}
 			if flags.isEmpty == false { options["flags"] = .object(flags) }
+			// As a scenario's `stage`, so it gets the same validation and staging.
+			if image.isEmpty == false { options["stage"] = .array(image.map(JSONValue.string)) }
 			let simulator = try HeadlessSimulator(installation: state)
 			let client = try await simulator.launch(options: .object(options), fresh: false, install: true)
 			let hello = try await client.connect()
@@ -247,7 +252,7 @@ struct HeadlessSimulator {
 		guard FileManager.default.fileExists(atPath: HeadlessWorkspace.app.path) else {
 			throw ValidationError("no headless build at \(HeadlessWorkspace.app.path); run `scripts/headless.sh build` first")
 		}
-		let arguments = try HeadlessLaunchArguments.make(from: options)
+		let launch = try HeadlessLaunchArguments.make(from: options, repositoryRoot: HeadlessWorkspace.root)
 		let udid = try ensureDevice()
 		if fresh {
 			try? simctl(["shutdown", udid]) // Already shut down is fine.
@@ -259,7 +264,10 @@ struct HeadlessSimulator {
 				try simctl(["install", udid, HeadlessWorkspace.app.path])
 			}
 		}
-		let pid = try await launchApp(udid: udid, arguments: arguments)
+		// On every launch, relaunches included: a relaunch re-sends the same options, and the app is
+		// told the names again, so the files must match the repository's current copies.
+		try await stage(launch.stagedImages, udid: udid)
+		let pid = try await launchApp(udid: udid, arguments: launch.arguments)
 		let (client, hello) = try await connectWhenListening(udid: udid, pid: pid)
 		// The launcher's lock on production data; the build and the app hold the other two.
 		guard hello.metadata["backendEnvironment"] == "development" else {
@@ -292,6 +300,26 @@ struct HeadlessSimulator {
 		try await SimulatorSettling.retrying(attempts: 5, delay: .seconds(2), onRetry: { attempt, error in
 			print("  \(step) attempt \(attempt) on \(deviceName) failed; retrying: \(error)")
 		}, body)
+	}
+
+	/// Copies each image into the data container's `HeadlessDevice.stagedImagesPath`, replacing a
+	/// file of the same name. The container lookup is retried like `install`: right after installing
+	/// on a freshly erased device it can fail before the app's container exists.
+	private func stage(_ images: [StagedImage], udid: String) async throws {
+		guard images.isEmpty == false else { return }
+		let container = try await settling("get_app_container") { try dataContainer(udid: udid) }
+		let directory = container.appendingPathComponent(HeadlessDevice.stagedImagesPath, isDirectory: true)
+		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+		for image in images {
+			let destination = directory.appendingPathComponent(image.name)
+			do {
+				try FileManager.default.removeItem(at: destination)
+			} catch let error as CocoaError where error.code == .fileNoSuchFile {
+				// Nothing staged under this name yet.
+			}
+			try FileManager.default.copyItem(at: image.source, to: destination)
+			print("  staged \(image.name)")
+		}
 	}
 
 	func readEndpoint() throws -> HeadlessEndpoint {
@@ -366,10 +394,18 @@ struct HeadlessSimulator {
 		try simctl(["bootstatus", udid, "-b"])
 	}
 
-	private func endpointFile(udid: String) throws -> URL {
+	private func dataContainer(udid: String) throws -> URL {
 		let container = (String(bytes: try simctlOutput(["get_app_container", udid, HeadlessDevice.bundleIdentifier, "data"]), encoding: .utf8) ?? "")
 			.trimmingCharacters(in: .whitespacesAndNewlines)
-		return URL(fileURLWithPath: container).appendingPathComponent(HeadlessDevice.endpointPath)
+		// An empty answer would resolve against the working directory, and staging writes there.
+		guard container.hasPrefix("/") else {
+			throw ValidationError("simctl reported no data container for \(HeadlessDevice.bundleIdentifier) on \(deviceName)")
+		}
+		return URL(fileURLWithPath: container, isDirectory: true)
+	}
+
+	private func endpointFile(udid: String) throws -> URL {
+		try dataContainer(udid: udid).appendingPathComponent(HeadlessDevice.endpointPath)
 	}
 
 	private func removeEndpointFile(udid: String) {
