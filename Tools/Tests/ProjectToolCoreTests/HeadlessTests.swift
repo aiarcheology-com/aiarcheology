@@ -81,6 +81,56 @@ final class HeadlessCommandLineTests: XCTestCase {
 	}
 }
 
+final class SimulatorSettlingTests: XCTestCase {
+
+	private struct Flake: Error, Equatable {
+		let attempt: Int
+	}
+
+	func testASucceedingStepRunsOnce() async throws {
+		var calls = 0
+		var retries: [Int] = []
+		let value = try await SimulatorSettling.retrying(attempts: 5, delay: .zero, onRetry: { attempt, _ in retries.append(attempt) }) {
+			calls += 1
+			return "ok"
+		}
+		XCTAssertEqual(value, "ok")
+		XCTAssertEqual(calls, 1)
+		XCTAssertEqual(retries, [])
+	}
+
+	func testAStepIsRetriedUntilItSucceedsAndEachFailureIsReported() async throws {
+		var calls = 0
+		var retries: [Int] = []
+		let value = try await SimulatorSettling.retrying(attempts: 5, delay: .zero, onRetry: { attempt, error in
+			XCTAssertEqual(error as? Flake, Flake(attempt: attempt))
+			retries.append(attempt)
+		}) {
+			calls += 1
+			if calls < 3 { throw Flake(attempt: calls) }
+			return calls
+		}
+		XCTAssertEqual(value, 3)
+		XCTAssertEqual(retries, [1, 2])
+	}
+
+	func testTheLastAttemptsErrorIsThrownAfterTheBound() async {
+		var calls = 0
+		var retries: [Int] = []
+		do {
+			_ = try await SimulatorSettling.retrying(attempts: 3, delay: .zero, onRetry: { attempt, _ in retries.append(attempt) }) { () async throws -> Int in
+				calls += 1
+				throw Flake(attempt: calls)
+			}
+			XCTFail("expected the step's error")
+		} catch {
+			XCTAssertEqual(error as? Flake, Flake(attempt: 3))
+		}
+		XCTAssertEqual(calls, 3)
+		XCTAssertEqual(retries, [1, 2], "the last failure is thrown, not reported as a retry")
+	}
+}
+
 final class HeadlessSimulatorChoiceTests: XCTestCase {
 
 	private let runtimes = Data(#"""

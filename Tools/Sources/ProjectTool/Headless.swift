@@ -252,7 +252,9 @@ struct HeadlessSimulator {
 		}
 		try boot(udid)
 		if install {
-			try simctl(["install", udid, HeadlessWorkspace.app.path])
+			try await settling("install") {
+				try simctl(["install", udid, HeadlessWorkspace.app.path])
+			}
 		}
 		let pid = try await launchApp(udid: udid, arguments: arguments)
 		let (client, hello) = try await connectWhenListening(udid: udid, pid: pid)
@@ -265,30 +267,28 @@ struct HeadlessSimulator {
 		return client
 	}
 
-	/// `simctl launch`, retried while a freshly erased device is still settling.
-	///
-	/// On a device just erased, booted and given the app, the first launch often fails with
-	/// `NSPOSIXErrorDomain` 3 even after `bootstatus -b` reports the device booted, and succeeds
-	/// seconds later (seen on Xcode 27.2 beta). There is no finer readiness signal to wait on, so the
-	/// launch itself is retried a bounded number of times, each failure reported.
+	/// `simctl launch`, retried while a freshly erased device is still settling: its first launch
+	/// often fails with `NSPOSIXErrorDomain` 3 (`SimulatorSettling`).
 	/// - Returns: the launched process id, when `simctl` reports it.
 	private func launchApp(udid: String, arguments: [String]) async throws -> Int32? {
-		let attempts = 5
-		for attempt in 1...attempts {
+		try await settling("launch") {
 			// A stale file — from a previous run, or from an attempt that reported failure but started
 			// the app anyway before the next attempt replaced it — must not be read as this launch's.
 			removeEndpointFile(udid: udid)
-			do {
-				let output = try simctl(["launch", "--terminate-running-process", udid, HeadlessDevice.bundleIdentifier] + arguments)
-				// "com.aiarcheology.ios: 12345"
-				let text = (String(bytes: output, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-				return text.split(separator: ":").last.flatMap { Int32($0.trimmingCharacters(in: .whitespaces)) }
-			} catch where attempt < attempts {
-				print("  launch attempt \(attempt) on \(deviceName) failed; retrying: \(error)")
-				try await Task.sleep(for: .seconds(2))
-			}
+			let output = try simctl(["launch", "--terminate-running-process", udid, HeadlessDevice.bundleIdentifier] + arguments)
+			// "com.aiarcheology.ios: 12345"
+			let text = (String(bytes: output, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+			return text.split(separator: ":").last.flatMap { Int32($0.trimmingCharacters(in: .whitespaces)) }
 		}
-		return nil
+	}
+
+	/// A `simctl` step that may fail while a freshly erased device settles — `install` fails with
+	/// `IXErrorDomain` 2 ("Failed to create promise") — retried a bounded number of times, each
+	/// failure reported.
+	private func settling<T>(_ step: String, _ body: () async throws -> T) async throws -> T {
+		try await SimulatorSettling.retrying(attempts: 5, delay: .seconds(2), onRetry: { attempt, error in
+			print("  \(step) attempt \(attempt) on \(deviceName) failed; retrying: \(error)")
+		}, body)
 	}
 
 	func readEndpoint() throws -> HeadlessEndpoint {

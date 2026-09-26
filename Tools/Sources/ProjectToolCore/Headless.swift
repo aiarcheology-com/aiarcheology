@@ -141,6 +141,34 @@ public enum HeadlessCommandLine {
 	}
 }
 
+/// A `simctl` step retried a bounded number of times while a freshly erased device settles.
+///
+/// On a device just erased and booted, `simctl install` and `simctl launch` sometimes fail for a
+/// few seconds after `bootstatus -b` reports the device booted, and then succeed unchanged (seen on
+/// Xcode 27.2 beta). There is no finer readiness signal to wait on, so the step itself is retried.
+public enum SimulatorSettling {
+
+	/// Runs `step` up to `attempts` times, `delay` apart, reporting each failure before a retry; the
+	/// last attempt's error is thrown.
+	public static func retrying<T>(
+		attempts: Int,
+		delay: Duration,
+		onRetry: (_ attempt: Int, _ error: any Error) -> Void,
+		_ step: () async throws -> T
+	) async throws -> T {
+		precondition(attempts >= 1, "at least one attempt")
+		for attempt in 1..<attempts {
+			do {
+				return try await step()
+			} catch {
+				onRetry(attempt, error)
+				try await Task.sleep(for: delay)
+			}
+		}
+		return try await step()
+	}
+}
+
 /// Picks the runtime and device type for a new headless device from `simctl list runtimes -j`.
 public enum HeadlessSimulatorChoice {
 
