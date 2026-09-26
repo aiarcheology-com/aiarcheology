@@ -188,6 +188,98 @@ final class ClerkAuthProvider: AuthProviding {
 }
 
 #if DEBUG
+/// A Clerk **test** email address: one whose local part ends in `+clerk_test` (AIA-0974).
+///
+/// Clerk's test mode sends no email to such an address and accepts the fixed code `424242` for it
+/// (https://clerk.com/docs/guides/development/testing/test-emails-and-phones). Programmatic sign-in
+/// accepts nothing else, so an automation run can never send a code to a real person's inbox or
+/// sign in to a real account. Strict on purpose: `jane+clerk_test_x@…` is not a test address.
+enum ClerkTestAddress {
+    static func isValid(_ address: String) -> Bool {
+        let parts = address.split(separator: "@", omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return false }
+        let local = parts[0]
+        let domain = parts[1]
+        let labels = domain.split(separator: ".", omittingEmptySubsequences: false)
+        return local.hasSuffix("+clerk_test")
+            && local.count > "+clerk_test".count
+            && labels.count >= 2
+            && labels.allSatisfy { $0.isEmpty.not }
+            && address.contains(where: \.isWhitespace).not
+    }
+}
+
+/// Why a programmatic sign-in did not produce a session. Carries no email address and no code.
+enum ProgrammaticSignInError: LocalizedError, Equatable {
+    /// The address is not a Clerk test address; nothing was sent.
+    case notATestAddress
+    /// This provider cannot sign in without a UI (the in-memory mock).
+    case unsupported
+    /// Clerk accepted the attempt but did not complete it.
+    case incomplete
+    /// Clerk completed the attempt, yet no signed-in user appeared.
+    case noSession
+
+    var errorDescription: String? {
+        switch self {
+        case .notATestAddress: "not a Clerk test address (the local part must end in +clerk_test)"
+        case .unsupported: "this auth provider cannot sign in programmatically"
+        case .incomplete: "Clerk did not complete the sign-in"
+        case .noSession: "Clerk completed the sign-in but reports no signed-in user"
+        }
+    }
+}
+
+extension ClerkAuthProvider {
+    /// Signs in to a Clerk test account with its email code, creating the account first if it does
+    /// not exist — the same two paths Clerk's `AuthView` takes for an address it does or does not
+    /// know (AIA-0974).
+    ///
+    /// The address is checked **before** anything touches Clerk. The sign-up branch fills the fields
+    /// the development instance requires: fixed names, and a random password that is never stored,
+    /// logged, or used again — every later sign-in uses the email code.
+    func signIn(emailAddress: String, code: String) async throws {
+        guard ClerkTestAddress.isValid(emailAddress) else {
+            throw ProgrammaticSignInError.notATestAddress
+        }
+        do {
+            let attempt = try await Clerk.shared.auth.signInWithEmailCode(emailAddress: emailAddress)
+            guard try await attempt.verifyCode(code).status == .complete else {
+                throw ProgrammaticSignInError.incomplete
+            }
+        } catch let error as ClerkAPIError where error.code == "form_identifier_not_found" {
+            let signUp = try await Clerk.shared.auth.signUp(
+                emailAddress: emailAddress,
+                password: Self.throwawayPassword(),
+                firstName: "Headless",
+                lastName: "Automation"
+            )
+            let prepared = try await signUp.sendEmailCode()
+            guard try await prepared.verifyEmailCode(code).status == .complete else {
+                throw ProgrammaticSignInError.incomplete
+            }
+        }
+        // The client that comes back with a completed attempt carries the new session. Should it
+        // not have been applied, ask once; the gate refresh that follows would otherwise read
+        // "signed out" and settle there.
+        if Clerk.shared.user == nil {
+            _ = try await Clerk.shared.refreshClient()
+        }
+        guard Clerk.shared.user != nil else {
+            throw ProgrammaticSignInError.noSession
+        }
+    }
+
+    /// 32 random bytes, base64-encoded. `SystemRandomNumberGenerator` is cryptographically secure on
+    /// Apple platforms; the value exists only to satisfy the instance's sign-up requirement.
+    private static func throwawayPassword() -> String {
+        var generator = SystemRandomNumberGenerator()
+        let bytes = (0..<32).map { _ in UInt8.random(in: .min ... .max, using: &generator) }
+        return Data(bytes).base64EncodedString()
+    }
+}
+
+
 /// In-memory ``AuthProviding`` for UI tests and SwiftUI previews. Compiled out of
 /// Release/TestFlight builds (`#if DEBUG`) so the auth bypass cannot ship.
 ///
@@ -285,5 +377,11 @@ final class MockAuthProvider: AuthProviding {
     func signOut() async { outcome = .signedOut }
 
     func deleteAccount() async throws { outcome = .signedOut }
+
+    /// Refuses rather than pretending (AIA-0974): a mock that "signed in" would let a headless run
+    /// built without Clerk keys pass a sign-in scenario without ever reaching Clerk.
+    func signIn(emailAddress: String, code: String) async throws {
+        throw ProgrammaticSignInError.unsupported
+    }
 }
 #endif

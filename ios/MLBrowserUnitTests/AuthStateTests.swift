@@ -519,6 +519,90 @@ final class AuthStateTests: XCTestCase {
 		XCTAssertFalse(detector.isReconnection(isSatisfied: false))
 		XCTAssertTrue(detector.isReconnection(isSatisfied: true))
 	}
+
+	// MARK: - Programmatic sign-in (AIA-0974)
+
+	func testSignIn_ThenRefresh_LandsReadyWithTheAccount() async throws {
+		let provider = CountingAuthProvider(outcome: .signedOut, accountID: Self.accountA)
+		let sut = AuthState(provider: provider)
+		await sut.start()
+		XCTAssertEqual(sut.gate, .signedOut)
+
+		try await sut.signIn(emailAddress: "a+clerk_test@example.com", code: "424242")
+
+		XCTAssertEqual(provider.signInCount, 1)
+		XCTAssertEqual(sut.gate, .ready)
+		XCTAssertEqual(sut.accountIdentifier, Self.accountA)
+		XCTAssertEqual(sut.effectiveContext, .validated(Self.accountA))
+		XCTAssertTrue(sut.isProviderSignedIn)
+	}
+
+	func testSignIn_ProviderFailure_RethrowsAndStaysSignedOut() async {
+		let provider = CountingAuthProvider(outcome: .signedOut, accountID: Self.accountA)
+		provider.signInError = ProgrammaticSignInError.incomplete
+		let sut = AuthState(provider: provider)
+		await sut.start()
+
+		do {
+			try await sut.signIn(emailAddress: "a+clerk_test@example.com", code: "000000")
+			XCTFail("a failed sign-in must throw")
+		} catch {
+			XCTAssertEqual(error as? ProgrammaticSignInError, .incomplete)
+		}
+		XCTAssertEqual(sut.gate, .signedOut)
+		XCTAssertNil(sut.accountIdentifier)
+		XCTAssertFalse(sut.isProviderSignedIn)
+	}
+
+	func testSignIn_TheMock_RefusesRatherThanPretending() async {
+		let sut = AuthState(provider: MockAuthProvider(outcome: .signedOut))
+		await sut.start()
+
+		do {
+			try await sut.signIn(emailAddress: "a+clerk_test@example.com", code: "424242")
+			XCTFail("the mock must not sign in")
+		} catch {
+			XCTAssertEqual(error as? ProgrammaticSignInError, .unsupported)
+		}
+		XCTAssertEqual(sut.gate, .signedOut)
+	}
+
+	/// A plain address is refused before Clerk is touched. Clerk is never configured in a unit-test
+	/// host, and reaching `Clerk.shared` there traps — so this test finishing at all is the proof that
+	/// the check runs before any network call, not just before a successful one.
+	func testClerkSignIn_PlainAddress_IsRefusedBeforeAnyClerkCall() async {
+		let provider = ClerkAuthProvider()
+		for address in ["jane@example.com", "jane+clerk_test_x@example.com", "jane+clerk_test@localhost"] {
+			do {
+				try await provider.signIn(emailAddress: address, code: "424242")
+				XCTFail("\(address) must be refused")
+			} catch {
+				XCTAssertEqual(error as? ProgrammaticSignInError, .notATestAddress, address)
+			}
+		}
+	}
+
+	func testClerkTestAddress_AcceptsOnlyTheDocumentedSubaddress() {
+		for valid in ["jane+clerk_test@example.com", "aia-headless+clerk_test@example.com", "a.b+clerk_test@sub.example.co"] {
+			XCTAssertTrue(ClerkTestAddress.isValid(valid), valid)
+		}
+		for invalid in [
+			"jane@example.com",
+			"jane+clerk_test_extra@example.com",
+			"jane+clerk_testx@example.com",
+			"+clerk_test@example.com",
+			"jane+clerk_test@example",
+			"jane+clerk_test@example.",
+			"jane+clerk_test@.com",
+			"jane+clerk_test@@example.com",
+			"jane+clerk_test@example.com@evil.com",
+			"jane +clerk_test@example.com",
+			"jane+CLERK_TEST@example.com",
+			""
+		] {
+			XCTAssertFalse(ClerkTestAddress.isValid(invalid), invalid)
+		}
+	}
 }
 
 /// A ``ConnectivityMonitoring`` the test drives by hand. The production monitor cannot be asked for
@@ -572,6 +656,16 @@ private final class CountingAuthProvider: AuthProviding {
 	func sessionToken() async throws -> String? { isSignedIn ? "counting.session.token" : nil }
 	func signOut() async { outcome = .signedOut }
 	func deleteAccount() async throws { outcome = .signedOut }
+
+	/// Set to make the next `signIn` fail the way a rejected code does.
+	var signInError: Error?
+	private(set) var signInCount = 0
+
+	func signIn(emailAddress: String, code: String) async throws {
+		signInCount += 1
+		if let signInError { throw signInError }
+		outcome = .ready
+	}
 }
 
 /// An ``AuthProviding`` whose `validateSession()` can be suspended and resumed by the test, so the
@@ -625,6 +719,9 @@ private final class SuspendableAuthProvider: AuthProviding {
 	func deleteAccount() async throws {
 		isSignedIn = false
 		accountIdentifier = nil
+	}
+	func signIn(emailAddress: String, code: String) async throws {
+		throw ProgrammaticSignInError.unsupported
 	}
 }
 

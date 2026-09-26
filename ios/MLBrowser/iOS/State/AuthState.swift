@@ -131,6 +131,17 @@ protocol AuthProviding {
 
     /// Permanently delete the current user's account (Apple Guideline 5.1.1(v)).
     func deleteAccount() async throws
+
+    #if DEBUG
+    /// Sign in with an email verification code through the backend's own API, without its UI
+    /// (AIA-0974). The headless build has no Clerk `AuthView` to present, so this is how it signs in.
+    ///
+    /// Debug-only, so the shipping auth surface is unchanged. Returns only once the provider reports
+    /// a signed-in user; the caller then re-evaluates the gate exactly as `SignInSheet` does.
+    /// Deliberately no default implementation: a conformer whose signature drifted would otherwise
+    /// fall back to it silently.
+    func signIn(emailAddress: String, code: String) async throws
+    #endif
 }
 
 /// Owns ``AuthGate``. Re-evaluated at launch, on every foreground, and — since AIA-0757 — when the
@@ -420,6 +431,27 @@ final class AuthState: ObservableObject {
         await provider.signOut()
         setSignedOut()
     }
+
+    #if DEBUG
+    /// Sign in without the Clerk UI, then re-evaluate the gate — the `authState.refresh()` that
+    /// `SignInSheet` runs when Clerk's sheet closes (AIA-0974). Only the headless build calls it.
+    ///
+    /// Throws what the provider throws and leaves the gate to the refresh: a failed sign-in changes
+    /// nothing here, so a signed-out app stays signed out.
+    func signIn(emailAddress: String, code: String) async throws {
+        try await provider.signIn(emailAddress: emailAddress, code: code)
+        await refresh()
+    }
+
+    /// Whether the backend itself still holds a signed-in user, as opposed to what ``gate`` says.
+    ///
+    /// The two differ after a sign-out whose server call failed: ``signOut()`` publishes
+    /// `.signedOut` regardless, because a user who asked to leave must not be kept in. Headless
+    /// scenarios read this to prove the session really ended (AIA-0974).
+    var isProviderSignedIn: Bool {
+        provider.isSignedIn
+    }
+    #endif
 
     /// Erase the account's cloud data, then delete the account, then return to the sign-in screen.
     ///
