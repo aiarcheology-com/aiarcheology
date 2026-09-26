@@ -160,11 +160,13 @@ through Clerk's own API instead. That surface is compiled only into Debug builds
   the two paths `AuthView` takes. The development instance requires first name, last name and a
   password at sign-up. The password is random, never stored or logged, and never used again: every
   later sign-in uses the email code. The method returns only once Clerk reports a signed-in user.
-- Only **Clerk test addresses** are accepted: the local part ends in `+clerk_test`
-  (`ClerkTestAddress`). The check runs before any request, so automation can never send a code to
-  a real inbox or sign in to a real account. In test mode Clerk sends no email to these addresses
-  and accepts the fixed code `424242`
-  ([Clerk docs](https://clerk.com/docs/guides/development/testing/test-emails-and-phones)).
+- Only **Clerk test addresses** at the reserved domain are accepted, `<name>+clerk_test@example.com`
+  (`ClerkTestAddress`), and only while the build points at the **development** backend. Both checks
+  run before any request, so automation cannot sign in to a real account or touch production. In
+  test mode Clerk sends no email to these addresses and accepts the fixed code `424242`
+  ([Clerk docs](https://clerk.com/docs/guides/development/testing/test-emails-and-phones)). The
+  domain is pinned because the subaddress alone protects only while test mode stays on: with it
+  off, `jane+clerk_test@gmail.com` would get a real code in jane@gmail.com's inbox.
 - `MockAuthProvider.signIn` throws rather than pretending. A Debug build without Clerk keys falls
   back to the mock, and a mock that "signed in" would let a headless run pass a sign-in scenario
   without ever reaching Clerk.

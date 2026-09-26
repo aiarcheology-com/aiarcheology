@@ -41,6 +41,7 @@ public struct ScenarioReport: Codable, Sendable, Equatable {
 		setupFailure == nil
 			&& completedAllSteps
 			&& steps.allSatisfy(\.passed)
+			// Only a teardown step can be best effort; a step's flag would be ignored, not honoured.
 			&& teardown.allSatisfy { $0.passed || $0.bestEffort }
 	}
 
@@ -48,7 +49,8 @@ public struct ScenarioReport: Codable, Sendable, Equatable {
 	public var failures: [String] {
 		var messages: [String] = []
 		if let setupFailure { messages.append("setup: \(setupFailure)") }
-		for step in steps + teardown where step.passed == false && step.bestEffort == false {
+		let fatal = steps.filter { $0.passed == false } + teardown.filter { $0.passed == false && $0.bestEffort == false }
+		for step in fatal {
 			for failure in step.failures {
 				messages.append("\(step.location): \(failure)")
 			}
@@ -87,6 +89,24 @@ public struct StepReport: Codable, Sendable, Equatable {
 	/// `steps[3] "enable the model"` — how a failure message says where it happened.
 	public var location: String {
 		"\(phase)[\(index)]" + (name.map { " \"\($0)\"" } ?? "")
+	}
+
+	private enum CodingKeys: String, CodingKey {
+		case phase, index, name, installation, command, route, failures, response, bestEffort
+	}
+
+	/// Reads reports written before `bestEffort` existed as not best effort, like `Step` does.
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+		phase = try container.decode(String.self, forKey: .phase)
+		index = try container.decode(Int.self, forKey: .index)
+		name = try container.decodeIfPresent(String.self, forKey: .name)
+		installation = try container.decodeIfPresent(String.self, forKey: .installation)
+		command = try container.decode(String.self, forKey: .command)
+		route = try container.decodeIfPresent(Route.self, forKey: .route)
+		failures = try container.decode([String].self, forKey: .failures)
+		response = try container.decodeIfPresent(JSONValue.self, forKey: .response)
+		bestEffort = try container.decodeIfPresent(Bool.self, forKey: .bestEffort) ?? false
 	}
 
 	public init(

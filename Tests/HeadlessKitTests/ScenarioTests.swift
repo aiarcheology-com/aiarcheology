@@ -184,6 +184,15 @@ final class ScenarioTests: XCTestCase {
 		XCTAssertTrue(report.failures[0].hasPrefix(#"teardown[0] "cleanup": "#), report.failures[0])
 	}
 
+	func testAReportWrittenBeforeBestEffortStillDecodes() throws {
+		let old = #"""
+		{ "command": "perform increment", "failures": ["x"], "index": 0, "phase": "teardown" }
+		"""#
+		let step = try HeadlessCoding.makeDecoder().decode(StepReport.self, from: Data(old.utf8))
+		XCTAssertFalse(step.bestEffort)
+		XCTAssertFalse(step.passed)
+	}
+
 	func testBestEffortIsRejectedOutsideTeardown() throws {
 		let inSteps = #"""
 		{ "schemaVersion": 1, "name": "x", "installations": { "a": {} },

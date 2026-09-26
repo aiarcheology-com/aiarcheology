@@ -572,7 +572,7 @@ final class AuthStateTests: XCTestCase {
 	/// the check runs before any network call, not just before a successful one.
 	func testClerkSignIn_PlainAddress_IsRefusedBeforeAnyClerkCall() async {
 		let provider = ClerkAuthProvider()
-		for address in ["jane@example.com", "jane+clerk_test_x@example.com", "jane+clerk_test@localhost"] {
+		for address in ["jane@example.com", "jane+clerk_test_x@example.com", "jane+clerk_test@gmail.com"] {
 			do {
 				try await provider.signIn(emailAddress: address, code: "424242")
 				XCTFail("\(address) must be refused")
@@ -583,7 +583,7 @@ final class AuthStateTests: XCTestCase {
 	}
 
 	func testClerkTestAddress_AcceptsOnlyTheDocumentedSubaddress() {
-		for valid in ["jane+clerk_test@example.com", "aia-headless+clerk_test@example.com", "a.b+clerk_test@sub.example.co"] {
+		for valid in ["jane+clerk_test@example.com", "aia-headless+clerk_test@example.com", "a.b+clerk_test@example.com"] {
 			XCTAssertTrue(ClerkTestAddress.isValid(valid), valid)
 		}
 		for invalid in [
@@ -594,6 +594,11 @@ final class AuthStateTests: XCTestCase {
 			"jane+clerk_test@example",
 			"jane+clerk_test@example.",
 			"jane+clerk_test@.com",
+			// Real domains: with test mode off, a real inbox would receive the code.
+			"jane+clerk_test@gmail.com",
+			"jane+clerk_test@sub.example.com",
+			"jane+clerk_test@example.com.evil.com",
+			"jane+clerk_test@EXAMPLE.COM",
 			"jane+clerk_test@@example.com",
 			"jane+clerk_test@example.com@evil.com",
 			"jane +clerk_test@example.com",

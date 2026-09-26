@@ -57,7 +57,7 @@ struct HeadlessAccountScreen: HeadlessScreen {
 			let email = ParameterSpec(
 				"email",
 				.string,
-				summary: "A Clerk test address: the local part must end in +clerk_test."
+				summary: "A Clerk test address: <name>+clerk_test@example.com."
 			)
 			let code = ParameterSpec("code", .string, summary: "The email verification code.")
 			// No `navigatesTo`: once signed in, the new account's consent question may take the screen.
@@ -70,11 +70,18 @@ struct HeadlessAccountScreen: HeadlessScreen {
 			})
 		case .validated:
 			actions.append(HeadlessAction("sign-out", summary: "Sign out of the account.") { _ in
+				let authState = appState.authState
 				// The call the account screen's and the paywall's Sign Out make.
-				await appState.authState.signOut()
+				await authState.signOut()
 				// Settings dismisses the account UI on sign-out: the user is done with account things.
 				presentation.isAccountPresented = false
-				return ["signedIn": .bool(Self.isSignedIn(appState.authState))]
+				// `signOut()` publishes `.signedOut` even when Clerk's request failed, because the app
+				// must not keep a user in who asked to leave. Automation must not call that a clean
+				// sign-out: the session would outlive the run.
+				guard authState.isProviderSignedIn == false else {
+					throw HeadlessError(.actionFailed, "the app signed out, but Clerk still holds the session")
+				}
+				return ["signedIn": .bool(Self.isSignedIn(authState))]
 			})
 		case .suspended, .indeterminate:
 			// Signing in cannot work offline and the account cannot be shown; only leaving is possible.
@@ -90,23 +97,10 @@ struct HeadlessAccountScreen: HeadlessScreen {
 		appState: AppState,
 		presentation: HeadlessPresentation
 	) async throws -> JSONValue? {
-		// Mock auth refuses programmatic sign-in anyway; say why before anything else, so a keyless
-		// build fails with its cause rather than a provider error.
-		guard appState.usesRealAuth else {
-			throw HeadlessError(
-				.actionFailed,
-				"the app runs on mock auth (no Clerk key in this build); sign-in must reach Clerk"
-			)
-		}
+		// The provider owns every refusal (mock auth, a non-test address, a production backend), so
+		// the rules live in one place; `headlessFailure(for:)` only chooses the error code.
 		let email = try arguments.string("email")
 		let code = try arguments.string("code")
-		// Checked here too, so the refusal is an argument error. The address is not echoed.
-		guard ClerkTestAddress.isValid(email) else {
-			throw HeadlessError(
-				.invalidArgument,
-				"'email' is not a Clerk test address (local part must end in +clerk_test)"
-			)
-		}
 		let authState = appState.authState
 		do {
 			try await authState.signIn(emailAddress: email, code: code)
@@ -135,6 +129,11 @@ struct HeadlessAccountScreen: HeadlessScreen {
 			return error
 		case let apiError as ClerkAPIError:
 			return HeadlessError(.actionFailed, "Clerk refused the sign-in: \(apiError.code)")
+		case ProgrammaticSignInError.notATestAddress:
+			// The address itself is never echoed.
+			return HeadlessError(.invalidArgument, "'email' is not a Clerk test address (<name>+clerk_test@example.com)")
+		case ProgrammaticSignInError.unsupported:
+			return HeadlessError(.actionFailed, "the app runs on mock auth (no Clerk key in this build); sign-in must reach Clerk")
 		case let signInError as ProgrammaticSignInError:
 			return HeadlessError(.actionFailed, signInError.errorDescription ?? "the sign-in did not complete")
 		default:
