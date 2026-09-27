@@ -10,7 +10,8 @@ import Combine
 import Foundation
 import HeadlessKit
 
-/// ML Browser as a headless client sees it: screens derived from the real `AppState`.
+/// ML Browser as a headless client sees it: screens derived from the real `AppState`, handed in as
+/// `HeadlessAppParts`.
 ///
 /// `#if DEBUG` rather than headless-only, so the ordinary Debug build — the unit-test host —
 /// compiles it. Only the headless entry point ever instantiates it.
@@ -20,7 +21,7 @@ import HeadlessKit
 @MainActor
 final class MLBrowserHeadlessApplication: HeadlessApplication {
 
-	private let appState: AppState
+	private let parts: HeadlessAppParts
 	private let launchOptions: JSONValue
 	/// The root gate's orchestration — the object `SubscriptionGateView` runs on, one per window. The
 	/// headless build has exactly one window, so it owns exactly one.
@@ -34,21 +35,22 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	/// Headless-only, like `presentation`, so it is kept here rather than in `AppState`.
 	private let capture: StagedImageCapture
 
-	init(appState: AppState, launchOptions: JSONValue) {
-		self.appState = appState
+	init(parts: HeadlessAppParts, launchOptions: JSONValue) {
+		self.parts = parts
 		self.launchOptions = launchOptions
 		self.gate = SubscriptionGateCoordinator(
-			subscriptionState: appState.subscriptionState,
-			freeAccess: appState.freeAccess,
-			tour: appState.tour,
-			analytics: appState.analytics
+			subscriptionState: parts.subscriptionState,
+			freeAccess: parts.freeAccess,
+			tour: parts.tour,
+			analytics: parts.analytics
 		)
 		self.capture = StagedImageCapture(
-			deep: appState.deep,
-			settings: appState.settings,
-			repository: appState.findingRepository,
-			authState: appState.authState,
-			stagedNames: HeadlessLaunchOptions.current.stagedImages
+			deep: parts.deep,
+			settings: parts.settings,
+			repository: parts.findingRepository,
+			authState: parts.authState,
+			stagedNames: parts.stagedNames,
+			stagedDirectory: parts.stagedDirectory
 		)
 	}
 
@@ -69,25 +71,25 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 		switch routeDecision().route {
 		case .launching: return HeadlessLaunchingScreen()
 		case .gate: return HeadlessGateScreen(inputs: gateInputs())
-		case .paywall: return HeadlessPaywallScreen(subscriptionState: appState.subscriptionState, freeAccess: appState.freeAccess)
+		case .paywall: return HeadlessPaywallScreen(subscriptionState: parts.subscriptionState, freeAccess: parts.freeAccess)
 		case .welcome: return HeadlessWelcomeScreen(gate: gate)
-		case .tour: return HeadlessTourScreen(tour: appState.tour)
-		case .consent: return HeadlessConsentScreen(analytics: appState.analytics)
-		case .home: return HeadlessHomeScreen(chromeState: appState.chromeState, capture: capture)
-		case .drawer: return HeadlessDrawerScreen(appState: appState, presentation: presentation)
+		case .tour: return HeadlessTourScreen(tour: parts.tour)
+		case .consent: return HeadlessConsentScreen(analytics: parts.analytics)
+		case .home: return HeadlessHomeScreen(chromeState: parts.chromeState, capture: capture)
+		case .drawer: return HeadlessDrawerScreen(parts: parts, presentation: presentation)
 		case .account:
-			return HeadlessAccountScreen(appState: appState, presentation: presentation) { [unowned self] in
+			return HeadlessAccountScreen(parts: parts, presentation: presentation) { [unowned self] in
 				self.closeTarget(for: .account)
 			}
 		case .saveFinding:
-			return HeadlessSaveFindingScreen(appState: appState, capture: capture) { [unowned self] in
+			return HeadlessSaveFindingScreen(parts: parts, capture: capture) { [unowned self] in
 				self.closeTarget(for: .saveFinding)
 			}
 		case .findings:
-			return HeadlessFindingsScreen(appState: appState, presentation: presentation) { [unowned self] in
+			return HeadlessFindingsScreen(parts: parts, presentation: presentation) { [unowned self] in
 				self.closeTarget(for: .findings)
 			}
-		case .backupConsent: return HeadlessBackupConsentScreen(findingsSync: appState.findingsSync)
+		case .backupConsent: return HeadlessBackupConsentScreen(findingsSync: parts.findingsSync)
 		}
 	}
 
@@ -102,30 +104,30 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 		// this render.
 		_ = routeDecision()
 		return [
-			"isReady": .bool(appState.isReady),
+			"isReady": .bool(parts.isReady()),
 			"backendEnvironment": .string(BackendEnvironment.current.rawValue),
 			"launchOptions": launchOptions,
 			"gate": gateInputs(),
 			// Whether analytics is actually on: the user's answer applied under the live flag. Never
 			// more than this one Bool.
-			"analytics": ["enabled": .bool(appState.analytics.isAnalyticsEnabled)],
+			"analytics": ["enabled": .bool(parts.analytics.isAnalyticsEnabled)],
 			"auth": [
-				"gate": .string(appState.authState.gate.headlessName),
-				"usesRealAuth": .bool(appState.usesRealAuth),
-				"signedIn": .bool(HeadlessAccountScreen.isSignedIn(appState.authState)),
+				"gate": .string(parts.authState.gate.headlessName),
+				"usesRealAuth": .bool(parts.usesRealAuth),
+				"signedIn": .bool(HeadlessAccountScreen.isSignedIn(parts.authState)),
 				// The backend still holds a user, whatever the gate says: proves a sign-out really
 				// ended the session.
-				"accountPresent": .bool(appState.authState.isProviderSignedIn)
+				"accountPresent": .bool(parts.authState.isProviderSignedIn)
 			]
 		]
 	}
 
 	func waitConditions() -> [WaitCondition] {
-		let appState = appState
+		let parts = parts
 		let findingID = ParameterSpec("id", .string, summary: "The finding id, from the findings list or save's result.")
 		return [
 			WaitCondition("ready", summary: "The app finished launching.") { _ in
-				appState.isReady
+				parts.isReady()
 			},
 			WaitCondition(
 				"model-loaded",
@@ -135,10 +137,10 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 				guard let id = UUID(uuidString: try arguments.string("id")) else {
 					throw HeadlessError(.invalidArgument, "'id' is not a model id")
 				}
-				return HeadlessDrawerScreen.isLoaded(id, in: appState.deep)
+				return HeadlessDrawerScreen.isLoaded(id, in: parts.deep)
 			},
 			WaitCondition("signed-in", summary: "A validated account is signed in.") { _ in
-				HeadlessAccountScreen.isSignedIn(appState.authState)
+				HeadlessAccountScreen.isSignedIn(parts.authState)
 			},
 			WaitCondition(
 				"backed-up",
@@ -146,7 +148,7 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 				parameters: [findingID]
 			) { arguments in
 				let id = try HeadlessFindingsScreen.findingID(arguments)
-				return appState.findingsSync.backupStates[id] == .backedUp
+				return parts.findingsSync.backupStates[id] == .backedUp
 			},
 			WaitCondition(
 				"finding-present",
@@ -154,7 +156,7 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 				parameters: [findingID]
 			) { arguments in
 				let id = try HeadlessFindingsScreen.findingID(arguments)
-				return HeadlessFindingsScreen.isPresent(id, in: appState)
+				return HeadlessFindingsScreen.isPresent(id, in: parts)
 			},
 			WaitCondition(
 				"finding-absent",
@@ -162,9 +164,15 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 				parameters: [findingID]
 			) { arguments in
 				let id = try HeadlessFindingsScreen.findingID(arguments)
-				return HeadlessFindingsScreen.isPresent(id, in: appState) == false
+				return HeadlessFindingsScreen.isPresent(id, in: parts) == false
 			}
 		]
+	}
+
+	/// The route decision `currentScreen()` acts on: the unit tests' window onto it. It has the same
+	/// side effects as listing the current screen — the root gates settle, as on a render.
+	func currentDecision() -> HeadlessRouteDecision {
+		routeDecision()
 	}
 
 	/// The screen the app shows now, after the root gates have done what their views would have done
@@ -173,27 +181,27 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	/// Only once `AppState` is ready: the gate views are not mounted before that
 	/// (`MLBrowser.authGatedContent`), so nothing may be raised, remembered or started earlier.
 	private func routeDecision() -> HeadlessRouteDecision {
-		let isDrawerOpen = appState.chromeState.presentedSideMenu
+		let isDrawerOpen = parts.chromeState.presentedSideMenu
 		presentation.dismissSheetsIfDrawerClosed(isDrawerOpen: isDrawerOpen)
-		if appState.isReady {
+		if parts.isReady() {
 			gate.reconcile()
 		}
 		let decision = HeadlessRouteDecision(
-			isReady: appState.isReady,
+			isReady: parts.isReady(),
 			display: gate.display,
 			presentedWelcome: gate.presentedPrompt,
-			isDay0AcknowledgementPending: appState.freeAccess.isDay0AcknowledgementPending,
-			isTourPendingOrRunning: appState.tour.isPendingOrRunning,
-			consentPresentation: appState.analytics.consentPresentation,
-			isAskDeferredAfterSignOut: appState.analytics.isAskDeferredAfterSignOut,
+			isDay0AcknowledgementPending: parts.freeAccess.isDay0AcknowledgementPending,
+			isTourPendingOrRunning: parts.tour.isPendingOrRunning,
+			consentPresentation: parts.analytics.consentPresentation,
+			isAskDeferredAfterSignOut: parts.analytics.isAskDeferredAfterSignOut,
 			isDrawerOpen: isDrawerOpen,
 			hasEverShownAnalyticsContent: hasEverShownAnalyticsContent,
 			isAccountPresented: presentation.isAccountPresented,
 			isSaveFindingPresented: capture.pendingCapture != nil,
 			isFindingsPresented: presentation.isFindingsPresented,
-			isBackupConsentPending: appState.findingsSync.backupConsentRequest != nil
+			isBackupConsentPending: parts.findingsSync.backupConsentRequest != nil
 		)
-		if appState.isReady && decision.analyticsGateShowsContent {
+		if parts.isReady() && decision.analyticsGateShowsContent {
 			hasEverShownAnalyticsContent = true
 		}
 		return decision
@@ -202,8 +210,8 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	/// The inputs every gate route depends on, reported with every response so a client can see why
 	/// the app is where it is — and notice when a default it relied on has moved.
 	private func gateInputs() -> JSONValue {
-		let subscription = appState.subscriptionState
-		let freeAccess = appState.freeAccess
+		let subscription = parts.subscriptionState
+		let freeAccess = parts.freeAccess
 		return [
 			"isPaymentsSurfaceEnabled": .bool(subscription.isPaymentsSurfaceEnabled),
 			"isSubscribed": .bool(subscription.isSubscribed),
@@ -212,8 +220,8 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 			"display": .string(gate.display.headlessName),
 			"welcome": gate.presentedPrompt.map { .string($0.headlessName) } ?? .null,
 			"isDay0AcknowledgementPending": .bool(freeAccess.isDay0AcknowledgementPending),
-			"tourPendingOrRunning": .bool(appState.tour.isPendingOrRunning),
-			"consent": .string(appState.analytics.consentPresentation.headlessName)
+			"tourPendingOrRunning": .bool(parts.tour.isPendingOrRunning),
+			"consent": .string(parts.analytics.consentPresentation.headlessName)
 		]
 	}
 }
@@ -456,7 +464,7 @@ struct HeadlessHomeScreen: HeadlessScreen {
 
 @MainActor
 struct HeadlessDrawerScreen: HeadlessScreen {
-	let appState: AppState
+	let parts: HeadlessAppParts
 	let presentation: HeadlessPresentation
 
 	var route: Route { "drawer" }
@@ -465,8 +473,8 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 	static let loadTimeout: Duration = .seconds(120)
 
 	func state() -> JSONValue {
-		let deep = appState.deep
-		let models: [JSONValue] = Self.listedModels(in: appState).map { configuration in
+		let deep = parts.deep
+		let models: [JSONValue] = Self.listedModels(in: parts).map { configuration in
 			[
 				"id": .string(configuration.entityId.uuidString),
 				"name": .string(DeepConfiguration.displayName(from: configuration.modelDescription)),
@@ -481,19 +489,19 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 	}
 
 	func actions() -> [HeadlessAction] {
-		let appState = appState
+		let parts = parts
 		let presentation = presentation
 		let id = ParameterSpec("id", .string, summary: "The model id, from state.models.")
 		var actions = [
 			HeadlessAction("close", summary: "Close the menu.", navigatesTo: "home") { _ in
-				appState.chromeState.togglingSideMenu()
+				parts.chromeState.togglingSideMenu()
 				return nil
 			},
 			HeadlessAction("enable", summary: "Switch a model on and wait until it has loaded.", parameters: [id]) { arguments in
-				try await Self.setEnabled(true, arguments: arguments, appState: appState)
+				try await Self.setEnabled(true, arguments: arguments, parts: parts)
 			},
 			HeadlessAction("disable", summary: "Switch a model off.", parameters: [id]) { arguments in
-				try await Self.setEnabled(false, arguments: arguments, appState: appState)
+				try await Self.setEnabled(false, arguments: arguments, parts: parts)
 			}
 		]
 		// The Findings row, always in the menu; the tour disables it, but the tour has its own route.
@@ -504,13 +512,16 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 		) { _ in
 			presentation.isFindingsPresented = true
 			// What the list does as it appears: heal leftover screenshot files, then ask the server.
-			FindingScreenshotStore.sweepOrphans(in: appState.dataController.container.viewContext)
-			await appState.findingsSync.syncNow()?.value
+			FindingScreenshotStore.sweepOrphans(
+				in: parts.dataController.container.viewContext,
+				directory: parts.findingsDirectory
+			)
+			await parts.findingsSync.syncNow()?.value
 			return nil
 		})
 		// The footer's own switch: a Sign In row while anonymous, the account row once validated, and
 		// nothing to tap while auth is resolving or offline.
-		switch appState.authState.effectiveContext {
+		switch parts.authState.effectiveContext {
 		case .anonymous, .validated:
 			actions.append(HeadlessAction(
 				"open-account",
@@ -527,8 +538,8 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 	}
 
 	/// The drawer's own list: the same fetch its `@FetchRequest` runs.
-	static func listedModels(in appState: AppState) -> [DeepConfiguration] {
-		let context = appState.dataController.container.viewContext
+	static func listedModels(in parts: HeadlessAppParts) -> [DeepConfiguration] {
+		let context = parts.dataController.container.viewContext
 		do {
 			return try context.fetch(DeepConfiguration.drawerListFetchRequest())
 		} catch {
@@ -543,13 +554,13 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 
 	/// The drawer switch's own call, then — for `enable` — the load it sets off: the action returns
 	/// once the driver is registered, or fails with the load error the app publishes.
-	private static func setEnabled(_ enabled: Bool, arguments: Arguments, appState: AppState) async throws -> JSONValue? {
+	private static func setEnabled(_ enabled: Bool, arguments: Arguments, parts: HeadlessAppParts) async throws -> JSONValue? {
 		let rawID = try arguments.string("id")
 		guard let id = UUID(uuidString: rawID),
-			  let configuration = listedModels(in: appState).first(where: { $0.entityId == id }) else {
+			  let configuration = listedModels(in: parts).first(where: { $0.entityId == id }) else {
 			throw HeadlessError(.invalidArgument, "no model '\(rawID)' in the menu")
 		}
-		let deep = appState.deep
+		let deep = parts.deep
 		let loadFailure = LoadFailureProbe(deep: deep)
 		do {
 			try deep.setEnabled(enabled, for: configuration)

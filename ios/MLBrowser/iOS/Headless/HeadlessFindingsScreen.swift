@@ -15,7 +15,7 @@ import HeadlessKit
 /// page URL, coordinates, notes, author, image data, or the account id.
 @MainActor
 struct HeadlessFindingsScreen: HeadlessScreen {
-	let appState: AppState
+	let parts: HeadlessAppParts
 	let presentation: HeadlessPresentation
 	/// Where `close` lands, asked for when the actions are listed: see
 	/// `HeadlessRouteDecision.route(afterClosing:)`.
@@ -24,8 +24,8 @@ struct HeadlessFindingsScreen: HeadlessScreen {
 	var route: Route { "findings" }
 
 	func state() -> JSONValue {
-		let findingsSync = appState.findingsSync
-		let findings: [JSONValue] = Self.listedFindings(in: appState).map { finding in
+		let findingsSync = parts.findingsSync
+		let findings: [JSONValue] = Self.listedFindings(in: parts).map { finding in
 			[
 				"id": .string(finding.entityId.uuidString),
 				"title": .string(finding.displayTitle),
@@ -45,9 +45,9 @@ struct HeadlessFindingsScreen: HeadlessScreen {
 	}
 
 	func actions() -> [HeadlessAction] {
-		let appState = appState
+		let parts = parts
 		let presentation = presentation
-		let findingsSync = appState.findingsSync
+		let findingsSync = parts.findingsSync
 		var actions = [
 			HeadlessAction("close", summary: "Close the findings list.", navigatesTo: closeTarget()) { _ in
 				presentation.isFindingsPresented = false
@@ -63,9 +63,9 @@ struct HeadlessFindingsScreen: HeadlessScreen {
 		}
 		// The Synchronize button, with a signed-in account to act for. Signed out it opens the
 		// sign-in sheet instead, which the account screen covers.
-		if HeadlessAccountScreen.isSignedIn(appState.authState),
+		if HeadlessAccountScreen.isSignedIn(parts.authState),
 		   findingsSync.isCloudConfigured,
-		   let account = appState.authState.accountIdentifier {
+		   let account = parts.authState.accountIdentifier {
 			actions.append(HeadlessAction(
 				"synchronize",
 				summary: "Press Synchronize and wait for the outcome line."
@@ -79,14 +79,14 @@ struct HeadlessFindingsScreen: HeadlessScreen {
 			summary: "Delete a finding, then wait for the sync that sends its deletion.",
 			parameters: [id]
 		) { arguments in
-			try await Self.delete(arguments: arguments, appState: appState)
+			try await Self.delete(arguments: arguments, parts: parts)
 		})
 		return actions
 	}
 
 	/// The list's own fetch: the same request its `@FetchRequest` runs, in the same order.
-	static func listedFindings(in appState: AppState) -> [Finding] {
-		let context = appState.dataController.container.viewContext
+	static func listedFindings(in parts: HeadlessAppParts) -> [Finding] {
+		let context = parts.dataController.container.viewContext
 		do {
 			return try context.fetch(Finding.findingsListFetchRequest())
 		} catch {
@@ -97,8 +97,8 @@ struct HeadlessFindingsScreen: HeadlessScreen {
 
 	/// Whether a ready finding with this id is in the local store: what `finding-present` and
 	/// `finding-absent` wait on.
-	static func isPresent(_ id: UUID, in appState: AppState) -> Bool {
-		let context = appState.dataController.container.viewContext
+	static func isPresent(_ id: UUID, in parts: HeadlessAppParts) -> Bool {
+		let context = parts.dataController.container.viewContext
 		return Finding.select(id, in: context)?.lifeCycle == .ready
 	}
 
@@ -134,14 +134,14 @@ struct HeadlessFindingsScreen: HeadlessScreen {
 
 	/// The row's swipe-to-delete, then the sync its tombstone sets off: the deletion has been sent,
 	/// or has failed to be, before the response.
-	private static func delete(arguments: Arguments, appState: AppState) async throws -> JSONValue? {
+	private static func delete(arguments: Arguments, parts: HeadlessAppParts) async throws -> JSONValue? {
 		let id = try findingID(arguments)
-		let context = appState.dataController.container.viewContext
+		let context = parts.dataController.container.viewContext
 		guard let finding = Finding.select(id, in: context), finding.lifeCycle == .ready else {
 			throw HeadlessError(.invalidArgument, "no finding '\(id.uuidString)' in the list")
 		}
 		do {
-			try appState.findingRepository.delete(finding)
+			try parts.findingRepository.delete(finding)
 		} catch {
 			// Domain and code identify the failure; its message could carry a path.
 			let nsError = error as NSError
@@ -149,7 +149,7 @@ struct HeadlessFindingsScreen: HeadlessScreen {
 		}
 		// `delete` already asked for a cycle; `syncNow()` returns that cycle, with a follow-up queued
 		// if it was already running, so this cannot finish on work that predates the delete.
-		await appState.findingsSync.syncNow()?.value
+		await parts.findingsSync.syncNow()?.value
 		return nil
 	}
 }

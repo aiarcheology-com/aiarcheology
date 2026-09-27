@@ -68,9 +68,12 @@ final class HeadlessServerController {
 			LoggingPolicy.error("Headless server refused: not on the development backend", logger: .lifecycle)
 			return
 		}
+		// The adapters' one read of this launch's options: the application takes what it needs from
+		// the parts.
+		let launchOptions = HeadlessLaunchOptions.current
 		let application = MLBrowserHeadlessApplication(
-			appState: appState,
-			launchOptions: HeadlessLaunchOptions.current.json
+			parts: HeadlessAppParts(appState: appState, launchOptions: launchOptions),
+			launchOptions: launchOptions.json
 		)
 		let server = HeadlessServer(session: HeadlessSession(application: application), endpointFile: Self.endpointFile)
 		self.server = server

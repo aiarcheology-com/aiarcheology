@@ -30,7 +30,9 @@ enum FindingScreenshotStore {
     /// cloud. The visible cost is blocking artifacts in tight `cropThumbnail` crops of a detection.
     private static let compressionQuality: CGFloat = 0.7
 
-    private static var directory: URL? {
+    /// Where the screenshots are: `Documents/Findings`, resolved against the current Documents
+    /// directory on every read.
+    static var directory: URL? {
         FileManager.default.documentDirectory?.appendingPathComponent("Findings")
     }
 
@@ -163,7 +165,10 @@ enum FindingScreenshotStore {
     /// placeholder instead: user data is never auto-deleted. Runs on the viewContext /
     /// MainActor only when the findings list opens; the save sheet is dismissed by
     /// then, so a sweep can never interleave with a save.
-    static func sweepOrphans(in context: NSManagedObjectContext) {
+    ///
+    /// - Parameter directory: the screenshot directory to sweep; `directory` by default. The
+    ///   headless build passes the one its parts name (AIA-0982).
+    static func sweepOrphans(in context: NSManagedObjectContext, directory: URL? = FindingScreenshotStore.directory) {
         guard let directory else { return }
         let files: [URL]
         do {

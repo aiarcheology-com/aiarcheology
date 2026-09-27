@@ -14,7 +14,7 @@ import HeadlessKit
 /// Reports the picked detection's label and confidence only — never its box or the image.
 @MainActor
 struct HeadlessSaveFindingScreen: HeadlessScreen {
-	let appState: AppState
+	let parts: HeadlessAppParts
 	let capture: StagedImageCapture
 	/// Where `cancel` lands, asked for when the actions are listed: see
 	/// `HeadlessRouteDecision.route(afterClosing:)`.
@@ -37,7 +37,7 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 	}
 
 	func actions() -> [HeadlessAction] {
-		let appState = appState
+		let parts = parts
 		let capture = capture
 		let title = ParameterSpec("title", .string, summary: "The finding's name; required, as the sheet requires it.")
 		let label = ParameterSpec("label", .string, required: false, summary: "The finding's label; empty by default.")
@@ -49,7 +49,7 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 				summary: "Save the picked detection as a finding, then wait for the sync it triggers.",
 				parameters: [title, label]
 			) { arguments in
-				try await Self.save(arguments: arguments, appState: appState, capture: capture)
+				try await Self.save(arguments: arguments, parts: parts, capture: capture)
 			},
 			HeadlessAction("cancel", summary: "Close the sheet without saving.", navigatesTo: closeTarget()) { _ in
 				capture.cancel()
@@ -60,7 +60,7 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 
 	private static func save(
 		arguments: Arguments,
-		appState: AppState,
+		parts: HeadlessAppParts,
 		capture: StagedImageCapture
 	) async throws -> JSONValue? {
 		let title = try arguments.string("title")
@@ -81,7 +81,7 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 		// The save sets off a sync cycle; waiting for it means an upload has landed or failed before
 		// the client reads the response. `syncNow()` returns the running cycle, queuing a follow-up if
 		// one was already under way, so this cannot finish on work that predates the save.
-		await appState.findingsSync.syncNow()?.value
+		await parts.findingsSync.syncNow()?.value
 		return ["id": .string(id.uuidString)]
 	}
 }

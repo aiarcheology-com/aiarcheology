@@ -35,7 +35,7 @@ final class HeadlessPresentation {
 /// the account id.
 @MainActor
 struct HeadlessAccountScreen: HeadlessScreen {
-	let appState: AppState
+	let parts: HeadlessAppParts
 	let presentation: HeadlessPresentation
 	/// Where `close` lands, asked for when the actions are listed: see
 	/// `HeadlessRouteDecision.route(afterClosing:)`.
@@ -56,20 +56,20 @@ struct HeadlessAccountScreen: HeadlessScreen {
 	/// The signed-in account, when Settings' back-up switch would show: a validated account and a
 	/// build with a Worker. The account travels with the decision, as it does from the switch.
 	private var backUpToggleAccount: String? {
-		guard Self.isSignedIn(appState.authState), appState.findingsSync.isCloudConfigured else { return nil }
-		return appState.authState.accountIdentifier
+		guard Self.isSignedIn(parts.authState), parts.findingsSync.isCloudConfigured else { return nil }
+		return parts.authState.accountIdentifier
 	}
 
 	func state() -> JSONValue {
-		var state: [String: JSONValue] = ["signedIn": .bool(Self.isSignedIn(appState.authState))]
+		var state: [String: JSONValue] = ["signedIn": .bool(Self.isSignedIn(parts.authState))]
 		if backUpToggleAccount != nil {
-			state["backUpEnabled"] = .bool(appState.findingsSync.isBackUpEnabled)
+			state["backUpEnabled"] = .bool(parts.findingsSync.isBackUpEnabled)
 		}
 		return .object(state)
 	}
 
 	func actions() -> [HeadlessAction] {
-		let appState = appState
+		let parts = parts
 		let presentation = presentation
 		var actions = [
 			HeadlessAction("close", summary: "Close the account screen.", navigatesTo: closeTarget()) { _ in
@@ -77,7 +77,7 @@ struct HeadlessAccountScreen: HeadlessScreen {
 				return nil
 			}
 		]
-		switch appState.authState.effectiveContext {
+		switch parts.authState.effectiveContext {
 		case .anonymous:
 			let email = ParameterSpec(
 				"email",
@@ -91,13 +91,13 @@ struct HeadlessAccountScreen: HeadlessScreen {
 				summary: "Sign in to a Clerk test account with its email code, creating it if new.",
 				parameters: [email, code]
 			) { arguments in
-				try await Self.signIn(arguments: arguments, appState: appState, presentation: presentation)
+				try await Self.signIn(arguments: arguments, parts: parts, presentation: presentation)
 			})
 		case .validated:
 			// No `navigatesTo`: signing out is async and can change whether a back-up question is
 			// pending, so the response reports where the app landed.
 			actions.append(HeadlessAction("sign-out", summary: "Sign out of the account.") { _ in
-				let authState = appState.authState
+				let authState = parts.authState
 				// The call the account screen's and the paywall's Sign Out make.
 				await authState.signOut()
 				// Settings dismisses the account UI on sign-out: the user is done with account things.
@@ -121,9 +121,9 @@ struct HeadlessAccountScreen: HeadlessScreen {
 	/// Settings' findings controls for the signed-in account: the back-up switch and Reset → Remove
 	/// Findings. Only while the account is validated, as the account's Settings is.
 	private func signedInFindingsActions() -> [HeadlessAction] {
-		guard Self.isSignedIn(appState.authState) else { return [] }
-		let findingsSync = appState.findingsSync
-		let findingRepository = appState.findingRepository
+		guard Self.isSignedIn(parts.authState) else { return [] }
+		let findingsSync = parts.findingsSync
+		let findingRepository = parts.findingRepository
 		var actions: [HeadlessAction] = []
 		if let account = backUpToggleAccount {
 			let enabledParameter = ParameterSpec("enabled", .boolean, summary: "Whether the account backs findings up.")
@@ -165,14 +165,14 @@ struct HeadlessAccountScreen: HeadlessScreen {
 	/// action returns once the app holds a validated account.
 	private static func signIn(
 		arguments: Arguments,
-		appState: AppState,
+		parts: HeadlessAppParts,
 		presentation: HeadlessPresentation
 	) async throws -> JSONValue? {
 		// The provider owns every refusal (mock auth, a non-test address, a production backend), so
 		// the rules live in one place; `headlessFailure(for:)` only chooses the error code.
 		let email = try arguments.string("email")
 		let code = try arguments.string("code")
-		let authState = appState.authState
+		let authState = parts.authState
 		do {
 			try await authState.signIn(emailAddress: email, code: code)
 		} catch {
