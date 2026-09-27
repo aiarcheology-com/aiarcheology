@@ -1,0 +1,27 @@
+{
+  "configurations" : [
+    {
+      "id" : "0984A1E0-5A2B-4C6D-8E9F-0984000000A1",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "selectedTests" : [
+        "HeadlessParityUITests"
+      ],
+      "target" : {
+        "containerPath" : "container:MLBrowser.xcodeproj",
+        "identifier" : "8AE0BC1F2A97B0B40086DDF9",
+        "name" : "MLBrowserUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

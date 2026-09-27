@@ -39,6 +39,9 @@
          <TestPlanReference
             reference = "container:MLBrowserTestPlan/MLBrowserUnitTestsHarmonize.xctestplan">
          </TestPlanReference>
+         <TestPlanReference
+            reference = "container:MLBrowserTestPlan/HeadlessParity.xctestplan">
+         </TestPlanReference>
       </TestPlans>
       <Testables>
          <TestableReference

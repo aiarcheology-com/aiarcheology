@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "name": "parity-onboarding",
+  "installations": {
+    "a": {
+      "launch": {
+        "flags": {
+          "isPaymentsEnabled": true,
+          "isFreeAccessPeriodEnabled": true,
+          "isAnalyticsEnabled": true,
+          "isCrossDeviceAnalyticsIdentityEnabled": false
+        }
+      }
+    }
+  },
+  "steps": [
+    { "name": "a fresh install opens on the free-access Welcome screen",
+      "wait": { "condition": "ready", "timeout": 120 }, "expect": [ { "route": "welcome" } ] },
+    { "name": "continue past the Welcome screen", "perform": { "action": "continue" }, "expect": [ { "route": "tour" } ] },
+    { "name": "skip the tour", "perform": { "action": "skip" }, "expect": [ { "route": "consent" } ] },
+    { "name": "decline analytics", "perform": { "action": "deny" }, "expect": [ { "route": "home" } ] }
+  ],
+  "teardown": []
+}

@@ -341,6 +341,10 @@
 		AA0982300000000000000002 /* HeadlessWalkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0982300000000000000001 /* HeadlessWalkTests.swift */; };
 		AA0984100000000000000002 /* AuthProviderSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0984100000000000000001 /* AuthProviderSelectionTests.swift */; };
 		AA0982400000000000000002 /* navigation-map.json in Resources */ = {isa = PBXBuildFile; fileRef = AA0982400000000000000001 /* navigation-map.json */; };
+		AA0984700000000000000008 /* parity-paywall-over-sheet.json in Resources */ = {isa = PBXBuildFile; fileRef = AA0984700000000000000007 /* parity-paywall-over-sheet.json */; };
+		AA0984700000000000000006 /* parity-save-finding.json in Resources */ = {isa = PBXBuildFile; fileRef = AA0984700000000000000005 /* parity-save-finding.json */; };
+		AA0984700000000000000004 /* parity-sign-in.json in Resources */ = {isa = PBXBuildFile; fileRef = AA0984700000000000000003 /* parity-sign-in.json */; };
+		AA0984700000000000000002 /* parity-onboarding.json in Resources */ = {isa = PBXBuildFile; fileRef = AA0984700000000000000001 /* parity-onboarding.json */; };
 		AB71300000000000000A002 /* FindingArchiveImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71300000000000000A001 /* FindingArchiveImport.swift */; };
 		AB71300000000000000B002 /* FindingArchiveImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71300000000000000B001 /* FindingArchiveImportTests.swift */; };
 		ABAA0115000000000000B001 /* AppMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A001 /* AppMessage.swift */; };
@@ -361,6 +365,7 @@
 		ABAA0115000000000000B016 /* MessageNotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A016 /* MessageNotificationCoordinator.swift */; };
 		ABAA0115000000000000B017 /* MessageNotificationPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A017 /* MessageNotificationPlannerTests.swift */; };
 		ABAA0115000000000000B018 /* AppMessagesUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A018 /* AppMessagesUITests.swift */; };
+		AA0984600000000000000002 /* HeadlessParityUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0984600000000000000001 /* HeadlessParityUITests.swift */; };
 		ABAA0650000000000000B001 /* FindingShareLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A001 /* FindingShareLink.swift */; };
 		ABAA0650000000000000B002 /* FindingShareLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A002 /* FindingShareLinkTests.swift */; };
 		ABAA0650000000000000B003 /* SharedFindingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A003 /* SharedFindingState.swift */; };
@@ -621,6 +626,7 @@
 		940A10042F0500010000A004 /* LocalizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTests.swift; sourceTree = "<group>"; };
 		940A10062F0500020000A006 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		940A100B2F0600010000A00B /* L10n+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "L10n+SwiftUI.swift"; sourceTree = "<group>"; };
+		AA0984800000000000000001 /* HeadlessParity.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = HeadlessParity.xctestplan; sourceTree = "<group>"; };
 		9415A1E82EE4D736000B65EB /* MLBrowserUITests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MLBrowserUITests.xctestplan; sourceTree = "<group>"; };
 		9415A1E92EE4D736000B65EB /* MLBrowserUnitTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MLBrowserUnitTests.xctestplan; sourceTree = "<group>"; };
 		941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAcquisitionCoordinator.swift; sourceTree = "<group>"; };
@@ -790,6 +796,10 @@
 		AA0982300000000000000001 /* HeadlessWalkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessWalkTests.swift; sourceTree = "<group>"; };
 		AA0984100000000000000001 /* AuthProviderSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthProviderSelectionTests.swift; sourceTree = "<group>"; };
 		AA0982400000000000000001 /* navigation-map.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "navigation-map.json"; path = "HeadlessScenarios/Map/navigation-map.json"; sourceTree = SOURCE_ROOT; };
+		AA0984700000000000000007 /* parity-paywall-over-sheet.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "parity-paywall-over-sheet.json"; path = "HeadlessScenarios/parity-paywall-over-sheet.json"; sourceTree = SOURCE_ROOT; };
+		AA0984700000000000000005 /* parity-save-finding.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "parity-save-finding.json"; path = "HeadlessScenarios/parity-save-finding.json"; sourceTree = SOURCE_ROOT; };
+		AA0984700000000000000003 /* parity-sign-in.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "parity-sign-in.json"; path = "HeadlessScenarios/parity-sign-in.json"; sourceTree = SOURCE_ROOT; };
+		AA0984700000000000000001 /* parity-onboarding.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "parity-onboarding.json"; path = "HeadlessScenarios/parity-onboarding.json"; sourceTree = SOURCE_ROOT; };
 		AB71300000000000000A001 /* FindingArchiveImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingArchiveImport.swift; sourceTree = "<group>"; };
 		AB71300000000000000B001 /* FindingArchiveImportTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingArchiveImportTests.swift; sourceTree = "<group>"; };
 		ABAA0115000000000000A001 /* AppMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMessage.swift; sourceTree = "<group>"; };
@@ -810,6 +820,7 @@
 		ABAA0115000000000000A016 /* MessageNotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageNotificationCoordinator.swift; sourceTree = "<group>"; };
 		ABAA0115000000000000A017 /* MessageNotificationPlannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MessageNotificationPlannerTests.swift; sourceTree = "<group>"; };
 		ABAA0115000000000000A018 /* AppMessagesUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppMessagesUITests.swift; sourceTree = "<group>"; };
+		AA0984600000000000000001 /* HeadlessParityUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessParityUITests.swift; sourceTree = "<group>"; };
 		ABAA0650000000000000A001 /* FindingShareLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingShareLink.swift; sourceTree = "<group>"; };
 		ABAA0650000000000000A002 /* FindingShareLinkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingShareLinkTests.swift; sourceTree = "<group>"; };
 		ABAA0650000000000000A003 /* SharedFindingState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedFindingState.swift; sourceTree = "<group>"; };
@@ -1517,6 +1528,11 @@
 				A35000000000000000000008 /* AnalyticsChoiceUITests.swift */,
 				AC0552000000000000A001 /* WebLoadFailureUITests.swift */,
 				ABAA0115000000000000A018 /* AppMessagesUITests.swift */,
+				AA0984600000000000000001 /* HeadlessParityUITests.swift */,
+				AA0984700000000000000007 /* parity-paywall-over-sheet.json */,
+				AA0984700000000000000005 /* parity-save-finding.json */,
+				AA0984700000000000000003 /* parity-sign-in.json */,
+				AA0984700000000000000001 /* parity-onboarding.json */,
 			);
 			path = MLBrowserUITests;
 			sourceTree = "<group>";
@@ -1568,6 +1584,7 @@
 		9415A1EA2EE4D736000B65EB /* MLBrowserTestPlan */ = {
 			isa = PBXGroup;
 			children = (
+				AA0984800000000000000001 /* HeadlessParity.xctestplan */,
 				94D567E22F0C0B8100514E08 /* MLBrowserUnitTestsHarmonize.xctestplan */,
 				9415A1E82EE4D736000B65EB /* MLBrowserUITests.xctestplan */,
 				9415A1E92EE4D736000B65EB /* MLBrowserUnitTests.xctestplan */,
@@ -1967,6 +1984,10 @@
 		8AE0BC1E2A97B0B40086DDF9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
+				AA0984700000000000000008 /* parity-paywall-over-sheet.json in Resources */,
+				AA0984700000000000000006 /* parity-save-finding.json in Resources */,
+				AA0984700000000000000004 /* parity-sign-in.json in Resources */,
+				AA0984700000000000000002 /* parity-onboarding.json in Resources */,
 			);
 		};
 		94D567CF2F0C0AEE00514E08 /* Resources */ = {
@@ -2561,6 +2582,7 @@
 				A35000000000000000000009 /* AnalyticsChoiceUITests.swift in Sources */,
 				AC0552000000000000B001 /* WebLoadFailureUITests.swift in Sources */,
 				ABAA0115000000000000B018 /* AppMessagesUITests.swift in Sources */,
+				AA0984600000000000000002 /* HeadlessParityUITests.swift in Sources */,
 			);
 		};
 		94D567CD2F0C0AEE00514E08 /* Sources */ = {

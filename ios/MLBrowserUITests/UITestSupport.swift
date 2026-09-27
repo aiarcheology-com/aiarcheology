@@ -235,6 +235,12 @@ enum AID {
 	static func appMessageAboutRow(_ messageID: String) -> String { "_AIA:Label.#\(messageID)AppMessageAboutRow" }
 	static func appMessageSettingsRow(_ messageID: String) -> String { "_AIA:Label.#\(messageID)AppMessageSettingsRow" }
 
+	// Screen probes for the parity test (AIA-0984) not mirrored above
+	static let webScreenContent = "_AIA:View.WebScreenContent"
+	static let settingsAccountProfile = "_AIA:View.SettingsAccountProfile"
+	static let signInSheetCancel = "_AIA:Button.SignInSheetCancel"
+	static let backupConsentConfirm = "_AIA:Button.BackupConsentConfirm"
+
 	// Location / address sheet
 	static let locationInput = "_AIA:TextField.LocationSheetInput"
 	static let locationDismiss = "_AIA:Button.LocationSheetDismiss"
