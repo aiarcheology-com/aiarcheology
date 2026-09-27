@@ -116,6 +116,7 @@ enum HeadlessNavigationMap {
 					TransitionDeclaration(action: "open-drawer", to: .drawer, condition: "always"),
 					TransitionDeclaration(action: "pick", to: .saveFinding, condition: "a detect-image result is held"),
 					moves(to: .paywall, "access ran out mid-session"),
+					moves(to: .consent, "a sign-in from the sign-in offer: its account has not answered the analytics question"),
 					moves(to: .backupConsent, "a sync found findings saved before this account signed in")
 				]
 			)
@@ -135,8 +136,10 @@ enum HeadlessNavigationMap {
 		case .account:
 			return RouteDeclaration(
 				route: route,
-				summary: "The account screen over the open menu: sign in, or the signed-in account.",
+				summary: "The account screen over the open menu: sign in, or the signed-in account. "
+					+ "Also the sign-in offer after the first signed-out save, menu closed.",
 				transitions: sheetExits(action: "close", over: .drawer) + [
+					TransitionDeclaration(action: "close", to: .home, condition: "the sign-in offer, menu closed"),
 					TransitionDeclaration(
 						action: "sign-in",
 						to: .drawer,
@@ -154,6 +157,11 @@ enum HeadlessNavigationMap {
 					),
 					TransitionDeclaration(
 						action: "sign-in",
+						to: .home,
+						condition: "signed in from the sign-in offer with the question answered (not exercised by a scenario)"
+					),
+					TransitionDeclaration(
+						action: "sign-in",
 						to: .paywall,
 						condition: "access ran out while the account screen was up: signing in closes it onto the wall "
 							+ "(verified only by the sign-in scenario)"
@@ -166,7 +174,9 @@ enum HeadlessNavigationMap {
 			return RouteDeclaration(
 				route: route,
 				summary: "The save-finding sheet for a picked detection.",
-				transitions: sheetExits(action: "cancel", over: .home) + sheetExits(action: "save", over: .home)
+				transitions: sheetExits(action: "cancel", over: .home) + sheetExits(action: "save", over: .home) + [
+					TransitionDeclaration(action: "save", to: .account, condition: "the first signed-out save offers sign-in")
+				]
 			)
 		case .findings:
 			return RouteDeclaration(

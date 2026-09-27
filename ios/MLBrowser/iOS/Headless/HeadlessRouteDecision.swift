@@ -30,7 +30,8 @@ enum HeadlessRoute: String, CaseIterable {
 	/// The app proper, drawer open.
 	case drawer
 	/// The account screen, over the open menu: sign in while signed out, the signed-in account
-	/// otherwise.
+	/// otherwise. Also the sign-in offer the web screen shows after the first signed-out save, over the
+	/// app proper with the menu closed.
 	case account
 	/// The save-finding sheet, over the app proper, for a picked detection.
 	case saveFinding = "save-finding"
@@ -70,6 +71,9 @@ struct HeadlessRouteDecision: Equatable {
 	/// cancelled yet. The web screen's `SaveFindingPresentation.isPresented`, the model the web
 	/// screen binds to.
 	var isSaveFindingPresented: Bool
+	/// Whether the web screen's sign-in offer sheet is up: `SaveFindingPresentation.isSignInOfferPresented`,
+	/// read from the shared model the web screen binds to.
+	var isSignInOfferPresented: Bool
 	/// Whether the findings list is up: the drawer's `DrawerPresentation.isFindingsPresented`, the
 	/// model the drawer view binds to. Only meaningful while the drawer is open.
 	var isFindingsPresented: Bool
@@ -102,7 +106,8 @@ struct HeadlessRouteDecision: Equatable {
 			isAskDeferred: isAskDeferred
 		)
 		// Consent outranking a sheet is #974's decision. No modelled flow reaches it: the one path
-		// that raises the question while a sheet is up, `sign-in`, closes the account screen first.
+		// that raises the question while a sheet is up, `sign-in`, closes the account screen (and the
+		// sign-in offer) first.
 		if consentDisplay != .content || asksOverContent {
 			return .consent
 		}
@@ -110,6 +115,11 @@ struct HeadlessRouteDecision: Equatable {
 		// The save sheet is modal over the web screen, so it covers the menu too.
 		if isSaveFindingPresented {
 			return .saveFinding
+		}
+		// The sign-in offer is the web screen's other sheet, raised once the save sheet has closed, so
+		// it never shares the screen with it. It is the account screen, without the menu.
+		if isSignInOfferPresented {
+			return .account
 		}
 
 		// The account screen and the findings list are raised from the drawer and never show
@@ -141,6 +151,7 @@ struct HeadlessRouteDecision: Equatable {
 	private var paywallOrWhatCoversIt: HeadlessRoute {
 		if display == .wallOverContent {
 			if isSaveFindingPresented { return .saveFinding }
+			if isSignInOfferPresented { return .account }
 			if isDrawerOpen && isAccountPresented { return .account }
 			if isDrawerOpen && isFindingsPresented { return .findings }
 		}
@@ -196,7 +207,10 @@ struct HeadlessRouteDecision: Equatable {
 		var next = self
 		switch sheet {
 		case .saveFinding: next.isSaveFindingPresented = false
-		case .account: next.isAccountPresented = false
+		case .account:
+			// Whichever of the two is up: the drawer's account screen or the web screen's sign-in offer.
+			next.isAccountPresented = false
+			next.isSignInOfferPresented = false
 		case .findings: next.isFindingsPresented = false
 		case .launching, .gate, .paywall, .welcome, .tour, .consent, .home, .drawer, .backupConsent: break
 		}

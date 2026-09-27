@@ -34,6 +34,14 @@ enum HeadlessReachableStates {
 		if decision.isSaveFindingPresented && decision.isDrawerOpen {
 			return "the save sheet is up over the open drawer"
 		}
+		// The sign-in offer follows a save, so the menu is closed, and it offers no way to the drawer.
+		if decision.isSignInOfferPresented && decision.isDrawerOpen {
+			return "the sign-in offer is up over the open drawer"
+		}
+		// It is raised once the save sheet has closed, and nothing raises the save sheet over it.
+		if decision.isSignInOfferPresented && decision.isSaveFindingPresented {
+			return "the sign-in offer and the save sheet are both up"
+		}
 		// The root gate raises a Welcome screen only while it shows the app proper, and lowers it as
 		// soon as it stops (`canPresentPromptChanged`); the headless application reconciles the gate
 		// before every decision.
@@ -43,12 +51,13 @@ enum HeadlessReachableStates {
 		// The hold and the wall come only before the app proper has ever shown
 		// (`RootGateDisplay.resolve`), so nothing of it has been opened or rendered yet.
 		let isSheetUp = decision.isAccountPresented || decision.isFindingsPresented || decision.isSaveFindingPresented
+			|| decision.isSignInOfferPresented
 		if (decision.display == .hold || decision.display == .wall)
 			&& (decision.isDrawerOpen || isSheetUp || decision.hasEverShownAnalyticsContent) {
 			return "the app proper is open behind a gate that has never shown it"
 		}
-		// A sheet is raised only from the app proper (`pick` on home, the drawer's `open-account` and
-		// `open-findings`), which a Welcome screen, the tour and the consent question cover. None of
+		// A sheet is raised only from the app proper (`pick` on home, `save` for the sign-in offer, the
+		// drawer's `open-account` and `open-findings`), which a Welcome screen, the tour and the consent question cover. None of
 		// them is raised over a sheet by a modelled flow: the tour is armed only at launch, and the one
 		// path that raises the question mid-session, `sign-in`, closes the account screen first.
 		let isConsentOnScreen = decision.analyticsDisplay != .content || AnalyticsChoiceDisplay.asksOverContent(
@@ -73,7 +82,7 @@ enum HeadlessReachableStates {
 			.introduction
 		]
 		let consents: [AnalyticsConsentPresentation] = [.pending, .ask, .resolved, .unavailable]
-		let flagCount = 9
+		let flagCount = 10
 		var states: [HeadlessRouteDecision] = []
 		for display in displays {
 			for welcome in welcomes {
@@ -92,6 +101,7 @@ enum HeadlessReachableStates {
 							hasEverShownAnalyticsContent: flag(4),
 							isAccountPresented: flag(5),
 							isSaveFindingPresented: flag(6),
+							isSignInOfferPresented: flag(9),
 							isFindingsPresented: flag(7),
 							isBackupConsentPending: flag(8)
 						)
@@ -193,13 +203,14 @@ final class HeadlessNavigationMapTests: XCTestCase {
 	///
 	/// `save` closes the save sheet like `cancel`, so its exits include every landing of
 	/// `route(afterClosing: .saveFinding)`. It may also land on `backup-consent` on its own account: the
-	/// sync the save starts can raise the back-up question.
+	/// sync the save starts can raise the back-up question. And on `account`: the first signed-out save
+	/// raises the sign-in offer.
 	func test_sheetExits_areExactlyWhereClosingASheetCanLand() {
 		let exits: [(sheet: HeadlessRoute, action: String, extra: Set<String>)] = [
 			(.account, "close", []),
 			(.findings, "close", []),
 			(.saveFinding, "cancel", []),
-			(.saveFinding, "save", [HeadlessRoute.backupConsent.rawValue])
+			(.saveFinding, "save", [HeadlessRoute.backupConsent.rawValue, HeadlessRoute.account.rawValue])
 		]
 		var produced: [HeadlessRoute: Set<String>] = [:]
 		var undeclared: Set<String> = []
@@ -240,7 +251,8 @@ final class HeadlessNavigationMapTests: XCTestCase {
 			+ "how it resolves depends on the account a sign-in brings.",
 		"consent --> drawer": "as consent --> home, over the open menu after a sign-in.",
 		"drawer --> consent": "as consent --> home: a sign-in's scope resolving to an unanswered question, once the "
-			+ "account screen has closed onto the drawer."
+			+ "account screen has closed onto the drawer.",
+		"home --> consent": "as drawer --> consent, once the sign-in offer has closed onto home."
 	]
 
 	/// Every state change the app makes by itself, from each reachable state it can happen in: access
@@ -274,6 +286,7 @@ final class HeadlessNavigationMapTests: XCTestCase {
 			// rendered, and the gate has never shown content. A back-up question may already be pending:
 			// sync starts once the store opens, not once `AppState` is ready.
 			let isSheetUp = state.isAccountPresented || state.isFindingsPresented || state.isSaveFindingPresented
+				|| state.isSignInOfferPresented
 			if state.isDrawerOpen == false && isSheetUp == false && state.hasEverShownAnalyticsContent == false
 				&& state.display != .wallOverContent {
 				var launching = state

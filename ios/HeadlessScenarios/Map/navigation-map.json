@@ -214,6 +214,10 @@
           "to" : "paywall"
         },
         {
+          "condition" : "a sign-in from the sign-in offer: its account has not answered the analytics question",
+          "to" : "consent"
+        },
+        {
           "condition" : "a sync found findings saved before this account signed in",
           "to" : "backup-consent"
         }
@@ -254,7 +258,7 @@
     },
     {
       "route" : "account",
-      "summary" : "The account screen over the open menu: sign in, or the signed-in account.",
+      "summary" : "The account screen over the open menu: sign in, or the signed-in account. Also the sign-in offer after the first signed-out save, menu closed.",
       "transitions" : [
         {
           "action" : "close",
@@ -272,6 +276,11 @@
           "to" : "paywall"
         },
         {
+          "action" : "close",
+          "condition" : "the sign-in offer, menu closed",
+          "to" : "home"
+        },
+        {
           "action" : "sign-in",
           "condition" : "signed in with the question answered (verified only by the sign-in scenario)",
           "to" : "drawer"
@@ -285,6 +294,11 @@
           "action" : "sign-in",
           "condition" : "findings saved before sign-in await the back-up question (verified only by the sign-in scenario)",
           "to" : "backup-consent"
+        },
+        {
+          "action" : "sign-in",
+          "condition" : "signed in from the sign-in offer with the question answered (not exercised by a scenario)",
+          "to" : "home"
         },
         {
           "action" : "sign-in",
@@ -336,6 +350,11 @@
           "action" : "save",
           "condition" : "access ran out while the sheet was up",
           "to" : "paywall"
+        },
+        {
+          "action" : "save",
+          "condition" : "the first signed-out save offers sign-in",
+          "to" : "account"
         }
       ]
     },

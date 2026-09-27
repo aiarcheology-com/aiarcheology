@@ -334,6 +334,7 @@
 		AA0970410000000000000002 /* HeadlessLaunchOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */; };
 		AA0970500000000000000002 /* HeadlessRouteDecisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970500000000000000001 /* HeadlessRouteDecisionTests.swift */; };
 		AA0984300000000000000002 /* DrawerPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0984300000000000000001 /* DrawerPresentationTests.swift */; };
+		AA0984500000000000000002 /* SaveFindingPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0984500000000000000001 /* SaveFindingPresentationTests.swift */; };
 		AA0975200000000000000002 /* StagedImageCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0975200000000000000001 /* StagedImageCaptureTests.swift */; };
 		AA0982100000000000000002 /* GateWorld.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0982100000000000000001 /* GateWorld.swift */; };
 		AA0982200000000000000002 /* HeadlessNavigationMapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0982200000000000000001 /* HeadlessNavigationMapTests.swift */; };
@@ -782,6 +783,7 @@
 		AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessLaunchOptionsTests.swift; sourceTree = "<group>"; };
 		AA0970500000000000000001 /* HeadlessRouteDecisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessRouteDecisionTests.swift; sourceTree = "<group>"; };
 		AA0984300000000000000001 /* DrawerPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerPresentationTests.swift; sourceTree = "<group>"; };
+		AA0984500000000000000001 /* SaveFindingPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveFindingPresentationTests.swift; sourceTree = "<group>"; };
 		AA0975200000000000000001 /* StagedImageCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StagedImageCaptureTests.swift; sourceTree = "<group>"; };
 		AA0982100000000000000001 /* GateWorld.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GateWorld.swift; sourceTree = "<group>"; };
 		AA0982200000000000000001 /* HeadlessNavigationMapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessNavigationMapTests.swift; sourceTree = "<group>"; };
@@ -1453,6 +1455,7 @@
 				AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */,
 				AA0970500000000000000001 /* HeadlessRouteDecisionTests.swift */,
 				AA0984300000000000000001 /* DrawerPresentationTests.swift */,
+				AA0984500000000000000001 /* SaveFindingPresentationTests.swift */,
 				AA0975200000000000000001 /* StagedImageCaptureTests.swift */,
 				AA0982100000000000000001 /* GateWorld.swift */,
 				AA0982200000000000000001 /* HeadlessNavigationMapTests.swift */,
@@ -2489,6 +2492,7 @@
 				AA0970410000000000000002 /* HeadlessLaunchOptionsTests.swift in Sources */,
 				AA0970500000000000000002 /* HeadlessRouteDecisionTests.swift in Sources */,
 				AA0984300000000000000002 /* DrawerPresentationTests.swift in Sources */,
+				AA0984500000000000000002 /* SaveFindingPresentationTests.swift in Sources */,
 				AA0975200000000000000002 /* StagedImageCaptureTests.swift in Sources */,
 				AA0982100000000000000002 /* GateWorld.swift in Sources */,
 				AA0982200000000000000002 /* HeadlessNavigationMapTests.swift in Sources */,

@@ -29,6 +29,7 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 			hasEverShownAnalyticsContent: false,
 			isAccountPresented: false,
 			isSaveFindingPresented: false,
+			isSignInOfferPresented: false,
 			isFindingsPresented: false,
 			isBackupConsentPending: false
 		)
@@ -183,6 +184,27 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 			$0.display = .wall
 		}.route, .paywall)
 		XCTAssertEqual(decision { $0.isSaveFindingPresented = true; $0.isReady = false }.route, .launching)
+	}
+
+	/// The web screen's sign-in offer is the account screen without the menu: it follows a save, over
+	/// the app proper with the drawer closed.
+	func test_theSignInOffer_isTheAccountScreen_withTheDrawerClosed() {
+		let content: (inout HeadlessRouteDecision) -> Void = {
+			$0.isTourPendingOrRunning = false
+			$0.consentPresentation = .resolved
+		}
+		let offer = decision { content(&$0); $0.isSignInOfferPresented = true }
+		XCTAssertEqual(offer.route, .account)
+		XCTAssertEqual(offer.route(afterClosing: .account), .home)
+
+		var pending = offer
+		pending.isBackupConsentPending = true
+		XCTAssertEqual(pending.route, .account, "a sheet outranks the back-up question")
+		XCTAssertEqual(pending.route(afterClosing: .account), .backupConsent)
+
+		let expired = decision { content(&$0); $0.display = .wallOverContent; $0.isSignInOfferPresented = true }
+		XCTAssertEqual(expired.route, .account, "a sheet presented before access ran out stays above the paywall")
+		XCTAssertEqual(expired.route(afterClosing: .account), .paywall)
 	}
 
 	func test_theFindingsList_showsOnlyOverTheOpenDrawer() {

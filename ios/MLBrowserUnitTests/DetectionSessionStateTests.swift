@@ -916,6 +916,16 @@ final class AppChromeStateTests: XCTestCase {
         XCTAssertEqual(sut.drawerPresentation.settings, .manageAccount)
     }
 
+    /// The sign-in offer is the web screen's sheet, not the drawer's: closing the drawer leaves it.
+    func testClosingTheDrawer_LeavesTheSignInOffer() {
+        sut.saveFindingPresentation.isSignInOfferPresented = true
+        sut.presentedSideMenu = true
+
+        sut.presentedSideMenu = false
+
+        XCTAssertTrue(sut.saveFindingPresentation.isSignInOfferPresented)
+    }
+
     // MARK: - Mode Tests
 
     /// `AppMode` has a single case since AIA-0898 removed the unreachable gallery, so there is no

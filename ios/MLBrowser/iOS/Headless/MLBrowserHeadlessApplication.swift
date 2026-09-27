@@ -202,6 +202,7 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 			hasEverShownAnalyticsContent: hasEverShownAnalyticsContent,
 			isAccountPresented: presentation.isAccountPresented,
 			isSaveFindingPresented: parts.chromeState.saveFindingPresentation.isPresented,
+			isSignInOfferPresented: parts.chromeState.saveFindingPresentation.isSignInOfferPresented,
 			isFindingsPresented: presentation.isFindingsPresented,
 			isBackupConsentPending: parts.findingsSync.backupConsentRequest != nil
 		)

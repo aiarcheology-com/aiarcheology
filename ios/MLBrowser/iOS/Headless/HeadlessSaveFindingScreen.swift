@@ -42,8 +42,9 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 		let title = ParameterSpec("title", .string, summary: "The finding's name; required, as the sheet requires it.")
 		let label = ParameterSpec("label", .string, required: false, summary: "The finding's label; empty by default.")
 		return [
-			// No `navigatesTo`: the save and the sync it awaits can raise the back-up question, so
-			// where the dismissal lands is known only afterwards. The response carries the route.
+			// No `navigatesTo`: the save can raise the sign-in offer, and the sync it awaits the
+			// back-up question, so where the dismissal lands is known only afterwards. The response
+			// carries the route.
 			HeadlessAction(
 				"save",
 				summary: "Save the picked detection as a finding, then wait for the sync it triggers.",
@@ -78,6 +79,15 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 			let nsError = error as NSError
 			throw HeadlessError(.actionFailed, "the finding could not be saved (\(nsError.domain) \(nsError.code))")
 		}
+		// What the web screen does once the save sheet has closed on a saved finding, through the same
+		// decision. The web screen asks the review prompt first and offers sign-in only when it stays
+		// quiet. The headless build records no review moment: it models the UI-test environment, where
+		// the review prompt is suppressed (`DependencyContainer.reviewPromptCoordinator`).
+		parts.chromeState.saveFindingPresentation.offerSignInIfEarned(
+			authContext: parts.authState.effectiveContext,
+			isTourActive: parts.tour.isActive,
+			settings: parts.settings
+		)
 		// The save sets off a sync cycle; waiting for it means an upload has landed or failed before
 		// the client reads the response. `syncNow()` returns the running cycle, queuing a follow-up if
 		// one was already under way, so this cannot finish on work that predates the save.

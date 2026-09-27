@@ -11,7 +11,8 @@ import Foundation
 import HeadlessKit
 
 /// The account screen over the open menu: sign in while anonymous; once validated, sign out and the
-/// findings controls the account's Settings shows.
+/// findings controls the account's Settings shows. Also the web screen's sign-in offer after the first
+/// signed-out save, the same `SignInSheet` with the menu closed.
 ///
 /// Reports only whether an account is signed in and its back-up switch — never the email address or
 /// the account id.
@@ -53,9 +54,13 @@ struct HeadlessAccountScreen: HeadlessScreen {
 		let parts = parts
 		// The drawer's sheets: the model the drawer view binds to.
 		let presentation = parts.chromeState.drawerPresentation
+		// The web screen's sign-in offer, the other way this screen is up: the model the web screen binds to.
+		let offer = parts.chromeState.saveFindingPresentation
 		var actions = [
 			HeadlessAction("close", summary: "Close the account screen.", navigatesTo: closeTarget()) { _ in
 				presentation.dismissAccount()
+				// The offer's `SignInSheet` Cancel.
+				offer.dismissSignInOffer()
 				return nil
 			}
 		]
@@ -73,7 +78,7 @@ struct HeadlessAccountScreen: HeadlessScreen {
 				summary: "Sign in to a Clerk test account with its email code, creating it if new.",
 				parameters: [email, code]
 			) { arguments in
-				try await Self.signIn(arguments: arguments, parts: parts, presentation: presentation)
+				try await Self.signIn(arguments: arguments, parts: parts, presentation: presentation, offer: offer)
 			})
 		case .validated:
 			// No `navigatesTo`: signing out is async and can change whether a back-up question is
@@ -84,6 +89,7 @@ struct HeadlessAccountScreen: HeadlessScreen {
 				await authState.signOut()
 				// Settings dismisses the account UI on sign-out: the user is done with account things.
 				presentation.dismissAccount()
+				offer.dismissSignInOffer()
 				// `signOut()` publishes `.signedOut` even when Clerk's request failed, because the app
 				// must not keep a user in who asked to leave. Automation must not call that a clean
 				// sign-out: the session would outlive the run.
@@ -148,7 +154,8 @@ struct HeadlessAccountScreen: HeadlessScreen {
 	private static func signIn(
 		arguments: Arguments,
 		parts: HeadlessAppParts,
-		presentation: DrawerPresentation
+		presentation: DrawerPresentation,
+		offer: SaveFindingPresentation
 	) async throws -> JSONValue? {
 		// The provider owns every refusal (mock auth, a non-test address, a production backend), so
 		// the rules live in one place; `headlessFailure(for:)` only chooses the error code.
@@ -169,8 +176,9 @@ struct HeadlessAccountScreen: HeadlessScreen {
 				"signed in, but the app did not reach a validated account in time (gate: \(authState.gate.headlessName))"
 			)
 		}
-		// `SignInSheet` dismisses itself once the gate is ready.
+		// `SignInSheet` dismisses itself once the gate is ready, from the menu or as the offer.
 		presentation.dismissAccount()
+		offer.dismissSignInOffer()
 		return ["signedIn": .bool(isSignedIn(authState))]
 	}
 
