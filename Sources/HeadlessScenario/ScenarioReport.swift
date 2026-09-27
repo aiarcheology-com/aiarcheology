@@ -64,6 +64,12 @@ public struct ScenarioReport: Codable, Sendable, Equatable {
 			step.failures.map { "\(step.location) (best effort): \($0)" }
 		}
 	}
+
+	/// Teardown steps not sent because their `unless` held: they had nothing to do. Listed apart
+	/// from passes and warnings, so a skip is visible without being mistaken for either.
+	public var skipped: [String] {
+		teardown.filter(\.skipped).map { "\($0.location) (skipped: unless held)" }
+	}
 }
 
 public struct StepReport: Codable, Sendable, Equatable {
@@ -81,9 +87,12 @@ public struct StepReport: Codable, Sendable, Equatable {
 	public let response: JSONValue?
 	/// A best-effort teardown step: its failures are warnings, not a failed run.
 	public let bestEffort: Bool
+	/// A teardown step whose `unless` held, so it was not sent. It has no failures.
+	public let skipped: Bool
 
 	/// Whether the step itself did what it asserted. A best-effort step can fail without failing
-	/// the run; ``ScenarioReport/passed`` makes that distinction, not this.
+	/// the run; ``ScenarioReport/passed`` makes that distinction, not this. A skipped step has no
+	/// failures, so it counts as passed here; `skipped` tells the two apart.
 	public var passed: Bool { failures.isEmpty }
 
 	/// `steps[3] "enable the model"` — how a failure message says where it happened.
@@ -97,10 +106,10 @@ public struct StepReport: Codable, Sendable, Equatable {
 	}
 
 	private enum CodingKeys: String, CodingKey {
-		case phase, index, name, installation, command, route, failures, response, bestEffort
+		case phase, index, name, installation, command, route, failures, response, bestEffort, skipped
 	}
 
-	/// Reads reports written before `bestEffort` existed as not best effort, like `Step` does.
+	/// Reads reports written before `bestEffort` or `skipped` existed as neither, like `Step` does.
 	public init(from decoder: Decoder) throws {
 		let container = try decoder.container(keyedBy: CodingKeys.self)
 		phase = try container.decode(String.self, forKey: .phase)
@@ -112,6 +121,7 @@ public struct StepReport: Codable, Sendable, Equatable {
 		failures = try container.decode([String].self, forKey: .failures)
 		response = try container.decodeIfPresent(JSONValue.self, forKey: .response)
 		bestEffort = try container.decodeIfPresent(Bool.self, forKey: .bestEffort) ?? false
+		skipped = try container.decodeIfPresent(Bool.self, forKey: .skipped) ?? false
 	}
 
 	public init(
@@ -123,7 +133,8 @@ public struct StepReport: Codable, Sendable, Equatable {
 		route: Route?,
 		failures: [String],
 		response: JSONValue? = nil,
-		bestEffort: Bool = false
+		bestEffort: Bool = false,
+		skipped: Bool = false
 	) {
 		self.phase = phase
 		self.index = index
@@ -134,5 +145,6 @@ public struct StepReport: Codable, Sendable, Equatable {
 		self.failures = failures
 		self.response = response
 		self.bestEffort = bestEffort
+		self.skipped = skipped
 	}
 }

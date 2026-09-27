@@ -105,6 +105,8 @@ public struct ScenarioRunner: Sendable {
 		var failures: [String] = []
 		var response: Response?
 		var installationName: String?
+		// Why `unless` could not be evaluated, when it could not: kept only if the step then fails.
+		var unlessDoubt: String?
 		let command = Self.commandName(step)
 		do {
 			let installation = try run.scenario.installation(for: step, label: label)
@@ -137,6 +139,28 @@ public struct ScenarioRunner: Sendable {
 				substitution: substitution
 			)
 			guard undeclared.isEmpty else { throw UndeclaredRoutes(failures: undeclared) }
+			if let unless = step.unless {
+				let evaluation = await Self.evaluate(
+					unless,
+					driver: driver,
+					known: run.declaredRoutes[installation],
+					substitution: substitution
+				)
+				if evaluation.holds {
+					return StepReport(
+						phase: phase,
+						index: index,
+						name: step.name,
+						installation: installation,
+						command: Self.commandName(step),
+						route: evaluation.route,
+						failures: [],
+						bestEffort: step.bestEffort,
+						skipped: true
+					)
+				}
+				unlessDoubt = evaluation.doubt
+			}
 			let sent = try await driver.send(command)
 			response = sent
 			failures = try Self.check(step.expect, against: sent, substitution: substitution)
@@ -154,6 +178,9 @@ public struct ScenarioRunner: Sendable {
 			failures.append(contentsOf: error.failures)
 		} catch {
 			failures.append("\(error)")
+		}
+		if let unlessDoubt, failures.isEmpty == false {
+			failures.append("unless could not be evaluated, so the step ran: \(unlessDoubt)")
 		}
 		return StepReport(
 			phase: phase,
@@ -211,6 +238,10 @@ public struct ScenarioRunner: Sendable {
 		return try references.compactMap { reference in
 			let resolved: String?
 			switch reference.kind {
+			case .unless:
+				// Judged by `evaluate`, where an undeclared route means the step runs: a predicate must
+				// never be the reason a cleanup was not attempted.
+				return nil
 			case .goto, .expect:
 				resolved = try substitution.apply(to: reference.route)
 			case .wait:
@@ -220,6 +251,49 @@ public struct ScenarioRunner: Sendable {
 			}
 			return resolved.flatMap { RouteCheck.problem(kind: reference.kind, route: $0, known: known) }
 		}
+	}
+
+	/// The outcome of a step's `unless`: whether every expectation held on a fresh read, the route
+	/// read, and — when it could not be decided — why.
+	private struct UnlessEvaluation {
+		var holds = false
+		var route: Route?
+		var doubt: String?
+	}
+
+	/// Reads the installation's state and checks `unless` against it. Anything short of every
+	/// expectation holding — a failed read, an error response, an unresolved `${…}`, a route the app
+	/// does not declare — does not hold, so the step runs as written: a skipped cleanup is silent,
+	/// a failed one is reported.
+	private static func evaluate(
+		_ unless: [Expectation],
+		driver: any HeadlessDriving,
+		known: [Route]?,
+		substitution: Substitution
+	) async -> UnlessEvaluation {
+		var evaluation = UnlessEvaluation()
+		do {
+			if let known, known.isEmpty == false {
+				for named in unless.compactMap(RouteCheck.namedRoute) {
+					let resolved = try substitution.apply(to: named.rawValue)
+					if let problem = RouteCheck.problem(kind: .unless, route: resolved, known: known) {
+						evaluation.doubt = problem
+						return evaluation
+					}
+				}
+			}
+			let read = try await driver.send(.state)
+			evaluation.route = read.route
+			let failures = try check(unless, against: read, substitution: substitution)
+			evaluation.holds = failures.isEmpty
+			if read.error != nil {
+				evaluation.doubt = failures.joined(separator: "; ")
+			}
+		} catch {
+			evaluation.holds = false
+			evaluation.doubt = "\(error)"
+		}
+		return evaluation
 	}
 
 	/// Every failed expectation, not just the first: one run shows everything that is wrong.
@@ -250,6 +324,9 @@ public struct ScenarioRunner: Sendable {
 		case .route(let route):
 			let expected = Route(try substitution.apply(to: route.rawValue))
 			return response.route == expected ? nil : "expected route '\(expected)', got '\(response.route)'"
+		case .notRoute(let route):
+			let excluded = Route(try substitution.apply(to: route.rawValue))
+			return response.route != excluded ? nil : "expected a route other than '\(excluded)'"
 		case .equals(let pointer, let value):
 			let expected = try substitution.apply(to: value)
 			let actual = document.value(at: pointer)

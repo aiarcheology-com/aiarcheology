@@ -39,7 +39,7 @@ public struct Scenario: Codable, Sendable, Equatable {
 	public let installations: [String: Installation]
 	public let steps: [Step]
 	/// Runs after `steps` whatever happened in them — to clean up anything a run created outside the
-	/// installations, such as server-side data. Only these steps may be `bestEffort`.
+	/// installations, such as server-side data. Only these steps may be `bestEffort` or have `unless`.
 	public let teardown: [Step]
 
 	public init(
@@ -76,6 +76,13 @@ public struct Scenario: Codable, Sendable, Equatable {
 				debugDescription: "steps[\(index)]: bestEffort is only allowed in teardown"
 			))
 		}
+		// The same for `unless`: a skippable step would be an assertion that may never be made.
+		if let index = steps.firstIndex(where: { $0.unless != nil }) {
+			throw DecodingError.dataCorrupted(.init(
+				codingPath: container.codingPath + [CodingKeys.steps],
+				debugDescription: "steps[\(index)]: unless is only allowed in teardown"
+			))
+		}
 	}
 
 	/// Reads and validates a scenario file.
@@ -103,6 +110,9 @@ public struct Scenario: Codable, Sendable, Equatable {
 				guard step.bestEffort == false || phase == "teardown" else {
 					throw ScenarioError("\(label): bestEffort is only allowed in teardown")
 				}
+				if let unless = step.unless {
+					try Self.validate(unless: unless, of: step, phase: phase, label: label)
+				}
 				_ = try installation(for: step, label: label)
 				for (variable, pointer) in step.capture {
 					guard pointer.isEmpty || pointer.hasPrefix("/") else {
@@ -116,10 +126,35 @@ public struct Scenario: Codable, Sendable, Equatable {
 		}
 	}
 
+	/// `unless` guards a cleanup that can have nothing to do: a teardown `perform`, whose skip leaves
+	/// nothing behind that a later step depends on.
+	private static func validate(unless: [Expectation], of step: Step, phase: String, label: String) throws {
+		guard phase == "teardown" else {
+			throw ScenarioError("\(label): unless is only allowed in teardown")
+		}
+		guard step.perform != nil else {
+			throw ScenarioError("\(label): unless is only allowed on a perform step")
+		}
+		// All of nothing holds, so an empty list would skip the step every time.
+		guard unless.isEmpty == false else {
+			throw ScenarioError("\(label): unless needs at least one expectation")
+		}
+		// A skipped step captures nothing, and a later `${…}` would then fail far from the cause.
+		guard step.capture.isEmpty else {
+			throw ScenarioError("\(label): a step with unless cannot capture")
+		}
+		for expectation in unless {
+			if case .error = expectation {
+				throw ScenarioError("\(label): unless cannot expect an error: the state it reads never is one")
+			}
+			try validate(expectation, label: label)
+		}
+	}
+
 	private static func validate(_ expectation: Expectation, label: String) throws {
 		let pointer: String
 		switch expectation {
-		case .route, .error:
+		case .route, .notRoute, .error:
 			return
 		case .equals(let target, _), .exists(let target), .absent(let target):
 			pointer = target
@@ -203,6 +238,15 @@ public struct Step: Codable, Sendable, Equatable {
 	/// For cleanup that must be attempted from wherever a failed run stopped, where the same step
 	/// has nothing to do after a successful one — signing out, say, when the steps already did.
 	public let bestEffort: Bool
+	/// Teardown `perform` only: skip the step when every one of these holds for the installation's
+	/// state, read just before the step. The step is then reported as skipped — neither a pass that
+	/// did something nor a warning. On any doubt (a failed read, an unresolved `${…}`, an undeclared
+	/// route) the step runs as written.
+	///
+	/// For cleanup that has nothing to do after a successful run, where doing it anyway would only
+	/// fail: `sign-out` unless no account is present. A predicate that fails safe on a typo — `equals`,
+	/// `notRoute` — keeps a misspelling from skipping the step; a negated `matches` pattern does not.
+	public let unless: [Expectation]?
 
 	public init(
 		name: String? = nil,
@@ -213,7 +257,8 @@ public struct Step: Codable, Sendable, Equatable {
 		relaunch: Bool = false,
 		expect: [Expectation] = [],
 		capture: [String: String] = [:],
-		bestEffort: Bool = false
+		bestEffort: Bool = false,
+		unless: [Expectation]? = nil
 	) {
 		self.name = name
 		self.on = on
@@ -224,6 +269,7 @@ public struct Step: Codable, Sendable, Equatable {
 		self.expect = expect
 		self.capture = capture
 		self.bestEffort = bestEffort
+		self.unless = unless
 	}
 
 	var actionCount: Int {
@@ -231,7 +277,7 @@ public struct Step: Codable, Sendable, Equatable {
 	}
 
 	private enum CodingKeys: String, CodingKey, CaseIterable {
-		case name, on, goto, perform, wait, relaunch, expect, capture, bestEffort
+		case name, on, goto, perform, wait, relaunch, expect, capture, bestEffort, unless
 	}
 
 	public init(from decoder: Decoder) throws {
@@ -246,6 +292,7 @@ public struct Step: Codable, Sendable, Equatable {
 		expect = try container.decodeIfPresent([Expectation].self, forKey: .expect) ?? []
 		capture = try container.decodeIfPresent([String: String].self, forKey: .capture) ?? [:]
 		bestEffort = try container.decodeIfPresent(Bool.self, forKey: .bestEffort) ?? false
+		unless = try container.decodeIfPresent([Expectation].self, forKey: .unless)
 	}
 
 	public func encode(to encoder: Encoder) throws {
@@ -259,6 +306,7 @@ public struct Step: Codable, Sendable, Equatable {
 		if expect.isEmpty == false { try container.encode(expect, forKey: .expect) }
 		if capture.isEmpty == false { try container.encode(capture, forKey: .capture) }
 		if bestEffort { try container.encode(true, forKey: .bestEffort) }
+		try container.encodeIfPresent(unless, forKey: .unless)
 	}
 }
 
@@ -315,6 +363,9 @@ public struct Wait: Codable, Sendable, Equatable {
 public enum Expectation: Codable, Sendable, Equatable {
 	/// `{"route": "drawer"}`
 	case route(Route)
+	/// `{"notRoute": "save-finding"}` — the app is on any route but this one. The route is checked
+	/// against the app's declared routes like `route`'s, so a misspelling fails instead of holding.
+	case notRoute(Route)
 	/// `{"equals": {"pointer": "/state/count", "value": 3}}`
 	case equals(pointer: String, value: JSONValue)
 	/// `{"exists": "/state/models/0"}`
@@ -328,7 +379,7 @@ public enum Expectation: Codable, Sendable, Equatable {
 	case error(HeadlessError.Code)
 
 	private enum CodingKeys: String, CodingKey, CaseIterable {
-		case route, equals, exists, absent, matches, error
+		case route, notRoute, equals, exists, absent, matches, error
 	}
 
 	private struct PointerValue: Codable {
@@ -385,6 +436,8 @@ public enum Expectation: Codable, Sendable, Equatable {
 		switch key {
 		case .route:
 			self = .route(try container.decode(Route.self, forKey: .route))
+		case .notRoute:
+			self = .notRoute(try container.decode(Route.self, forKey: .notRoute))
 		case .equals:
 			let body = try container.decode(PointerValue.self, forKey: .equals)
 			self = .equals(pointer: body.pointer, value: body.value)
@@ -405,6 +458,8 @@ public enum Expectation: Codable, Sendable, Equatable {
 		switch self {
 		case .route(let route):
 			try container.encode(route, forKey: .route)
+		case .notRoute(let route):
+			try container.encode(route, forKey: .notRoute)
 		case .equals(let pointer, let value):
 			try container.encode(PointerValue(pointer: pointer, value: value), forKey: .equals)
 		case .exists(let pointer):

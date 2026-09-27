@@ -18,8 +18,10 @@ public enum RouteCheck {
 		case goto
 		/// `"wait": {"condition": "route", "arguments": {"route": "home"}}`
 		case wait
-		/// `"expect": [{"route": "home"}]`
+		/// `"expect": [{"route": "home"}]`, or `{"notRoute": "home"}`
 		case expect
+		/// `"unless": [{"notRoute": "save-finding"}]`, or `{"route": …}`
+		case unless
 	}
 
 	/// One route a step names, as written.
@@ -106,12 +108,23 @@ public enum RouteCheck {
 		   let route = wait.arguments["route"]?.stringValue {
 			references.append(Reference(location: location, kind: .wait, route: route))
 		}
-		for expectation in step.expect {
-			if case .route(let route) = expectation {
-				references.append(Reference(location: location, kind: .expect, route: route.rawValue))
+		for (kind, expectations) in [(Kind.expect, step.expect), (Kind.unless, step.unless ?? [])] {
+			for route in expectations.compactMap(namedRoute) {
+				references.append(Reference(location: location, kind: kind, route: route.rawValue))
 			}
 		}
 		return references
+	}
+
+	/// The route an expectation names. Exhaustive, so a new expectation that names a route cannot be
+	/// left out of the check by accident.
+	static func namedRoute(_ expectation: Expectation) -> Route? {
+		switch expectation {
+		case .route(let route), .notRoute(let route):
+			return route
+		case .equals, .exists, .absent, .matches, .error:
+			return nil
+		}
 	}
 
 	private static func phases(of scenario: Scenario) -> [(String, [Step])] {

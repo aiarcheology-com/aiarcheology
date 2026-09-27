@@ -112,6 +112,34 @@ final class RouteCheckTests: XCTestCase {
 		XCTAssertEqual(launcher.sent, [])
 	}
 
+	/// AIA-0990: `notRoute` names a route as `route` does, in `expect` and in a teardown's `unless`,
+	/// so a misspelling fails the check instead of always holding.
+	func testATypoInNotRouteFailsTheCheckInExpectAndInUnless() async throws {
+		let json = #"""
+		{
+		  "schemaVersion": 1, "name": "not-route-typos",
+		  "installations": { "a": {} },
+		  "steps": [ { "name": "look", "expect": [ { "notRoute": "drawr" } ] } ],
+		  "teardown": [ { "name": "close", "perform": { "action": "close" }, "unless": [ { "notRoute": "drawre" } ] } ]
+		}
+		"""#
+		let checked = try scenario(json)
+		XCTAssertEqual(RouteCheck.references(in: checked).map(\.kind), [.expect, .unless])
+		XCTAssertEqual(RouteCheck.failures(in: checked, known: CounterApp.declaredMap.routeNames), [
+			#"steps[0] "look": expect route 'drawr' is not a route of this app; did you mean 'drawer'? \#(known)"#,
+			#"teardown[0] "close": unless route 'drawre' is not a route of this app; did you mean 'drawer'? \#(known)"#
+		])
+
+		let launcher = FakeLauncher()
+		let report = try await run(json, launcher: launcher)
+		let setup = try XCTUnwrap(report.setupFailure)
+		XCTAssertTrue(setup.contains("unless route 'drawre'"), setup)
+		XCTAssertTrue(report.steps.isEmpty, "no step runs")
+		// Teardown still runs, and a predicate the app cannot judge never skips a cleanup.
+		XCTAssertEqual(report.teardown.map(\.skipped), [false])
+		XCTAssertEqual(launcher.sent, ["a perform"])
+	}
+
 	func testEveryTypoIsReportedAtOnceAndATeardownTypoFailsWithoutBeingSent() async throws {
 		let launcher = FakeLauncher()
 		let report = try await run(#"""

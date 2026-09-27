@@ -34,6 +34,7 @@ final class FakeLauncher: InstallationLauncher {
 		}
 		let app = CounterApp()
 		app.count = relaunch ? storedCounts[installation, default: 0] : (options.value(at: "/start")?.intValue ?? 0)
+		app.extraContext = options.value(at: "/context")?.objectValue ?? [:]
 		if undeclaredInstallations.contains(installation) {
 			app.navigationMap = .empty
 		} else if relaunch == false, let map = firstLaunchMaps[installation] {
@@ -228,6 +229,7 @@ final class ScenarioTests: XCTestCase {
 		"""#
 		let step = try HeadlessCoding.makeDecoder().decode(StepReport.self, from: Data(old.utf8))
 		XCTAssertFalse(step.bestEffort)
+		XCTAssertFalse(step.skipped)
 		XCTAssertFalse(step.passed)
 	}
 
@@ -367,7 +369,11 @@ final class ScenarioTests: XCTestCase {
 				Step(wait: Wait(condition: "route", arguments: ["route": "home"], timeout: 1)),
 				Step(relaunch: true, expect: [.equals(pointer: "/a", value: 1), .exists(pointer: "/b"), .absent(pointer: "/c"), .matches(pointer: "/d", regex: "x")])
 			],
-			teardown: [Step(perform: Perform(action: "close")), Step(goto: "home", bestEffort: true)]
+			teardown: [
+				Step(perform: Perform(action: "close")),
+				Step(goto: "home", bestEffort: true),
+				Step(perform: Perform(action: "close"), expect: [.notRoute("home")], bestEffort: true, unless: [.notRoute("drawer"), .equals(pointer: "/context/count", value: 0)])
+			]
 		)
 		let data = try HeadlessCoding.makeEncoder().encode(original)
 		XCTAssertEqual(try HeadlessCoding.makeDecoder().decode(Scenario.self, from: data), original)

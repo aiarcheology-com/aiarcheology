@@ -46,8 +46,11 @@ final class CounterApp: HeadlessApplication {
 		isDrawerOpen ? DrawerScreen(app: self) : HomeScreen(app: self)
 	}
 
+	/// Context members a test adds, as an app reports state the fake does not model.
+	var extraContext: [String: JSONValue] = [:]
+
 	func context() -> JSONValue {
-		["count": .number(Double(count)), "drawerOpen": .bool(isDrawerOpen)]
+		.object(["count": .number(Double(count)), "drawerOpen": .bool(isDrawerOpen)].merging(extraContext) { _, extra in extra })
 	}
 
 	func waitConditions() -> [WaitCondition] {
