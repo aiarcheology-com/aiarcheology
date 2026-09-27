@@ -230,7 +230,7 @@ final class FreeAccessUITests: UITestCase {
 	}
 
 	/// Continue is the hand-over: it takes the Welcome screen down and starts the tour that was
-	/// armed at launch. Without `SubscriptionGateView.startTourIfClear()` the tour would stay armed
+	/// armed at launch. Without `SubscriptionGateCoordinator.startTourIfClear()` the tour would stay armed
 	/// forever, and with it — via `TourState.isPendingOrRunning` — the analytics consent question.
 	func testWelcomeContinue_handsTheScreenToTheTour() {
 		launchFirstRunWithTourArmed()

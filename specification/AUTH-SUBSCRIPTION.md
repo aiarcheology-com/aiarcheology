@@ -88,8 +88,9 @@ or would land on top of the tour that Welcome's Continue just started. The inten
 **Welcome → tour → consent**.
 
 Deciding to run the tour and actually running it are two steps, which is what makes that order hold.
-`Appstate.initialize()` *arms* the tour before `isReady`; `SubscriptionGateView.startTourIfClear()`
-starts what was armed, once nothing is owed the screen ahead of it. Arming from a view would arm
+`Appstate.initialize()` *arms* the tour before `isReady`; `SubscriptionGateCoordinator.startTourIfClear()`,
+run by `SubscriptionGateView`'s handlers (AIA-0976 moved the gate's orchestration into that coordinator,
+which the headless build runs too), starts what was armed, once nothing is owed the screen ahead of it. Arming from a view would arm
 something nobody would act on — the gate's `onChange(initial: true)` handlers are what start the
 tour, and nothing re-fires them later — and `AnalyticsChoiceGate` reads "armed **or** running", not
 "running", so a launch that resumes over an unacknowledged Welcome screen holds the consent question

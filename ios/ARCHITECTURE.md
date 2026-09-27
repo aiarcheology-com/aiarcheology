@@ -74,7 +74,9 @@ SubscriptionGateView      (AIA-0343 — the app root since AIA-0536)
 Signing in is **not** a gate: `AuthGateView` was the outermost layer until AIA-0536, and the view
 itself has since been deleted — sign-in is a contextual sheet (`SignInSheet`). Access is `payments surface off || StoreKit entitled
 || app-managed free window open`, resolved in that order by `RootGateDisplay`
-(`UI/Subscription/SubscriptionGateView.swift`). The free window (AIA-0556) is a 14-day period owned
+(`UI/Subscription/SubscriptionGateView.swift`). Which Welcome screen goes up, and when the tour may
+start, is `SubscriptionGateCoordinator` (same folder, AIA-0976): the view holds one per window and
+calls it from its `onChange` handlers, and the headless build runs the same object. The free window (AIA-0556) is a 14-day period owned
 by `FreeAccessWindow` / `FreeAccessAnchorService` / `FreeAccessState`, anchored in UserDefaults and
 mirrored into the Keychain so a reinstall resumes it rather than restarting it. `AUTH-SUBSCRIPTION.md`
 holds the full order, the state table and the edge cases.

@@ -71,7 +71,7 @@ A scenario is a JSON file. Decoding is strict: an unknown key anywhere is an err
 {
   "schemaVersion": 1,
   "name": "enable-a-model",
-  "installations": { "a": { "launch": { "mockSubscription": "subscribed" } } },
+  "installations": { "a": { "launch": { "flags": { "isPaymentsEnabled": false } } } },
   "steps": [
     { "on": "a", "wait": { "condition": "route", "arguments": { "route": "home" }, "timeout": 60 } },
     { "on": "a", "goto": "drawer", "capture": { "model": "/state/models/0/id" } },
@@ -104,9 +104,18 @@ xcodebuild build -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -configu
 - **Same app.** `AppEntry` launches `MLBrowserHeadless` instead of `MLBrowser`. It keeps the same app delegate, bootstrap and `AppRuntime`, and the same composition root. Only the views are replaced: the one window shows a status line, and a `HeadlessServer` takes their place.
 - **Real composition.** The headless build uses what a Debug build uses: Clerk's development instance, the development findings backend, ConfigCat's Test environment, and persistent storage. Each simulator device is one installation of the app.
 - **Launch options.** Pass them as launch arguments. Each is echoed in the handshake `metadata` and in `context`.
-  - `-mockSubscription subscribed|notSubscribed` is needed because `simctl launch` never applies the scheme's StoreKit configuration, so real StoreKit is always "not subscribed" there.
-  - `-headlessFlag key=true|false` is repeatable and pins a feature flag over the live provider. A scenario pins every flag it asserts on, because the Test environment can change under it.
+  - `-headlessFlag key=true|false` is repeatable and pins a feature flag over the live provider (below).
   - `-headlessStagedImage <name>` is repeatable and names an image the launcher staged (below). Only the name is passed, never a host path, and `launchOptions.stagedImages` echoes it.
+  - `-mockSubscription subscribed|notSubscribed` replaces StoreKit with the mock. It is for manual `up` only, and **no committed scenario may use it**: `HeadlessScenarioPolicyTests` in the ProjectTool tests fails if one does.
+    - Why it still exists: without it the headless build runs real StoreKit (AIA-0976). Under `simctl launch`, with no scheme StoreKit configuration, StoreKit reaches the sandbox, loads the real product and reads as not subscribed. A *subscribed* install would need a real sandbox purchase, which automation must not make, and there is no supported way to apply a `.storekit` file to a `simctl`-launched app. The mock is the only way to look at a subscribed install headlessly.
+    - How to remove it: when a subscribed state can be reached without a purchase, for example through a supported StoreKit test configuration for launched apps.
+- **Flag pins (AIA-0976).** Every scenario pins the four **entry flags**, which decide how a fresh install gets into the app. Everything else follows ConfigCat's Test environment unless a scenario is about it. `HeadlessScenarioPolicyTests` fails a scenario that leaves an entry flag unpinned.
+  - `isPaymentsEnabled`: launch-captured. A fresh install has no mirrored value, so its first launch captures whatever the snapshot holds at that moment (the compiled default `false`, or the fetched Test value), and its relaunch captures the mirrored Test value. Unpinned, one scenario could meet the introduction on its first launch and the paywall or a free-access window after `relaunch`.
+  - `isFreeAccessPeriodEnabled`: launch-captured, with the same first-launch race. It decides between the free-access Welcome screen and the wall.
+  - `isAnalyticsEnabled`: live, not captured. A Test-environment change mid-soak removes the consent question from every scenario at once.
+  - `isCrossDeviceAnalyticsIdentityEnabled` (`false`, except `sign-in-sign-out`): with it on, the consent question waits for Clerk's session check, so `deny` right after `skip` races Clerk. Only `sign-in-sign-out` pins it on, because it asserts the account's own question.
+  - Evidence for the race: on 2026-09-27 an unpinned fresh install on `aia-headless-b` reported `isPaymentsSurfaceEnabled: true, freeAccess: open`, the Test values, while the compiled default for payments is `false`. Which one a first launch captures depends on fetch timing.
+  - A dedicated ConfigCat environment for automation would let the entry pins go. That needs a new environment and SDK key, so it is deferred to the owner.
 - **Staged images (AIA-0975).** A scenario's `launch` block may list repository files under `"stage": ["ios/…/image.png", …]`, and `headless.sh up` takes `--image <path>` (repeatable) for the same thing.
   - The launcher accepts only a relative path that resolves inside the repository, with symlinks resolved on both sides and compared by path component. The file must be a regular `.png`, `.jpg` or `.jpeg`, and no two entries may share a name.
   - Before every launch it copies each file into `Library/Application Support/Headless/Staged/<name>` in the app's data container.
@@ -120,12 +129,29 @@ xcodebuild build -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -configu
   1. The build's validation phase refuses `headless` outside `Debug` with the `development` backend.
   2. The server refuses to start unless the backend is `development`, and the in-app backend switch is disabled.
   3. The handshake reports `backendEnvironment`, so a launcher can refuse anything else.
-- **Screens.** Every screen is derived from `AppState`, using the pure deciders the gate views read (`RootGateDisplay`, `WelcomePresentation`, `TourStartDecision`, `AnalyticsChoiceDisplay`). Each action calls the method the UI calls.
+- **Real by default (AIA-0976).** A fresh install enters the way a new user does: real StoreKit, the real Keychain free-access anchor, the free-access Welcome screen, the tour, then the consent question.
+  - **The Keychain anchor.** The headless build uses `KeychainFreeAccessAnchorService`, as a user's install does. A throwaway probe build (never committed) read and wrote the production anchor item at launch on `aia-headless-a`, iOS 27.0 simulator, Xcode 27.2 beta:
+
+    | Step | Anchor at the next launch |
+    |-|-|
+    | Relaunch | present |
+    | Uninstall, reinstall | present: it survives app deletion |
+    | `simctl erase` | absent: the device's keychain database is deleted |
+    | `simctl keychain <udid> reset` on the booted device | absent |
+
+    So erase alone makes a fresh install fresh on 27.0. The launcher also runs `simctl keychain <udid> reset` after booting a fresh install, as a guard for a runtime that might keep it.
+  - **Gaps, not substitutions.** The headless build does not render the paywall or Welcome views, so it does not do what only they do:
+    - It loads no products (`loadProducts()` runs from `WelcomeView` and `PaywallView`), so no scenario depends on the sandbox network.
+    - It sends no `paywall.shown`. `welcome.shown` is still sent, from `FreeAccessState.markPromptShown()`.
+    - It does not re-check the entitlement on foreground, which `SubscriptionGateView` does on `willEnterForeground`. A headless run never goes to the background between commands, and a `relaunch` is a cold launch that checks it.
+- **Screens.** Every screen is derived from `AppState`. The root gate's part comes from `SubscriptionGateCoordinator`, the object `SubscriptionGateView` itself runs on: the headless build owns one, as it has one window, and runs its Debug-only `reconcile()` on each render once `AppState` is ready, which does what the view's `onChange` handlers would. The analytics gate's part comes from `AnalyticsChoiceDisplay`. Each action calls the method the UI calls.
 
   | Route | Shown when | Actions |
   |-|-|-|
   | `launching` | `AppState` is not ready | none |
-  | `gate` | the paywall, the free-access hold, or a Welcome screen, which the headless build cannot drive yet | none; `state` shows the gate inputs |
+  | `gate` | the hold while the free-access window is still being read | none; `state` shows the gate inputs |
+  | `paywall` | the wall, or the wall over the app after access ran out mid-session | none: purchasing needs a real App Store purchase, and restoring would raise the App Store sign-in. `state` is `{isSubscribed, expired}` |
+  | `welcome` | the root gate raised a Welcome screen: the free-access offer, or the payments-off introduction | `continue`, with no declared destination: the response's `route` is the tour when one is owed, otherwise the consent question or `home`. `state` is `{offer: freeAccess, days}` or `{offer: introduction}` |
   | `tour` | the onboarding tour is armed or running | `skip` |
   | `consent` | the analytics question is on screen, or held (`state.pending`) | `allow`, `deny` (none while pending) |
   | `home` | the app proper, menu closed | `open-drawer` → `drawer` |
@@ -137,7 +163,7 @@ xcodebuild build -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -configu
 
   `home` also offers `detect-image image=<staged name>` when the launch staged an image, and `pick detection=<index>` → `save-finding` while a detection pass is held. `drawer` also offers `open-findings` → `findings`.
 
-  `drawer` state lists the menu's own models, from the same fetch as the view: `{id, name, type, enabled, canEnable, loaded}`. `account` state is `{signedIn}`, plus `backUpEnabled` while signed in with a Worker. The wait conditions are `ready`, `model-loaded id=…`, `signed-in`, `backed-up id=…`, `finding-present id=…`, `finding-absent id=…`, and the built-in `route route=…`. `context.gate` reports the gate inputs with every response. `context.auth` reports `gate`, `usesRealAuth`, `signedIn` (a validated account) and `accountPresent` (Clerk itself still holds a user, so a sign-out can be proven to have ended the session). It never reports the email address or the account id.
+  `drawer` state lists the menu's own models, from the same fetch as the view: `{id, name, type, enabled, canEnable, loaded}`. `account` state is `{signedIn}`, plus `backUpEnabled` while signed in with a Worker. The wait conditions are `ready`, `model-loaded id=…`, `signed-in`, `backed-up id=…`, `finding-present id=…`, `finding-absent id=…`, and the built-in `route route=…`. `context.gate` reports the gate inputs with every response, including the root gate's `display` (`content`, `wall`, `wallOverContent`, `hold`) and the raised `welcome` (`freeAccess`, `introduction` or null). `context.analytics.enabled` reports whether analytics is actually on: the user's answer under the live flag. `context.auth` reports `gate`, `usesRealAuth`, `signedIn` (a validated account) and `accountPresent` (Clerk itself still holds a user, so a sign-out can be proven to have ended the session). It never reports the email address or the account id.
 - **Signing in.** `sign-in` goes through Clerk's own API against the development instance: an email-code sign-in, or a sign-up first when Clerk does not know the address, then the gate refresh the app's sign-in sheet runs (see [AUTH-SUBSCRIPTION.md](AUTH-SUBSCRIPTION.md#signing-in-without-the-ui-debug-only-aia-0974)). No auth mock is involved. The action returns once the app holds a validated account, then closes the account screen as the sheet does; the account's own analytics question may then take the screen. `sign-out` calls `AuthState.signOut()`, the paywall's call, and closes the account screen as Settings does. It fails with `actionFailed` if Clerk still holds the session afterwards: the app signs a user out locally even when Clerk's request fails, but automation must not treat that as a clean sign-out.
   - It refuses to run on mock auth (a Debug build without Clerk keys) with `actionFailed`, so a keyless build cannot pass a sign-in scenario without reaching Clerk. `context.auth.usesRealAuth` says which a run got.
   - It accepts only **Clerk test addresses** at the reserved domain, `<name>+clerk_test@example.com`, and refuses anything else with `invalidArgument` before any request. It also refuses to run unless the build points at the development backend. Clerk's test mode sends these no email and accepts the fixed code `424242` ([Clerk docs](https://clerk.com/docs/guides/development/testing/test-emails-and-phones)). A failure reports Clerk's error code only, never text that could echo the address.
@@ -181,13 +207,16 @@ xcodebuild build -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -configu
     - **Never call the Worker's account-erase route (`DELETE /v1/me/data`) from automation or by hand.** It fences the Clerk user id permanently, and every later write for it fails with `410 account_deleting`.
 - **Tooling.** `scripts/headless.sh` wraps `ProjectTool headless`:
   - `build`
-  - `up --state a [--mock-subscription subscribed] [--flag key=true…] [--image <repository path>…]`
+  - `up --state a [--flag key=true…] [--image <repository path>…] [--mock-subscription subscribed]` (the mock is manual-only; see Launch options)
   - `exec --state a <command>`, for example `exec --state a perform enable id=…`
   - `down --state a` and `reset --state a`
   - `test [files…]`, which runs every `ios/HeadlessScenarios/*.json` by default
 
-  It creates and uses only simulators named `aia-headless-<state>` and never touches any other device. It builds into `.deriveddata-headless`, so the app module `unittest.sh` reuses is not rebuilt. A scenario's first launch of an installation erases its device, making it a fresh install. A freshly erased device can refuse `simctl install` and `simctl launch` for a few seconds after it reports booted, so the tool retries each up to five times, two seconds apart, and prints every retry. `relaunch` keeps its data and does not reinstall. Reinstalling moves the app's data container, and preference writes the system has not yet flushed would be lost with the move. A relaunch quits the app the way a force-quit does, so a preference written in the moment before it can still be lost, as on a device.
-- **Things a run cannot control:** remote `appMessages` can change during a run, and a live message may raise a notification-authorization alert on the device. Neither may be asserted. Choosing `allow` at analytics consent sends TelemetryDeck signals, which the SDK marks as test-mode in Debug.
+  It creates and uses only simulators named `aia-headless-<state>` and never touches any other device. It builds into `.deriveddata-headless`, so the app module `unittest.sh` reuses is not rebuilt. A scenario's first launch of an installation erases its device and resets its Keychain, making it a fresh install. A freshly erased device can refuse `simctl install` and `simctl launch` for a few seconds after it reports booted, so the tool retries each up to five times, two seconds apart, and prints every retry. `relaunch` keeps its data and does not reinstall. Reinstalling moves the app's data container, and preference writes the system has not yet flushed would be lost with the move. A relaunch quits the app the way a force-quit does, so a preference written in the moment before it can still be lost, as on a device.
+- **Things a run cannot control:** remote `appMessages` can change during a run, and a live message may raise a notification-authorization alert on the device. Neither may be asserted.
+- **Analytics signals from automation.** `consent-allow-persists` chooses `allow`, so every run of it sends the buffered funnel (`free_access.window_granted`, `welcome.shown`, `free_access.continue_tapped`, onboarding) to TelemetryDeck: anonymous, about ten runs per soak. The SDK marks every signal from a Debug build as test mode, and there is one app ID. This is kept on purpose, not substituted: blanking the app ID would let the scenario pass with analytics never activating. If the owner prefers no test signals at all, `TELEMETRYDECK_APP_ID=` in `HeadlessWorkspace.build()` is the alternative, and the scenario would then need a store-level check instead of `context.analytics.enabled`.
+- **Error codes.** `error-contract` provokes, against the real app, `unknownAction`, `unreachable`, `unknownCondition`, `timeout`, `actionFailed` (`detect-image` on the committed text file `ios/HeadlessScenarios/Fixtures/not-an-image.png`) and `invalidArgument`, and checks that the app still works afterwards. `malformedRequest`, `unknownCommand`, `unauthorized` and `protocolMismatch` cannot be written in a scenario; the HeadlessKit tests cover them.
+- **Soak notes.** A `relaunch` right after a preference write can lose it, as a force-quit can on a device. The sensitive step is in `onboarding-interrupted`: a relaunch right after `skip`, whose write is `TourState.markSeen()`. If it is lost, that installation shows `tour` where `consent` is expected.
 
 ## Compatibility
 
