@@ -31,6 +31,42 @@ final class HeadlessDeviceTests: XCTestCase {
 	}
 }
 
+final class HeadlessStagingDirectoryTests: XCTestCase {
+
+	private let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("HeadlessStagingDirectoryTests-\(UUID().uuidString)")
+
+	override func tearDownWithError() throws {
+		try? FileManager.default.removeItem(at: scratch) // Some tests never create it.
+	}
+
+	func testTheDirectoryIsCreatedInsideTheContainer() throws {
+		let container = scratch.appendingPathComponent("container")
+		try FileManager.default.createDirectory(at: container, withIntermediateDirectories: true)
+		let directory = try HeadlessDevice.stagingDirectory(in: container)
+		XCTAssertEqual(directory.lastPathComponent, "Staged")
+		var isDirectory: ObjCBool = false
+		XCTAssertTrue(FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory) && isDirectory.boolValue)
+	}
+
+	func testASymlinkedAncestorThatLeavesTheContainerIsRefused() throws {
+		let container = scratch.appendingPathComponent("container")
+		let elsewhere = scratch.appendingPathComponent("elsewhere")
+		try FileManager.default.createDirectory(at: container.appendingPathComponent("Library/Application Support"), withIntermediateDirectories: true)
+		try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+		try FileManager.default.createSymbolicLink(
+			at: container.appendingPathComponent("Library/Application Support/Headless"),
+			withDestinationURL: elsewhere
+		)
+		XCTAssertThrowsError(try HeadlessDevice.stagingDirectory(in: container)) { error in
+			XCTAssertTrue(error is HeadlessDevice.StagingOutsideContainer, "\(error)")
+		}
+		XCTAssertFalse(
+			FileManager.default.fileExists(atPath: elsewhere.appendingPathComponent("Staged").path),
+			"nothing may be created outside the container before the refusal"
+		)
+	}
+}
+
 final class HeadlessLaunchArgumentsTests: XCTestCase {
 
 	/// A scratch tree per test: `<scratch>/repo` is the repository, `<scratch>/outside` is not.
@@ -168,6 +204,9 @@ final class HeadlessLaunchArgumentsTests: XCTestCase {
 	func testASymlinkInsideTheRepositoryCannotReachOutsideIt() throws {
 		try FileManager.default.createSymbolicLink(at: repository.appendingPathComponent("escape"), withDestinationURL: outside)
 		try FileManager.default.createSymbolicLink(at: repository.appendingPathComponent("images/leak.png"), withDestinationURL: outside.appendingPathComponent("secret.png"))
+		// A link inside the repository whose name says image but whose target is not one.
+		try FileManager.default.createSymbolicLink(at: repository.appendingPathComponent("images/notes.png"), withDestinationURL: repository.appendingPathComponent("images/notes.txt"))
+		XCTAssertEqual(rejection(["stage": ["images/notes.png"]]), "stage entry 'images/notes.png' must be a .png, .jpg or .jpeg image")
 		for root in [repository, scratch.appendingPathComponent("repo/.")] {
 			XCTAssertEqual(rejection(["stage": ["escape/secret.png"]], root: root), "stage entry 'escape/secret.png' resolves outside the repository")
 			XCTAssertEqual(rejection(["stage": ["images/leak.png"]], root: root), "stage entry 'images/leak.png' resolves outside the repository")

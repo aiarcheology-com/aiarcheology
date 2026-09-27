@@ -25,6 +25,33 @@ public enum HeadlessDevice {
 	/// it from here: its own sandbox, reachable without any network download.
 	public static let stagedImagesPath = "Library/Application Support/Headless/Staged"
 
+	public struct StagingOutsideContainer: Error, CustomStringConvertible {
+		public var description: String {
+			"the staged-images directory resolves outside the app's data container; refusing to write there"
+		}
+	}
+
+	/// Creates the staged-images directory in `container` and returns it, refusing one that a
+	/// symlink (the directory or any ancestor inside the container) redirects elsewhere. The
+	/// launcher replaces files there, so a redirect would let it overwrite a host file.
+	public static func stagingDirectory(in container: URL) throws -> URL {
+		// One level at a time, each checked before anything is created under it, so a redirected
+		// ancestor is refused before the launcher writes a single directory outside the container.
+		var expected = container.standardizedFileURL.resolvingSymlinksInPath().pathComponents
+		var directory = container
+		for component in stagedImagesPath.split(separator: "/").map(String.init) {
+			directory = directory.appendingPathComponent(component, isDirectory: true)
+			expected.append(component)
+			if FileManager.default.fileExists(atPath: directory.path) == false {
+				try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+			}
+			guard directory.standardizedFileURL.resolvingSymlinksInPath().pathComponents == expected else {
+				throw StagingOutsideContainer()
+			}
+		}
+		return directory
+	}
+
 	public struct InvalidName: Error, CustomStringConvertible {
 		public let name: String
 		public var description: String {
@@ -160,7 +187,11 @@ public enum HeadlessLaunchArguments {
 		guard name.hasPrefix("-") == false else {
 			throw Invalid(description: "stage entry '\(entry)' has a name starting with '-'")
 		}
-		guard ["png", "jpg", "jpeg"].contains(URL(fileURLWithPath: name).pathExtension.lowercased()) else {
+		// Both the name the app sees and the file actually copied: a link named `.png` may point at
+		// anything.
+		let imageExtensions = ["png", "jpg", "jpeg"]
+		guard imageExtensions.contains(URL(fileURLWithPath: name).pathExtension.lowercased()),
+			  imageExtensions.contains(candidate.pathExtension.lowercased()) else {
 			throw Invalid(description: "stage entry '\(entry)' must be a .png, .jpg or .jpeg image")
 		}
 		return StagedImage(source: candidate, name: name)

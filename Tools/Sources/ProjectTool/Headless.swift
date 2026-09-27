@@ -280,6 +280,13 @@ struct HeadlessSimulator {
 			try terminate()
 			throw ValidationError("the headless app reports backend \(hello.metadata["backendEnvironment"]?.jsonString ?? "none"); refusing to drive anything but development")
 		}
+		// `headless.sh build` leaves Sentry off (see `HeadlessWorkspace.build`); a build made any other
+		// way, or before that, would send the failures scenarios provoke to Sentry and on to GitHub.
+		guard hello.metadata["crashReporting"] == false else {
+			await client.close()
+			try terminate()
+			throw ValidationError("the headless app reports crashReporting \(hello.metadata["crashReporting"]?.jsonString ?? "unknown"); rebuild with `scripts/headless.sh build`")
+		}
 		return client
 	}
 
@@ -313,8 +320,7 @@ struct HeadlessSimulator {
 	private func stage(_ images: [StagedImage], udid: String) async throws {
 		guard images.isEmpty == false else { return }
 		let container = try await settling("get_app_container") { try dataContainer(udid: udid) }
-		let directory = container.appendingPathComponent(HeadlessDevice.stagedImagesPath, isDirectory: true)
-		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+		let directory = try HeadlessDevice.stagingDirectory(in: container)
 		for image in images {
 			let destination = directory.appendingPathComponent(image.name)
 			do {
