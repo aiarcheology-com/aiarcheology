@@ -25,7 +25,7 @@
     }
   },
   "steps": [
-    { "on": "a", "name": "a launches on real auth, with the fixture staged and crash reporting off (no account analytics question: cross-device identity pinned off)",
+    { "on": "a", "name": "a launches on real auth with the fixture staged (no account analytics question: cross-device identity pinned off)",
       "wait": { "condition": "ready", "timeout": 120 },
       "expect": [
         { "route": "tour" },
