@@ -10,8 +10,8 @@ import HeadlessKit
 import XCTest
 @testable import ML_Browser
 
-/// The headless build's launch arguments. Compiled into every Debug build so this suite can run in
-/// the ordinary unit-test host; only the headless build ever reads them at launch.
+/// Headless mode's launch arguments. Compiled into every Debug build so this suite can run in
+/// the ordinary unit-test host; only headless mode ever reads them at launch.
 final class HeadlessLaunchOptionsTests: XCTestCase {
 
 	func test_readsTheSubscriptionMockAndRepeatedFlagPins_ignoringOtherArguments() {

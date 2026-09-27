@@ -399,7 +399,8 @@ enum AppInterface: Equatable {
 		case "ui":
 			return .success(.ui)
 		case "headless":
-			if environment["XCTestConfigurationFilePath"] != nil || environment["UI_TESTING"] != nil {
+			// The markers `isRunningUnderAnyTests` and `isRunningUITests` read, read the same way.
+			if environment["XCTestConfigurationFilePath"] != nil || environment["UI_TESTING"] == "1" {
 				return .failure(Refusal(message: "-interface headless in a test host: turn off the scheme's -interface argument before running tests"))
 			}
 			return .success(.headless)

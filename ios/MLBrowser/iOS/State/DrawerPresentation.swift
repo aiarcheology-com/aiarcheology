@@ -21,7 +21,7 @@ enum SettingsPresentation: Hashable, Identifiable {
 
 /// The sheets the drawer presents: the findings list, the sign-in sheet and Settings.
 ///
-/// One model shared by the SwiftUI drawer, which binds its `.sheet`s to it, and the headless build,
+/// One model shared by the SwiftUI drawer, which binds its `.sheet`s to it, and headless mode,
 /// which reports and drives the same flags (AIA-0984). It used to be `@State` in `DrawerContent`,
 /// with a headless copy beside it; one owner means the two builds cannot drift.
 ///

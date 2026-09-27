@@ -20,9 +20,9 @@ final class AppChromeState: ObservableObject {
 	/// controller. Chrome → detection is one-directional (detection never references chrome).
 	let detectionState: DetectionSessionState
 
-	/// The drawer's sheets, shared by the drawer view and the headless build (AIA-0984).
+	/// The drawer's sheets, shared by the drawer view and headless mode (AIA-0984).
 	let drawerPresentation = DrawerPresentation()
-	/// The web screen's save-finding sheet, shared by the web screen and the headless build (AIA-0984).
+	/// The web screen's save-finding sheet, shared by the web screen and headless mode (AIA-0984).
 	let saveFindingPresentation = SaveFindingPresentation()
 
 	@Published var mode = AppMode.web

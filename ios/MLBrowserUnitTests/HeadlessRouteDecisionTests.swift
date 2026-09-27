@@ -8,7 +8,7 @@
 import XCTest
 @testable import ML_Browser
 
-/// Which screen the headless build reports, from the inputs the root gates read.
+/// Which screen headless mode reports, from the inputs the root gates read.
 ///
 /// The baseline is the state a fresh install reaches once its Welcome screen is gone: the root gate
 /// shows the app proper, the first-run tour is running, and consent is unanswered. The root gate's

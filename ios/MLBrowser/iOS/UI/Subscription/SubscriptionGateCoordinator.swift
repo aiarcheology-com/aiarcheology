@@ -11,7 +11,7 @@ import Observation
 /// What the root gate *does*, as opposed to what it draws: which Welcome screen is up, when it goes
 /// up and comes down, and when the onboarding tour may start (AIA-0556, AIA-0567, AIA-0955).
 ///
-/// Moved here from ``SubscriptionGateView`` unchanged (AIA-0976) so that the headless build runs
+/// Moved here from ``SubscriptionGateView`` unchanged (AIA-0976) so that headless mode runs
 /// the same orchestration instead of restating it. The view still owns *when* each step runs — its
 /// `onChange` handlers call the matching method below, one method per handler — and it still owns
 /// everything drawn.

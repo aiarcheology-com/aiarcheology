@@ -12,8 +12,8 @@ import ClerkKit
 /// the Clerk environment that observer needs.
 ///
 /// The initial session check and the re-validation on every foreground moved to ``AppRuntime``
-/// (AIA-0970), so the headless build drives auth exactly as the app does. The observer stays here:
-/// it follows Clerk through the SwiftUI environment. The headless build, which signs in
+/// (AIA-0970), so headless mode drives auth exactly as the app does. The observer stays here:
+/// it follows Clerk through the SwiftUI environment. Headless mode, which signs in
 /// programmatically (AIA-0974), refreshes auth itself after each sign-in and sign-out, and notices an
 /// out-of-band change only at the next foreground re-validation.
 ///

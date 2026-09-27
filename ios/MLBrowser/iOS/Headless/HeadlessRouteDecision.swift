@@ -8,7 +8,7 @@
 #if DEBUG
 import Foundation
 
-/// The screens the headless build can report.
+/// The screens headless mode can report.
 enum HeadlessRoute: String, CaseIterable {
 	/// `AppState` is not ready yet.
 	case launching

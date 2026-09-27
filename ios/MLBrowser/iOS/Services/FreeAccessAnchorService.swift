@@ -38,7 +38,7 @@ protocol FreeAccessAnchorDurableStore {
 /// The service name and account are injectable because Keychain items deliberately outlive app
 /// deletion. A test that wrote under the production name would pass once and then fail on every
 /// later run on that simulator, forever. (`simctl erase` does clear them: measured on the iOS 27.0
-/// simulator in AIA-0976, which is what lets the headless build use this store.)
+/// simulator in AIA-0976, which is what lets headless mode use this store.)
 ///
 /// `kSecAttrAccessibleAfterFirstUnlock` is load-bearing rather than decorative: the anchor is read
 /// during launch, which can happen before the user has unlocked the device, and `WhenUnlocked`

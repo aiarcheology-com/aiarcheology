@@ -9,6 +9,61 @@ import Foundation
 import HeadlessKit
 import HeadlessScenario
 
+/// The Debug app's build that headless mode runs from (AIA-0991): `scripts/unittest.sh`'s build,
+/// argument for argument, so the two share one product and neither recompiles or relinks the other's.
+///
+/// `unittestSharedArguments` restates `unittest.sh`'s `XCODEBUILD_ARGS` without its action,
+/// destination and DerivedData; a ProjectTool test reads the script and fails when the two differ.
+public enum HeadlessBuild {
+
+	/// The arguments `unittest.sh` passes to `xcodebuild test` that `headless.sh build` passes too.
+	public static let unittestSharedArguments = [
+		"-workspace", "ios/MLBrowser.xcworkspace",
+		"-scheme", "MLBrowser",
+		"AIA_INCLUDE_TEST_FIXTURES=YES",
+		"-testPlan", "MLBrowserUnitTests",
+		"-skipPackagePluginValidation",
+		"-skipMacroValidation"
+	]
+
+	/// `unittest.sh`'s DerivedData when `DERIVED_DATA_PATH` is unset or empty, relative to the
+	/// repository root.
+	public static let defaultDerivedData = ".deriveddata"
+
+	/// The full `xcodebuild` invocation.
+	///
+	/// `build-for-testing`, the build half of `unittest.sh`'s `test`, not `build`: the test build links
+	/// the root package's products into the app as frameworks it shares with the test bundle, a
+	/// plain `build` links them statically, and each relinks the other's app (measured on AIA-0991).
+	/// `-configuration Debug` is what the scheme's test action uses anyway; `-quiet` affects output
+	/// only. The destination is named by id, as in `unittest.sh`, so one architecture is compiled.
+	public static func xcodebuildArguments(destinationUDID: String, derivedData: String, packageCache: String?) -> [String] {
+		var arguments = ["build-for-testing"] + unittestSharedArguments + [
+			"-configuration", "Debug",
+			"-destination", "platform=iOS Simulator,id=\(destinationUDID)",
+			"-derivedDataPath", derivedData,
+			"-quiet"
+		]
+		if let packageCache, packageCache.isEmpty == false {
+			arguments += ["-clonedSourcePackagesDirPath", packageCache]
+		}
+		return arguments
+	}
+
+	/// The running `xcodebuild` processes that use `derivedData`, from `ps -axo command=` output.
+	/// Two builds into one DerivedData fail or corrupt it, and an install during a build can copy a
+	/// half-written app, so the tool refuses to build or install while one runs.
+	public static func buildsUsing(derivedData: String, psOutput: String) -> [String] {
+		psOutput.split(separator: "\n").map(String.init).filter { line in
+			let tokens = line.split(separator: " ").map(String.init)
+			guard let executable = tokens.first, executable == "xcodebuild" || executable.hasSuffix("/xcodebuild") else { return false }
+			guard let flag = tokens.firstIndex(of: "-derivedDataPath"), tokens.index(after: flag) < tokens.endIndex else { return false }
+			return URL(fileURLWithPath: tokens[tokens.index(after: flag)]).standardizedFileURL.path
+				== URL(fileURLWithPath: derivedData).standardizedFileURL.path
+		}
+	}
+}
+
 /// The simulator devices the headless tooling may touch — only its own.
 ///
 /// Agents share this machine's simulators. Every device the tool creates, boots, erases or shuts
@@ -17,7 +72,7 @@ import HeadlessScenario
 public enum HeadlessDevice {
 
 	public static let namePrefix = "aia-headless-"
-	/// The app's bundle identifier; the headless build shares it with the app.
+	/// The app's bundle identifier; headless mode shares it with the app.
 	public static let bundleIdentifier = "com.aiarcheology.ios"
 	/// Where the app publishes its endpoint, relative to its data container.
 	public static let endpointPath = "Library/Application Support/Headless/endpoint.json"

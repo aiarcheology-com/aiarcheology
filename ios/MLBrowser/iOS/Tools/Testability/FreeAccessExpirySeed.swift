@@ -16,7 +16,7 @@ import Foundation
 /// real machinery does the rest — `FreeAccessState.scheduleExpiry()` arms its wake-up at
 /// `expiresAt`, and the re-evaluation it runs closes access for the root gate.
 ///
-/// Used by `UITestLaunchConfiguration.freeAccessEndsInSeconds` and by the headless build's
+/// Used by `UITestLaunchConfiguration.freeAccessEndsInSeconds` and by headless mode's
 /// `-headlessFreeAccessEndsIn`. `#if DEBUG` like ``EphemeralFreeAccessAnchorStore``: Release neither
 /// contains nor honours it.
 ///

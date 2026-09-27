@@ -8,7 +8,7 @@
 import XCTest
 @testable import ML_Browser
 
-/// The one-time sign-in offer after a save, decided once for the web screen and the headless build.
+/// The one-time sign-in offer after a save, decided once for the web screen and headless mode.
 @MainActor
 final class SaveFindingPresentationTests: XCTestCase {
 

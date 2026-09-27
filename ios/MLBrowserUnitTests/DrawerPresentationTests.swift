@@ -8,7 +8,7 @@
 import XCTest
 @testable import ML_Browser
 
-/// The drawer's sheets, shared by the drawer view and the headless build. Closing them with the
+/// The drawer's sheets, shared by the drawer view and headless mode. Closing them with the
 /// drawer is `AppChromeState`'s job and is covered in `AppChromeStateTests`.
 @MainActor
 final class DrawerPresentationTests: XCTestCase {

@@ -287,7 +287,7 @@ final class SubscriptionGateCoordinatorTests: XCTestCase {
 		XCTAssertNil(gate.coordinator.presentedPrompt)
 	}
 
-	// MARK: - The headless build's reconcile()
+	// MARK: - Headless mode's reconcile()
 
 	/// What a flow leaves behind, for comparing two ways of driving it.
 	private struct Outcome: Equatable {
@@ -412,7 +412,7 @@ final class SubscriptionGateCoordinatorTests: XCTestCase {
 		}
 	}
 
-	/// A Welcome screen that is up stays up however often the headless build reconciles.
+	/// A Welcome screen that is up stays up however often headless mode reconciles.
 	func testReconcile_isIdempotent_withAWelcomeScreenUp() async throws {
 		let world = try await makeWorld()
 		let gate = world.coordinator()

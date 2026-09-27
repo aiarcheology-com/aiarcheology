@@ -147,7 +147,7 @@ class DependencyContainer {
     /// The real-auth request is weighed **first**: evaluated after the keyless-clone rule, a
     /// missing key would quietly pick the mock and the test would pass on the wrong provider. A
     /// request outside a UI test is ignored (``UITestLaunchConfiguration/requestsRealAuth`` is
-    /// already false there). The development-only rule matches the headless build's: automation
+    /// already false there). The development-only rule matches headless mode's: automation
     /// signs in with `+clerk_test` addresses, which exist on the development instance only.
     nonisolated static func authProviderSelection(
         isRunningUITests: Bool,
@@ -244,7 +244,7 @@ class DependencyContainer {
     /// `authProvider`'s mock: the markers that select it are launch-controlled, so keeping the type
     /// out of shipping binaries is what actually guarantees a Release build reaches the Keychain.
     ///
-    /// The headless build uses the Keychain (AIA-0976). Its fresh installs erase the device, and
+    /// Headless mode uses the Keychain (AIA-0976). Its fresh installs erase the device, and
     /// `simctl erase` clears the item (measured on the iOS 27.0 simulator); the launcher also resets
     /// the device's Keychain in case another runtime keeps it.
     lazy var freeAccessDurableStore: FreeAccessAnchorDurableStore = {

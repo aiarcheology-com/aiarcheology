@@ -687,3 +687,80 @@ final class HeadlessScenarioPolicyTests: XCTestCase {
 		}
 	}
 }
+
+/// `headless.sh build` is `unittest.sh`'s build (AIA-0991): if the two argument lists drift, each
+/// recompiles or relinks the other's app, or they build into different DerivedData.
+final class HeadlessBuildTests: XCTestCase {
+
+	private static let repository = URL(fileURLWithPath: #filePath)
+		.deletingLastPathComponent()
+		.appendingPathComponent("../../..")
+		.standardizedFileURL
+
+	/// `XCODEBUILD_ARGS=( … )` in `scripts/unittest.sh`, one token per element, quotes removed.
+	private func unittestArguments() throws -> [String] {
+		let script = try String(contentsOf: Self.repository.appendingPathComponent("scripts/unittest.sh"), encoding: .utf8)
+		let start = try XCTUnwrap(script.range(of: "XCODEBUILD_ARGS=(\n"), "unittest.sh no longer declares XCODEBUILD_ARGS")
+		let end = try XCTUnwrap(script.range(of: "\n)", range: start.upperBound..<script.endIndex))
+		return script[start.upperBound..<end.lowerBound]
+			.split(separator: "\n")
+			.map { $0.trimmingCharacters(in: .whitespaces) }
+			.filter { $0.isEmpty == false && $0.hasPrefix("#") == false }
+			.flatMap { line -> [String] in
+				// `-destination "platform=…"` is one element with a quoted value.
+				if let space = line.firstIndex(of: " ") {
+					return [String(line[..<space]), String(line[line.index(after: space)...]).replacingOccurrences(of: "\"", with: "")]
+				}
+				return [line]
+			}
+	}
+
+	func testSharedArgumentsAreUnittestShsExceptActionDestinationAndDerivedData() throws {
+		var arguments = try unittestArguments()
+		XCTAssertEqual(arguments.first, "test", "unittest.sh's action changed; headless.sh build must follow it")
+		arguments.removeFirst()
+		for option in ["-destination", "-derivedDataPath"] {
+			let index = try XCTUnwrap(arguments.firstIndex(of: option), "unittest.sh no longer passes \(option)")
+			arguments.removeSubrange(index...arguments.index(after: index))
+		}
+		XCTAssertEqual(arguments, HeadlessBuild.unittestSharedArguments)
+	}
+
+	func testDefaultDerivedDataIsUnittestShs() throws {
+		let script = try String(contentsOf: Self.repository.appendingPathComponent("scripts/unittest.sh"), encoding: .utf8)
+		XCTAssertTrue(
+			script.contains("DERIVED_DATA=\"${DERIVED_DATA_PATH:-${REPO_ROOT}/\(HeadlessBuild.defaultDerivedData)}\""),
+			"unittest.sh's DerivedData default changed; headless.sh build must follow it"
+		)
+	}
+
+	func testXcodebuildArguments() {
+		XCTAssertEqual(
+			HeadlessBuild.xcodebuildArguments(destinationUDID: "UDID", derivedData: "/r/.deriveddata", packageCache: nil),
+			["build-for-testing"] + HeadlessBuild.unittestSharedArguments + [
+				"-configuration", "Debug",
+				"-destination", "platform=iOS Simulator,id=UDID",
+				"-derivedDataPath", "/r/.deriveddata",
+				"-quiet"
+			]
+		)
+		XCTAssertEqual(
+			HeadlessBuild.xcodebuildArguments(destinationUDID: "UDID", derivedData: "/r/.deriveddata", packageCache: "/cache").suffix(2),
+			["-clonedSourcePackagesDirPath", "/cache"]
+		)
+		XCTAssertFalse(HeadlessBuild.xcodebuildArguments(destinationUDID: "UDID", derivedData: "/r/.deriveddata", packageCache: "").contains("-clonedSourcePackagesDirPath"))
+	}
+
+	func testBuildsUsingFindsOnlyXcodebuildOnTheSameDerivedData() {
+		let ps = """
+		/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -workspace ios/MLBrowser.xcworkspace -derivedDataPath /r/.deriveddata -testPlan MLBrowserUnitTests
+		xcodebuild build -derivedDataPath /r/.deriveddata/ -scheme MLBrowser
+		/usr/bin/xcodebuild build -derivedDataPath /r/.deriveddata-localization
+		/bin/zsh -c xcodebuild test -derivedDataPath /r/.deriveddata
+		/usr/bin/grep -derivedDataPath /r/.deriveddata
+		/usr/bin/xcodebuild -version
+		"""
+		XCTAssertEqual(HeadlessBuild.buildsUsing(derivedData: "/r/.deriveddata", psOutput: ps).count, 2)
+		XCTAssertEqual(HeadlessBuild.buildsUsing(derivedData: "/r/other", psOutput: ps), [])
+	}
+}

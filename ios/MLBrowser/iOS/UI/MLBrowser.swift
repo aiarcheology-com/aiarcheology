@@ -220,11 +220,11 @@ final class BackgroundTaskAssertion {
 	}
 }
 
-/// The app with its UI. `AppEntry` launches it, or the headless build in its place (AIA-0970).
+/// The app with its UI. `AppEntry` launches it, or headless mode in its place (AIA-0970).
 struct MLBrowser: App {
 	@UIApplicationDelegateAdaptor(BackgroundDownloadAppDelegate.self) var appDelegate
 	@StateObject private var appState: AppState
-	/// Process-level work shared with the headless build; see `AppRuntime`.
+	/// Process-level work shared with headless mode; see `AppRuntime`.
 	private let runtime: AppRuntime
 
 	init() {
@@ -413,7 +413,7 @@ struct MLBrowser: App {
 			.backupConsentPrompt(appState.findingsSync)
 			// The process-level runtime (AIA-0970): store-dependent services, the detailed-log brake,
 			// background/foreground handling, and auth once the app is ready. It used to live here as
-			// scene modifiers; it moved so the headless build runs exactly the same runtime.
+			// scene modifiers; it moved so headless mode runs exactly the same runtime.
 			.task {
 				runtime.start()
 			}
@@ -440,7 +440,7 @@ struct MLBrowser: App {
 
 /// What the analytics consent gate shows (AIA-0447), decided from state alone.
 ///
-/// Extracted from `AnalyticsChoiceGate` for the reason `RootGateDisplay` was: the headless build
+/// Extracted from `AnalyticsChoiceGate` for the reason `RootGateDisplay` was: headless mode
 /// (AIA-0970) must know whether the question is on screen, and a second copy of these rules would
 /// drift. The view keeps what only a view can know — whether content has ever been shown.
 enum AnalyticsChoiceDisplay: Equatable {

@@ -223,7 +223,7 @@ struct WebScreenView: View {
 	@State private var runningClassifierIDs: Set<UUID> = []
 	@State private var runningDetectorIDs: Set<UUID> = []
 	/// The tapped detection being saved; non-nil presents the save sheet. It lives on `chromeState`,
-	/// shared with the headless build (AIA-0984), and is cleared when this screen leaves.
+	/// shared with headless mode (AIA-0984), and is cleared when this screen leaves.
 	private var saveFinding: SaveFindingPresentation { appState.chromeState.saveFindingPresentation }
 	/// Guards the asynchronous window between a centre alignment and the sheet appearing.
 	@State private var isResolvingCapture = false
@@ -933,7 +933,7 @@ struct WebScreenView: View {
 		appState.detectionState.findingCaptureEnded()
 	}
 
-	/// Offer sign-in once, after a save: the decision the headless build's `save` shares (AIA-0984).
+	/// Offer sign-in once, after a save: the decision headless mode's `save` shares (AIA-0984).
 	private func offerSignInIfEarned() {
 		saveFinding.offerSignInIfEarned(
 			authContext: appState.authState.effectiveContext,

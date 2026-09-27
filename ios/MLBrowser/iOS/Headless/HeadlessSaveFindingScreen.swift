@@ -22,7 +22,7 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 
 	var route: Route { "save-finding" }
 
-	/// A confidence as the headless build reports it: two decimals are enough to assert on, and a
+	/// A confidence as headless mode reports it: two decimals are enough to assert on, and a
 	/// full `Float`-to-`Double` expansion would make scenarios compare noise.
 	static func rounded(_ confidence: Double) -> Double {
 		(confidence * 100).rounded() / 100
@@ -81,7 +81,7 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 		}
 		// What the web screen does once the save sheet has closed on a saved finding, through the same
 		// decision. The web screen asks the review prompt first and offers sign-in only when it stays
-		// quiet. The headless build records no review moment: it models the UI-test environment, where
+		// quiet. Headless mode records no review moment: it models the UI-test environment, where
 		// the review prompt is suppressed (`DependencyContainer.reviewPromptCoordinator`).
 		parts.chromeState.saveFindingPresentation.offerSignInIfEarned(
 			authContext: parts.authState.effectiveContext,

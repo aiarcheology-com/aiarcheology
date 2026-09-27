@@ -280,45 +280,50 @@ enum HeadlessWorkspace {
 		derivedData.appendingPathComponent("Build/Products/Debug-iphonesimulator/ML Browser.app")
 	}
 
-	/// `unittest.sh`'s build, argument for argument: the build half of its `test`
-	/// (`build-for-testing -testPlan MLBrowserUnitTests`), with the same settings
-	/// (`AIA_INCLUDE_TEST_FIXTURES=YES`), DerivedData and package cache, and a destination named by
-	/// id, so it compiles one architecture. The destination is installation `a`'s simulator rather
-	/// than the unit tests' iPhone; that changes only asset thinning, never a compile or a link.
-	/// `-configuration Debug` is what the scheme's test action uses anyway; `-quiet` affects output only.
-	///
-	/// `build-for-testing`, not `build`: the test build links the root package's products into the app
-	/// as frameworks it shares with the test bundle, a plain `build` links them statically, and each
-	/// relinks the other's app (measured; AIA-0991). So after `unittest.sh` this recompiles and
-	/// relinks nothing.
+	/// `unittest.sh`'s build (`HeadlessBuild.xcodebuildArguments`) into its DerivedData and package
+	/// cache. The destination is installation `a`'s simulator rather than the unit tests' iPhone; that
+	/// changes only asset thinning, never a compile or a link. So after `unittest.sh` this recompiles
+	/// and relinks nothing.
 	///
 	/// No crash-reporting override: headless mode runs the no-op reporter whatever the build carries
 	/// (`DependencyContainer`), and the launcher checks the handshake says so.
 	static func build() throws {
 		try HeadlessRepositoryRoot.require(root)
+		try requireNoBuildInProgress()
 		// The fixture the build embeds (`embed_apple_test_models.sh`) must be on disk first, as in
 		// unittest.sh; without it the build fails.
 		let fetch = try runShellCommand("scripts/fetch_apple_test_models.sh", arguments: [])
 		guard fetch == 0 else { throw ExitCode(fetch) }
 		let destination = try HeadlessSimulator(installation: "a").buildDestination()
-		var arguments = [
-			"build-for-testing",
-			"-workspace", "ios/MLBrowser.xcworkspace",
-			"-scheme", "MLBrowser",
-			"AIA_INCLUDE_TEST_FIXTURES=YES",
-			"-testPlan", "MLBrowserUnitTests",
-			"-configuration", "Debug",
-			"-destination", "platform=iOS Simulator,id=\(destination)",
-			"-derivedDataPath", derivedData.path,
-			"-skipPackagePluginValidation",
-			"-skipMacroValidation",
-			"-quiet"
-		]
-		if let cache = environment["SPM_CACHE_PATH"], cache.isEmpty == false {
-			arguments += ["-clonedSourcePackagesDirPath", cache]
-		}
-		let status = try runShellCommand("xcodebuild", arguments: arguments)
+		let status = try runShellCommand("xcodebuild", arguments: HeadlessBuild.xcodebuildArguments(
+			destinationUDID: destination,
+			derivedData: derivedData.path,
+			packageCache: environment["SPM_CACHE_PATH"]
+		))
 		guard status == 0 else { throw ExitCode(status) }
+	}
+
+	/// Refuses while another `xcodebuild` uses the shared DerivedData — `unittest.sh`, a UI test run,
+	/// another `headless.sh build`: two builds into one DerivedData fail or corrupt it, and an install
+	/// during a build can copy a half-written app.
+	static func requireNoBuildInProgress() throws {
+		let listing = String(bytes: try captureOutput("/bin/ps", ["-axo", "command="]), encoding: .utf8) ?? ""
+		let busy = HeadlessBuild.buildsUsing(derivedData: derivedData.path, psOutput: listing)
+		guard busy.isEmpty else {
+			throw ValidationError("another xcodebuild is using \(derivedData.path); wait for it to finish (headless mode shares unittest.sh's DerivedData)")
+		}
+	}
+
+	/// Refuses a product that cannot run headless mode before installing it: only a build for the
+	/// development backend has one. (An older product without the mode is caught at connect time.)
+	static func requireDevelopmentProduct() throws {
+		let plist = app.appendingPathComponent("Info.plist")
+		let data = try Data(contentsOf: plist)
+		let info = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+		let backend = info?["BackendEnvironment"] as? String
+		guard backend == "development" else {
+			throw ValidationError("the Debug build at \(app.path) is for the \(backend ?? "unknown") backend; headless mode exists only in a development build")
+		}
 	}
 
 	static func defaultScenarios() throws -> [URL] {
@@ -360,6 +365,8 @@ struct HeadlessSimulator {
 			}
 		}
 		if install {
+			try HeadlessWorkspace.requireNoBuildInProgress()
+			try HeadlessWorkspace.requireDevelopmentProduct()
 			try await settling("install") {
 				try simctl(["install", udid, HeadlessWorkspace.app.path])
 			}
@@ -556,7 +563,7 @@ struct HeadlessSimulator {
 			}
 			try await Task.sleep(for: .milliseconds(250))
 		}
-		throw ValidationError("the app on \(deviceName) did not accept a connection within 120 s (\(lastError.map { "\($0)" } ?? "no endpoint published")); was it launched in headless mode?")
+		throw ValidationError("the app on \(deviceName) did not accept a connection within 120 s (\(lastError.map { "\($0)" } ?? "no endpoint published")); the app may have started its UI instead, as a build from before headless mode became a launch mode (AIA-0991) does: run `scripts/headless.sh build`")
 	}
 
 	// MARK: - Processes
@@ -570,28 +577,32 @@ struct HeadlessSimulator {
 		try process("/usr/bin/xcrun", ["simctl"] + arguments)
 	}
 
-	/// Runs a tool and returns its standard output; a non-zero exit is an error carrying its stderr.
 	private func process(_ executable: String, _ arguments: [String]) throws -> Data {
-		let task = Process()
-		task.executableURL = URL(fileURLWithPath: executable)
-		task.arguments = arguments
-		let output = Pipe()
-		let errors = Pipe()
-		task.standardOutput = output
-		task.standardError = errors
-		try task.run()
-		// Both pipes drained at once: reading one to its end while the child fills the other's buffer
-		// would deadlock on a chatty tool.
-		let errorReader = PipeDrain(errors.fileHandleForReading)
-		let data = output.fileHandleForReading.readDataToEndOfFile()
-		let errorData = errorReader.wait()
-		task.waitUntilExit()
-		guard task.terminationStatus == 0 else {
-			let message = (String(bytes: errorData, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-			throw ValidationError("\(([executable] + arguments).joined(separator: " ")) failed: \(message)")
-		}
-		return data
+		try captureOutput(executable, arguments)
 	}
+}
+
+/// Runs a tool and returns its standard output; a non-zero exit is an error carrying its stderr.
+private func captureOutput(_ executable: String, _ arguments: [String]) throws -> Data {
+	let task = Process()
+	task.executableURL = URL(fileURLWithPath: executable)
+	task.arguments = arguments
+	let output = Pipe()
+	let errors = Pipe()
+	task.standardOutput = output
+	task.standardError = errors
+	try task.run()
+	// Both pipes drained at once: reading one to its end while the child fills the other's buffer
+	// would deadlock on a chatty tool.
+	let errorReader = PipeDrain(errors.fileHandleForReading)
+	let data = output.fileHandleForReading.readDataToEndOfFile()
+	let errorData = errorReader.wait()
+	task.waitUntilExit()
+	guard task.terminationStatus == 0 else {
+		let message = (String(bytes: errorData, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+		throw ValidationError("\(([executable] + arguments).joined(separator: " ")) failed: \(message)")
+	}
+	return data
 }
 
 /// Reads a pipe to its end on a background thread.

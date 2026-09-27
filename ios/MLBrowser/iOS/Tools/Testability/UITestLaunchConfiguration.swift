@@ -136,7 +136,7 @@ struct UITestLaunchConfiguration: Codable {
 	///
 	/// It exists for the headless-parity sign-in flow, which must sign in and out through Clerk's
 	/// own `AuthView` and `UserProfileView` on the **development** instance with a
-	/// `+clerk_test` address — the flow the headless build drives against the same instance. Read
+	/// `+clerk_test` address — the flow headless mode drives against the same instance. Read
 	/// only by ``requestsRealAuth``; `DependencyContainer.authProviderSelection` traps when the
 	/// build has no `pk_` key or does not point at development, so it never falls back to the mock.
 	/// `#if DEBUG`, like the mock it replaces, so Release neither decodes nor honours it.

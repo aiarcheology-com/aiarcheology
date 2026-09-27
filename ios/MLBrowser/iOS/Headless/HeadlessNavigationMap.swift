@@ -9,7 +9,7 @@
 import Foundation
 import HeadlessKit
 
-/// Every route the headless build reports and the transitions that are **possible** between them:
+/// Every route headless mode reports and the transitions that are **possible** between them:
 /// what `map` answers, and the source of the checked-in `ios/HeadlessScenarios/Map/navigation-map.json`.
 ///
 /// Built by an exhaustive `switch` over `HeadlessRoute`, so a new route does not compile without a

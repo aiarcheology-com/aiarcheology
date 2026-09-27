@@ -111,7 +111,7 @@ final class FindingRepository {
 
 	/// Persists one finding from a capture and the crop the editor shows: bakes the crop
 	/// (``FindingCapture/cropped(to:)``), then runs the persist transaction below. The save sheet's
-	/// one call, and the headless build's (AIA-0975), which passes the unit rect: it has no editor
+	/// one call, and headless mode's (AIA-0975), which passes the unit rect: it has no editor
 	/// viewport to frame a crop from.
 	/// - Returns: the persisted, `.ready` finding.
 	@discardableResult

@@ -58,7 +58,7 @@ final class StagedImageCapture {
 	private let repository: FindingRepository
 	private let authState: AuthState
 	/// The save sheet's presentation, shared with the web screen: a picked detection is written here,
-	/// so the headless build reports the sheet from the model the web screen binds to (AIA-0984).
+	/// so headless mode reports the sheet from the model the web screen binds to (AIA-0984).
 	private let presentation: SaveFindingPresentation
 	private let stagedNames: [String]
 	private let stagedDirectory: URL

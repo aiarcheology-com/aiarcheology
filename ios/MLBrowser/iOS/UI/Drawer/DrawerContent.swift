@@ -45,7 +45,7 @@ struct DrawerContent: View {
 
     /// The findings, sign-in (AIA-0536) and settings sheets, presented here rather than at
     /// ContentView level so the drawer stays open behind them. The flags live on `chromeState`, shared
-    /// with the headless build (AIA-0984), which also dismisses them when the drawer closes.
+    /// with headless mode (AIA-0984), which also dismisses them when the drawer closes.
     private var presentation: DrawerPresentation { chromeState.drawerPresentation }
 
     /// The configuration ID to show in detail sheet
@@ -793,7 +793,7 @@ private struct ConfigurationRow: View {
         }
     }
 
-    /// Persists an enable toggle through `DeepState.setEnabled` — the same call the headless build
+    /// Persists an enable toggle through `DeepState.setEnabled` — the same call headless mode
     /// makes (AIA-0970) — and tells the tour only after that save succeeds, and only for a real
     /// off-to-on change (AIA-0333).
     private func persistEnabled(_ newValue: Bool) {

@@ -2,7 +2,7 @@
 //  AppRuntime.swift
 //  AI Archeology
 //
-//  AIA-0970: the process-level runtime, shared by the SwiftUI app and the headless build.
+//  AIA-0970: the process-level runtime, shared by the SwiftUI app and headless mode.
 //
 
 import Combine
@@ -13,8 +13,8 @@ import UIKit
 /// hang off the root scene's modifiers — store-dependent services, the detailed-log brake,
 /// background/foreground handling, and starting auth.
 ///
-/// Both entry points use it: `MLBrowser` (the SwiftUI app) and the headless build (AIA-0970).
-/// That is what makes the headless build the app itself rather than a second implementation of it.
+/// Both entry points use it: `MLBrowser` (the SwiftUI app) and headless mode (AIA-0970).
+/// That is what makes headless mode the app itself rather than a second implementation of it.
 /// Presentation stays in the UI entry: the production banner, overlays, URL intake, and the Clerk
 /// session watcher, which observes Clerk through the view environment and has no headless user yet.
 ///

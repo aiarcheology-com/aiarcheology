@@ -40,7 +40,7 @@ let package = Package(
                 // 2. Depend on the product in your executable target
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "SupportLogFormat", package: "NativeModelConverter"),
-                // The headless build's tooling (AIA-0970): the client and the scenario runner
+                // Headless mode's tooling (AIA-0970): the client and the scenario runner
                 // the app's own package ships, so the tool and the app cannot disagree on the wire.
                 .product(name: "HeadlessKit", package: "NativeModelConverter"),
                 .product(name: "HeadlessKitTransport", package: "NativeModelConverter"),

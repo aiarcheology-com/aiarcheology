@@ -134,7 +134,7 @@ protocol AuthProviding {
 
     #if DEBUG
     /// Sign in with an email verification code through the backend's own API, without its UI
-    /// (AIA-0974). The headless build has no Clerk `AuthView` to present, so this is how it signs in.
+    /// (AIA-0974). Headless mode has no Clerk `AuthView` to present, so this is how it signs in.
     ///
     /// Debug-only, so the shipping auth surface is unchanged. Returns only once the provider reports
     /// a signed-in user; the caller then re-evaluates the gate exactly as `SignInSheet` does.
@@ -434,7 +434,7 @@ final class AuthState: ObservableObject {
 
     #if DEBUG
     /// Sign in without the Clerk UI, then re-evaluate the gate — the `authState.refresh()` that
-    /// `SignInSheet` runs when Clerk's sheet closes (AIA-0974). Only the headless build calls it.
+    /// `SignInSheet` runs when Clerk's sheet closes (AIA-0974). Only headless mode calls it.
     ///
     /// Throws what the provider throws and leaves the gate to the refresh: a failed sign-in changes
     /// nothing here, so a signed-out app stays signed out.

@@ -90,7 +90,7 @@ or would land on top of the tour that Welcome's Continue just started. The inten
 Deciding to run the tour and actually running it are two steps, which is what makes that order hold.
 `Appstate.initialize()` *arms* the tour before `isReady`; `SubscriptionGateCoordinator.startTourIfClear()`,
 run by `SubscriptionGateView`'s handlers (AIA-0976 moved the gate's orchestration into that coordinator,
-which the headless build runs too), starts what was armed, once nothing is owed the screen ahead of it. Arming from a view would arm
+which headless mode runs too), starts what was armed, once nothing is owed the screen ahead of it. Arming from a view would arm
 something nobody would act on — the gate's `onChange(initial: true)` handlers are what start the
 tour, and nothing re-fires them later — and `AnalyticsChoiceGate` reads "armed **or** running", not
 "running", so a launch that resumes over an unacknowledged Welcome screen holds the consent question
@@ -149,7 +149,7 @@ Sentry sampling, StoreKit sandbox detection, and (pre-existing, load-bearing, ou
 
 ## Signing in without the UI (Debug only, AIA-0974)
 
-The headless build (`specification/HEADLESS.md`) has no Clerk `AuthView` to present, so it signs in
+Headless mode (`specification/HEADLESS.md`) has no Clerk `AuthView` to present, so it signs in
 through Clerk's own API instead. That surface is compiled only into Debug builds; a Release build's
 `AuthProviding` is exactly what it was.
 
@@ -178,7 +178,7 @@ through Clerk's own API instead. That surface is compiled only into Debug builds
   differ from the gate after a sign-out whose server call failed, because `signOut()` publishes
   `.signedOut` regardless; headless scenarios read it to prove the session really ended.
 
-The headless build does not mount `ClerkSessionWatcher`, which is a view. A session revoked on the
+Headless mode does not mount `ClerkSessionWatcher`, which is a view. A session revoked on the
 server while a headless run is signed in is therefore noticed at the next foreground re-validation
 (`AppRuntime`), not immediately.
 

@@ -264,7 +264,7 @@ extension DeepConfiguration {
 extension DeepConfiguration {
 
 	/// The models the drawer lists: ready configurations, newest first. One definition for the
-	/// drawer's `@FetchRequest` and the headless build's drawer screen, so both show the same models
+	/// drawer's `@FetchRequest` and headless mode's drawer screen, so both show the same models
 	/// in the same order.
 	///
 	/// The id breaks ties: demo models take their date from bundle metadata, which can be missing or
