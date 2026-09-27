@@ -200,7 +200,7 @@ struct Headless: AsyncParsableCommand {
 				print("▶︎ \(scenario.name)")
 				let report = await ScenarioRunner(launcher: SimulatorLauncher()).run(scenario)
 				for step in report.steps + report.teardown {
-					let skipped = step.skipped ? " (skipped: unless held)" : ""
+					let skipped = step.skipped ? " (\(StepReport.skippedNote))" : ""
 					print("  \(HeadlessReportText.mark(for: step)) \(step.location)\(skipped)\(step.route.map { " → \($0)" } ?? "")")
 				}
 				// Never silent: a best-effort cleanup that did not run is printed on a green run too.

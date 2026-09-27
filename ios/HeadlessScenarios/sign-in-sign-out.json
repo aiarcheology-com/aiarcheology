@@ -54,7 +54,7 @@
       ] }
   ],
   "teardown": [
-    { "name": "answer a pending analytics question", "perform": { "action": "deny" }, "bestEffort": true, "unless": [ { "equals": { "pointer": "/context/gate/consent", "value": "resolved" } } ] },
+    { "name": "answer a pending analytics question", "perform": { "action": "deny" }, "bestEffort": true, "unless": [ { "notRoute": "consent" } ] },
     { "name": "reach the menu", "goto": "drawer", "bestEffort": true },
     { "name": "reach the account screen", "goto": "account", "bestEffort": true },
     { "name": "end any session this run left open", "perform": { "action": "sign-out" }, "bestEffort": true, "unless": [ { "equals": { "pointer": "/context/auth/accountPresent", "value": false } } ] }

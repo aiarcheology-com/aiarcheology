@@ -196,6 +196,39 @@ final class ScenarioUnlessTests: XCTestCase {
 		XCTAssertTrue(report.warnings[1].contains("unless could not be evaluated, so the step ran: variable 'where' was never captured"), report.warnings[1])
 	}
 
+	func testARouteInUnlessNeverSkipsWhenTheAppDeclaresNoRoutes() async throws {
+		let launcher = FakeLauncher()
+		launcher.undeclaredInstallations = ["a"]
+		// Misspelt: against a declaration this fails the check; without one it would always hold.
+		let report = try await run(#"""
+		{
+		  "schemaVersion": 1, "name": "no-map",
+		  "installations": { "a": {} },
+		  "steps": [],
+		  "teardown": [ { "perform": { "action": "increment" }, "unless": [ { "notRoute": "drawr" } ] } ]
+		}
+		"""#, launcher: launcher)
+		XCTAssertTrue(report.passed, report.failures.joined(separator: "\n"))
+		XCTAssertEqual(report.teardown.map(\.skipped), [false])
+		XCTAssertEqual(launcher.sent, ["a perform"])
+	}
+
+	func testASkippedStepNeedNotResolveItsArguments() async throws {
+		let launcher = FakeLauncher()
+		// `${id}` was never captured, as after a run that failed before capturing it.
+		let report = try await run(#"""
+		{
+		  "schemaVersion": 1, "name": "never-captured-but-nothing-to-do",
+		  "installations": { "a": {} },
+		  "steps": [],
+		  "teardown": [ { "perform": { "action": "rename", "arguments": { "name": "${id}" } }, "unless": [ { "notRoute": "drawer" } ] } ]
+		}
+		"""#, launcher: launcher)
+		XCTAssertTrue(report.passed, report.failures.joined(separator: "\n"))
+		XCTAssertEqual(report.teardown.map(\.skipped), [true])
+		XCTAssertEqual(launcher.sent, ["a state"])
+	}
+
 	// MARK: - notRoute
 
 	func testNotRouteHoldsOnAnyOtherRoute() async throws {
@@ -235,7 +268,9 @@ final class ScenarioUnlessTests: XCTestCase {
 			("an error", #"{ "perform": { "action": "increment" }, "unless": [ { "error": "unreachable" } ] }"#),
 			("a capture", #"{ "perform": { "action": "increment" }, "unless": [ { "notRoute": "drawer" } ], "capture": { "c": "/state/count" } }"#),
 			("a bad pattern", #"{ "perform": { "action": "increment" }, "unless": [ { "matches": { "pointer": "/route", "regex": "(" } } ] }"#),
-			("a bad pointer", #"{ "perform": { "action": "increment" }, "unless": [ { "absent": "route" } ] }"#)
+			("a bad pointer", #"{ "perform": { "action": "increment" }, "unless": [ { "absent": "route" } ] }"#),
+			// A pointer is never substituted: `absent` on a literal `${…}` key would always hold.
+			("a placeholder in a pointer", #"{ "perform": { "action": "increment" }, "unless": [ { "absent": "/context/${key}" } ] }"#)
 		]
 		for (reason, step) in invalid {
 			let json = #"{ "schemaVersion": 1, "name": "x", "installations": { "a": {} }, "steps": [], "teardown": [ "# + step + " ] }"

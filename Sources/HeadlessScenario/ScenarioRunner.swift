@@ -128,17 +128,8 @@ public struct ScenarioRunner: Sendable {
 				throw ScenarioError("\(label): '\(installation)' is not running")
 			}
 			let substitution = Substitution(variables: run.variables, environment: environment)
-			let command = try Self.command(for: step, substitution: substitution)
-			// Resolved values — `${…}` included — are checked here, before anything is sent. An
-			// `expect route` is compared locally and would otherwise never reach the app's check.
-			let undeclared = try Self.undeclaredRoutes(
-				in: step,
-				phase: phase,
-				index: index,
-				known: run.declaredRoutes[installation],
-				substitution: substitution
-			)
-			guard undeclared.isEmpty else { throw UndeclaredRoutes(failures: undeclared) }
+			// Decided before the command is resolved: a step with nothing to do is skipped even when
+			// its arguments name a value an earlier, failed step never captured.
 			if let unless = step.unless {
 				let evaluation = await Self.evaluate(
 					unless,
@@ -152,7 +143,7 @@ public struct ScenarioRunner: Sendable {
 						index: index,
 						name: step.name,
 						installation: installation,
-						command: Self.commandName(step),
+						command: command,
 						route: evaluation.route,
 						failures: [],
 						bestEffort: step.bestEffort,
@@ -161,7 +152,18 @@ public struct ScenarioRunner: Sendable {
 				}
 				unlessDoubt = evaluation.doubt
 			}
-			let sent = try await driver.send(command)
+			let request = try Self.command(for: step, substitution: substitution)
+			// Resolved values — `${…}` included — are checked here, before anything is sent. An
+			// `expect route` is compared locally and would otherwise never reach the app's check.
+			let undeclared = try Self.undeclaredRoutes(
+				in: step,
+				phase: phase,
+				index: index,
+				known: run.declaredRoutes[installation],
+				substitution: substitution
+			)
+			guard undeclared.isEmpty else { throw UndeclaredRoutes(failures: undeclared) }
+			let sent = try await driver.send(request)
 			response = sent
 			failures = try Self.check(step.expect, against: sent, substitution: substitution)
 			if failures.isEmpty {
@@ -273,13 +275,17 @@ public struct ScenarioRunner: Sendable {
 	) async -> UnlessEvaluation {
 		var evaluation = UnlessEvaluation()
 		do {
-			if let known, known.isEmpty == false {
-				for named in unless.compactMap(RouteCheck.namedRoute) {
-					let resolved = try substitution.apply(to: named.rawValue)
-					if let problem = RouteCheck.problem(kind: .unless, route: resolved, known: known) {
-						evaluation.doubt = problem
-						return evaluation
-					}
+			for named in unless.compactMap(RouteCheck.namedRoute) {
+				let resolved = try substitution.apply(to: named.rawValue)
+				// Without a declaration a misspelt route cannot be told from a real one, and a
+				// misspelt `notRoute` always holds: a route predicate then never skips the step.
+				guard let known, known.isEmpty == false else {
+					evaluation.doubt = "the app declares no routes, so route '\(resolved)' cannot be checked"
+					return evaluation
+				}
+				if let problem = RouteCheck.problem(kind: .unless, route: resolved, known: known) {
+					evaluation.doubt = problem
+					return evaluation
 				}
 			}
 			let read = try await driver.send(.state)

@@ -655,8 +655,16 @@ final class HeadlessScenarioPolicyTests: XCTestCase {
 		for file in try scenarioFiles() {
 			let object = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
 			let teardown = object["teardown"] as? [[String: Any]] ?? []
-			for (index, step) in teardown.enumerated() where step["bestEffort"] as? Bool == true && step["perform"] != nil {
-				XCTAssertNotNil(step["unless"], "\(file.lastPathComponent) teardown[\(index)] is a best-effort action without unless")
+			for (index, step) in teardown.enumerated() {
+				let location = "\(file.lastPathComponent) teardown[\(index)]"
+				if step["bestEffort"] as? Bool == true && step["perform"] != nil {
+					XCTAssertNotNil(step["unless"], "\(location) is a best-effort action without unless")
+				}
+				// Only predicates that fail safe on a typo: a misspelt `equals` never holds, and a
+				// misspelt `notRoute` fails the route check. A negated `matches` would skip silently.
+				for predicate in step["unless"] as? [[String: Any]] ?? [] {
+					XCTAssertTrue(Set(predicate.keys).isSubset(of: ["equals", "notRoute"]), "\(location) unless uses \(predicate.keys.sorted())")
+				}
 			}
 		}
 	}

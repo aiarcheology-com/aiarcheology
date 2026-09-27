@@ -68,7 +68,7 @@ public struct ScenarioReport: Codable, Sendable, Equatable {
 	/// Teardown steps not sent because their `unless` held: they had nothing to do. Listed apart
 	/// from passes and warnings, so a skip is visible without being mistaken for either.
 	public var skipped: [String] {
-		teardown.filter(\.skipped).map { "\($0.location) (skipped: unless held)" }
+		teardown.filter(\.skipped).map { "\($0.location) (\(StepReport.skippedNote))" }
 	}
 }
 
@@ -89,6 +89,9 @@ public struct StepReport: Codable, Sendable, Equatable {
 	public let bestEffort: Bool
 	/// A teardown step whose `unless` held, so it was not sent. It has no failures.
 	public let skipped: Bool
+
+	/// How a skipped step is described wherever it is listed.
+	public static let skippedNote = "skipped: unless held"
 
 	/// Whether the step itself did what it asserted. A best-effort step can fail without failing
 	/// the run; ``ScenarioReport/passed`` makes that distinction, not this. A skipped step has no

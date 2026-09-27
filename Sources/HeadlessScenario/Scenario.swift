@@ -148,6 +148,11 @@ public struct Scenario: Codable, Sendable, Equatable {
 				throw ScenarioError("\(label): unless cannot expect an error: the state it reads never is one")
 			}
 			try validate(expectation, label: label)
+			// Pointers are never substituted, so a `${…}` in one addresses a literal key, which is
+			// absent: `absent` would hold and skip the step.
+			if let pointer = expectation.pointer, pointer.contains("${") {
+				throw ScenarioError("\(label): unless cannot use a placeholder in a pointer: \(pointer)")
+			}
 		}
 	}
 
@@ -377,6 +382,16 @@ public enum Expectation: Codable, Sendable, Equatable {
 	/// `{"error": "unreachable"}` — the command must fail with this code. Without it, any error
 	/// response fails the step.
 	case error(HeadlessError.Code)
+
+	/// The pointer the expectation reads, if it reads one.
+	var pointer: String? {
+		switch self {
+		case .equals(let pointer, _), .exists(let pointer), .absent(let pointer), .matches(let pointer, _):
+			return pointer
+		case .route, .notRoute, .error:
+			return nil
+		}
+	}
 
 	private enum CodingKeys: String, CodingKey, CaseIterable {
 		case route, notRoute, equals, exists, absent, matches, error

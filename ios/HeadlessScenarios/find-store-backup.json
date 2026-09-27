@@ -95,7 +95,7 @@
       "expect": [ { "absent": "/state/findings/0" } ] }
   ],
   "teardown": [
-    { "on": "a", "name": "a: answer a pending analytics question", "perform": { "action": "deny" }, "bestEffort": true, "unless": [ { "equals": { "pointer": "/context/gate/consent", "value": "resolved" } } ] },
+    { "on": "a", "name": "a: answer a pending analytics question", "perform": { "action": "deny" }, "bestEffort": true, "unless": [ { "notRoute": "consent" } ] },
     { "on": "a", "name": "a: leave the save sheet", "perform": { "action": "cancel" }, "bestEffort": true, "unless": [ { "notRoute": "save-finding" } ] },
     { "on": "a", "name": "a: leave the findings or account sheet", "perform": { "action": "close" }, "bestEffort": true, "unless": [ { "notRoute": "findings" }, { "notRoute": "account" } ] },
     { "on": "a", "name": "a: decline a pending back-up question (never uploads)", "perform": { "action": "decline" }, "bestEffort": true, "unless": [ { "notRoute": "backup-consent" } ] },
@@ -115,7 +115,7 @@
     { "on": "a", "perform": { "action": "close" } },
     { "on": "a", "goto": "account" },
     { "on": "a", "name": "a: sign out", "perform": { "action": "sign-out" } },
-    { "on": "b", "name": "b: answer a pending analytics question", "perform": { "action": "deny" }, "bestEffort": true, "unless": [ { "equals": { "pointer": "/context/gate/consent", "value": "resolved" } } ] },
+    { "on": "b", "name": "b: answer a pending analytics question", "perform": { "action": "deny" }, "bestEffort": true, "unless": [ { "notRoute": "consent" } ] },
     { "on": "b", "name": "b: leave the findings or account sheet", "perform": { "action": "close" }, "bestEffort": true, "unless": [ { "notRoute": "findings" }, { "notRoute": "account" } ] },
     { "on": "b", "name": "b: decline a pending back-up question", "perform": { "action": "decline" }, "bestEffort": true, "unless": [ { "notRoute": "backup-consent" } ] },
     { "on": "b", "name": "b: reach the menu", "goto": "drawer", "bestEffort": true },
