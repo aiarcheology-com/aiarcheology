@@ -35,11 +35,17 @@ struct MLBrowserHeadless: App {
 	/// starts the task that runs `FreeAccessState.start()`, the first read of the window.
 	private static func seedFreeAccessExpiryIfRequested(container: DependencyContainer) {
 		guard let seconds = HeadlessLaunchOptions.current.freeAccessEndsIn else { return }
-		FreeAccessExpirySeed.seedWindowEnding(
+		let result = FreeAccessExpirySeed.seedWindowEnding(
 			inSeconds: seconds,
 			fastStore: container.settings.persistenceStore,
 			durableStore: container.freeAccessDurableStore
 		)
+		// An existing anchor is expected on a relaunch, which passes the option again. An unreadable
+		// Keychain is not: the run would go on in a days-long window and fail minutes later at its
+		// `access-ended` wait, far from the cause.
+		if case .failure(.durableStoreUnreadable) = result {
+			fatalError("-headlessFreeAccessEndsIn: the free-access Keychain anchor could not be read, so the window was not seeded")
+		}
 	}
 
 	var body: some Scene {

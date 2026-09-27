@@ -94,10 +94,11 @@ enum FreeAccessExpirySeed {
 			return .failure(skip)
 		}
 		let record = record(endingInSeconds: seconds, now: now)
-		guard let data = try? JSONEncoder().encode(record) else {
-			fatalError("Could not encode the seeded free-access anchor")
-		}
-		fastStore.set(data, forKey: FreeAccessAnchorService.defaultsKey)
+		UITestLaunchConfiguration.writeFreeAccessAnchor(
+			record,
+			to: fastStore,
+			orTrap: "Could not encode the seeded free-access anchor"
+		)
 		return .success(record)
 	}
 }

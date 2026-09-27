@@ -275,9 +275,6 @@ struct SettingsForm: View {
 				])
 				.environment(Clerk.shared)
 				.environment(\.clerkTheme, .app)
-				// A container, so the identifier stays off Clerk's own elements inside it.
-				.accessibilityElement(children: .contain)
-				.testability(Testability.View.settingsAccountProfile)
 		case .subscription:
 			SubscriptionStatusView(subscriptionState: subscriptionState)
 		case .deleteAccount:

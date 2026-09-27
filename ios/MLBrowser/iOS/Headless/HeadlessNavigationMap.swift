@@ -103,7 +103,7 @@ enum HeadlessNavigationMap {
 					moves(to: .drawer, "the held question's scope resolved with nothing to ask, menu open"),
 					moves(
 						to: .backupConsent,
-						"a back-up question is pending and the held question's scope resolved with nothing to ask, or access ran out"
+						"a back-up question is raised over the held question, which does not hold it; or one is pending and the held question's scope resolved with nothing to ask, or access ran out"
 					),
 					moves(to: .paywall, "access ran out")
 				]

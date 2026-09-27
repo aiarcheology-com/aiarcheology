@@ -372,10 +372,6 @@ struct WebScreenView: View {
     var body: some View {
         @Bindable var saveFinding = self.saveFinding
         detectableWebContent
-        // `children: .contain` first, so the identifier (and the label `.testability` sets under UI
-        // tests) lands on the container instead of propagating to every element inside it.
-        .accessibilityElement(children: .contain)
-        .testability(Testability.View.webScreenContent)
         .onReceive(appState.settings.$showIdentifiers) { value in
             showIdentifiers = value
         }

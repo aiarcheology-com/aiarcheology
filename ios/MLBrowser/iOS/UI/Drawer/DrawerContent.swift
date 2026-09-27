@@ -115,6 +115,10 @@ struct DrawerContent: View {
         .sheet(item: $presentation.settings) { presentation in
             settingsSheet(presentation)
         }
+        // These sheets were `@State` here, dropped whenever this view unmounted. The shared model
+        // outlives it, so it is dismissed on that same event, whatever path unmounted the drawer;
+        // closing the drawer also dismisses it in `AppChromeState.presentedSideMenu` (AIA-0984).
+        .onDisappear { presentation.dismissSheets() }
     }
 
     private var importSheet: some View {

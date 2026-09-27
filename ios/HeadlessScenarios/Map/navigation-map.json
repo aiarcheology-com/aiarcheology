@@ -186,7 +186,7 @@
           "to" : "drawer"
         },
         {
-          "condition" : "a back-up question is pending and the held question's scope resolved with nothing to ask, or access ran out",
+          "condition" : "a back-up question is raised over the held question, which does not hold it; or one is pending and the held question's scope resolved with nothing to ask, or access ran out",
           "to" : "backup-consent"
         },
         {

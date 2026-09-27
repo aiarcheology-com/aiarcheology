@@ -12,9 +12,10 @@ import XCTest
 ///
 /// Each test reads its scenario from this bundle, so the expected sequence has one source: the file
 /// the headless leg runs. A list of step closures matches the scenario's steps one to one and performs
-/// the gestures for each. After every step that carries a `route` expectation, the recorder notes the
-/// screen on top. The recorder never knows the expected route and orders no overlay or sheet above
-/// another: it waits for the hittable screen probes to name one screen and to stay so, counting the
+/// the gestures for each; a closure for a `wait route` step implements that `wait` command itself,
+/// polling until the named route is on top within the step's timeout, as the headless leg does. After
+/// every step that carries a `route` expectation, the recorder notes the screen on top. The recorder
+/// never knows the expected route and orders no overlay or sheet above another: it waits for the hittable screen probes to name one screen and to stay so, counting the
 /// app proper only when nothing covers it. The recorded list is compared with the scenario's list
 /// once, at the end.
 ///
@@ -31,11 +32,12 @@ final class HeadlessParityUITests: UITestCase {
 		"welcome": [AID.welcomeContent],
 		"tour": [AID.tourBubble],
 		"consent": [AID.analyticsChoiceNotNow],
-		"home": [AID.webScreenContent],
+		// The web toolbar's menu button; as the app proper it counts only when nothing covers it.
+		"home": [AID.cpu],
 		"drawer": [AID.drawerSettings],
 		// The drawer's sign-in sheet and the offer after a save are both `SignInSheet`. Signed in, the
-		// account row opens Settings straight onto Clerk's profile.
-		"account": [AID.signInSheetCancel, AID.settingsDismiss, AID.settingsAccountProfile],
+		// account row opens Settings straight onto Clerk's profile, whose first row is Manage account.
+		"account": [AID.signInSheetCancel, AID.settingsDismiss, manageAccountRow],
 		"findings": [AID.findingsDismiss],
 		"save-finding": [AID.saveFindingSave],
 		"paywall": [AID.paywallContent],
@@ -52,6 +54,7 @@ final class HeadlessParityUITests: UITestCase {
 	private static let defaultStepTimeout: TimeInterval = 20
 
 	private static let signOutRow = "clerk.userProfile.row.signOut"
+	private static let manageAccountRow = "clerk.userProfile.row.manageAccount"
 
 	private var launchedAt = Date()
 	private var lastRecorded: String?
@@ -90,7 +93,7 @@ final class HeadlessParityUITests: UITestCase {
 			{ _ in self.tap(AID.cpu) },
 			{ _ in self.openAccount() },
 			{ step in self.signInThroughClerk(step) },
-			{ step in self.waitForTopmostToLeave(self.lastRecorded, timeout: step.waitTimeout ?? Self.defaultStepTimeout) },
+			{ step in self.waitForRoute(step) },
 			{ _ in self.tap(AID.analyticsChoiceNotNow) },
 			{ _ in self.openAccount() },
 			{ _ in self.signOutThroughClerk() }
@@ -144,12 +147,14 @@ final class HeadlessParityUITests: UITestCase {
 		let label: String
 		let arguments: [String: Any]
 		let waitTimeout: TimeInterval?
+		/// The route a `wait` step with `condition: route` waits for (its `wait.arguments.route`).
+		let waitRoute: String?
 		/// The step's `route` expectation, when it carries one.
 		let route: String?
 	}
 
 	/// Reads `<name>.json` from the UI-test bundle: its single installation's launch block and, per
-	/// step, the `route` expectation, the `wait` timeout and the `perform` arguments.
+	/// step, the `route` expectation, the `wait` timeout and route, and the `perform` arguments.
 	private func loadScenario(_ name: String) throws -> Scenario {
 		let bundle = Bundle(for: HeadlessParityUITests.self)
 		let url = try XCTUnwrap(bundle.url(forResource: name, withExtension: "json"), "\(name).json is not in the UI-test bundle")
@@ -174,6 +179,9 @@ final class HeadlessParityUITests: UITestCase {
 				label: "\(index + 1). \(kind)" + ((raw["name"] as? String).map { " (\($0))" } ?? ""),
 				arguments: perform?["arguments"] as? [String: Any] ?? [:],
 				waitTimeout: (wait?["timeout"] as? NSNumber)?.doubleValue,
+				waitRoute: wait?["condition"] as? String == "route"
+					? (wait?["arguments"] as? [String: Any])?["route"] as? String
+					: nil,
 				route: routes.first
 			))
 		}
@@ -201,12 +209,15 @@ final class HeadlessParityUITests: UITestCase {
 			config.pageScenario = .localFixture
 			config.fixtureName = "uitest_page"
 		}
-		launchedAt = Date()
 		launch(config, mockAuthGate: usesRealAuth ? nil : "signedOut", mockSubscription: "notSubscribed")
+		// After `launch` returns: the app seeds the window during its own init, before that, so the
+		// window ends no later than `launchedAt + freeAccessEndsIn`.
+		launchedAt = Date()
 	}
 
 	/// Runs the closures, one per scenario step, recording the topmost route after each step that
-	/// carries one, then compares the recorded list with the scenario's.
+	/// carries one, then compares the recorded list with the scenario's. A closure runs its step's
+	/// gestures, or for a `wait route` step the wait itself (``waitForRoute(_:)``).
 	private func run(_ scenario: Scenario, steps closures: [(Step) -> Void]) {
 		guard closures.count == scenario.steps.count else {
 			return XCTFail("\(scenario.name): \(closures.count) step closures for \(scenario.steps.count) scenario steps")
@@ -337,8 +348,20 @@ final class HeadlessParityUITests: UITestCase {
 		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
 	}
 
-	/// `wait route …`: until one route other than the last recorded one is on top, bounded. The
+	/// The scenario's `wait route <route>` command: within the step's timeout, that route is on top.
+	/// Polls until it is, or until the deadline; either way it returns without a verdict, and the
 	/// recorder that follows settles and names what it finds.
+	private func waitForRoute(_ step: Step) {
+		guard let route = step.waitRoute else { return XCTFail("\(step.label) is not a `wait route` step") }
+		let deadline = Date().addingTimeInterval(step.waitTimeout ?? Self.defaultStepTimeout)
+		while Date() < deadline {
+			if Self.topmost(of: hittableRoutes().routes) == route { return }
+			Thread.sleep(forTimeInterval: 0.25)
+		}
+	}
+
+	/// Until one route other than `previous` is on top, bounded. The recorder that follows settles
+	/// and names what it finds.
 	private func waitForTopmostToLeave(_ previous: String?, timeout: TimeInterval) {
 		let deadline = Date().addingTimeInterval(timeout)
 		while Date() < deadline {
@@ -394,7 +417,9 @@ final class HeadlessParityUITests: UITestCase {
 		app.typeText(code)
 	}
 
-	/// Sign Out in Clerk's profile, which Settings opens onto; Settings closes itself afterwards.
+	/// Sign Out in Clerk's profile, which Settings opens onto; Settings closes itself afterwards, once
+	/// Clerk's sign-out request has returned, so this waits (bounded) for the account screen to leave
+	/// the top.
 	private func signOutThroughClerk() {
 		let row = element(Self.signOutRow).firstMatch
 		guard row.waitForExistence(timeout: 20) else { return XCTFail("Clerk's profile offered no Sign Out") }
@@ -402,6 +427,7 @@ final class HeadlessParityUITests: UITestCase {
 			app.swipeUp()
 		}
 		row.tap()
+		waitForTopmostToLeave(lastRecorded, timeout: 30)
 	}
 
 	/// Leaves the automation account signed out after a run that stopped part-way. Best effort: no

@@ -178,10 +178,11 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 		XCTAssertEqual(HeadlessRoute.saveFinding.rawValue, "save-finding", "the route string screens and scenarios use")
 	}
 
-	/// A sheet sits above the tour and the question over content, and is gone with the view that
-	/// presented it when a gate replaces the app proper.
-	func test_theSaveSheet_coversTheTourAndTheQuestion_butNotAGateThatReplacesTheApp() {
-		XCTAssertEqual(decision { $0.isSaveFindingPresented = true }.route, .saveFinding, "over the tour")
+	/// A sheet sits above the question over content, and is gone with the view that presented it when
+	/// a gate replaces the app proper. The save sheet carries the tour inside it, so the tour stays on
+	/// top of it.
+	func test_theSaveSheet_coversTheQuestion_carriesTheTour_andGoesWithAGateThatReplacesTheApp() {
+		XCTAssertEqual(decision { $0.isSaveFindingPresented = true }.route, .tour, "the tour inside the sheet")
 		XCTAssertEqual(decision {
 			$0.isSaveFindingPresented = true
 			$0.isTourPendingOrRunning = false

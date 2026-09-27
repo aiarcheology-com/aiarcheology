@@ -140,7 +140,9 @@ struct HeadlessRouteDecision: Equatable {
 	/// combinations it never produces.
 	private var presentedSheet: HeadlessRoute? {
 		guard analyticsGateShowsContent else { return nil }
-		if isSaveFindingPresented { return .saveFinding }
+		// The save sheet carries the tour inside it (`SaveFindingSheet`'s `.tourOverlay(_:inSheet:)`),
+		// so a tour-guided capture shows the tour on top of the sheet.
+		if isSaveFindingPresented { return isTourPendingOrRunning ? .tour : .saveFinding }
 		if isSignInOfferPresented { return .account }
 		guard isDrawerOpen else { return nil }
 		if isAccountPresented { return .account }

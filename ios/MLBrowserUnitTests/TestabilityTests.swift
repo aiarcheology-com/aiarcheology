@@ -169,13 +169,6 @@ final class TestabilityTests: XCTestCase {
 
         config.freeAccessDay0Unshown = false
         XCTAssertNil(UITestLaunchConfiguration.freeAccessSeedConflict(in: config))
-        for seconds in [29, 3601] {
-            config.freeAccessEndsInSeconds = seconds
-            XCTAssertEqual(
-                UITestLaunchConfiguration.freeAccessSeedConflict(in: config),
-                "freeAccessEndsInSeconds must be within 30...3600, got \(seconds)"
-            )
-        }
     }
 
     @MainActor

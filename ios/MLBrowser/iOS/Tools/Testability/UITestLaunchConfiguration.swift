@@ -300,15 +300,12 @@ struct UITestLaunchConfiguration: Codable {
 	/// Why `config`'s free-access fields cannot all be honoured, or `nil` when they can. The apply
 	/// path traps on a non-`nil` answer; a function so the rule is testable without the trap.
 	static func freeAccessSeedConflict(in config: UITestLaunchConfiguration) -> String? {
-		guard let seconds = config.freeAccessEndsInSeconds else { return nil }
+		guard config.freeAccessEndsInSeconds != nil else { return nil }
 		if config.freeAccessAnchorAgeDays != nil {
 			return "freeAccessEndsInSeconds and freeAccessAnchorAgeDays both seed the anchor; set one"
 		}
 		if config.freeAccessDay0Unshown == true {
 			return "freeAccessEndsInSeconds seeds the day-0 screen as shown; freeAccessDay0Unshown cannot apply"
-		}
-		guard FreeAccessExpirySeed.allowedSeconds.contains(seconds) else {
-			return "freeAccessEndsInSeconds must be within \(FreeAccessExpirySeed.allowedSeconds), got \(seconds)"
 		}
 		return nil
 	}
@@ -341,10 +338,25 @@ struct UITestLaunchConfiguration: Codable {
 			maxObservedDate: frozen.maxObservedDate,
 			day0Shown: day0Shown
 		)
+		writeFreeAccessAnchor(
+			record,
+			to: settings.persistenceStore,
+			orTrap: "\(environmentKey) could not encode the seeded free-access anchor"
+		)
+	}
+
+	/// Writes `record` into `store` under the key and encoding `FreeAccessAnchorService` reads, or
+	/// traps with `message` when it cannot be encoded. The one write both seeds share: the aged seed
+	/// above and `FreeAccessExpirySeed`. Not `#if DEBUG`, because the aged seed is not.
+	static func writeFreeAccessAnchor(
+		_ record: FreeAccessWindow.Record,
+		to store: UserDefaults,
+		orTrap message: @autoclosure () -> String
+	) {
 		guard let data = try? JSONEncoder().encode(record) else {
-			fatalError("\(environmentKey) could not encode the seeded free-access anchor")
+			fatalError(message())
 		}
-		settings.persistenceStore.set(data, forKey: FreeAccessAnchorService.defaultsKey)
+		store.set(data, forKey: FreeAccessAnchorService.defaultsKey)
 	}
 
 	/// Whether this launch should force-start the onboarding tour (AIA-0333). The single
