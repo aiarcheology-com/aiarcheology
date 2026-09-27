@@ -27,6 +27,8 @@ enum HeadlessRoute: String, CaseIterable {
 	/// The account screen, over the open menu: sign in while signed out, the signed-in account
 	/// otherwise.
 	case account
+	/// The save-finding sheet, over the app proper, for a picked detection.
+	case saveFinding = "save-finding"
 }
 
 /// What the app shows, decided from the same state — and the same pure deciders — the root views
@@ -56,6 +58,9 @@ struct HeadlessRouteDecision: Equatable {
 	/// Whether the account screen is up — the sign-in sheet or the account's Settings, `@State` in the
 	/// drawer, kept by the headless application instead. Only meaningful while the drawer is open.
 	var isAccountPresented: Bool
+	/// Whether the save-finding sheet is up: a detection was picked and is neither saved nor
+	/// cancelled yet. `@State` on the web screen, kept by the headless application instead.
+	var isSaveFindingPresented: Bool
 
 	var route: HeadlessRoute {
 		guard isReady else { return .launching }
@@ -105,6 +110,11 @@ struct HeadlessRouteDecision: Equatable {
 			return .consent
 		}
 
+		// The save sheet is modal over the web screen, so it covers the menu too.
+		if isSaveFindingPresented {
+			return .saveFinding
+		}
+
 		// The account screen is raised from the drawer's footer and never shows without the drawer.
 		guard isDrawerOpen else { return .home }
 		return isAccountPresented ? .account : .drawer
@@ -113,7 +123,7 @@ struct HeadlessRouteDecision: Equatable {
 	/// Whether `route` puts the app proper on screen, which is what the gates remember.
 	static func showsContent(_ route: HeadlessRoute) -> Bool {
 		switch route {
-		case .tour, .home, .drawer, .account: true
+		case .tour, .home, .drawer, .account, .saveFinding: true
 		case .launching, .gate, .consent: false
 		}
 	}

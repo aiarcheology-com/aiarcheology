@@ -27,6 +27,11 @@ struct HeadlessLaunchOptions: Equatable {
 	/// under it.
 	let flagOverrides: [FeatureFlagKey: Bool]
 
+	/// `-headlessStagedImage <name>`, repeatable, in launch order: images the launching tool copied
+	/// into `Library/Application Support/Headless/Staged/` before the launch. `detect-image` accepts
+	/// only these names, so a client cannot point detection at any other file in the container.
+	let stagedImages: [String]
+
 	/// The options this process was launched with.
 	static let current = HeadlessLaunchOptions(arguments: ProcessInfo.processInfo.arguments)
 
@@ -35,6 +40,7 @@ struct HeadlessLaunchOptions: Equatable {
 	init(arguments: [String]) {
 		var mockSubscription: String?
 		var flagOverrides: [FeatureFlagKey: Bool] = [:]
+		var stagedImages: [String] = []
 		var index = arguments.startIndex
 		while index < arguments.endIndex {
 			let argument = arguments[index]
@@ -51,12 +57,26 @@ struct HeadlessLaunchOptions: Equatable {
 				let (key, flag) = Self.parseFlag(value)
 				flagOverrides[key] = flag
 				index += 2
+			case "-headlessStagedImage":
+				guard let value, Self.isStagedImageName(value) else {
+					fatalError("-headlessStagedImage needs a bare file name (no '/', not '.' or '..', no leading '-'), got \(value ?? "nothing")")
+				}
+				stagedImages.append(value)
+				index += 2
 			default:
 				index += 1
 			}
 		}
 		self.mockSubscription = mockSubscription
 		self.flagOverrides = flagOverrides
+		self.stagedImages = stagedImages
+	}
+
+	/// A bare file name inside the staging directory: never a path out of it, and never something
+	/// that reads as the next launch option (a missing value would otherwise swallow it). Not
+	/// private so the rule can be tested without the `fatalError` a launch hits.
+	static func isStagedImageName(_ name: String) -> Bool {
+		name.isEmpty == false && name.contains("/") == false && name != "." && name != ".." && name.hasPrefix("-") == false
 	}
 
 	private static func parseFlag(_ text: String) -> (FeatureFlagKey, Bool) {
@@ -77,7 +97,10 @@ struct HeadlessLaunchOptions: Equatable {
 		for (key, value) in flagOverrides {
 			flags[key.rawValue] = .bool(value)
 		}
-		var members: [String: JSONValue] = ["flags": .object(flags)]
+		var members: [String: JSONValue] = [
+			"flags": .object(flags),
+			"stagedImages": .array(stagedImages.map(JSONValue.string))
+		]
 		members["mockSubscription"] = mockSubscription.map(JSONValue.string)
 		return .object(members)
 	}

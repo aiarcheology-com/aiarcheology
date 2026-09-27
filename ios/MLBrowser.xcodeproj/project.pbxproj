@@ -279,6 +279,7 @@
 		A1A0817000000000000007D8 /* MapLocationResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F0 /* MapLocationResolverTests.swift */; };
 		A1A0817000000000000007D9 /* BrowserStateCaptureURLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F1 /* BrowserStateCaptureURLTests.swift */; };
 		A1A0817000000000000007DA /* FindingPageURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F2 /* FindingPageURL.swift */; };
+		AA0975100000000000000002 /* StagedImageCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0975100000000000000001 /* StagedImageCapture.swift */; };
 		A1A0817000000000000007DB /* FindingPageURLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F3 /* FindingPageURLTests.swift */; };
 		A1A0817000000000000007DC /* MapLocationLiveSiteHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F4 /* MapLocationLiveSiteHarness.swift */; };
 		A1A0817000000000000007DD /* MapProbeInstallationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0817000000000000003F5 /* MapProbeInstallationTests.swift */; };
@@ -330,6 +331,7 @@
 		AA0970400000000000000002 /* AppEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970400000000000000001 /* AppEntry.swift */; };
 		AA0970410000000000000002 /* HeadlessLaunchOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */; };
 		AA0970500000000000000002 /* HeadlessRouteDecisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970500000000000000001 /* HeadlessRouteDecisionTests.swift */; };
+		AA0975200000000000000002 /* StagedImageCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0975200000000000000001 /* StagedImageCaptureTests.swift */; };
 		AB71300000000000000A002 /* FindingArchiveImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71300000000000000A001 /* FindingArchiveImport.swift */; };
 		AB71300000000000000B002 /* FindingArchiveImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71300000000000000B001 /* FindingArchiveImportTests.swift */; };
 		ABAA0115000000000000B001 /* AppMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A001 /* AppMessage.swift */; };
@@ -721,6 +723,7 @@
 		A1A0817000000000000003F0 /* MapLocationResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationResolverTests.swift; sourceTree = "<group>"; };
 		A1A0817000000000000003F1 /* BrowserStateCaptureURLTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserStateCaptureURLTests.swift; sourceTree = "<group>"; };
 		A1A0817000000000000003F2 /* FindingPageURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingPageURL.swift; sourceTree = "<group>"; };
+		AA0975100000000000000001 /* StagedImageCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StagedImageCapture.swift; sourceTree = "<group>"; };
 		A1A0817000000000000003F3 /* FindingPageURLTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingPageURLTests.swift; sourceTree = "<group>"; };
 		A1A0817000000000000003F4 /* MapLocationLiveSiteHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationLiveSiteHarness.swift; sourceTree = "<group>"; };
 		A1A0817000000000000003F5 /* MapProbeInstallationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapProbeInstallationTests.swift; sourceTree = "<group>"; };
@@ -765,6 +768,7 @@
 		AA0970400000000000000001 /* AppEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEntry.swift; sourceTree = "<group>"; };
 		AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessLaunchOptionsTests.swift; sourceTree = "<group>"; };
 		AA0970500000000000000001 /* HeadlessRouteDecisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessRouteDecisionTests.swift; sourceTree = "<group>"; };
+		AA0975200000000000000001 /* StagedImageCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StagedImageCaptureTests.swift; sourceTree = "<group>"; };
 		AB71300000000000000A001 /* FindingArchiveImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingArchiveImport.swift; sourceTree = "<group>"; };
 		AB71300000000000000B001 /* FindingArchiveImportTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingArchiveImportTests.swift; sourceTree = "<group>"; };
 		ABAA0115000000000000A001 /* AppMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMessage.swift; sourceTree = "<group>"; };
@@ -1076,6 +1080,7 @@
 			isa = PBXGroup;
 			children = (
 				A1A0817000000000000003F2 /* FindingPageURL.swift */,
+				AA0975100000000000000001 /* StagedImageCapture.swift */,
 				AC055600000000000000A001 /* FreeAccessWindow.swift */,
 				AC055600000000000000A005 /* FreeAccessState.swift */,
 				ABAA0650000000000000A003 /* SharedFindingState.swift */,
@@ -1423,6 +1428,7 @@
 				AA0970110000000000000001 /* AppRuntimeTests.swift */,
 				AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */,
 				AA0970500000000000000001 /* HeadlessRouteDecisionTests.swift */,
+				AA0975200000000000000001 /* StagedImageCaptureTests.swift */,
 				94D79C922EE37DBF0027C9FA /* SequenceExtensionsTests.swift */,
 				94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */,
 				945C55812ED71234007DD8FB /* StringExtensionsTests.swift */,
@@ -2115,6 +2121,7 @@
 				A1A0817000000000000007DF /* MapCoordinateReferenceSystem.swift in Sources */,
 				A1A0817000000000000007DE /* MapURLViewportRefresh.swift in Sources */,
 				A1A0817000000000000007DA /* FindingPageURL.swift in Sources */,
+				AA0975100000000000000002 /* StagedImageCapture.swift in Sources */,
 				A1A0817000000000000007D7 /* MapLocationResolver.swift in Sources */,
 				A1A0817000000000000007D5 /* MapLocationProbe.swift in Sources */,
 				A1A0817000000000000007D4 /* MapProbeScript.swift in Sources */,
@@ -2446,6 +2453,7 @@
 				AA0970110000000000000002 /* AppRuntimeTests.swift in Sources */,
 				AA0970410000000000000002 /* HeadlessLaunchOptionsTests.swift in Sources */,
 				AA0970500000000000000002 /* HeadlessRouteDecisionTests.swift in Sources */,
+				AA0975200000000000000002 /* StagedImageCaptureTests.swift in Sources */,
 				63CDF1E9BC41E124832411D6 /* TourStateTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
 				94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */,

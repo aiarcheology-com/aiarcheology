@@ -26,10 +26,20 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	private var hasEverShownContent = false
 	/// What the drawer's views present, kept here because it is `@State` in them.
 	private let presentation = HeadlessPresentation()
+	/// Detection on staged images and the save sheet's pending capture, for the life of the process.
+	/// Headless-only, like `presentation`, so it is kept here rather than in `AppState`.
+	private let capture: StagedImageCapture
 
 	init(appState: AppState, launchOptions: JSONValue) {
 		self.appState = appState
 		self.launchOptions = launchOptions
+		self.capture = StagedImageCapture(
+			deep: appState.deep,
+			settings: appState.settings,
+			repository: appState.findingRepository,
+			authState: appState.authState,
+			stagedNames: HeadlessLaunchOptions.current.stagedImages
+		)
 	}
 
 	var metadata: [String: JSONValue] {
@@ -39,6 +49,8 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 			"version": .string(info["CFBundleShortVersionString"] as? String ?? ""),
 			"build": .string(info["CFBundleVersion"] as? String ?? ""),
 			"backendEnvironment": .string(BackendEnvironment.current.rawValue),
+			// The headless build is built without a Sentry DSN; a scenario can check it was.
+			"crashReporting": .bool((info["SentryDSN"] as? String).map { $0.isEmpty == false } ?? false),
 			"launchOptions": launchOptions
 		]
 	}
@@ -54,9 +66,10 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 		case .gate: return HeadlessGateScreen(decision: decision)
 		case .tour: return HeadlessTourScreen(tour: appState.tour)
 		case .consent: return HeadlessConsentScreen(analytics: appState.analytics)
-		case .home: return HeadlessHomeScreen(chromeState: appState.chromeState)
+		case .home: return HeadlessHomeScreen(chromeState: appState.chromeState, capture: capture)
 		case .drawer: return HeadlessDrawerScreen(appState: appState, presentation: presentation)
 		case .account: return HeadlessAccountScreen(appState: appState, presentation: presentation)
+		case .saveFinding: return HeadlessSaveFindingScreen(appState: appState, capture: capture)
 		}
 	}
 
@@ -121,7 +134,8 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 			isAskDeferredAfterSignOut: appState.analytics.isAskDeferredAfterSignOut,
 			isDrawerOpen: isDrawerOpen,
 			hasEverShownContent: hasEverShownContent,
-			isAccountPresented: presentation.isAccountPresented
+			isAccountPresented: presentation.isAccountPresented,
+			isSaveFindingPresented: capture.pendingCapture != nil
 		)
 	}
 }
@@ -222,17 +236,70 @@ struct HeadlessConsentScreen: HeadlessScreen {
 @MainActor
 struct HeadlessHomeScreen: HeadlessScreen {
 	let chromeState: AppChromeState
+	let capture: StagedImageCapture
 
 	var route: Route { "home" }
 
 	func actions() -> [HeadlessAction] {
-		[
+		let capture = capture
+		var actions = [
 			HeadlessAction("open-drawer", summary: "Open the menu.", navigatesTo: "drawer") { [chromeState] _ in
 				// The toolbar's menu button.
 				chromeState.togglingSideMenu()
 				return nil
 			}
 		]
+		// Staged images stand in for the page snapshot the web screen detects on; with none staged
+		// there is nothing to detect on.
+		if capture.hasStagedImages {
+			let image = ParameterSpec("image", .string, summary: "A staged image name, from launchOptions.stagedImages.")
+			actions.append(HeadlessAction(
+				"detect-image",
+				summary: "Run detection with the enabled models on a staged image.",
+				parameters: [image]
+			) { arguments in
+				try await Self.detect(arguments: arguments, capture: capture)
+			})
+		}
+		// Tapping a displayed box: only while a detection pass is held.
+		if capture.frame != nil {
+			let detection = ParameterSpec("detection", .integer, summary: "The index from detect-image's result.")
+			actions.append(HeadlessAction(
+				"pick",
+				summary: "Pick a detection and open the save sheet.",
+				parameters: [detection],
+				navigatesTo: "save-finding"
+			) { arguments in
+				do {
+					try capture.pick(index: arguments.integer("detection"))
+				} catch StagedImageCapture.Failure.detectionOutOfRange {
+					throw HeadlessError(.invalidArgument, "'detection' is not an index from the last detect-image result")
+				} catch let failure as StagedImageCapture.Failure {
+					throw HeadlessError(.actionFailed, "the detection could not be picked (\(failure.headlessName))")
+				}
+				return nil
+			})
+		}
+		return actions
+	}
+
+	/// Detection's result: labels and confidences only — never a box, image data, or a path.
+	private static func detect(arguments: Arguments, capture: StagedImageCapture) async throws -> JSONValue? {
+		let detections: [StagedImageCapture.Detection]
+		do {
+			detections = try await capture.detect(imageNamed: arguments.string("image"))
+		} catch StagedImageCapture.Failure.notStaged {
+			throw HeadlessError(.invalidArgument, "'image' is not a staged image of this launch")
+		} catch let failure as StagedImageCapture.Failure {
+			throw HeadlessError(.actionFailed, "the staged image could not be read (\(failure.headlessName))")
+		}
+		return ["detections": .array(detections.map { detection in
+			[
+				"index": .number(Double(detection.index)),
+				"label": .string(detection.label),
+				"confidence": .number(HeadlessSaveFindingScreen.rounded(detection.confidence))
+			]
+		})]
 	}
 }
 
@@ -381,6 +448,20 @@ private extension FreeAccessAvailability {
 		case .undetermined: "undetermined"
 		case .open: "open"
 		case .closed: "closed"
+		}
+	}
+}
+
+/// Not `private`: the save-finding screen reports these too.
+extension StagedImageCapture.Failure {
+	var headlessName: String {
+		switch self {
+		case .notStaged: "notStaged"
+		case .missingFile: "missingFile"
+		case .undecodableImage: "undecodableImage"
+		case .noFrame: "noFrame"
+		case .detectionOutOfRange: "detectionOutOfRange"
+		case .noPendingCapture: "noPendingCapture"
 		}
 	}
 }

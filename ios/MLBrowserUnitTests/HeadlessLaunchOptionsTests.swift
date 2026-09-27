@@ -26,15 +26,43 @@ final class HeadlessLaunchOptionsTests: XCTestCase {
 		XCTAssertEqual(options.flagOverrides, [.isPaymentsEnabled: true, .isFreeAccessPeriodEnabled: false])
 		XCTAssertEqual(options.json, [
 			"mockSubscription": "subscribed",
-			"flags": ["isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": false]
+			"flags": ["isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": false],
+			"stagedImages": []
 		])
+	}
+
+	func test_readsRepeatedStagedImages_inLaunchOrder_andEchoesThem() {
+		let options = HeadlessLaunchOptions(arguments: [
+			"/path/ML Browser",
+			"-headlessStagedImage", "terrain-b.png",
+			"-mockSubscription", "subscribed",
+			"-headlessStagedImage", "terrain-a.png"
+		])
+		XCTAssertEqual(options.stagedImages, ["terrain-b.png", "terrain-a.png"])
+		XCTAssertEqual(options.json, [
+			"mockSubscription": "subscribed",
+			"flags": [:],
+			"stagedImages": ["terrain-b.png", "terrain-a.png"]
+		])
+	}
+
+	func test_aStagedImageName_isABareFileName() {
+		XCTAssertTrue(HeadlessLaunchOptions.isStagedImageName("terrain.png"))
+		XCTAssertTrue(HeadlessLaunchOptions.isStagedImageName("a..b.png"), "dots inside a name are not a path")
+		XCTAssertFalse(HeadlessLaunchOptions.isStagedImageName(""))
+		XCTAssertFalse(HeadlessLaunchOptions.isStagedImageName("."))
+		XCTAssertFalse(HeadlessLaunchOptions.isStagedImageName(".."))
+		XCTAssertFalse(HeadlessLaunchOptions.isStagedImageName("../endpoint.json"))
+		XCTAssertFalse(HeadlessLaunchOptions.isStagedImageName("sub/terrain.png"))
+		XCTAssertFalse(HeadlessLaunchOptions.isStagedImageName("-mockSubscription"), "a missing value must not swallow the next option")
 	}
 
 	func test_withoutOptions_theLaunchIsTheRealComposition() {
 		let options = HeadlessLaunchOptions(arguments: ["/path/ML Browser"])
 		XCTAssertNil(options.mockSubscription)
 		XCTAssertTrue(options.flagOverrides.isEmpty)
-		XCTAssertEqual(options.json, ["flags": [:]])
+		XCTAssertTrue(options.stagedImages.isEmpty)
+		XCTAssertEqual(options.json, ["flags": [:], "stagedImages": []])
 	}
 }
 

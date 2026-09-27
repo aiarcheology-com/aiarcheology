@@ -30,7 +30,8 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 			isAskDeferredAfterSignOut: false,
 			isDrawerOpen: false,
 			hasEverShownContent: false,
-			isAccountPresented: false
+			isAccountPresented: false,
+			isSaveFindingPresented: false
 		)
 		adjust(&decision)
 		return decision
@@ -118,8 +119,35 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 		XCTAssertEqual(decision { noTour(&$0); $0.hasEverShownContent = true }.route, .consent, "asked over content")
 	}
 
+	func test_aPickedDetection_isTheSaveSheet_overHomeAndTheDrawer() {
+		let content: (inout HeadlessRouteDecision) -> Void = {
+			$0.isTourPendingOrRunning = false
+			$0.consentPresentation = .resolved
+			$0.isSaveFindingPresented = true
+		}
+		XCTAssertEqual(decision { content(&$0) }.route, .saveFinding)
+		XCTAssertEqual(decision { content(&$0); $0.isDrawerOpen = true }.route, .saveFinding, "the sheet is modal over the menu")
+		XCTAssertEqual(decision { content(&$0); $0.isDrawerOpen = true; $0.isAccountPresented = true }.route, .saveFinding)
+		XCTAssertEqual(HeadlessRoute.saveFinding.rawValue, "save-finding", "the route string screens and scenarios use")
+	}
+
+	func test_theGatesTheTourAndConsent_stillWinOverTheSaveSheet() {
+		XCTAssertEqual(decision { $0.isSaveFindingPresented = true }.route, .tour)
+		XCTAssertEqual(decision { $0.isSaveFindingPresented = true; $0.isTourPendingOrRunning = false }.route, .consent)
+		XCTAssertEqual(decision {
+			$0.isSaveFindingPresented = true
+			$0.isTourPendingOrRunning = false
+			$0.consentPresentation = .resolved
+			$0.isSubscribed = false
+		}.route, .gate)
+		XCTAssertEqual(decision { $0.isSaveFindingPresented = true; $0.isReady = false }.route, .launching)
+	}
+
 	func test_showsContent() {
-		XCTAssertEqual(HeadlessRoute.allCases.filter(HeadlessRouteDecision.showsContent), [.tour, .home, .drawer, .account])
+		XCTAssertEqual(
+			HeadlessRoute.allCases.filter(HeadlessRouteDecision.showsContent),
+			[.tour, .home, .drawer, .account, .saveFinding]
+		)
 	}
 }
 
