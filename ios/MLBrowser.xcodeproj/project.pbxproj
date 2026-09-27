@@ -382,6 +382,7 @@
 		AC055600000000000000B005 /* FreeAccessState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A005 /* FreeAccessState.swift */; };
 		AC055600000000000000B006 /* FreeAccessStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A006 /* FreeAccessStateTests.swift */; };
 		AC055600000000000000B007 /* SubscriptionGateDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */; };
+		AC097600000000000000B002 /* SubscriptionGateCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC097600000000000000A002 /* SubscriptionGateCoordinatorTests.swift */; };
 		AC055600000000000000B008 /* FreeAccessUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A008 /* FreeAccessUITests.swift */; };
 		AC055600000000000000B009 /* FindingsEscapeHatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A009 /* FindingsEscapeHatch.swift */; };
 		AC055600000000000000B00A /* PaywallPurchaseIntentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A00A /* PaywallPurchaseIntentTests.swift */; };
@@ -412,6 +413,7 @@
 		BDE90DEA1BE01DBF4F8B3160 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 3190EA75B1839A049188B3D7 /* InfoPlist.xcstrings */; };
 		C49A5DF86CBBD885D5C79977 /* ModelAssetStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 787F8B294224A4AD8CEC14DF /* ModelAssetStoreTests.swift */; };
 		C4F8BE60D36C0129DD2C4066 /* SubscriptionGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2660066341809F9F0996AB /* SubscriptionGateView.swift */; };
+		AC097600000000000000B001 /* SubscriptionGateCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC097600000000000000A001 /* SubscriptionGateCoordinator.swift */; };
 		C54CDEC7AD84AB111D4A8319 /* EntitlementTransactionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 548E8E7AA59A9B9E0C56C84C /* EntitlementTransactionTests.swift */; };
 		C8301252821B1F7A91A9E45C /* ModelTypeBackfillerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6D3BFE7B1E5AFBA467ADF7 /* ModelTypeBackfillerTests.swift */; };
 		D62680C830044014008E38F9 /* MLBrowser_0.0.0_0.0.1.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = D62680C730044014008E38F9 /* MLBrowser_0.0.0_0.0.1.xcmappingmodel */; };
@@ -456,6 +458,7 @@
 		1F4A7C3E9B2D06A85E31C7D4 /* AuthLifecycle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthLifecycle.swift; sourceTree = "<group>"; };
 		2584DEF459E2929567E5582F /* ModelAssetStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModelAssetStore.swift; sourceTree = "<group>"; };
 		2E2660066341809F9F0996AB /* SubscriptionGateView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionGateView.swift; sourceTree = "<group>"; };
+		AC097600000000000000A001 /* SubscriptionGateCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionGateCoordinator.swift; sourceTree = "<group>"; };
 		2E9C4A71B58D03F6C147A2E9 /* SignInSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignInSheet.swift; sourceTree = "<group>"; };
 		3190EA75B1839A049188B3D7 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		347CED5074B64105979052CC /* FindingFlashTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingFlashTests.swift; sourceTree = "<group>"; };
@@ -819,6 +822,7 @@
 		AC055600000000000000A005 /* FreeAccessState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessState.swift; sourceTree = "<group>"; };
 		AC055600000000000000A006 /* FreeAccessStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessStateTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionGateDisplayTests.swift; sourceTree = "<group>"; };
+		AC097600000000000000A002 /* SubscriptionGateCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionGateCoordinatorTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A008 /* FreeAccessUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessUITests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A009 /* FindingsEscapeHatch.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingsEscapeHatch.swift; sourceTree = "<group>"; };
 		AC055600000000000000A00A /* PaywallPurchaseIntentTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PaywallPurchaseIntentTests.swift; sourceTree = "<group>"; };
@@ -945,6 +949,7 @@
 				49E941AEA21CE25C5CC4EC9C /* PaywallView.swift */,
 				9B058F2100D6B0555BC6B8CB /* WelcomeView.swift */,
 				2E2660066341809F9F0996AB /* SubscriptionGateView.swift */,
+				AC097600000000000000A001 /* SubscriptionGateCoordinator.swift */,
 				B3AA71FCC687FDCCBD2E764F /* SubscriptionStatusView.swift */,
 				584C57A0DE99705D80A9A14F /* SubscriptionPeriod+Localized.swift */,
 			);
@@ -1343,6 +1348,7 @@
 				AC055600000000000000A004 /* FreeAccessAnchorServiceTests.swift */,
 				AC055600000000000000A003 /* FreeAccessWindowTests.swift */,
 				AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */,
+				AC097600000000000000A002 /* SubscriptionGateCoordinatorTests.swift */,
 				AC055600000000000000A00A /* PaywallPurchaseIntentTests.swift */,
 				AC077900000000000000A00A /* PaywallAccountDeletionPromptTests.swift */,
 				AC055600000000000000A006 /* FreeAccessStateTests.swift */,
@@ -2343,6 +2349,7 @@
 				401A266CB4BCBDC00E517F03 /* PaywallView.swift in Sources */,
 				55317D889B6519309CD40C9C /* WelcomeView.swift in Sources */,
 				C4F8BE60D36C0129DD2C4066 /* SubscriptionGateView.swift in Sources */,
+				AC097600000000000000B001 /* SubscriptionGateCoordinator.swift in Sources */,
 				08D7ED0944917EE700C5D894 /* SubscriptionStatusView.swift in Sources */,
 				BD23CFBFEE5DA661E444472A /* SubscriptionPeriod+Localized.swift in Sources */,
 				8A1D4FE934ACAC7B6D85FA82 /* UnderConstructionBadgeModifier.swift in Sources */,
@@ -2374,6 +2381,7 @@
 				AC055600000000000000B004 /* FreeAccessAnchorServiceTests.swift in Sources */,
 				AC055600000000000000B003 /* FreeAccessWindowTests.swift in Sources */,
 				AC055600000000000000B007 /* SubscriptionGateDisplayTests.swift in Sources */,
+				AC097600000000000000B002 /* SubscriptionGateCoordinatorTests.swift in Sources */,
 				AC055600000000000000B00A /* PaywallPurchaseIntentTests.swift in Sources */,
 				AC077900000000000000B00A /* PaywallAccountDeletionPromptTests.swift in Sources */,
 				AC055600000000000000B006 /* FreeAccessStateTests.swift in Sources */,
