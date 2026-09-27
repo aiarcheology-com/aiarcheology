@@ -37,19 +37,24 @@ It is the app's **single** composition root (AIA-0385): it constructor-injects a
 `AppState` via `makeAppState()`. `AppState` holds those injected instances and never reaches back
 into `DependencyContainer.shared`; Views never touch `.shared` either (they read from `AppState` or
 a dedicated environment value such as `\.usesRealAuth`). The only `.shared` sites are bootstrap —
-the app entry points (`MLBrowser`, and `MLBrowserHeadless` in a headless build) and the
+the app entry points (`MLBrowser`, and `MLBrowserHeadless` in headless mode) and the
 background-session `UIApplicationDelegate`, which run outside the SwiftUI graph.
 
 Test isolation lives here: in DEBUG under tests, `usesMockAuth` / `usesMockSubscription`
 swap in in-memory mock providers so unit/UI tests never touch Clerk or StoreKit. The mocks
-are `#if DEBUG`, so they can never ship in Release/TestFlight. The headless build selects its
-few explicit launch options here too (`HeadlessLaunchOptions`, AIA-0970), never through the test markers.
+are `#if DEBUG`, so they can never ship in Release/TestFlight. Headless mode selects its few
+explicit launch options here too (`HeadlessLaunchOptions`, AIA-0970), never through the test markers,
+and reads them only in headless mode (AIA-0991). Headless mode also forces the no-op crash reporter.
 
 ## App entry & gating
 
 `MLBrowser/iOS/UI/AppEntry.swift` — `@main enum AppEntry` launches `MLBrowser` (the SwiftUI app,
-`UI/MLBrowser.swift`) or, when built with `AIA_APP_INTERFACE = headless`, `MLBrowserHeadless`
-(`Headless/Entry/`), the same app without its views (see `specification/HEADLESS.md`).
+`UI/MLBrowser.swift`) or, when launched with `-interface headless`, `MLBrowserHeadless`
+(`Headless/Entry/`), the same app without its views (see `specification/HEADLESS.md`). Headless is
+a launch mode of the Debug app (AIA-0991; AIA-0970 made it a separate build):
+`AppEnvironment.isHeadlessMode` is read at launch, and the branch, the entry and its command server
+compile only under `DEBUG && AIA_BACKEND_ENV_development`, so Release and a Debug build against
+production always launch `MLBrowser`.
 
 Both entries bootstrap through `AppRuntime` (`State/AppRuntime.swift`): observability, Clerk, then
 the composition root, in that order. `AppRuntime.start()` then runs the process-level work that
@@ -76,7 +81,7 @@ itself has since been deleted — sign-in is a contextual sheet (`SignInSheet`).
 || app-managed free window open`, resolved in that order by `RootGateDisplay`
 (`UI/Subscription/SubscriptionGateView.swift`). Which Welcome screen goes up, and when the tour may
 start, is `SubscriptionGateCoordinator` (same folder, AIA-0976): the view holds one per window and
-calls it from its `onChange` handlers, and the headless build runs the same object. The free window (AIA-0556) is a 14-day period owned
+calls it from its `onChange` handlers, and headless mode runs the same object. The free window (AIA-0556) is a 14-day period owned
 by `FreeAccessWindow` / `FreeAccessAnchorService` / `FreeAccessState`, anchored in UserDefaults and
 mirrored into the Keychain so a reinstall resumes it rather than restarting it. `AUTH-SUBSCRIPTION.md`
 holds the full order, the state table and the edge cases.
@@ -133,7 +138,7 @@ Production. Views observe `FeatureFlagsState` directly rather than through `AppS
 | `Rendering/` | WebView snapshotting: `WebViewRenderer`, `DefaultRenderer`, `Snapshot` |
 | `Persistence/` | Core Data classes, `.xcdatamodeld`, migrations |
 | `Services/` | Stateless workers (e.g. `ModelLoadingService`) |
-| `Headless/` | The headless build (AIA-0970): screens and actions over `AppState`, launch options, and the `Entry/` app; see `specification/HEADLESS.md` |
+| `Headless/` | Headless mode (AIA-0970, AIA-0991): screens and actions over `AppState`, launch options, and the `Entry/` app; see `specification/HEADLESS.md` |
 | `Tools/` | Cross-cutting helpers: reporting/observability, testability, extensions, localization |
 | `Resources/`, `Assets/`, `Generated/` | `Localizable.xcstrings`, assets, generated `L10n.swift` |
 

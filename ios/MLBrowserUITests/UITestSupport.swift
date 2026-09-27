@@ -282,7 +282,8 @@ class UITestCase: XCTestCase {
 		_ config: LaunchConfig = LaunchConfig(),
 		mockAuthGate: String? = nil,
 		mockSubscription: String? = nil,
-		mockAccountID: String? = nil
+		mockAccountID: String? = nil,
+		additionalArguments: [String] = []
 	) -> XCUIApplication {
 		let app = XCUIApplication()
 		app.launchEnvironment["UI_TESTING"] = "1"
@@ -307,6 +308,7 @@ class UITestCase: XCTestCase {
 		if let mockAccountID {
 			app.launchArguments += ["-mockAccountID", mockAccountID]
 		}
+		app.launchArguments += additionalArguments
 		app.launch()
 		self.app = app
 		return app

@@ -5,7 +5,7 @@
 //  AIA-0970: the app without its UI.
 //
 
-#if DEBUG && AIA_APP_INTERFACE_headless
+#if DEBUG && AIA_BACKEND_ENV_development
 import HeadlessKit
 import HeadlessKitTransport
 import SwiftUI
@@ -16,8 +16,9 @@ import SwiftUI
 /// same composition root. Only the views are replaced — by one static status line, because an iOS
 /// app always has a window — and a `HeadlessServer` takes their place as the way in.
 ///
-/// Built only with `AIA_APP_INTERFACE = headless`, which the build refuses outside Debug against the
-/// development backend.
+/// Headless mode of the Debug app, entered with `-interface headless` (AIA-0991). The whole file
+/// compiles only in a Debug build against the development backend, so no other build carries a
+/// command server.
 struct MLBrowserHeadless: App {
 	@UIApplicationDelegateAdaptor(BackgroundDownloadAppDelegate.self) var appDelegate
 	@StateObject private var appState: AppState
@@ -79,7 +80,7 @@ final class HeadlessServerController {
 
 	func start(appState: AppState) async {
 		guard server == nil else { return }
-		// The third lock on production data, after the build-time check and the launching tool's:
+		// A lock on production data, besides the compile-time exclusion and the launching tool's:
 		// a headless process never serves commands against anything but the development backend.
 		guard BackendEnvironment.current == .development else {
 			status = "ML Browser headless: refused — backend is \(BackendEnvironment.current.rawValue)"
@@ -91,7 +92,8 @@ final class HeadlessServerController {
 		let launchOptions = HeadlessLaunchOptions.current
 		let application = MLBrowserHeadlessApplication(
 			parts: HeadlessAppParts(appState: appState, launchOptions: launchOptions),
-			launchOptions: launchOptions.json
+			launchOptions: launchOptions.json,
+			crashReporting: DependencyContainer.shared.usesRealCrashReporter
 		)
 		let server = HeadlessServer(session: HeadlessSession(application: application), endpointFile: Self.endpointFile)
 		self.server = server

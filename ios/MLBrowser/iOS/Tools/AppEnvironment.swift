@@ -52,18 +52,31 @@ enum AppEnvironment {
         #endif
     }()
 
-    // MARK: - Build interface (AIA-0970)
+    // MARK: - Interface (AIA-0970, AIA-0991)
 
-    /// Whether this is the headless build: `AIA_APP_INTERFACE = headless`, which the build only
-    /// accepts for Debug against the development backend. A compile-time fact, unlike the test
-    /// markers below, so nothing at launch can turn it on.
-    static let isHeadlessBuild: Bool = {
-        #if DEBUG && AIA_APP_INTERFACE_headless
-        return true
-        #else
-        return false
-        #endif
+    #if DEBUG
+    /// Whether this process runs in headless mode: the same Debug app, launched with
+    /// `-interface headless` (see `specification/HEADLESS.md`).
+    ///
+    /// A launch-time fact. AIA-0970 made headless a separate build (`AIA_APP_INTERFACE = headless`),
+    /// a compile-time fact nothing at launch could turn on; AIA-0991 reversed that so one Debug build
+    /// serves the tests, the UI and headless runs. What still keeps it away from shipping and from
+    /// production is compile-time: this property exists only in Debug, it is `false` unparsed unless
+    /// the build targets the development backend (``AppInterface/resolve(arguments:environment:backend:)``),
+    /// and the entry point and the command server compile only under
+    /// `DEBUG && AIA_BACKEND_ENV_development`.
+    ///
+    /// A malformed `-interface`, or headless mode asked of a test host, stops the launch.
+    static let isHeadlessMode: Bool = {
+        let info = ProcessInfo.processInfo
+        switch AppInterface.resolve(arguments: info.arguments, environment: info.environment, backend: BackendEnvironment.configured) {
+        case .success(let interface):
+            return interface == .headless
+        case .failure(let refusal):
+            fatalError(refusal.message)
+        }
     }()
+    #endif
 
     // MARK: - Runtime detection (tests)
 
@@ -333,3 +346,68 @@ enum AppEnvironment {
 		|| shouldTriggerTestCrash
 	}
 }
+
+#if DEBUG
+/// The two interfaces of the Debug app (AIA-0991): the views, or headless mode, which serves the same
+/// app over a loopback socket instead (`specification/HEADLESS.md`).
+///
+/// Debug only: a Release build has no `-interface` argument to parse.
+enum AppInterface: Equatable {
+	case ui
+	case headless
+
+	/// Why a launch cannot have the interface it asked for. The launch traps with `message`.
+	struct Refusal: Error, Equatable {
+		let message: String
+	}
+
+	/// The interface `arguments` ask for, on a build for `backend`.
+	///
+	/// - Only a build for the development backend has a headless mode. Any other build ignores
+	///   `-interface` without reading it, so no value can stop it: its entry point and command
+	///   server are not compiled in, and there is nothing to select.
+	/// - `-interface <value>` is a key/value pair, as `UserDefaults` reads launch arguments; the last
+	///   one wins. No `-interface` is the UI.
+	/// - A missing value, a value that reads as the next option (a leading `-`), or anything but `ui`
+	///   or `headless` is refused: an explicit request that cannot be honoured stops the launch
+	///   rather than quietly starting the other interface. The build-time switch this replaces
+	///   refused the same way.
+	/// - `headless` is refused in a test host (`XCTestConfigurationFilePath`, or the UI tests'
+	///   `UI_TESTING`). The scheme hands its launch arguments to the tests, so a developer who left
+	///   the scheme's `-interface headless` on would otherwise run the unit-test host as a server, or
+	///   a UI test headless with its data wiped on every launch.
+	static func resolve(arguments: [String], environment: [String: String], backend: BackendEnvironment) -> Result<AppInterface, Refusal> {
+		guard backend == .development else { return .success(.ui) }
+		var requested: String??
+		var index = arguments.startIndex
+		while index < arguments.endIndex {
+			guard arguments[index] == "-interface" else {
+				index += 1
+				continue
+			}
+			let next = arguments.index(after: index)
+			if next < arguments.endIndex, arguments[next].hasPrefix("-") == false {
+				requested = .some(arguments[next])
+				index = arguments.index(after: next)
+			} else {
+				requested = .some(nil)
+				index = next
+			}
+		}
+		guard let requested else { return .success(.ui) }
+		switch requested {
+		case "ui":
+			return .success(.ui)
+		case "headless":
+			if environment["XCTestConfigurationFilePath"] != nil || environment["UI_TESTING"] != nil {
+				return .failure(Refusal(message: "-interface headless in a test host: turn off the scheme's -interface argument before running tests"))
+			}
+			return .success(.headless)
+		case .some(let value):
+			return .failure(Refusal(message: "-interface must be ui or headless, got \(value)"))
+		case .none:
+			return .failure(Refusal(message: "-interface needs a value: ui or headless"))
+		}
+	}
+}
+#endif

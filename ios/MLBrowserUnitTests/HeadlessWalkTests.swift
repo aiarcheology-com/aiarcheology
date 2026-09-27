@@ -309,7 +309,7 @@ final class HeadlessWalkTests: XCTestCase {
 		XCTAssertEqual(parts.findingsDirectory, findingsDirectory, "[walk \(name)]")
 		XCTAssertNotEqual(parts.findingsDirectory, FindingScreenshotStore.directory, "[walk \(name)]")
 
-		let application = MLBrowserHeadlessApplication(parts: parts, launchOptions: .object([:]))
+		let application = MLBrowserHeadlessApplication(parts: parts, launchOptions: .object([:]), crashReporting: false)
 		return Walker(name: name, application: application, world: world, ready: ready)
 	}
 

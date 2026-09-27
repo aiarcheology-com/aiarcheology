@@ -185,17 +185,18 @@ class DependencyContainer {
 
     /// Whether the subscription layer uses the in-memory mock instead of StoreKit.
     /// DEBUG-only and gated on test runs, mirroring `usesMockAuth`: UI tests and unit
-    /// tests must never touch StoreKit / the App Store. The headless build opts in per launch
+    /// tests must never touch StoreKit / the App Store. Headless mode opts in per launch
     /// with `-mockSubscription` (AIA-0970). Release builds always use the real provider (the
     /// mock is `#if DEBUG`, so it can never ship).
     let usesMockSubscription: Bool = {
         #if DEBUG
-        #if AIA_APP_INTERFACE_headless
-        // Headless (AIA-0970): real StoreKit is the default. It reaches the sandbox and reads as not
+        #if AIA_BACKEND_ENV_development
+        // Headless mode (AIA-0970): real StoreKit is the default. It reaches the sandbox and reads as not
         // subscribed, and a subscribed install would need a real sandbox purchase (AIA-0976). A
         // manual launch can still opt into the mock with `-mockSubscription`, which the handshake
-        // echoes; no committed scenario may.
-        if HeadlessLaunchOptions.current.mockSubscription != nil {
+        // echoes; no committed scenario may. Read only in headless mode (AIA-0991): a UI launch never
+        // parses the headless options, so a stale one cannot stop it.
+        if AppEnvironment.isHeadlessMode, HeadlessLaunchOptions.current.mockSubscription != nil {
             return true
         }
         #endif
@@ -291,12 +292,15 @@ class DependencyContainer {
     /// drop `featureFlagOverrides` on the floor — the overrides would appear to work while
     /// the app answered from the network.
     lazy var featureFlagProvider: FeatureFlagProviding = {
-        #if DEBUG && AIA_APP_INTERFACE_headless
+        #if DEBUG && AIA_BACKEND_ENV_development
         // Headless flag pins (AIA-0970), layered over the live provider. Upstream of
-        // `FeatureFlagsState`, so the launch mirror records pinned values too.
-        let pins = HeadlessLaunchOptions.current.flagOverrides
-        if pins.isEmpty == false {
-            return OverridingFeatureFlagProvider(base: Self.makeLiveFeatureFlagProvider(), overrides: pins)
+        // `FeatureFlagsState`, so the launch mirror records pinned values too. Read only in headless
+        // mode (AIA-0991): a stale `-headlessFlag` on a UI launch is never parsed.
+        if AppEnvironment.isHeadlessMode {
+            let pins = HeadlessLaunchOptions.current.flagOverrides
+            if pins.isEmpty == false {
+                return OverridingFeatureFlagProvider(base: Self.makeLiveFeatureFlagProvider(), overrides: pins)
+            }
         }
         #endif
         if AppEnvironment.isRunningUITests
@@ -311,7 +315,7 @@ class DependencyContainer {
     }()
 
     /// ConfigCat, or the compiled defaults when there is no SDK key. One definition for the app and
-    /// the headless build's pinned provider, so neither can drift from the other.
+    /// headless mode's pinned provider, so neither can drift from the other.
     private static func makeLiveFeatureFlagProvider() -> FeatureFlagProviding {
         ConfigCatFeatureFlagProvider(sdkKey: ConfigCatFeatureFlagProvider.sdkKeyFromInfoPlist())
             ?? StaticFeatureFlagProvider()
@@ -625,15 +629,41 @@ class DependencyContainer {
 	// MARK: - Initialization
 
     private init() {
-		self.crashReporter = Self.crashReporterFactory()
+		let usesRealCrashReporter = Self.usesRealCrashReporter(
+			isTestOrDebug: AppEnvironment.isRunningUnderAnyTests || AppEnvironment.isDebugConfiguration,
+			requiresRealCrashReporter: AppEnvironment.requiresRealCrashReporter,
+			forcesNoOp: Self.forcesNoOpCrashReporter
+		)
+		self.usesRealCrashReporter = usesRealCrashReporter
+		self.crashReporter = Self.crashReporterFactory(shouldUseRealReporter: usesRealCrashReporter)
 	}
-	
-	private static func crashReporterFactory() -> CrashReportingService {
+
+	/// Whether `crashReporter` is the real one, which sends events. Headless mode reports it in its
+	/// handshake (AIA-0991), because that is what decides whether an automation run reaches Sentry.
+	let usesRealCrashReporter: Bool
+
+	/// Headless mode never sends crash reports, even with a `SENTRY_TEST_*` variable set (AIA-0991):
+	/// Sentry's alert rule files a GitHub issue for the first error-level event of any environment,
+	/// and scenario runs provoke failures on purpose.
+	private static var forcesNoOpCrashReporter: Bool {
+		#if DEBUG
+		return AppEnvironment.isHeadlessMode
+		#else
+		return false
+		#endif
+	}
+
+	/// The reporter decision, pure so it can be tested without a launch: Release, or a test/Debug
+	/// process that asks for Sentry with a `SENTRY_TEST_*` variable, gets the real reporter, unless
+	/// `forcesNoOp`.
+	nonisolated static func usesRealCrashReporter(isTestOrDebug: Bool, requiresRealCrashReporter: Bool, forcesNoOp: Bool) -> Bool {
+		guard forcesNoOp == false else { return false }
+		return isTestOrDebug == false || requiresRealCrashReporter
+	}
+
+	private static func crashReporterFactory(shouldUseRealReporter: Bool) -> CrashReportingService {
 		// Create crash reporter FIRST - this must happen before anything else
 		let reportingRate: Float = AppEnvironment.isAppStoreDistribution ? 0.2 : 1.0
-		let isTestOrDebug = AppEnvironment.isRunningUnderAnyTests || AppEnvironment.isDebugConfiguration
-		
-		let shouldUseRealReporter = !isTestOrDebug || AppEnvironment.requiresRealCrashReporter
 		let reporter: CrashReportingService = shouldUseRealReporter
 			? SentryCrashReportingService(tracesSampleRate: reportingRate)
 			: NoOpCrashReportingService()

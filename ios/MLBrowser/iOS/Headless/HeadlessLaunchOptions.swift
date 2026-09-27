@@ -9,7 +9,7 @@
 import Foundation
 import HeadlessKit
 
-/// Launch arguments only the headless build reads: the few things it cannot yet reach the way a
+/// Launch arguments only headless mode reads: the few things it cannot yet reach the way a
 /// user would. Each is explicit per launch and echoed in the handshake — never a hidden default, so
 /// a scenario can always see what it ran against.
 ///
@@ -39,7 +39,8 @@ struct HeadlessLaunchOptions: Equatable {
 	/// before `AppState` exists; an install that already holds an anchor keeps it.
 	let freeAccessEndsIn: Int?
 
-	/// The options this process was launched with.
+	/// The options this process was launched with. Read only in headless mode (AIA-0991): parsing
+	/// traps on a malformed option, and a UI launch must not stop on a stale one.
 	static let current = HeadlessLaunchOptions(arguments: ProcessInfo.processInfo.arguments)
 
 	/// Reads the options from `arguments`. A malformed option stops the launch: an automation run on

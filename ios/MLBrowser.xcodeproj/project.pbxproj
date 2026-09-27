@@ -2016,22 +2016,6 @@
 				"        ;;",
 				"esac",
 				"",
-				"# The headless build serves commands on a loopback socket and is automation only (AIA-0970):",
-				"# Debug, against the development backend, never anything that could ship or reach production.",
-				"case \"${AIA_APP_INTERFACE}\" in",
-				"    ui) ;;",
-				"    headless)",
-				"        if [ \"${CONFIGURATION}\" != \"Debug\" ] || [ \"${AIA_BACKEND_ENVIRONMENT}\" != \"development\" ]; then",
-				"            echo \"error: AIA_APP_INTERFACE=headless needs CONFIGURATION=Debug and AIA_BACKEND_ENVIRONMENT=development (got '${CONFIGURATION}', '${AIA_BACKEND_ENVIRONMENT}')\"",
-				"            exit 1",
-				"        fi",
-				"        ;;",
-				"    *)",
-				"        echo \"error: AIA_APP_INTERFACE must be exactly 'ui' or 'headless' (got '${AIA_APP_INTERFACE}')\"",
-				"        exit 1",
-				"        ;;",
-				"esac",
-				"",
 			);
 		};
 		940A10092F0500030000A009 /* SwiftGen (RUN_SWIFTGEN) */ = {
@@ -2741,7 +2725,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 94FFB9D92EE7009B0049A549 /* Secrets.xcconfig */;
 			buildSettings = {
-				AIA_APP_INTERFACE = ui;
 				AIA_BACKEND_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -2776,7 +2759,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) AIA_BACKEND_ENV_$(AIA_BACKEND_ENVIRONMENT) AIA_APP_INTERFACE_$(AIA_APP_INTERFACE)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) AIA_BACKEND_ENV_$(AIA_BACKEND_ENVIRONMENT)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -2786,7 +2769,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 94FFB9D92EE7009B0049A549 /* Secrets.xcconfig */;
 			buildSettings = {
-				AIA_APP_INTERFACE = ui;
 				AIA_BACKEND_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=iphoneos*]" = AppIcon;
@@ -2822,7 +2804,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) AIA_BACKEND_ENV_$(AIA_BACKEND_ENVIRONMENT) AIA_APP_INTERFACE_$(AIA_APP_INTERFACE)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) AIA_BACKEND_ENV_$(AIA_BACKEND_ENVIRONMENT)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

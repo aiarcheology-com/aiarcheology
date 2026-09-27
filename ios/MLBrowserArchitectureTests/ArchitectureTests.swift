@@ -512,15 +512,15 @@ final class ArchitectureTests: XCTestCase {
         }
     }
 
-    // MARK: - Headless build (AIA-0970)
+    // MARK: - Headless mode (AIA-0970, AIA-0991)
 
-    /// The headless build's command server must exist only in that build. Every file that imports the
-    /// transport, starts a `HeadlessServer` or names an `NWListener` is wrapped whole in
-    /// `#if DEBUG && AIA_APP_INTERFACE_headless`, so no shipping configuration can compile a listener
-    /// into the app. The build's validation phase refuses the headless interface outside Debug; this
-    /// is the source-side half of the same lock.
-    func testHeadlessCommandServerExistsOnlyInTheHeadlessBuild() {
-        let guardLine = "#if DEBUG && AIA_APP_INTERFACE_headless"
+    /// Headless mode's command server must exist only in a Debug build against the development
+    /// backend. Every file that imports the transport, starts a `HeadlessServer` or names an
+    /// `NWListener` is wrapped whole in `#if DEBUG && AIA_BACKEND_ENV_development`, so neither a
+    /// shipping build nor a Debug build against production can compile a listener into the app.
+    /// Since AIA-0991 no build setting selects the mode; this wrap is the compile-time lock.
+    func testHeadlessCommandServerExistsOnlyInDevelopmentDebugBuilds() {
+        let guardLine = "#if DEBUG && AIA_BACKEND_ENV_development"
         var wrapped: [String] = []
         var offenders: [String] = []
         for fileURL in Self.productionSwiftFiles() {
@@ -551,7 +551,7 @@ final class ArchitectureTests: XCTestCase {
         XCTAssertTrue(
             offenders.isEmpty,
             """
-            These files use the headless command server outside the headless build. Wrap the whole file in
+            These files use the headless command server outside development Debug builds. Wrap the whole file in
             `\(guardLine)` … `#endif`, as `Headless/Entry/MLBrowserHeadless.swift` is:
             \(offenders.joined(separator: "\n"))
             """
@@ -580,7 +580,7 @@ final class ArchitectureTests: XCTestCase {
     }
 
     /// Headless adapters describe screens over `AppState` and call its methods; they have no business
-    /// with views. `Headless/Entry/` holds the SwiftUI app the headless build launches, and is exempt.
+    /// with views. `Headless/Entry/` holds the SwiftUI app headless mode launches, and is exempt.
     func testHeadlessAdaptersDoNotImportUIFrameworks() {
         let root = Self.productionIOSRootURL().appendingPathComponent("Headless", isDirectory: true)
         let files = Self.swiftFiles(under: root).filter { Self.relativePath(for: $0).contains("/Headless/Entry/") == false }

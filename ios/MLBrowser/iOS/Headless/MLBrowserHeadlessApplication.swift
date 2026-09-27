@@ -23,6 +23,9 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 
 	private let parts: HeadlessAppParts
 	private let launchOptions: JSONValue
+	/// Whether this process runs a crash reporter that sends events: the reporter actually in use,
+	/// never the build's DSN (AIA-0991). The launcher refuses a process that says `true`.
+	private let crashReporting: Bool
 	/// The root gate's orchestration — the object `SubscriptionGateView` runs on, one per window. The
 	/// headless build has exactly one window, so it owns exactly one.
 	private let gate: SubscriptionGateCoordinator
@@ -34,9 +37,10 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	/// web screen.
 	private let capture: StagedImageCapture
 
-	init(parts: HeadlessAppParts, launchOptions: JSONValue) {
+	init(parts: HeadlessAppParts, launchOptions: JSONValue, crashReporting: Bool) {
 		self.parts = parts
 		self.launchOptions = launchOptions
+		self.crashReporting = crashReporting
 		self.gate = SubscriptionGateCoordinator(
 			subscriptionState: parts.subscriptionState,
 			freeAccess: parts.freeAccess,
@@ -61,8 +65,8 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 			"version": .string(info["CFBundleShortVersionString"] as? String ?? ""),
 			"build": .string(info["CFBundleVersion"] as? String ?? ""),
 			"backendEnvironment": .string(BackendEnvironment.current.rawValue),
-			// The headless build is built without a Sentry DSN; a scenario can check it was.
-			"crashReporting": .bool((info["SentryDSN"] as? String).map { $0.isEmpty == false } ?? false),
+			// The reporter in use, not the DSN: headless mode always runs the no-op reporter.
+			"crashReporting": .bool(crashReporting),
 			"launchOptions": launchOptions
 		]
 	}
