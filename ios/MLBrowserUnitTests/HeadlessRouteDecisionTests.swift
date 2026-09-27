@@ -73,14 +73,18 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 		)
 	}
 
-	func test_aConsentAskOverContent_winsOverTheAccountScreen() {
-		// After a sign-in the new account's consent question can take the screen from the account UI.
-		XCTAssertEqual(decision {
+	func test_theAccountScreen_coversAConsentAskOverContent() {
+		// The question over content is an overlay under the sheet (AnalyticsChoiceUITests
+		// `testRestoreDefaultsTurnsAnalyticsOffAndShowsChoiceAgain`): it takes the screen only once the
+		// account screen closes, which `sign-in` does.
+		let asked = decision {
 			$0.isTourPendingOrRunning = false
 			$0.hasEverShownAnalyticsContent = true
 			$0.isDrawerOpen = true
 			$0.isAccountPresented = true
-		}.route, .consent)
+		}
+		XCTAssertEqual(asked.route, .account)
+		XCTAssertEqual(asked.route(afterClosing: .account), .consent)
 	}
 
 	func test_theRootGatesDisplay_decidesThePaywallAndTheHold() {
@@ -174,9 +178,20 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 		XCTAssertEqual(HeadlessRoute.saveFinding.rawValue, "save-finding", "the route string screens and scenarios use")
 	}
 
-	func test_theGatesTheTourAndConsent_stillWinOverTheSaveSheet() {
-		XCTAssertEqual(decision { $0.isSaveFindingPresented = true }.route, .tour)
-		XCTAssertEqual(decision { $0.isSaveFindingPresented = true; $0.isTourPendingOrRunning = false }.route, .consent)
+	/// A sheet sits above the tour and the question over content, and is gone with the view that
+	/// presented it when a gate replaces the app proper.
+	func test_theSaveSheet_coversTheTourAndTheQuestion_butNotAGateThatReplacesTheApp() {
+		XCTAssertEqual(decision { $0.isSaveFindingPresented = true }.route, .saveFinding, "over the tour")
+		XCTAssertEqual(decision {
+			$0.isSaveFindingPresented = true
+			$0.isTourPendingOrRunning = false
+			$0.hasEverShownAnalyticsContent = true
+		}.route, .saveFinding, "over the question asked over content")
+		XCTAssertEqual(
+			decision { $0.isSaveFindingPresented = true; $0.isTourPendingOrRunning = false }.route,
+			.consent,
+			"the analytics gate's choice replaces the app proper, and the web screen with it"
+		)
 		XCTAssertEqual(decision {
 			$0.isSaveFindingPresented = true
 			$0.isTourPendingOrRunning = false
@@ -250,22 +265,40 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 			$0.isTourPendingOrRunning = false
 			$0.consentPresentation = .pending
 			$0.isBackupConsentPending = true
-		}.route, .consent, "held before content")
-		XCTAssertEqual(decision { $0.isBackupConsentPending = true }.route, .tour)
+		}.route, .backupConsent, "the analytics gate's hold is not its question: the back-up question draws over it")
+		XCTAssertEqual(decision {
+			$0.isTourPendingOrRunning = false
+			$0.isBackupConsentPending = true
+		}.route, .consent, "the choice replacing the app proper")
+		XCTAssertEqual(decision { $0.isBackupConsentPending = true }.route, .backupConsent, "over the tour, from the scene root")
 	}
 
-	/// #974's order, kept: the analytics question outranks every sheet. No modelled flow reaches it
-	/// (`sign-in` closes the account screen before the question can arrive), so this pins the order
-	/// rather than a path.
-	func test_theAnalyticsQuestion_outranksEverySheet() {
+	/// The back-up question is an overlay at the scene root, so it draws over both gates and the tour;
+	/// only the analytics question on screen holds it.
+	func test_theBackupQuestion_drawsOverTheGatesAndTheTour() {
+		XCTAssertEqual(decision { $0.display = .hold; $0.isBackupConsentPending = true }.route, .backupConsent, "the hold")
+		XCTAssertEqual(decision { $0.display = .wall; $0.isBackupConsentPending = true }.route, .backupConsent, "the wall")
+		XCTAssertEqual(decision {
+			$0.presentedWelcome = .introduction
+			$0.isBackupConsentPending = true
+		}.route, .backupConsent, "a Welcome screen")
+	}
+
+	/// The app's order, which replaces #974's: every sheet covers the question asked over content, as
+	/// UIKit presents sheets above the analytics gate's overlay. `AnalyticsChoiceUITests`
+	/// `testRestoreDefaultsTurnsAnalyticsOffAndShowsChoiceAgain` observes it in the app: the question
+	/// raised while Settings is up is not hittable until Settings closes.
+	func test_everySheet_coversTheQuestionAskedOverContent() {
 		let asked: (inout HeadlessRouteDecision) -> Void = {
 			$0.isTourPendingOrRunning = false
 			$0.hasEverShownAnalyticsContent = true
 			$0.isDrawerOpen = true
 		}
-		XCTAssertEqual(decision { asked(&$0); $0.isSaveFindingPresented = true }.route, .consent)
-		XCTAssertEqual(decision { asked(&$0); $0.isAccountPresented = true }.route, .consent)
-		XCTAssertEqual(decision { asked(&$0); $0.isFindingsPresented = true }.route, .consent)
+		XCTAssertEqual(decision { asked(&$0); $0.isDrawerOpen = false; $0.isSaveFindingPresented = true }.route, .saveFinding)
+		XCTAssertEqual(decision { asked(&$0); $0.isDrawerOpen = false; $0.isSignInOfferPresented = true }.route, .account)
+		XCTAssertEqual(decision { asked(&$0); $0.isAccountPresented = true }.route, .account)
+		XCTAssertEqual(decision { asked(&$0); $0.isFindingsPresented = true }.route, .findings)
+		XCTAssertEqual(decision { asked(&$0) }.route, .consent, "and the question shows once they close")
 	}
 
 	func test_closingASheet_landsOnTheBackupQuestionWhenOneIsPending() {

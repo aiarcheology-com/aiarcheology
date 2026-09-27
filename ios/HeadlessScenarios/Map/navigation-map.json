@@ -29,7 +29,7 @@
           "to" : "home"
         },
         {
-          "condition" : "ready with a back-up question already pending and nothing owed ahead of it",
+          "condition" : "ready with a back-up question already pending and the analytics question not on screen",
           "to" : "backup-consent"
         }
       ]
@@ -59,7 +59,7 @@
           "to" : "home"
         },
         {
-          "condition" : "a back-up question is pending and nothing is owed ahead of it, over the app or the wall",
+          "condition" : "a back-up question is pending and the analytics question is not on screen: it draws over the hold",
           "to" : "backup-consent"
         }
       ]
@@ -114,7 +114,7 @@
           "to" : "paywall"
         },
         {
-          "condition" : "access ran out with a back-up question pending",
+          "condition" : "a back-up question is pending: it draws over the Welcome screen",
           "to" : "backup-consent"
         }
       ]
@@ -138,7 +138,7 @@
           "to" : "paywall"
         },
         {
-          "condition" : "access ran out with a back-up question pending",
+          "condition" : "a back-up question is pending: it draws over the tour",
           "to" : "backup-consent"
         }
       ]
@@ -399,6 +399,21 @@
           "to" : "paywall"
         },
         {
+          "action" : "accept",
+          "condition" : "the question covered the root gate's hold",
+          "to" : "gate"
+        },
+        {
+          "action" : "accept",
+          "condition" : "the question covered a Welcome screen",
+          "to" : "welcome"
+        },
+        {
+          "action" : "accept",
+          "condition" : "the question covered the tour",
+          "to" : "tour"
+        },
+        {
           "action" : "decline",
           "condition" : "the question covered the app, menu closed",
           "to" : "home"
@@ -414,12 +429,27 @@
           "to" : "paywall"
         },
         {
-          "condition" : "access returned while the question covered the wall, and the tour is armed",
+          "action" : "decline",
+          "condition" : "the question covered the root gate's hold",
+          "to" : "gate"
+        },
+        {
+          "action" : "decline",
+          "condition" : "the question covered a Welcome screen",
+          "to" : "welcome"
+        },
+        {
+          "action" : "decline",
+          "condition" : "the question covered the tour",
           "to" : "tour"
         },
         {
           "condition" : "access returned while the question covered the wall, and the analytics question is unanswered",
           "to" : "consent"
+        },
+        {
+          "condition" : "the gate lifted to the paywall over the app, whose analytics question holds it",
+          "to" : "paywall"
         }
       ]
     }

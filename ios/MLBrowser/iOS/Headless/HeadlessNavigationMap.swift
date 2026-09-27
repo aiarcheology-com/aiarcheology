@@ -36,7 +36,7 @@ enum HeadlessNavigationMap {
 					moves(to: .tour, "ready, no Welcome screen owed, and the tour is armed"),
 					moves(to: .consent, "ready with the analytics question unanswered or its scope unresolved"),
 					moves(to: .home, "ready with nothing owed"),
-					moves(to: .backupConsent, "ready with a back-up question already pending and nothing owed ahead of it")
+					moves(to: .backupConsent, "ready with a back-up question already pending and the analytics question not on screen")
 				]
 			)
 		case .gate:
@@ -49,7 +49,7 @@ enum HeadlessNavigationMap {
 					moves(to: .tour, "access is granted, no Welcome screen owed, and the tour is armed"),
 					moves(to: .consent, "access is granted with the analytics question unanswered"),
 					moves(to: .home, "access is granted with nothing owed"),
-					moves(to: .backupConsent, "a back-up question is pending and nothing is owed ahead of it, over the app or the wall")
+					moves(to: .backupConsent, "a back-up question is pending and the analytics question is not on screen: it draws over the hold")
 				]
 			)
 		case .paywall:
@@ -73,7 +73,7 @@ enum HeadlessNavigationMap {
 					TransitionDeclaration(action: "continue", to: .consent, condition: "no tour, and the analytics question is unanswered"),
 					TransitionDeclaration(action: "continue", to: .home, condition: "nothing else is owed"),
 					moves(to: .paywall, "access ran out"),
-					moves(to: .backupConsent, "access ran out with a back-up question pending")
+					moves(to: .backupConsent, "a back-up question is pending: it draws over the Welcome screen")
 				]
 			)
 		case .tour:
@@ -84,7 +84,7 @@ enum HeadlessNavigationMap {
 					TransitionDeclaration(action: "skip", to: .consent, condition: "the analytics question is unanswered"),
 					TransitionDeclaration(action: "skip", to: .home, condition: "the analytics question is answered"),
 					moves(to: .paywall, "access ran out"),
-					moves(to: .backupConsent, "access ran out with a back-up question pending")
+					moves(to: .backupConsent, "a back-up question is pending: it draws over the tour")
 				]
 			)
 		case .consent:
@@ -189,16 +189,20 @@ enum HeadlessNavigationMap {
 				[
 					TransitionDeclaration(action: action, to: .home, condition: "the question covered the app, menu closed"),
 					TransitionDeclaration(action: action, to: .drawer, condition: "the question covered the open menu"),
-					TransitionDeclaration(action: action, to: .paywall, condition: "the question covered the paywall")
+					TransitionDeclaration(action: action, to: .paywall, condition: "the question covered the paywall"),
+					TransitionDeclaration(action: action, to: .gate, condition: "the question covered the root gate's hold"),
+					TransitionDeclaration(action: action, to: .welcome, condition: "the question covered a Welcome screen"),
+					TransitionDeclaration(action: action, to: .tour, condition: "the question covered the tour")
 				]
 			}
 			return RouteDeclaration(
 				route: route,
 				summary: "The back-up question for findings saved before this account signed in.",
 				transitions: answered + [
-					// Both outrank the back-up question: it waits under them until they are done.
-					moves(to: .tour, "access returned while the question covered the wall, and the tour is armed"),
-					moves(to: .consent, "access returned while the question covered the wall, and the analytics question is unanswered")
+					// The analytics question holds the back-up question (`ConsentQuestionOnScreenKey`): once
+					// it is on screen, the back-up question waits under it until it is answered.
+					moves(to: .consent, "access returned while the question covered the wall, and the analytics question is unanswered"),
+					moves(to: .paywall, "the gate lifted to the paywall over the app, whose analytics question holds it")
 				]
 			)
 		}

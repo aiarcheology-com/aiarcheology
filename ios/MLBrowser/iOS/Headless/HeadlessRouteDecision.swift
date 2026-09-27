@@ -80,18 +80,46 @@ struct HeadlessRouteDecision: Equatable {
 	/// Whether the sync coordinator holds an unanswered back-up question.
 	var isBackupConsentPending: Bool
 
+	/// The screen on top: the app's layers, topmost first (AIA-0984).
+	///
+	/// This is the one declaration of the order. The views cannot be driven from it — each layer's
+	/// place follows from where its view sits in the tree — so `HeadlessRouteDecisionTests` pins the
+	/// same order and the parity test (`HeadlessParityUITests` against the `parity-*` scenarios)
+	/// checks it against the app itself.
+	///
+	/// 1. **A sheet.** UIKit presents sheets above every SwiftUI layer, but only while the view that
+	///    presents them is mounted: the web screen and the drawer live in the app proper
+	///    (``presentedSheet``).
+	/// 2. **The back-up question**, an overlay at the scene root (`backupConsentPrompt`), so above both
+	///    gates and the app proper. The analytics question holds it (`ConsentQuestionOnScreenKey`).
+	/// 3. **The root gate** (`SubscriptionGateView`): its hold or its wall replaces its content; the
+	///    paywall over content and the Welcome screen are overlays on that content.
+	/// 4. **The analytics gate** (`AnalyticsChoiceGate`), inside the root gate's content: its choice or
+	///    its hold replaces the app proper; its question over content is an overlay on it.
+	/// 5. **The tour**, an overlay on `ContentView`, inside the analytics gate's content.
+	/// 6. **The app proper**: the drawer, or home.
 	var route: HeadlessRoute {
 		guard isReady else { return .launching }
 
-		switch display {
-		case .hold: return .gate
-		case .wall, .wallOverContent: return paywallOrWhatCoversIt
-		case .content: break
+		if let sheet = presentedSheet {
+			return sheet
 		}
 
-		// The Welcome screen is the root gate's own overlay, above everything the app proper shows.
+		if isBackupConsentPending && isAnalyticsQuestionOnScreen == false {
+			return .backupConsent
+		}
+
+		switch display {
+		case .hold: return .gate
+		case .wall, .wallOverContent: return .paywall
+		case .content: break
+		}
 		if presentedWelcome != nil {
 			return .welcome
+		}
+
+		if analyticsDisplay != .content || asksOverContent {
+			return .consent
 		}
 
 		if isTourPendingOrRunning {
@@ -99,77 +127,40 @@ struct HeadlessRouteDecision: Equatable {
 			return .tour
 		}
 
-		let consentDisplay = analyticsDisplay
-		let asksOverContent = AnalyticsChoiceDisplay.asksOverContent(
+		return isDrawerOpen ? .drawer : .home
+	}
+
+	/// The sheet that is up, when the view presenting it is mounted: the app proper is, which is what
+	/// ``analyticsGateShowsContent`` says — the root gate shows its content (covered by the paywall
+	/// or not) and the analytics gate shows its own.
+	///
+	/// The web screen presents the save sheet and, once that has closed, the sign-in offer; the drawer
+	/// presents the account screen and the findings list, and only while it is open. The app reaches
+	/// no state with two of them up (`HeadlessReachableStates`), so their order here settles only
+	/// combinations it never produces.
+	private var presentedSheet: HeadlessRoute? {
+		guard analyticsGateShowsContent else { return nil }
+		if isSaveFindingPresented { return .saveFinding }
+		if isSignInOfferPresented { return .account }
+		guard isDrawerOpen else { return nil }
+		if isAccountPresented { return .account }
+		if isFindingsPresented { return .findings }
+		return nil
+	}
+
+	/// Whether `AnalyticsChoiceGate` asks its question over content already shown.
+	private var asksOverContent: Bool {
+		AnalyticsChoiceDisplay.asksOverContent(
 			presentation: consentPresentation,
 			hasEverShownContent: hasEverShownAnalyticsContent,
 			isAskDeferred: isAskDeferred
 		)
-		// Consent outranking a sheet is #974's decision. No modelled flow reaches it: the one path
-		// that raises the question while a sheet is up, `sign-in`, closes the account screen (and the
-		// sign-in offer) first.
-		if consentDisplay != .content || asksOverContent {
-			return .consent
-		}
-
-		// The save sheet is modal over the web screen, so it covers the menu too.
-		if isSaveFindingPresented {
-			return .saveFinding
-		}
-		// The sign-in offer is the web screen's other sheet, raised once the save sheet has closed, so
-		// it never shares the screen with it. It is the account screen, without the menu.
-		if isSignInOfferPresented {
-			return .account
-		}
-
-		// The account screen and the findings list are raised from the drawer and never show
-		// without it.
-		if isDrawerOpen && isAccountPresented {
-			return .account
-		}
-		if isDrawerOpen && isFindingsPresented {
-			return .findings
-		}
-
-		// The back-up question is an overlay at the scene root: it draws below any sheet and over
-		// the app proper, menu open or not. The analytics question holds it, which the consent
-		// check above already covers.
-		if isBackupConsentPending {
-			return .backupConsent
-		}
-
-		return isDrawerOpen ? .drawer : .home
-	}
-
-	/// The paywall, unless something drawn above the root gate covers it.
-	///
-	/// The paywall is the gate's own overlay (or, as the wall, its whole content), so it covers the
-	/// analytics question and the app proper. Two things are drawn above the gate: a sheet the app
-	/// presented before access ran out (only possible over `.wallOverContent`, where the content is
-	/// still mounted), and the back-up question, which sits at the scene root and holds only while
-	/// the analytics question is on screen.
-	private var paywallOrWhatCoversIt: HeadlessRoute {
-		if display == .wallOverContent {
-			if isSaveFindingPresented { return .saveFinding }
-			if isSignInOfferPresented { return .account }
-			if isDrawerOpen && isAccountPresented { return .account }
-			if isDrawerOpen && isFindingsPresented { return .findings }
-		}
-		if isBackupConsentPending && isAnalyticsQuestionOnScreen == false {
-			return .backupConsent
-		}
-		return .paywall
 	}
 
 	/// Whether `AnalyticsChoiceGate` is putting its question on screen, which is what holds the
 	/// back-up question (`ConsentQuestionOnScreenKey`). The gate is not mounted behind the wall.
 	private var isAnalyticsQuestionOnScreen: Bool {
 		guard display == .content || display == .wallOverContent else { return false }
-		let asksOverContent = AnalyticsChoiceDisplay.asksOverContent(
-			presentation: consentPresentation,
-			hasEverShownContent: hasEverShownAnalyticsContent,
-			isAskDeferred: isAskDeferred
-		)
 		return analyticsDisplay == .choice || asksOverContent
 	}
 
