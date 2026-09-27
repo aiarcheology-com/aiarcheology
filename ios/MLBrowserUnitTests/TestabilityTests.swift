@@ -144,5 +144,59 @@ final class TestabilityTests: XCTestCase {
         UITestLaunchConfiguration.applyDetectionAndAnalyticsDeltas(config, to: settings)
         XCTAssertTrue(settings.analyticsEnabled)
     }
+
+    // MARK: - Free-access expiry seed (AIA-0984)
+
+    func test_freeAccessSeedConflict_refusesEveryCombinationTheSeedCannotHonour() {
+        var config = UITestLaunchConfiguration()
+        XCTAssertNil(UITestLaunchConfiguration.freeAccessSeedConflict(in: config), "no seed, nothing to refuse")
+        config.freeAccessAnchorAgeDays = 20
+        XCTAssertNil(UITestLaunchConfiguration.freeAccessSeedConflict(in: config), "the aged seed alone is unaffected")
+
+        config.freeAccessEndsInSeconds = 90
+        XCTAssertEqual(
+            UITestLaunchConfiguration.freeAccessSeedConflict(in: config),
+            "freeAccessEndsInSeconds and freeAccessAnchorAgeDays both seed the anchor; set one"
+        )
+
+        config.freeAccessAnchorAgeDays = nil
+        XCTAssertNil(UITestLaunchConfiguration.freeAccessSeedConflict(in: config))
+        config.freeAccessDay0Unshown = true
+        XCTAssertEqual(
+            UITestLaunchConfiguration.freeAccessSeedConflict(in: config),
+            "freeAccessEndsInSeconds seeds the day-0 screen as shown; freeAccessDay0Unshown cannot apply"
+        )
+
+        config.freeAccessDay0Unshown = false
+        XCTAssertNil(UITestLaunchConfiguration.freeAccessSeedConflict(in: config))
+        for seconds in [29, 3601] {
+            config.freeAccessEndsInSeconds = seconds
+            XCTAssertEqual(
+                UITestLaunchConfiguration.freeAccessSeedConflict(in: config),
+                "freeAccessEndsInSeconds must be within 30...3600, got \(seconds)"
+            )
+        }
+    }
+
+    @MainActor
+    func test_applyDetectionAndAnalyticsDeltas_freeAccessEndsInSeconds_seedsTheFastStore() throws {
+        let settings = Settings()
+        let store = settings.persistenceStore
+        // The host app's store: put back whatever anchor it held.
+        let hostAnchor = store.object(forKey: FreeAccessAnchorService.defaultsKey)
+        defer { store.set(hostAnchor, forKey: FreeAccessAnchorService.defaultsKey) }
+        store.removeObject(forKey: FreeAccessAnchorService.defaultsKey)
+
+        var config = UITestLaunchConfiguration()
+        config.freeAccessEndsInSeconds = 120
+        let before = Date()
+        UITestLaunchConfiguration.applyDetectionAndAnalyticsDeltas(config, to: settings)
+
+        let data = try XCTUnwrap(store.data(forKey: FreeAccessAnchorService.defaultsKey))
+        let record = try JSONDecoder().decode(FreeAccessWindow.Record.self, from: data)
+        XCTAssertGreaterThanOrEqual(record.grantedAt, before)
+        XCTAssertEqual(record.expiresAt.timeIntervalSince(record.grantedAt), 120)
+        XCTAssertTrue(record.day0Shown)
+    }
     
 }

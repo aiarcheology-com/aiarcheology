@@ -127,10 +127,14 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 
 	func waitConditions() -> [WaitCondition] {
 		let parts = parts
+		let gate = gate
 		let findingID = ParameterSpec("id", .string, summary: "The finding id, from the findings list or save's result.")
 		return [
 			WaitCondition("ready", summary: "The app finished launching.") { _ in
 				parts.isReady()
+			},
+			WaitCondition("access-ended", summary: "The root gate walls the app: free access and subscription are both over.") { _ in
+				gate.display == .wall || gate.display == .wallOverContent
 			},
 			WaitCondition(
 				"model-loaded",

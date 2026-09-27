@@ -94,8 +94,11 @@ public struct HeadlessLaunch: Equatable {
 /// stage.
 ///
 /// ```json
-/// { "mockSubscription": "subscribed", "flags": { "isPaymentsEnabled": true }, "stage": ["ios/Fixtures/site.png"] }
+/// { "mockSubscription": "subscribed", "flags": { "isPaymentsEnabled": true }, "freeAccessEndsIn": 90, "stage": ["ios/Fixtures/site.png"] }
 /// ```
+///
+/// `freeAccessEndsIn` (whole seconds) gives a fresh install a free-access window that ends that long
+/// after launch (AIA-0984); an install that already holds one keeps it.
 ///
 /// Strict, like the scenario format: an unknown key, a non-boolean flag or an unusable image is an
 /// error, not a silently ignored option.
@@ -105,12 +108,16 @@ public enum HeadlessLaunchArguments {
 		public let description: String
 	}
 
+	/// The seconds `freeAccessEndsIn` accepts: the app's `FreeAccessExpirySeed.allowedSeconds`, which
+	/// traps on anything else, restated because the tool does not link the app.
+	public static let freeAccessEndsInSeconds = 30...3600
+
 	/// - Parameter repositoryRoot: what `stage` paths are relative to, and must stay inside.
 	public static func make(from options: JSONValue, repositoryRoot: URL) throws -> HeadlessLaunch {
 		guard let members = options.objectValue else {
 			throw Invalid(description: "launch options must be an object")
 		}
-		let unknown = Set(members.keys).subtracting(["mockSubscription", "flags", "stage"])
+		let unknown = Set(members.keys).subtracting(["mockSubscription", "flags", "freeAccessEndsIn", "stage"])
 		guard unknown.isEmpty else {
 			throw Invalid(description: "unknown launch option(s): \(unknown.sorted().joined(separator: ", "))")
 		}
@@ -131,6 +138,12 @@ public enum HeadlessLaunchArguments {
 				}
 				arguments += ["-headlessFlag", "\(key)=\(value)"]
 			}
+		}
+		if let endsIn = members["freeAccessEndsIn"] {
+			guard let seconds = endsIn.intValue, freeAccessEndsInSeconds.contains(seconds) else {
+				throw Invalid(description: "freeAccessEndsIn must be whole seconds within \(freeAccessEndsInSeconds), got \(endsIn.jsonString)")
+			}
+			arguments += ["-headlessFreeAccessEndsIn", String(seconds)]
 		}
 		var stagedImages: [StagedImage] = []
 		if let stage = members["stage"] {

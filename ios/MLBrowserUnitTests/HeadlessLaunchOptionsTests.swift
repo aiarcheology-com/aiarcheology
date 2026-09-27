@@ -57,8 +57,31 @@ final class HeadlessLaunchOptionsTests: XCTestCase {
 		XCTAssertFalse(HeadlessLaunchOptions.isStagedImageName("-mockSubscription"), "a missing value must not swallow the next option")
 	}
 
+	func test_readsTheFreeAccessEnd_andEchoesIt() {
+		let options = HeadlessLaunchOptions(arguments: [
+			"/path/ML Browser",
+			"-headlessFreeAccessEndsIn", "90",
+			"-headlessFlag", "isPaymentsEnabled=true"
+		])
+		XCTAssertEqual(options.freeAccessEndsIn, 90)
+		XCTAssertEqual(options.json, [
+			"flags": ["isPaymentsEnabled": true],
+			"stagedImages": [],
+			"freeAccessEndsIn": 90
+		])
+	}
+
+	func test_aFreeAccessEnd_isWholeSecondsInTheSeedsRange() {
+		XCTAssertEqual(HeadlessLaunchOptions.freeAccessEndsIn("30"), 30)
+		XCTAssertEqual(HeadlessLaunchOptions.freeAccessEndsIn("3600"), 3600)
+		for text in ["29", "3601", "0", "-60", "90.5", "", "ninety", "-mockSubscription"] {
+			XCTAssertNil(HeadlessLaunchOptions.freeAccessEndsIn(text), text)
+		}
+	}
+
 	func test_withoutOptions_theLaunchIsTheRealComposition() {
 		let options = HeadlessLaunchOptions(arguments: ["/path/ML Browser"])
+		XCTAssertNil(options.freeAccessEndsIn)
 		XCTAssertNil(options.mockSubscription)
 		XCTAssertTrue(options.flagOverrides.isEmpty)
 		XCTAssertTrue(options.stagedImages.isEmpty)

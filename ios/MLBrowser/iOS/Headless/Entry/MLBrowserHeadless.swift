@@ -25,9 +25,21 @@ struct MLBrowserHeadless: App {
 	@State private var server = HeadlessServerController()
 
 	init() {
+		Self.seedFreeAccessExpiryIfRequested(container: DependencyContainer.shared)
 		let appState = AppRuntime.bootstrap(container: DependencyContainer.shared)
 		_appState = StateObject(wrappedValue: appState)
 		runtime = AppRuntime(appState: appState)
+	}
+
+	/// `-headlessFreeAccessEndsIn` (AIA-0984). Before `bootstrap`, because `AppState`'s initializer
+	/// starts the task that runs `FreeAccessState.start()`, the first read of the window.
+	private static func seedFreeAccessExpiryIfRequested(container: DependencyContainer) {
+		guard let seconds = HeadlessLaunchOptions.current.freeAccessEndsIn else { return }
+		FreeAccessExpirySeed.seedWindowEnding(
+			inSeconds: seconds,
+			fastStore: container.settings.persistenceStore,
+			durableStore: container.freeAccessDurableStore
+		)
 	}
 
 	var body: some Scene {

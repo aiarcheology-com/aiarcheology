@@ -46,6 +46,9 @@ struct Headless: AsyncParsableCommand {
 		@Option(name: .long, help: "Pin a feature flag, key=true|false (repeatable).")
 		var flag: [String] = []
 
+		@Option(name: .long, help: "On a fresh install, end free access this many seconds (30...3600) after launch.")
+		var freeAccessEndsIn: Int?
+
 		@Option(name: .long, help: "Stage a .png/.jpg/.jpeg from the repository, path relative to its root, in the app's container (repeatable).")
 		var image: [String] = []
 
@@ -61,6 +64,7 @@ struct Headless: AsyncParsableCommand {
 				flags[parts[0]] = .bool(value)
 			}
 			if flags.isEmpty == false { options["flags"] = .object(flags) }
+			if let freeAccessEndsIn { options["freeAccessEndsIn"] = .number(Double(freeAccessEndsIn)) }
 			// As a scenario's `stage`, so it gets the same validation and staging.
 			if image.isEmpty == false { options["stage"] = .array(image.map(JSONValue.string)) }
 			let simulator = try HeadlessSimulator(installation: state)

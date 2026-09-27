@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 16
+	var version = 17
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -60,6 +60,10 @@ struct LaunchConfig: Encodable {
 	/// Use the real Clerk provider (development instance, `+clerk_test` addresses) instead of the
 	/// mock (AIA-0984). `nil` = mock. The app traps without a `pk_` key or off development.
 	var usesRealAuth: Bool?
+	/// Seed a free-access window ending this many seconds (30...3600) after launch, day-0 screen
+	/// shown, so it expires mid-session (AIA-0984). `nil` = no anchor. The app traps when it is set
+	/// with `freeAccessAnchorAgeDays` or `freeAccessDay0Unshown`.
+	var freeAccessEndsInSeconds: Int?
 }
 
 // MARK: - Accessibility identifiers

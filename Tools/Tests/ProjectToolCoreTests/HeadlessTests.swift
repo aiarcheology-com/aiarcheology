@@ -133,6 +133,33 @@ final class HeadlessLaunchArgumentsTests: XCTestCase {
 		}
 	}
 
+	func testFreeAccessEndsInFollowsTheFlagsAndPrecedesTheStagedImages() throws {
+		let launch = try make([
+			"stage": ["images/site.png"],
+			"freeAccessEndsIn": 90,
+			"flags": ["isPaymentsEnabled": true],
+			"mockSubscription": "notSubscribed"
+		])
+		XCTAssertEqual(launch.arguments, [
+			"-mockSubscription", "notSubscribed",
+			"-headlessFlag", "isPaymentsEnabled=true",
+			"-headlessFreeAccessEndsIn", "90",
+			"-headlessStagedImage", "site.png"
+		])
+		XCTAssertEqual(try make(["freeAccessEndsIn": 30]).arguments, ["-headlessFreeAccessEndsIn", "30"])
+		XCTAssertEqual(try make(["freeAccessEndsIn": 3600]).arguments, ["-headlessFreeAccessEndsIn", "3600"])
+	}
+
+	func testFreeAccessEndsInMustBeWholeSecondsInRange() {
+		for value: JSONValue in [29, 3601, 0, -60, 90.5, "90", true, [90]] {
+			XCTAssertEqual(
+				rejection(["freeAccessEndsIn": value]),
+				"freeAccessEndsIn must be whole seconds within 30...3600, got \(value.jsonString)",
+				value.jsonString
+			)
+		}
+	}
+
 	func testStagedImagesBecomeNamesInTheListedOrderAfterTheOtherOptions() throws {
 		let launch = try make([
 			"mockSubscription": "notSubscribed",

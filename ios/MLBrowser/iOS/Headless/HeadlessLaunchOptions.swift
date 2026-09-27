@@ -33,6 +33,12 @@ struct HeadlessLaunchOptions: Equatable {
 	/// only these names, so a client cannot point detection at any other file in the container.
 	let stagedImages: [String]
 
+	/// `-headlessFreeAccessEndsIn <seconds>`: on a fresh install, a free-access window that ends this
+	/// many seconds after launch (`FreeAccessExpirySeed.allowedSeconds`), so a scenario can watch the
+	/// paywall arrive mid-session through the app's own expiry path. Seeded by the headless entry
+	/// before `AppState` exists; an install that already holds an anchor keeps it.
+	let freeAccessEndsIn: Int?
+
 	/// The options this process was launched with.
 	static let current = HeadlessLaunchOptions(arguments: ProcessInfo.processInfo.arguments)
 
@@ -42,6 +48,7 @@ struct HeadlessLaunchOptions: Equatable {
 		var mockSubscription: String?
 		var flagOverrides: [FeatureFlagKey: Bool] = [:]
 		var stagedImages: [String] = []
+		var freeAccessEndsIn: Int?
 		var index = arguments.startIndex
 		while index < arguments.endIndex {
 			let argument = arguments[index]
@@ -64,6 +71,12 @@ struct HeadlessLaunchOptions: Equatable {
 				}
 				stagedImages.append(value)
 				index += 2
+			case "-headlessFreeAccessEndsIn":
+				guard let seconds = value.flatMap(Self.freeAccessEndsIn) else {
+					fatalError("-headlessFreeAccessEndsIn needs whole seconds within \(FreeAccessExpirySeed.allowedSeconds), got \(value ?? "nothing")")
+				}
+				freeAccessEndsIn = seconds
+				index += 2
 			default:
 				index += 1
 			}
@@ -71,6 +84,14 @@ struct HeadlessLaunchOptions: Equatable {
 		self.mockSubscription = mockSubscription
 		self.flagOverrides = flagOverrides
 		self.stagedImages = stagedImages
+		self.freeAccessEndsIn = freeAccessEndsIn
+	}
+
+	/// `text` as seconds a launch may ask for, or `nil`. Not private so the rule can be tested
+	/// without the `fatalError` a launch hits.
+	static func freeAccessEndsIn(_ text: String) -> Int? {
+		guard let seconds = Int(text), FreeAccessExpirySeed.allowedSeconds.contains(seconds) else { return nil }
+		return seconds
 	}
 
 	/// A bare file name inside the staging directory: never a path out of it, and never something
@@ -103,6 +124,7 @@ struct HeadlessLaunchOptions: Equatable {
 			"stagedImages": .array(stagedImages.map(JSONValue.string))
 		]
 		members["mockSubscription"] = mockSubscription.map(JSONValue.string)
+		members["freeAccessEndsIn"] = freeAccessEndsIn.map { .number(Double($0)) }
 		return .object(members)
 	}
 }
