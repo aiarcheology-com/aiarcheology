@@ -18,38 +18,8 @@ import XCTest
 @MainActor
 final class SubscriptionGateCoordinatorTests: XCTestCase {
 
-	/// A clock the test moves by hand; a class so the service's `now` closure sees an advance.
-	private final class TestClock {
-		var now: Date
-		init(_ now: Date) { self.now = now }
-	}
-
-	/// The inputs one app process shares between its windows, built the way `AppState.initialize()`
-	/// orders them: the tour is armed before the free-access window is started.
-	@MainActor
-	private struct World {
-		let clock: TestClock
-		let provider: MockSubscriptionProvider
-		let subscriptionState: SubscriptionState
-		let freeAccess: FreeAccessState
-		let tour: TourState
-		let analytics: AnalyticsState
-		let tracker: RecordingAnalyticsTracker
-		let notificationCenter: NotificationCenter
-
-		func coordinator() -> SubscriptionGateCoordinator {
-			SubscriptionGateCoordinator(
-				subscriptionState: subscriptionState,
-				freeAccess: freeAccess,
-				tour: tour,
-				analytics: analytics
-			)
-		}
-
-		func foreground() {
-			notificationCenter.post(name: SubscriptionGateCoordinatorTests.foregroundNotification, object: nil)
-		}
-	}
+	/// The shared gate world (`GateWorld.swift`).
+	private typealias World = GateWorld
 
 	/// Replays `SubscriptionGateView`'s handlers against a coordinator: mounting fires the two
 	/// `initial: true` handlers, and each ``render()`` fires the handler of every observed value that
@@ -127,8 +97,6 @@ final class SubscriptionGateCoordinatorTests: XCTestCase {
 		}
 	}
 
-	nonisolated static let foregroundNotification = Notification.Name("SubscriptionGateCoordinatorTests.willEnterForeground")
-
 	private var suiteName = ""
 	private var defaults: UserDefaults?
 
@@ -146,11 +114,7 @@ final class SubscriptionGateCoordinatorTests: XCTestCase {
 
 	// MARK: - Helpers
 
-	private var calendar: Calendar {
-		var calendar = Calendar(identifier: .gregorian)
-		calendar.timeZone = .gmt
-		return calendar
-	}
+	private var calendar: Calendar { GateWorld.calendar }
 
 	private func makeWorld(
 		isPaymentsEnabled: Bool = true,
@@ -168,66 +132,13 @@ final class SubscriptionGateCoordinatorTests: XCTestCase {
 		} else {
 			defaults = try XCTUnwrap(self.defaults)
 		}
-		let clock = TestClock(try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 3, day: 2, hour: 18))))
-		if let seededFastRecord {
-			defaults.set(try JSONEncoder().encode(seededFastRecord), forKey: FreeAccessAnchorService.defaultsKey)
-		}
-
-		let (analytics, tracker) = makeAnalytics()
-		let provider = MockSubscriptionProvider(outcome: outcome)
-		let subscriptionState = SubscriptionState(provider: provider, isPaymentsEnabled: isPaymentsEnabled)
-		await subscriptionState.start()
-
-		let tour = TourState(defaults: defaults)
-		tour.migrateAndArmIfNeeded()
-
-		let notificationCenter = NotificationCenter()
-		let service = FreeAccessAnchorService(
+		return try await makeGateWorld(
 			defaults: defaults,
-			durableStore: EphemeralFreeAccessAnchorStore(),
-			calendar: calendar,
-			now: { clock.now }
-		)
-		let freeAccess = FreeAccessState(
-			service: service,
+			isPaymentsEnabled: isPaymentsEnabled,
 			isFreeAccessPeriodEnabled: isFreeAccessPeriodEnabled,
-			analytics: analytics,
-			notificationCenter: notificationCenter,
-			foregroundNotification: Self.foregroundNotification
+			outcome: outcome,
+			seededFastRecord: seededFastRecord
 		)
-		freeAccess.start(isEntitled: subscriptionState.isSubscribed, isPaymentsSurfaceEnabled: isPaymentsEnabled)
-
-		return World(
-			clock: clock,
-			provider: provider,
-			subscriptionState: subscriptionState,
-			freeAccess: freeAccess,
-			tour: tour,
-			analytics: analytics,
-			tracker: tracker,
-			notificationCenter: notificationCenter
-		)
-	}
-
-	/// A consented, device-wide analytics stack whose deliveries the tests can read, as
-	/// `FreeAccessStateTests` builds it.
-	private func makeAnalytics() -> (AnalyticsState, RecordingAnalyticsTracker) {
-		let settings = Settings()
-		settings.reset()
-		settings.analyticsFreeAccessExpiryReported = false
-		addTeardownBlock { @MainActor in
-			settings.reset()
-			settings.analyticsFreeAccessExpiryReported = false
-		}
-		let tracker = RecordingAnalyticsTracker()
-		let analytics = AnalyticsState(
-			settings: settings,
-			tracker: tracker,
-			featureFlags: FeatureFlagsState(provider: StaticFeatureFlagProvider(overrides: [.isAnalyticsEnabled: true])),
-			isAccountIdentityEnabled: false
-		)
-		analytics.chooseAnalytics(enabled: true)
-		return (analytics, tracker)
 	}
 
 	// MARK: - First run

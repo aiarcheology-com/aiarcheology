@@ -188,8 +188,8 @@ final class StagedImageCaptureTests: XCTestCase {
 }
 
 /// A `Detecting` conformer returning fixed objects, so the real `DeepDrivers` → `DetectionEngine`
-/// orchestration runs without a model.
-private actor FixedObjectsDetecting: Detecting {
+/// orchestration runs without a model. Not private: `HeadlessWalkTests` detects with it too.
+actor FixedObjectsDetecting: Detecting {
 	let id: UUID
 	var params: DeepDriverParams
 	var observations: [VNObservation] = []

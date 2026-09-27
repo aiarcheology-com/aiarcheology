@@ -67,6 +67,9 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 		]
 	}
 
+	/// Every route and the transitions possible between them (AIA-0982).
+	var navigationMap: NavigationMap { HeadlessNavigationMap.declaration }
+
 	func currentScreen() -> any HeadlessScreen {
 		switch routeDecision().route {
 		case .launching: return HeadlessLaunchingScreen()

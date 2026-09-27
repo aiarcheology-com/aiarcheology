@@ -332,6 +332,10 @@
 		AA0970410000000000000002 /* HeadlessLaunchOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */; };
 		AA0970500000000000000002 /* HeadlessRouteDecisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970500000000000000001 /* HeadlessRouteDecisionTests.swift */; };
 		AA0975200000000000000002 /* StagedImageCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0975200000000000000001 /* StagedImageCaptureTests.swift */; };
+		AA0982100000000000000002 /* GateWorld.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0982100000000000000001 /* GateWorld.swift */; };
+		AA0982200000000000000002 /* HeadlessNavigationMapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0982200000000000000001 /* HeadlessNavigationMapTests.swift */; };
+		AA0982300000000000000002 /* HeadlessWalkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0982300000000000000001 /* HeadlessWalkTests.swift */; };
+		AA0982400000000000000002 /* navigation-map.json in Resources */ = {isa = PBXBuildFile; fileRef = AA0982400000000000000001 /* navigation-map.json */; };
 		AB71300000000000000A002 /* FindingArchiveImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71300000000000000A001 /* FindingArchiveImport.swift */; };
 		AB71300000000000000B002 /* FindingArchiveImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71300000000000000B001 /* FindingArchiveImportTests.swift */; };
 		ABAA0115000000000000B001 /* AppMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A001 /* AppMessage.swift */; };
@@ -772,6 +776,10 @@
 		AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessLaunchOptionsTests.swift; sourceTree = "<group>"; };
 		AA0970500000000000000001 /* HeadlessRouteDecisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessRouteDecisionTests.swift; sourceTree = "<group>"; };
 		AA0975200000000000000001 /* StagedImageCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StagedImageCaptureTests.swift; sourceTree = "<group>"; };
+		AA0982100000000000000001 /* GateWorld.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GateWorld.swift; sourceTree = "<group>"; };
+		AA0982200000000000000001 /* HeadlessNavigationMapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessNavigationMapTests.swift; sourceTree = "<group>"; };
+		AA0982300000000000000001 /* HeadlessWalkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessWalkTests.swift; sourceTree = "<group>"; };
+		AA0982400000000000000001 /* navigation-map.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "navigation-map.json"; path = "HeadlessScenarios/Map/navigation-map.json"; sourceTree = SOURCE_ROOT; };
 		AB71300000000000000A001 /* FindingArchiveImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingArchiveImport.swift; sourceTree = "<group>"; };
 		AB71300000000000000B001 /* FindingArchiveImportTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingArchiveImportTests.swift; sourceTree = "<group>"; };
 		ABAA0115000000000000A001 /* AppMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMessage.swift; sourceTree = "<group>"; };
@@ -1435,6 +1443,9 @@
 				AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */,
 				AA0970500000000000000001 /* HeadlessRouteDecisionTests.swift */,
 				AA0975200000000000000001 /* StagedImageCaptureTests.swift */,
+				AA0982100000000000000001 /* GateWorld.swift */,
+				AA0982200000000000000001 /* HeadlessNavigationMapTests.swift */,
+				AA0982300000000000000001 /* HeadlessWalkTests.swift */,
 				94D79C922EE37DBF0027C9FA /* SequenceExtensionsTests.swift */,
 				94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */,
 				945C55812ED71234007DD8FB /* StringExtensionsTests.swift */,
@@ -1610,6 +1621,7 @@
 				A1A09150000000000000F001 /* ADAF */,
 				A1A08170000000000000F001 /* MapHarness */,
 				94E018910000000000000003 /* terrain_iphone.png */,
+				AA0982400000000000000001 /* navigation-map.json */,
 				94E018910000000000000005 /* terrain_ipad.png */,
 				D68006800000000000000005 /* VisionScaleFitProbe.mlmodel */,
 			);
@@ -1934,6 +1946,7 @@
 				A1A08170000000000000F002 /* MapHarness in Resources */,
 				94E018910000000000000004 /* terrain_iphone.png in Resources */,
 				94E018910000000000000006 /* terrain_ipad.png in Resources */,
+				AA0982400000000000000002 /* navigation-map.json in Resources */,
 			);
 		};
 		8AE0BC1E2A97B0B40086DDF9 /* Resources */ = {
@@ -2462,6 +2475,9 @@
 				AA0970410000000000000002 /* HeadlessLaunchOptionsTests.swift in Sources */,
 				AA0970500000000000000002 /* HeadlessRouteDecisionTests.swift in Sources */,
 				AA0975200000000000000002 /* StagedImageCaptureTests.swift in Sources */,
+				AA0982100000000000000002 /* GateWorld.swift in Sources */,
+				AA0982200000000000000002 /* HeadlessNavigationMapTests.swift in Sources */,
+				AA0982300000000000000002 /* HeadlessWalkTests.swift in Sources */,
 				63CDF1E9BC41E124832411D6 /* TourStateTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
 				94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */,
