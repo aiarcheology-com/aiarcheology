@@ -12,10 +12,15 @@ import Foundation
 enum HeadlessRoute: String, CaseIterable {
 	/// `AppState` is not ready yet.
 	case launching
-	/// A root gate the headless build cannot drive yet: the paywall, the Welcome screen, or the hold
-	/// while free access is still being determined. Read-only; `context.gate` says which inputs hold
-	/// it there.
+	/// The root gate's hold while the free-access window is still being read. Nothing to do but
+	/// wait; `context.gate` says which inputs hold it there.
 	case gate
+	/// The paywall: the wall a user without access arrives at, or the one laid over the app when
+	/// access ran out mid-session. Purchasing is not automatable, so it offers nothing.
+	case paywall
+	/// A Welcome screen over the app: the free-access window's day-0 offer, or the payments-off
+	/// introduction.
+	case welcome
 	/// The onboarding tour is armed or running.
 	case tour
 	/// The analytics consent question is on screen, or is being held while its scope resolves.
@@ -36,30 +41,27 @@ enum HeadlessRoute: String, CaseIterable {
 	case backupConsent = "backup-consent"
 }
 
-/// What the app shows, decided from the same state — and the same pure deciders — the root views
-/// read: `RootGateDisplay`, `WelcomePresentation`, `TourStartDecision` and `AnalyticsChoiceDisplay`.
+/// What the app shows, decided from the same state — and the same code — the root views use.
 ///
-/// It does not re-implement the gate views' orchestration. Where that orchestration would put a
-/// screen the headless build cannot drive yet (the paywall, Welcome), the answer is `gate`, which
-/// exposes no actions — so a client can see where the app is but cannot act past it.
+/// The root gate's part comes from `SubscriptionGateCoordinator`, the object `SubscriptionGateView`
+/// itself runs on (AIA-0976): its `display` and the Welcome screen it has raised are inputs here, not
+/// re-derived. The analytics gate's part comes from `AnalyticsChoiceDisplay`, as in
+/// `AnalyticsChoiceGate`.
 struct HeadlessRouteDecision: Equatable {
 
 	var isReady: Bool
-	var isPaymentsSurfaceEnabled: Bool
-	var isSubscribed: Bool
-	var freeAccess: FreeAccessAvailability
-	var freeAccessPrompt: FreeAccessPrompt?
-	var isWelcomePresented: Bool
+	/// The root gate's display: `SubscriptionGateCoordinator.display`.
+	var display: RootGateDisplay
+	/// The Welcome screen the root gate has raised: `SubscriptionGateCoordinator.presentedPrompt`.
+	var presentedWelcome: WelcomePresentation?
 	var isDay0AcknowledgementPending: Bool
-	var isIntroductionOwed: Bool
-	var isTourActive: Bool
 	var isTourPendingOrRunning: Bool
 	var consentPresentation: AnalyticsConsentPresentation
 	var isAskDeferredAfterSignOut: Bool
 	var isDrawerOpen: Bool
-	/// Whether the app proper has been on screen in this process — the memory the gate views keep
-	/// in their own `@State`, kept by the headless application instead.
-	var hasEverShownContent: Bool
+	/// Whether the analytics gate has ever rendered its content in this process — the memory
+	/// `AnalyticsChoiceGate` keeps in its own `@State`, kept by the headless application instead.
+	var hasEverShownAnalyticsContent: Bool
 	/// Whether the account screen is up — the sign-in sheet or the account's Settings, `@State` in the
 	/// drawer, kept by the headless application instead. Only meaningful while the drawer is open.
 	var isAccountPresented: Bool
@@ -75,45 +77,27 @@ struct HeadlessRouteDecision: Equatable {
 	var route: HeadlessRoute {
 		guard isReady else { return .launching }
 
-		let rootDisplay = RootGateDisplay.resolve(
-			isPaymentsSurfaceEnabled: isPaymentsSurfaceEnabled,
-			isSubscribed: isSubscribed,
-			freeAccess: freeAccess,
-			hasEverShownContent: hasEverShownContent
-		)
-		guard rootDisplay == .content else { return .gate }
+		switch display {
+		case .hold: return .gate
+		// The paywall covers everything under the root gate, the analytics question included.
+		case .wall, .wallOverContent: return .paywall
+		case .content: break
+		}
 
-		// The Welcome screen the subscription gate would raise: due, and presentable (the gate's
-		// `canPresentPrompt` — content showing, not subscribed, no tour running).
-		let dueWelcome = WelcomePresentation.due(
-			isPaymentsSurfaceEnabled: isPaymentsSurfaceEnabled,
-			freeAccessPrompt: freeAccessPrompt,
-			isIntroductionOwed: isIntroductionOwed
-		)
-		let canPresentWelcome = isSubscribed == false && isTourActive == false
-		if (dueWelcome != nil && canPresentWelcome) || isWelcomePresented || isDay0AcknowledgementPending {
-			return .gate
+		// The Welcome screen is the root gate's own overlay, above everything the app proper shows.
+		if presentedWelcome != nil {
+			return .welcome
 		}
 
 		if isTourPendingOrRunning {
-			// An armed tour starts as soon as the content shows unless a Welcome screen has the floor,
-			// and every such case returned `gate` above — so `TourStartDecision.mayStart` holds here.
+			// The coordinator starts an armed tour as soon as nothing is owed the screen ahead of it.
 			return .tour
 		}
 
-		let isAskDeferred = AnalyticsChoiceDisplay.isAskDeferred(
-			afterSignOut: isAskDeferredAfterSignOut,
-			isDay0AcknowledgementPending: isDay0AcknowledgementPending,
-			isTourPendingOrRunning: isTourPendingOrRunning
-		)
-		let consentDisplay = AnalyticsChoiceDisplay.resolve(
-			presentation: consentPresentation,
-			hasEverShownContent: hasEverShownContent,
-			isAskDeferred: isAskDeferred
-		)
+		let consentDisplay = analyticsDisplay
 		let asksOverContent = AnalyticsChoiceDisplay.asksOverContent(
 			presentation: consentPresentation,
-			hasEverShownContent: hasEverShownContent,
+			hasEverShownContent: hasEverShownAnalyticsContent,
 			isAskDeferred: isAskDeferred
 		)
 		// Consent outranking a sheet is #974's decision. No modelled flow reaches it: the one path
@@ -146,6 +130,31 @@ struct HeadlessRouteDecision: Equatable {
 		return isDrawerOpen ? .drawer : .home
 	}
 
+	/// Whether the consent question must wait: `AnalyticsChoiceGate.isAskDeferred`.
+	var isAskDeferred: Bool {
+		AnalyticsChoiceDisplay.isAskDeferred(
+			afterSignOut: isAskDeferredAfterSignOut,
+			isDay0AcknowledgementPending: isDay0AcknowledgementPending,
+			isTourPendingOrRunning: isTourPendingOrRunning
+		)
+	}
+
+	/// What `AnalyticsChoiceGate` renders: `AnalyticsChoiceGate.display`.
+	var analyticsDisplay: AnalyticsChoiceDisplay {
+		AnalyticsChoiceDisplay.resolve(
+			presentation: consentPresentation,
+			hasEverShownContent: hasEverShownAnalyticsContent,
+			isAskDeferred: isAskDeferred
+		)
+	}
+
+	/// Whether `AnalyticsChoiceGate` is rendering its content right now, which is what it remembers:
+	/// the gate is mounted (the root gate shows the app proper, covered or not) and its own display is
+	/// `.content` — its `onChange(of: display, initial: true)`.
+	var analyticsGateShowsContent: Bool {
+		(display == .content || display == .wallOverContent) && analyticsDisplay == .content
+	}
+
 	/// Where the app will be once `sheet` closes: this decision without that sheet.
 	///
 	/// Derived from `route` rather than written out, so a sheet's dismissal declares exactly the
@@ -157,17 +166,9 @@ struct HeadlessRouteDecision: Equatable {
 		case .saveFinding: next.isSaveFindingPresented = false
 		case .account: next.isAccountPresented = false
 		case .findings: next.isFindingsPresented = false
-		case .launching, .gate, .tour, .consent, .home, .drawer, .backupConsent: break
+		case .launching, .gate, .paywall, .welcome, .tour, .consent, .home, .drawer, .backupConsent: break
 		}
 		return next.route
-	}
-
-	/// Whether `route` puts the app proper on screen, which is what the gates remember.
-	static func showsContent(_ route: HeadlessRoute) -> Bool {
-		switch route {
-		case .tour, .home, .drawer, .account, .saveFinding, .findings, .backupConsent: true
-		case .launching, .gate, .consent: false
-		}
 	}
 }
 #endif

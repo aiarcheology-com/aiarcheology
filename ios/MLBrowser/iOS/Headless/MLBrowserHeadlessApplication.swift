@@ -22,8 +22,12 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 
 	private let appState: AppState
 	private let launchOptions: JSONValue
-	/// The gates' memory of having shown the app proper, kept here because it is `@State` in them.
-	private var hasEverShownContent = false
+	/// The root gate's orchestration — the object `SubscriptionGateView` runs on, one per window. The
+	/// headless build has exactly one window, so it owns exactly one.
+	private let gate: SubscriptionGateCoordinator
+	/// `AnalyticsChoiceGate`'s memory of having rendered its content, kept here because it is
+	/// `@State` in the view.
+	private var hasEverShownAnalyticsContent = false
 	/// What the drawer's views present, kept here because it is `@State` in them.
 	private let presentation = HeadlessPresentation()
 	/// Detection on staged images and the save sheet's pending capture, for the life of the process.
@@ -33,6 +37,12 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	init(appState: AppState, launchOptions: JSONValue) {
 		self.appState = appState
 		self.launchOptions = launchOptions
+		self.gate = SubscriptionGateCoordinator(
+			subscriptionState: appState.subscriptionState,
+			freeAccess: appState.freeAccess,
+			tour: appState.tour,
+			analytics: appState.analytics
+		)
 		self.capture = StagedImageCapture(
 			deep: appState.deep,
 			settings: appState.settings,
@@ -56,14 +66,11 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	}
 
 	func currentScreen() -> any HeadlessScreen {
-		let decision = routeDecision()
-		let route = decision.route
-		if HeadlessRouteDecision.showsContent(route) {
-			hasEverShownContent = true
-		}
-		switch route {
+		switch routeDecision().route {
 		case .launching: return HeadlessLaunchingScreen()
-		case .gate: return HeadlessGateScreen(decision: decision)
+		case .gate: return HeadlessGateScreen(inputs: gateInputs())
+		case .paywall: return HeadlessPaywallScreen(subscriptionState: appState.subscriptionState, freeAccess: appState.freeAccess)
+		case .welcome: return HeadlessWelcomeScreen(gate: gate)
 		case .tour: return HeadlessTourScreen(tour: appState.tour)
 		case .consent: return HeadlessConsentScreen(analytics: appState.analytics)
 		case .home: return HeadlessHomeScreen(chromeState: appState.chromeState, capture: capture)
@@ -91,12 +98,15 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	}
 
 	func context() -> JSONValue {
-		let decision = routeDecision()
+		_ = routeDecision()
 		return [
 			"isReady": .bool(appState.isReady),
 			"backendEnvironment": .string(BackendEnvironment.current.rawValue),
 			"launchOptions": launchOptions,
-			"gate": decision.gateInputs,
+			"gate": gateInputs(),
+			// Whether analytics is actually on: the user's answer applied under the live flag. Never
+			// more than this one Bool.
+			"analytics": ["enabled": .bool(appState.analytics.isAnalyticsEnabled)],
 			"auth": [
 				"gate": .string(appState.authState.gate.headlessName),
 				"usesRealAuth": .bool(appState.usesRealAuth),
@@ -155,50 +165,100 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 		]
 	}
 
+	/// The screen the app shows now, after the root gates have done what their views would have done
+	/// on this render.
+	///
+	/// Only once `AppState` is ready: the gate views are not mounted before that
+	/// (`MLBrowser.authGatedContent`), so nothing may be raised, remembered or started earlier.
 	private func routeDecision() -> HeadlessRouteDecision {
 		let isDrawerOpen = appState.chromeState.presentedSideMenu
 		presentation.dismissSheetsIfDrawerClosed(isDrawerOpen: isDrawerOpen)
-		return HeadlessRouteDecision(
+		if appState.isReady {
+			gate.reconcile()
+		}
+		let decision = HeadlessRouteDecision(
 			isReady: appState.isReady,
-			isPaymentsSurfaceEnabled: appState.subscriptionState.isPaymentsSurfaceEnabled,
-			isSubscribed: appState.subscriptionState.isSubscribed,
-			freeAccess: appState.freeAccess.availability,
-			freeAccessPrompt: appState.freeAccess.duePrompt,
-			isWelcomePresented: appState.freeAccess.isWelcomePresented,
+			display: gate.display,
+			presentedWelcome: gate.presentedPrompt,
 			isDay0AcknowledgementPending: appState.freeAccess.isDay0AcknowledgementPending,
-			isIntroductionOwed: appState.tour.isIntroductionOwed,
-			isTourActive: appState.tour.isActive,
 			isTourPendingOrRunning: appState.tour.isPendingOrRunning,
 			consentPresentation: appState.analytics.consentPresentation,
 			isAskDeferredAfterSignOut: appState.analytics.isAskDeferredAfterSignOut,
 			isDrawerOpen: isDrawerOpen,
-			hasEverShownContent: hasEverShownContent,
+			hasEverShownAnalyticsContent: hasEverShownAnalyticsContent,
 			isAccountPresented: presentation.isAccountPresented,
 			isSaveFindingPresented: capture.pendingCapture != nil,
 			isFindingsPresented: presentation.isFindingsPresented,
 			isBackupConsentPending: appState.findingsSync.backupConsentRequest != nil
 		)
+		if appState.isReady && decision.analyticsGateShowsContent {
+			hasEverShownAnalyticsContent = true
+		}
+		return decision
+	}
+
+	/// The inputs every gate route depends on, reported with every response so a client can see why
+	/// the app is where it is — and notice when a default it relied on has moved.
+	private func gateInputs() -> JSONValue {
+		let subscription = appState.subscriptionState
+		let freeAccess = appState.freeAccess
+		return [
+			"isPaymentsSurfaceEnabled": .bool(subscription.isPaymentsSurfaceEnabled),
+			"isSubscribed": .bool(subscription.isSubscribed),
+			"freeAccess": .string(freeAccess.availability.headlessName),
+			"welcomeDue": .bool(gate.dueWelcome != nil),
+			"display": .string(gate.display.headlessName),
+			"welcome": gate.presentedPrompt.map { .string($0.headlessName) } ?? .null,
+			"isDay0AcknowledgementPending": .bool(freeAccess.isDay0AcknowledgementPending),
+			"tourPendingOrRunning": .bool(appState.tour.isPendingOrRunning),
+			"consent": .string(appState.analytics.consentPresentation.headlessName)
+		]
 	}
 }
 
-private extension HeadlessRouteDecision {
-	/// The inputs every route depends on, reported with every response so a client can see why the
-	/// app is where it is — and notice when a default it relied on has moved.
-	var gateInputs: JSONValue {
-		[
-			"isPaymentsSurfaceEnabled": .bool(isPaymentsSurfaceEnabled),
-			"isSubscribed": .bool(isSubscribed),
-			"freeAccess": .string(freeAccess.headlessName),
-			// The same single source the gate uses: the payments flag picks the prompt or the introduction.
-			"welcomeDue": .bool(WelcomePresentation.due(
-				isPaymentsSurfaceEnabled: isPaymentsSurfaceEnabled,
-				freeAccessPrompt: freeAccessPrompt,
-				isIntroductionOwed: isIntroductionOwed
-			) != nil),
-			"isDay0AcknowledgementPending": .bool(isDay0AcknowledgementPending),
-			"tourPendingOrRunning": .bool(isTourPendingOrRunning),
-			"consent": .string(consentPresentation.headlessName)
-		]
+extension SubscriptionGateCoordinator {
+	/// Everything `SubscriptionGateView`'s `onChange` handlers would do on this render, for a build
+	/// with no view to render (AIA-0976). Headless and Debug only: the app never calls it — its view
+	/// calls each handler when its own value changes.
+	///
+	/// The level form of those edge-triggered handlers, and equivalent to them because each is
+	/// guarded or idempotent: a raise needs a presentable screen, none up and one due; a lowering
+	/// needs one up that can no longer be presented, and one is only ever put up while it can be;
+	/// `TourState.startIfArmed()` does nothing twice. Repeated until nothing moves, as a handler's
+	/// effect is another render.
+	func reconcile() {
+		for _ in 0..<8 {
+			let before = ReconcileSnapshot(self)
+			displayChanged(to: display)
+			canPresentPromptChanged(to: canPresentPrompt)
+			duePromptChanged()
+			introductionOwedChanged()
+			welcomeClaimsChanged()
+			if ReconcileSnapshot(self) == before { return }
+		}
+		LoggingPolicy.error("Headless gate reconcile did not settle", logger: .lifecycle)
+	}
+
+	/// What the handlers can move.
+	private struct ReconcileSnapshot: Equatable {
+		let display: RootGateDisplay
+		let canPresentPrompt: Bool
+		let presentedPrompt: WelcomePresentation?
+		let hasEverShownContent: Bool
+		let isTourPendingOrRunning: Bool
+		let isTourActive: Bool
+		let isWelcomePresented: Bool
+
+		@MainActor
+		init(_ gate: SubscriptionGateCoordinator) {
+			display = gate.display
+			canPresentPrompt = gate.canPresentPrompt
+			presentedPrompt = gate.presentedPrompt
+			hasEverShownContent = gate.hasEverShownContent
+			isTourPendingOrRunning = gate.tour.isPendingOrRunning
+			isTourActive = gate.tour.isActive
+			isWelcomePresented = gate.freeAccess.isWelcomePresented
+		}
 	}
 }
 
@@ -211,14 +271,66 @@ struct HeadlessLaunchingScreen: HeadlessScreen {
 	func actions() -> [HeadlessAction] { [] }
 }
 
-/// A root gate the headless build cannot act on yet. Read-only by design: the orchestration that
-/// raises these screens still lives in the gate views, and copying it here would drift.
+/// The root gate's hold while the free-access window is still being read: the gate renders a
+/// spinner and there is nothing to do but wait.
 @MainActor
 struct HeadlessGateScreen: HeadlessScreen {
-	let decision: HeadlessRouteDecision
+	let inputs: JSONValue
 	var route: Route { "gate" }
-	func state() -> JSONValue { decision.gateInputs }
+	func state() -> JSONValue { inputs }
 	func actions() -> [HeadlessAction] { [] }
+}
+
+/// The paywall as the root gate shows it. No actions: purchasing needs a real App Store purchase
+/// sheet, and restoring would raise the App Store sign-in, so neither is automatable. The headless
+/// build does not drive `PaywallView`, so products are not loaded and `paywall.shown` is not sent.
+@MainActor
+struct HeadlessPaywallScreen: HeadlessScreen {
+	let subscriptionState: SubscriptionState
+	let freeAccess: FreeAccessState
+
+	var route: Route { "paywall" }
+
+	func state() -> JSONValue {
+		[
+			"isSubscribed": .bool(subscriptionState.isSubscribed),
+			// What the wall's copy keys on: only a window that actually ran out is told so.
+			"expired": .bool(freeAccess.hasSpentWindow)
+		]
+	}
+
+	func actions() -> [HeadlessAction] { [] }
+}
+
+/// A Welcome screen the root gate has raised over the app. `continue` is the screen's button.
+///
+/// `continue` declares no destination: after it the app shows the tour when one is owed, and the
+/// consent question or the app proper when it is not, which `route` in the response reports.
+@MainActor
+struct HeadlessWelcomeScreen: HeadlessScreen {
+	let gate: SubscriptionGateCoordinator
+
+	var route: Route { "welcome" }
+
+	func state() -> JSONValue {
+		switch gate.presentedPrompt {
+		case let .freeAccess(prompt): ["offer": "freeAccess", "days": .number(Double(prompt.days))]
+		case .introduction: ["offer": "introduction"]
+		case nil: [:]
+		}
+	}
+
+	func actions() -> [HeadlessAction] {
+		guard let presented = gate.presentedPrompt else { return [] }
+		return [
+			HeadlessAction("continue", summary: "Continue past the Welcome screen.") { [gate] _ in
+				// The button's own call. The tour the lowering starts is picked up by the next
+				// reconcile, as the view's handlers pick it up on the next render.
+				gate.continueWelcome(presented)
+				return nil
+			}
+		]
+	}
 }
 
 @MainActor
@@ -234,11 +346,7 @@ struct HeadlessTourScreen: HeadlessScreen {
 	func actions() -> [HeadlessAction] {
 		[
 			HeadlessAction("skip", summary: "Skip the tour.") { [tour] _ in
-				// The UI starts an armed tour as soon as content shows, and the user skips it from
-				// there: the same two calls, with nothing a user could do in between.
-				if tour.isActive == false {
-					tour.startIfArmed()
-				}
+				// The root gate's coordinator has already started it, as the view's does.
 				tour.skip()
 				return nil
 			}
@@ -515,6 +623,26 @@ extension StagedImageCapture.Failure {
 		case .noFrame: "noFrame"
 		case .detectionOutOfRange: "detectionOutOfRange"
 		case .noPendingCapture: "noPendingCapture"
+		}
+	}
+}
+
+private extension RootGateDisplay {
+	var headlessName: String {
+		switch self {
+		case .content: "content"
+		case .wall: "wall"
+		case .wallOverContent: "wallOverContent"
+		case .hold: "hold"
+		}
+	}
+}
+
+private extension WelcomePresentation {
+	var headlessName: String {
+		switch self {
+		case .freeAccess: "freeAccess"
+		case .introduction: "introduction"
 		}
 	}
 }

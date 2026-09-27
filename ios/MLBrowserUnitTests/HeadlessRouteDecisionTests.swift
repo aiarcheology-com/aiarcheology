@@ -10,26 +10,23 @@ import XCTest
 
 /// Which screen the headless build reports, from the inputs the root gates read.
 ///
-/// The baseline is the state a headless scenario launches into: subscribed through the mock, payments
-/// on, no free-access window, and the first-run tour armed with consent unanswered.
+/// The baseline is the state a fresh install reaches once its Welcome screen is gone: the root gate
+/// shows the app proper, the first-run tour is running, and consent is unanswered. The root gate's
+/// own answers (`display`, the Welcome screen it raised) come from `SubscriptionGateCoordinator`,
+/// whose ordering `SubscriptionGateCoordinatorTests` covers.
 final class HeadlessRouteDecisionTests: XCTestCase {
 
 	private func decision(_ adjust: (inout HeadlessRouteDecision) -> Void = { _ in }) -> HeadlessRouteDecision {
 		var decision = HeadlessRouteDecision(
 			isReady: true,
-			isPaymentsSurfaceEnabled: true,
-			isSubscribed: true,
-			freeAccess: .closed,
-			freeAccessPrompt: nil,
-			isWelcomePresented: false,
+			display: .content,
+			presentedWelcome: nil,
 			isDay0AcknowledgementPending: false,
-			isIntroductionOwed: false,
-			isTourActive: false,
 			isTourPendingOrRunning: true,
 			consentPresentation: .ask,
 			isAskDeferredAfterSignOut: false,
 			isDrawerOpen: false,
-			hasEverShownContent: false,
+			hasEverShownAnalyticsContent: false,
 			isAccountPresented: false,
 			isSaveFindingPresented: false,
 			isFindingsPresented: false,
@@ -79,46 +76,57 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 		// After a sign-in the new account's consent question can take the screen from the account UI.
 		XCTAssertEqual(decision {
 			$0.isTourPendingOrRunning = false
-			$0.hasEverShownContent = true
+			$0.hasEverShownAnalyticsContent = true
 			$0.isDrawerOpen = true
 			$0.isAccountPresented = true
 		}.route, .consent)
 	}
 
-	func test_thePaywallAndTheHold_areGates() {
-		XCTAssertEqual(decision { $0.isSubscribed = false; $0.freeAccess = .closed }.route, .gate, "the wall")
-		XCTAssertEqual(decision { $0.isSubscribed = false; $0.freeAccess = .undetermined }.route, .gate, "the hold")
-		XCTAssertEqual(decision { $0.isSubscribed = false; $0.freeAccess = .open }.route, .tour, "an open window is content")
-		XCTAssertEqual(decision { $0.isSubscribed = false; $0.isPaymentsSurfaceEnabled = false }.route, .tour, "payments off is content")
+	func test_theRootGatesDisplay_decidesThePaywallAndTheHold() {
+		XCTAssertEqual(decision { $0.display = .wall }.route, .paywall, "the wall")
+		XCTAssertEqual(decision { $0.display = .wallOverContent }.route, .paywall, "the wall over the app")
+		XCTAssertEqual(decision { $0.display = .hold }.route, .gate, "the hold")
+		XCTAssertEqual(decision { $0.display = .content }.route, .tour)
 	}
 
-	func test_aWelcomeScreenTheGateWouldRaise_isAGate() {
+	func test_thePaywallOverTheApp_coversTheConsentQuestionAndEverySheet() {
 		XCTAssertEqual(decision {
-			$0.isSubscribed = false
-			$0.freeAccess = .open
-			$0.freeAccessPrompt = FreeAccessPrompt(days: 14, endsOn: .distantFuture)
-		}.route, .gate)
-		XCTAssertEqual(decision {
-			$0.isPaymentsSurfaceEnabled = false
-			$0.isSubscribed = false
-			$0.isIntroductionOwed = true
-		}.route, .gate, "the payments-off introduction")
-		XCTAssertEqual(decision { $0.isDay0AcknowledgementPending = true }.route, .gate, "a Welcome screen still on screen")
+			$0.display = .wallOverContent
+			$0.isTourPendingOrRunning = false
+			$0.hasEverShownAnalyticsContent = true
+			$0.isDrawerOpen = true
+			$0.isAccountPresented = true
+			$0.isSaveFindingPresented = true
+		}.route, .paywall)
 	}
 
-	func test_aSubscriberIsNeverShownWelcome_soTheTourRuns() {
-		// The gate cannot present Welcome to a subscriber (`canPresentPrompt`), so an owed day 0
-		// must not hold the tour back — `TourStartDecision` lets it start.
-		XCTAssertEqual(decision { $0.freeAccessPrompt = FreeAccessPrompt(days: 14, endsOn: .distantFuture) }.route, .tour)
+	func test_aRaisedWelcomeScreen_isTheWelcomeRoute_overTheTour() {
+		let prompt = FreeAccessPrompt(days: 14, endsOn: .distantFuture)
+		XCTAssertEqual(decision { $0.presentedWelcome = .freeAccess(prompt) }.route, .welcome)
+		XCTAssertEqual(decision { $0.presentedWelcome = .introduction }.route, .welcome, "the payments-off introduction")
+		XCTAssertEqual(decision {
+			$0.presentedWelcome = .introduction
+			$0.isTourPendingOrRunning = false
+			$0.isDay0AcknowledgementPending = true
+		}.route, .welcome)
+	}
+
+	func test_aDay0AcknowledgementWithNoWelcomeUp_onlyDefersTheQuestion() {
+		// The coordinator shows no Welcome screen to a subscriber whose window owes day 0, so only
+		// the analytics gate reads the pending acknowledgement: the ask waits, content shows.
+		XCTAssertEqual(decision {
+			$0.isTourPendingOrRunning = false
+			$0.isDay0AcknowledgementPending = true
+		}.route, .home)
 	}
 
 	func test_consent_followsTheGatesOwnDisplayRules() {
 		let noTour: (inout HeadlessRouteDecision) -> Void = { $0.isTourPendingOrRunning = false }
 		XCTAssertEqual(decision { noTour(&$0); $0.consentPresentation = .pending }.route, .consent, "held before content")
-		XCTAssertEqual(decision { noTour(&$0); $0.consentPresentation = .pending; $0.hasEverShownContent = true }.route, .home)
+		XCTAssertEqual(decision { noTour(&$0); $0.consentPresentation = .pending; $0.hasEverShownAnalyticsContent = true }.route, .home)
 		XCTAssertEqual(decision { noTour(&$0); $0.consentPresentation = .unavailable }.route, .home, "never held on unavailable")
 		XCTAssertEqual(decision { noTour(&$0); $0.isAskDeferredAfterSignOut = true }.route, .home, "a deferred ask is silent")
-		XCTAssertEqual(decision { noTour(&$0); $0.hasEverShownContent = true }.route, .consent, "asked over content")
+		XCTAssertEqual(decision { noTour(&$0); $0.hasEverShownAnalyticsContent = true }.route, .consent, "asked over content")
 	}
 
 	func test_aPickedDetection_isTheSaveSheet_overHomeAndTheDrawer() {
@@ -140,8 +148,8 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 			$0.isSaveFindingPresented = true
 			$0.isTourPendingOrRunning = false
 			$0.consentPresentation = .resolved
-			$0.isSubscribed = false
-		}.route, .gate)
+			$0.display = .wall
+		}.route, .paywall)
 		XCTAssertEqual(decision { $0.isSaveFindingPresented = true; $0.isReady = false }.route, .launching)
 	}
 
@@ -181,7 +189,7 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 	func test_theAnalyticsQuestion_holdsTheBackupQuestion() {
 		XCTAssertEqual(decision {
 			$0.isTourPendingOrRunning = false
-			$0.hasEverShownContent = true
+			$0.hasEverShownAnalyticsContent = true
 			$0.isBackupConsentPending = true
 		}.route, .consent, "asked over content")
 		XCTAssertEqual(decision {
@@ -198,7 +206,7 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 	func test_theAnalyticsQuestion_outranksEverySheet() {
 		let asked: (inout HeadlessRouteDecision) -> Void = {
 			$0.isTourPendingOrRunning = false
-			$0.hasEverShownContent = true
+			$0.hasEverShownAnalyticsContent = true
 			$0.isDrawerOpen = true
 		}
 		XCTAssertEqual(decision { asked(&$0); $0.isSaveFindingPresented = true }.route, .consent)
@@ -256,11 +264,14 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 		XCTAssertFalse(presentation.isFindingsPresented)
 	}
 
-	func test_showsContent() {
-		XCTAssertEqual(
-			HeadlessRoute.allCases.filter(HeadlessRouteDecision.showsContent),
-			[.tour, .home, .drawer, .account, .saveFinding, .findings, .backupConsent]
-		)
+	/// `AnalyticsChoiceGate` remembers content only while it is mounted — the root gate shows the
+	/// app, covered or not — and renders its content, a deferred ask included.
+	func test_theAnalyticsGatesMemory_followsItsMountAndItsOwnDisplay() {
+		XCTAssertTrue(decision().analyticsGateShowsContent, "a deferred ask renders content")
+		XCTAssertTrue(decision { $0.display = .wallOverContent }.analyticsGateShowsContent)
+		XCTAssertFalse(decision { $0.display = .wall }.analyticsGateShowsContent, "not mounted behind the wall")
+		XCTAssertFalse(decision { $0.display = .hold }.analyticsGateShowsContent, "not mounted during the hold")
+		XCTAssertFalse(decision { $0.isTourPendingOrRunning = false }.analyticsGateShowsContent, "the question is the screen")
 	}
 }
 
