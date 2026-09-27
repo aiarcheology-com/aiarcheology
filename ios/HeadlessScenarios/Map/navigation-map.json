@@ -27,6 +27,10 @@
         {
           "condition" : "ready with nothing owed",
           "to" : "home"
+        },
+        {
+          "condition" : "ready with a back-up question already pending and nothing owed ahead of it",
+          "to" : "backup-consent"
         }
       ]
     },
@@ -53,6 +57,10 @@
         {
           "condition" : "access is granted with nothing owed",
           "to" : "home"
+        },
+        {
+          "condition" : "a back-up question is pending and nothing is owed ahead of it, over the app or the wall",
+          "to" : "backup-consent"
         }
       ]
     },
@@ -75,6 +83,10 @@
         {
           "condition" : "a subscription became active while the paywall covered the open menu",
           "to" : "drawer"
+        },
+        {
+          "condition" : "a back-up question is raised while the analytics question is not on screen",
+          "to" : "backup-consent"
         }
       ]
     },
@@ -96,6 +108,14 @@
           "action" : "continue",
           "condition" : "nothing else is owed",
           "to" : "home"
+        },
+        {
+          "condition" : "access ran out",
+          "to" : "paywall"
+        },
+        {
+          "condition" : "access ran out with a back-up question pending",
+          "to" : "backup-consent"
         }
       ]
     },
@@ -112,6 +132,14 @@
           "action" : "skip",
           "condition" : "the analytics question is answered",
           "to" : "home"
+        },
+        {
+          "condition" : "access ran out",
+          "to" : "paywall"
+        },
+        {
+          "condition" : "access ran out with a back-up question pending",
+          "to" : "backup-consent"
         }
       ]
     },
@@ -158,8 +186,12 @@
           "to" : "drawer"
         },
         {
-          "condition" : "the held question's scope resolved with nothing to ask and a back-up question is pending",
+          "condition" : "a back-up question is pending and the held question's scope resolved with nothing to ask, or access ran out",
           "to" : "backup-consent"
+        },
+        {
+          "condition" : "access ran out",
+          "to" : "paywall"
         }
       ]
     },
@@ -253,6 +285,11 @@
           "action" : "sign-in",
           "condition" : "findings saved before sign-in await the back-up question (verified only by the sign-in scenario)",
           "to" : "backup-consent"
+        },
+        {
+          "action" : "sign-in",
+          "condition" : "access ran out while the account screen was up: signing in closes it onto the wall (verified only by the sign-in scenario)",
+          "to" : "paywall"
         },
         {
           "action" : "sign-out",
@@ -356,6 +393,14 @@
           "action" : "decline",
           "condition" : "the question covered the paywall",
           "to" : "paywall"
+        },
+        {
+          "condition" : "access returned while the question covered the wall, and the tour is armed",
+          "to" : "tour"
+        },
+        {
+          "condition" : "access returned while the question covered the wall, and the analytics question is unanswered",
+          "to" : "consent"
         }
       ]
     }

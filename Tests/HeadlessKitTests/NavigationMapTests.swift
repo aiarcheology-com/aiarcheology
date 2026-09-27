@@ -176,10 +176,7 @@ final class NavigationMapTests: XCTestCase {
 		let result = await send(.map).result
 		XCTAssertEqual(result?.value(at: "/routes"), [])
 		XCTAssertEqual(result?.value(at: "/current"), "home")
-		XCTAssertEqual(result?.value(at: "/undeclared"), [
-			["action": "open-drawer", "to": "drawer"],
-			["action": "broken-transition", "to": "about"]
-		], "every live transition, and nothing that is not one")
+		XCTAssertEqual(result?.value(at: "/undeclared"), [], "no declaration, so nothing has drifted from one")
 	}
 
 	// MARK: - Rejecting undeclared routes

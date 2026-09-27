@@ -130,8 +130,9 @@ public struct ScenarioRunner: Sendable {
 			// Resolved values — `${…}` included — are checked here, before anything is sent. An
 			// `expect route` is compared locally and would otherwise never reach the app's check.
 			let undeclared = try Self.undeclaredRoutes(
-				in: command,
-				expectations: step.expect,
+				in: step,
+				phase: phase,
+				index: index,
 				known: run.declaredRoutes[installation],
 				substitution: substitution
 			)
@@ -196,32 +197,29 @@ public struct ScenarioRunner: Sendable {
 		return .state
 	}
 
-	/// The resolved routes `command` and `expectations` name that `known` does not contain; none
-	/// when the installation declared no routes.
+	/// The routes `step` names — `RouteCheck`'s references, each resolved as the command sending it
+	/// is — that `known` does not contain; none when the installation declared no routes.
 	private static func undeclaredRoutes(
-		in command: Command,
-		expectations: [Expectation],
+		in step: Step,
+		phase: String,
+		index: Int,
 		known: [Route]?,
 		substitution: Substitution
 	) throws -> [String] {
 		guard let known, known.isEmpty == false else { return [] }
-		var named: [(kind: RouteCheck.Kind, route: String)] = []
-		switch command {
-		case .goto(let route):
-			named.append((.goto, route.rawValue))
-		case .wait(let condition, let arguments, _) where condition == HeadlessSession.routeCondition:
-			if let route = arguments["route"]?.stringValue {
-				named.append((.wait, route))
+		let references = try RouteCheck.references(in: step, phase: phase, index: index) { try substitution.apply(to: $0) }
+		return try references.compactMap { reference in
+			let resolved: String?
+			switch reference.kind {
+			case .goto, .expect:
+				resolved = try substitution.apply(to: reference.route)
+			case .wait:
+				// As the command's arguments are resolved: a whole `${name}` keeps its captured type,
+				// and a route that is not a string is left to the app to reject.
+				resolved = try substitution.apply(to: JSONValue.string(reference.route)).stringValue
 			}
-		default:
-			break
+			return resolved.flatMap { RouteCheck.problem(kind: reference.kind, route: $0, known: known) }
 		}
-		for expectation in expectations {
-			if case .route(let route) = expectation {
-				named.append((.expect, try substitution.apply(to: route.rawValue)))
-			}
-		}
-		return named.compactMap { RouteCheck.problem(kind: $0.kind, route: $0.route, known: known) }
 	}
 
 	/// Every failed expectation, not just the first: one run shows everything that is wrong.

@@ -58,35 +58,30 @@ final class HeadlessWalkTests: XCTestCase {
 
 	// MARK: - Walks
 
-	func test_aFreshInstall_walksOnboardingTheDrawerItsSheetsAndTheSaveSheet() async throws {
-		_ = try await walkAFreshInstall()
-	}
-
-	func test_aSignedInAccount_signsOutBackToTheDrawer() async throws {
-		_ = try await walkASignedInAccount()
-	}
-
-	func test_theWall_givesWayToASubscription() async throws {
-		_ = try await walkTheWall()
-	}
-
-	func test_accessRunningOutUnderASheet_closesOntoThePaywall() async throws {
-		_ = try await walkAccessRunningOutUnderASheet()
-	}
-
-	func test_paymentsOff_introducesTheApp() async throws {
-		_ = try await walkPaymentsOff()
-	}
-
-	/// Every route is walked or explained. Runs every walk, so it holds whatever order the tests run in.
-	func test_everyRoute_isWalkedOrExplained() async throws {
+	/// Every walk, once, and then every route is walked or explained. One test rather than one per
+	/// walk: the coverage check needs all of them, and XCTest does not order tests, so separate tests
+	/// would run each walk twice. Every failure names its walk.
+	func test_theWalks_stayOnTheMap_andEveryRouteIsWalkedOrExplained() async throws {
+		let walks: [(name: String, walk: () async throws -> Set<HeadlessRoute>)] = [
+			("fresh", { try await self.walkAFreshInstall() }),
+			("signed-in", { try await self.walkASignedInAccount() }),
+			("wall", { try await self.walkTheWall() }),
+			("expiry", { try await self.walkAccessRunningOutUnderASheet() }),
+			("payments-off", { try await self.walkPaymentsOff() })
+		]
 		var visited: Set<HeadlessRoute> = []
-		visited.formUnion(try await walkAFreshInstall())
-		visited.formUnion(try await walkASignedInAccount())
-		visited.formUnion(try await walkTheWall())
-		visited.formUnion(try await walkAccessRunningOutUnderASheet())
-		visited.formUnion(try await walkPaymentsOff())
+		var stopped: [String] = []
+		for (name, walk) in walks {
+			do {
+				visited.formUnion(try await walk())
+			} catch {
+				stopped.append(name)
+				XCTFail("[walk \(name)] stopped: \(error)")
+			}
+		}
 
+		// A walk that stopped visited only part of its routes; the coverage check would only repeat that.
+		guard stopped.isEmpty else { return }
 		XCTAssertTrue(
 			visited.isDisjoint(with: Self.unvisited.keys),
 			"walked routes are listed as unvisited: \(visited.intersection(Self.unvisited.keys).map(\.rawValue))"
@@ -114,21 +109,21 @@ final class HeadlessWalkTests: XCTestCase {
 
 		walker.world.startFreeAccess()
 		let welcome = try await walker.settle(at: .welcome)
-		XCTAssertEqual(welcome.state.value(at: "/offer"), .string("freeAccess"))
+		XCTAssertEqual(welcome.state.value(at: "/offer"), .string("freeAccess"), "[walk fresh]")
 
 		try await walker.perform("continue", arrivesAt: .tour)
 		try await walker.perform("skip", arrivesAt: .consent)
 		try await walker.perform("deny", arrivesAt: .home)
 		try await walker.perform("open-drawer", arrivesAt: .drawer)
 		let account = try await walker.perform("open-account", arrivesAt: .account)
-		XCTAssertEqual(account.state.value(at: "/signedIn"), .bool(false))
+		XCTAssertEqual(account.state.value(at: "/signedIn"), .bool(false), "[walk fresh]")
 		try await walker.perform("close", arrivesAt: .drawer)
 		try await walker.perform("open-findings", arrivesAt: .findings)
 		try await walker.perform("close", arrivesAt: .drawer)
 		try await walker.perform("close", arrivesAt: .home)
 
 		let detected = try await walker.perform("detect-image", ["image": "walk.png"], arrivesAt: .home)
-		XCTAssertEqual(detected.result?.value(at: "/detections/0/label"), .string("walk-object"))
+		XCTAssertEqual(detected.result?.value(at: "/detections/0/label"), .string("walk-object"), "[walk fresh]")
 		try await walker.perform("pick", ["detection": 0], arrivesAt: .saveFinding)
 		// Never `save`: see the class comment.
 		try await walker.perform("cancel", arrivesAt: .home)
@@ -148,9 +143,9 @@ final class HeadlessWalkTests: XCTestCase {
 		try await walker.perform("skip", arrivesAt: .home)
 		try await walker.perform("open-drawer", arrivesAt: .drawer)
 		let account = try await walker.perform("open-account", arrivesAt: .account)
-		XCTAssertEqual(account.state.value(at: "/signedIn"), .bool(true))
+		XCTAssertEqual(account.state.value(at: "/signedIn"), .bool(true), "[walk signed-in]")
 		let signedOut = try await walker.perform("sign-out", arrivesAt: .drawer)
-		XCTAssertEqual(signedOut.context.value(at: "/auth/signedIn"), .bool(false))
+		XCTAssertEqual(signedOut.context.value(at: "/auth/signedIn"), .bool(false), "[walk signed-in]")
 		return walker.visited
 	}
 
@@ -165,7 +160,7 @@ final class HeadlessWalkTests: XCTestCase {
 		try await walker.observe(expecting: .launching)
 		walker.ready.isReady = true
 		let paywall = try await walker.settle(at: .paywall)
-		XCTAssertTrue(paywall.actions.isEmpty, "the wall offers nothing")
+		XCTAssertTrue(paywall.actions.isEmpty, "[walk wall] the wall offers nothing")
 
 		walker.world.provider.simulateEntitlementChange(to: .subscribed)
 		try await walker.settle(at: .tour)
@@ -191,7 +186,7 @@ final class HeadlessWalkTests: XCTestCase {
 		let ranOut = try await HeadlessWait.until(timeout: .seconds(10)) {
 			walker.application.currentDecision().display == .wallOverContent
 		}
-		XCTAssertTrue(ranOut, "the window did not run out")
+		XCTAssertTrue(ranOut, "[walk expiry] the window did not run out")
 		try await walker.observe(expecting: .account)
 
 		try await walker.perform("close", arrivesAt: .paywall)
@@ -210,7 +205,7 @@ final class HeadlessWalkTests: XCTestCase {
 		try await walker.observe(expecting: .launching)
 		walker.ready.isReady = true
 		let welcome = try await walker.settle(at: .welcome)
-		XCTAssertEqual(welcome.state.value(at: "/offer"), .string("introduction"))
+		XCTAssertEqual(welcome.state.value(at: "/offer"), .string("introduction"), "[walk payments-off]")
 		try await walker.perform("continue", arrivesAt: .tour)
 		try await walker.perform("skip", arrivesAt: .home)
 		return walker.visited
@@ -309,13 +304,13 @@ final class HeadlessWalkTests: XCTestCase {
 			findingsDirectory: findingsDirectory
 		)
 		// The walk writes only where it was pointed.
-		XCTAssertEqual(parts.stagedDirectory, stagedDirectory)
-		XCTAssertNotEqual(parts.stagedDirectory, StagedImageCapture.defaultStagedDirectory)
-		XCTAssertEqual(parts.findingsDirectory, findingsDirectory)
-		XCTAssertNotEqual(parts.findingsDirectory, FindingScreenshotStore.directory)
+		XCTAssertEqual(parts.stagedDirectory, stagedDirectory, "[walk \(name)]")
+		XCTAssertNotEqual(parts.stagedDirectory, StagedImageCapture.defaultStagedDirectory, "[walk \(name)]")
+		XCTAssertEqual(parts.findingsDirectory, findingsDirectory, "[walk \(name)]")
+		XCTAssertNotEqual(parts.findingsDirectory, FindingScreenshotStore.directory, "[walk \(name)]")
 
 		let application = MLBrowserHeadlessApplication(parts: parts, launchOptions: .object([:]))
-		return Walker(application: application, world: world, ready: ready)
+		return Walker(name: name, application: application, world: world, ready: ready)
 	}
 
 	/// Writes a real 10×10 PNG.
@@ -351,6 +346,8 @@ private final class ReadyFlag {
 /// Drives one application through `InProcessDriver` and checks every state and move against the map.
 @MainActor
 private final class Walker {
+	/// The walk's name, which every failure message starts with.
+	let name: String
 	let application: MLBrowserHeadlessApplication
 	let world: GateWorld
 	let ready: ReadyFlag
@@ -363,7 +360,8 @@ private final class Walker {
 	/// Upper bound for the app to move on its own; the moves are immediate once their input changes.
 	private static let settleTimeout = 10.0
 
-	init(application: MLBrowserHeadlessApplication, world: GateWorld, ready: ReadyFlag) {
+	init(name: String, application: MLBrowserHeadlessApplication, world: GateWorld, ready: ReadyFlag) {
+		self.name = name
 		self.application = application
 		self.world = world
 		self.ready = ready
@@ -379,14 +377,14 @@ private final class Walker {
 		line: UInt = #line
 	) async throws -> Response {
 		let response = try await driver.send(.map)
-		XCTAssertTrue(response.ok, "map failed: \(String(describing: response.error))", file: file, line: line)
+		XCTAssertTrue(response.ok, "[walk \(name)] map failed: \(String(describing: response.error))", file: file, line: line)
 		let route = try XCTUnwrap(
 			HeadlessRoute(rawValue: response.route.rawValue),
-			"'\(response.route)' is not a route",
+			"[walk \(name)] '\(response.route)' is not a route",
 			file: file,
 			line: line
 		)
-		XCTAssertEqual(route, expected, file: file, line: line)
+		XCTAssertEqual(route, expected, "[walk \(name)]", file: file, line: line)
 		visited.insert(route)
 		current = route
 
@@ -394,15 +392,15 @@ private final class Walker {
 		XCTAssertEqual(
 			response.result?.value(at: "/undeclared"),
 			.array([]),
-			"'\(route.rawValue)' offers transitions the navigation map lacks",
+			"[walk \(name)] '\(route.rawValue)' offers transitions the navigation map lacks",
 			file: file,
 			line: line
 		)
 
 		let decision = application.currentDecision()
-		XCTAssertEqual(decision.route, route, file: file, line: line)
+		XCTAssertEqual(decision.route, route, "[walk \(name)]", file: file, line: line)
 		if decision.isReady, let violation = HeadlessReachableStates.violation(of: decision) {
-			XCTFail("the walk reached a state the enumeration calls unreachable (\(violation)): \(decision)", file: file, line: line)
+			XCTFail("[walk \(name)] the walk reached a state the enumeration calls unreachable (\(violation)): \(decision)", file: file, line: line)
 		}
 		return response
 	}
@@ -418,14 +416,14 @@ private final class Walker {
 		file: StaticString = #filePath,
 		line: UInt = #line
 	) async throws -> Response {
-		let from = try XCTUnwrap(current, "observe before performing", file: file, line: line)
+		let from = try XCTUnwrap(current, "[walk \(name)] observe before performing", file: file, line: line)
 		let response = try await driver.send(.perform(action: action, arguments: arguments))
-		XCTAssertTrue(response.ok, "'\(action)' failed: \(String(describing: response.error))", file: file, line: line)
-		XCTAssertEqual(response.route.rawValue, expected.rawValue, "'\(action)' on '\(from.rawValue)'", file: file, line: line)
+		XCTAssertTrue(response.ok, "[walk \(name)] '\(action)' failed: \(String(describing: response.error))", file: file, line: line)
+		XCTAssertEqual(response.route.rawValue, expected.rawValue, "[walk \(name)] '\(action)' on '\(from.rawValue)'", file: file, line: line)
 		if expected != from {
 			XCTAssertTrue(
 				map.declares(action: action, from: Route(from.rawValue), to: Route(expected.rawValue)),
-				"undeclared edge: \(from.rawValue) --\(action)--> \(expected.rawValue)",
+				"[walk \(name)] undeclared edge: \(from.rawValue) --\(action)--> \(expected.rawValue)",
 				file: file,
 				line: line
 			)
@@ -438,17 +436,17 @@ private final class Walker {
 	/// declared action-less edge.
 	@discardableResult
 	func settle(at expected: HeadlessRoute, file: StaticString = #filePath, line: UInt = #line) async throws -> Response {
-		let from = try XCTUnwrap(current, "observe before settling", file: file, line: line)
+		let from = try XCTUnwrap(current, "[walk \(name)] observe before settling", file: file, line: line)
 		let response = try await driver.send(.wait(
 			condition: HeadlessSession.routeCondition,
 			arguments: ["route": .string(expected.rawValue)],
 			timeout: Self.settleTimeout
 		))
-		XCTAssertTrue(response.ok, "the app did not move to '\(expected.rawValue)': \(String(describing: response.error))", file: file, line: line)
+		XCTAssertTrue(response.ok, "[walk \(name)] the app did not move to '\(expected.rawValue)': \(String(describing: response.error))", file: file, line: line)
 		if expected != from {
 			let declared = map.declaration(for: Route(from.rawValue))?.transitions
 				.contains { $0.action == nil && $0.to.rawValue == expected.rawValue } ?? false
-			XCTAssertTrue(declared, "undeclared move on its own: \(from.rawValue) --> \(expected.rawValue)", file: file, line: line)
+			XCTAssertTrue(declared, "[walk \(name)] undeclared move on its own: \(from.rawValue) --> \(expected.rawValue)", file: file, line: line)
 		}
 		return try await observe(expecting: expected, file: file, line: line)
 	}

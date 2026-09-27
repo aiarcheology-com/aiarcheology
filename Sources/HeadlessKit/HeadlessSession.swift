@@ -210,6 +210,7 @@ public final class HeadlessSession {
 	/// A declared transition is possible under its condition; only `open` (offered now, leading
 	/// there) and `available` (offered now, destination decided when it runs) describe the present.
 	/// `undeclared` lists the current screen's transitions the map lacks — drift in the declaration.
+	/// An app that declares no map has no declaration to drift from, so it lists none.
 	private func map() -> JSONValue {
 		let map = application.navigationMap
 		let screen = application.currentScreen()
@@ -240,7 +241,7 @@ public final class HeadlessSession {
 				"transitions": .array(transitions)
 			]
 		}
-		let undeclared: [JSONValue] = live.compactMap { spec in
+		let undeclared: [JSONValue] = map.isEmpty ? [] : live.compactMap { spec in
 			guard let target = spec.navigatesTo,
 				  map.declares(action: spec.name, from: screen.route, to: target) == false else { return nil }
 			return ["action": .string(spec.name), "to": .string(target.rawValue)]

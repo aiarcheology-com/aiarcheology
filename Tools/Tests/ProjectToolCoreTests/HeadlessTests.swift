@@ -382,8 +382,32 @@ final class HeadlessRouteLintTests: XCTestCase {
 		XCTAssertFalse(outcome.passed)
 	}
 
-	func testAMissingMapFailsAndSaysHowToRegenerateIt() throws {
+	/// A scratch directory the root check takes for the repository root.
+	private func makeRepositoryRoot() throws {
+		try FileManager.default.createDirectory(
+			at: scratch.appendingPathComponent(HeadlessRepositoryRoot.marker),
+			withIntermediateDirectories: true
+		)
+	}
+
+	func testOutsideTheRepositoryRootItSaysSoBeforeLookingAtTheMap() throws {
+		// A usable map, but no workspace: the directory is still not the root.
+		_ = try write(#"{"routes": [{"route": "home", "summary": "Home.", "transitions": []}]}"#, to: HeadlessRouteLint.mapPath)
+		XCTAssertThrowsError(try HeadlessRouteLint(repositoryRoot: scratch)) { error in
+			XCTAssertTrue(error is HeadlessRepositoryRoot.NotTheRoot, "\(error)")
+			XCTAssertTrue("\(error)".contains("run from the repository root"), "\(error)")
+		}
+		// Not even a map: still the root error, not the map's.
+		try FileManager.default.removeItem(at: scratch)
 		try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+		XCTAssertThrowsError(try HeadlessRouteLint(repositoryRoot: scratch)) { error in
+			XCTAssertTrue(error is HeadlessRepositoryRoot.NotTheRoot, "\(error)")
+		}
+		XCTAssertNoThrow(try HeadlessRepositoryRoot.require(Self.repository))
+	}
+
+	func testAMissingMapFailsAndSaysHowToRegenerateIt() throws {
+		try makeRepositoryRoot()
 		XCTAssertThrowsError(try HeadlessRouteLint(repositoryRoot: scratch)) { error in
 			let text = "\(error)"
 			XCTAssertTrue(error is HeadlessRouteLint.MapUnavailable, text)
@@ -393,12 +417,39 @@ final class HeadlessRouteLintTests: XCTestCase {
 	}
 
 	func testAnUndecodableOrEmptyMapFails() throws {
+		try makeRepositoryRoot()
 		for content in [#"{"routes": "#, #"{"routes": []}"#] {
 			_ = try write(content, to: HeadlessRouteLint.mapPath)
 			XCTAssertThrowsError(try HeadlessRouteLint(repositoryRoot: scratch), content) { error in
 				XCTAssertTrue("\(error)".contains("HeadlessNavigationMapTests"), "\(error)")
 			}
 		}
+	}
+
+	/// A file that does not load and one that names an undeclared route are both rejected, and the
+	/// others still run, in order.
+	func testOneFailingFileDoesNotStopTheOthers() throws {
+		let lint = HeadlessRouteLint(map: NavigationMap(routes: [RouteDeclaration(route: "home", summary: "Home.")]))
+		func scenario(_ name: String, route: String) throws -> URL {
+			try write(#"""
+			{ "schemaVersion": 1, "name": "\#(name)", "installations": { "a": {} }, "steps": [ { "goto": "\#(route)" } ] }
+			"""#, to: "\(name).json")
+		}
+		let files = [
+			try scenario("first", route: "home"),
+			try write(#"{"schemaVersion": 1, "name": "x", "installations": {"a": {}}, "stepz": []}"#, to: "bad.json"),
+			try scenario("typo", route: "hme"),
+			try scenario("last", route: "home")
+		]
+		let plan = HeadlessTestPlan(lint.check(files))
+		XCTAssertEqual(plan.runnable.map(\.name), ["first", "last"])
+		XCTAssertEqual(plan.rejected.map(\.name), ["bad.json", "typo"])
+		XCTAssertEqual(plan.rejected.map(\.failures.count), [1, 1], "each rejection carries its lines")
+		XCTAssertTrue(plan.rejected[1].failures[0].contains("goto route 'hme' is not a route of this app"), "\(plan.rejected[1].failures)")
+
+		let nothingLeft = HeadlessTestPlan(lint.check([files[1], files[2]]))
+		XCTAssertTrue(nothingLeft.runnable.isEmpty, "nothing to build for")
+		XCTAssertEqual(nothingLeft.rejected.count, 2)
 	}
 
 	/// Every committed scenario names only routes the committed map declares.

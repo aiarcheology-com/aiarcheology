@@ -134,9 +134,11 @@ struct Headless: AsyncParsableCommand {
 			discussion: """
 			Before building or launching anything, every route a scenario names (goto, wait route, expect \
 			route) is checked against the checked-in navigation map, \(HeadlessRouteLint.mapPath). A scenario \
-			that does not load or names an undeclared route fails the command there, and nothing is built. \
-			That static check is an early filter: the running app's handshake is authoritative, and the \
-			runner checks the routes again after each launch. --lint runs the static check alone.
+			that does not load or names an undeclared route is reported and counted as failed, and does not \
+			run; the others still build and run. Only when none remains is nothing built. The checked-in map \
+			can lag a freshly changed declaration: regenerate it from the failing HeadlessNavigationMapTests \
+			equality test. The static check is an early filter: the running app's handshake is authoritative, \
+			and the runner checks the routes again after each launch. --lint runs the static check alone.
 			"""
 		)
 
@@ -150,11 +152,13 @@ struct Headless: AsyncParsableCommand {
 		var files: [String] = []
 
 		func run() async throws {
+			// First: from the wrong directory it says so, not that the map or the scenarios are missing.
+			let routeLint = try HeadlessRouteLint(repositoryRoot: HeadlessWorkspace.root)
 			let paths = files.isEmpty ? try HeadlessWorkspace.defaultScenarios() : files.map { URL(fileURLWithPath: $0) }
 			guard paths.isEmpty == false else {
 				throw ValidationError("no scenarios found")
 			}
-			let outcomes = try HeadlessRouteLint(repositoryRoot: HeadlessWorkspace.root).check(paths)
+			let outcomes = routeLint.check(paths)
 			let failing = outcomes.filter { $0.passed == false }
 			if lint {
 				outcomes.forEach(Self.printLint)
@@ -165,19 +169,29 @@ struct Headless: AsyncParsableCommand {
 				print("All \(paths.count) scenario(s) name only declared routes.")
 				return
 			}
-			guard failing.isEmpty else {
-				failing.forEach(Self.printLint)
-				print("\(failing.count) of \(paths.count) scenario(s) failed the route check; nothing was built or launched.")
+			// One file that does not load or names an undeclared route must not stop the others: it is
+			// reported and counted as failed, and the rest run.
+			let plan = HeadlessTestPlan(outcomes)
+			var failed: [String] = []
+			for outcome in plan.rejected {
+				failed.append(outcome.name)
+				print("❌ \(outcome.name)")
+				HeadlessReportText.indented(outcome.failures, by: "   ").forEach { print($0) }
+			}
+			guard plan.runnable.isEmpty == false else {
+				print("\(failed.count) of \(paths.count) scenario(s) failed the route check; nothing was built or launched.")
 				throw ExitCode.failure
 			}
-			print("Route check: all \(paths.count) scenario(s) name only declared routes.")
+			if failed.isEmpty {
+				print("Route check: all \(paths.count) scenario(s) name only declared routes.")
+			} else {
+				print("Route check: \(failed.count) of \(paths.count) scenario(s) failed and will not run; running the other \(plan.runnable.count).")
+			}
 			if noBuild == false {
 				try HeadlessWorkspace.build()
 			}
-			var failed: [String] = []
 			var installations: Set<String> = []
-			for outcome in outcomes {
-				guard case .checked(_, let scenario, _) = outcome else { continue } // The check above let none through.
+			for scenario in plan.runnable {
 				installations.formUnion(scenario.installations.keys)
 				print("▶︎ \(scenario.name)")
 				let report = await ScenarioRunner(launcher: SimulatorLauncher()).run(scenario)
@@ -208,14 +222,8 @@ struct Headless: AsyncParsableCommand {
 
 		/// `✓ <scenario>`, or `✗ <scenario>` and each failure on its own indented line.
 		private static func printLint(_ outcome: HeadlessRouteLint.Outcome) {
-			switch outcome {
-			case .checked(_, let scenario, let failures):
-				print("\(failures.isEmpty ? "✓" : "✗") \(scenario.name)")
-				HeadlessReportText.indented(failures, by: "   ").forEach { print($0) }
-			case .unreadable(let file, let error):
-				print("✗ \(file.lastPathComponent)")
-				HeadlessReportText.indented([error], by: "   ").forEach { print($0) }
-			}
+			print("\(outcome.passed ? "✓" : "✗") \(outcome.name)")
+			HeadlessReportText.indented(outcome.failures, by: "   ").forEach { print($0) }
 		}
 	}
 }
@@ -258,9 +266,7 @@ enum HeadlessWorkspace {
 	}
 
 	static func build() throws {
-		guard FileManager.default.fileExists(atPath: root.appendingPathComponent("ios/MLBrowser.xcworkspace").path) else {
-			throw ValidationError("run from the repository root (scripts/headless.sh does)")
-		}
+		try HeadlessRepositoryRoot.require(root)
 		let status = try runShellCommand("xcodebuild", arguments: [
 			"build",
 			"-workspace", "ios/MLBrowser.xcworkspace",

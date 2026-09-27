@@ -48,13 +48,19 @@ public enum RouteCheck {
 		}
 	}
 
-	/// The failures of every step checked against the routes its own installation declared. An
-	/// installation missing from `declared` declared none, and its steps are not checked.
+	/// The failures of every step checked against the routes its own installation declared at its
+	/// first launch. An installation missing from `declared` declared none, and its steps are not
+	/// checked. Nor are an installation's steps from its first `relaunch` on, teardown included: the
+	/// relaunched process may be another build, whose own handshake decides when the step runs.
 	static func failures(in scenario: Scenario, declared: [String: [Route]]) -> [String] {
-		phases(of: scenario).flatMap { phase, steps in
+		var relaunched: Set<String> = []
+		return phases(of: scenario).flatMap { phase, steps in
 			steps.enumerated().flatMap { index, step -> [String] in
-				guard let installation = try? scenario.installation(for: step, label: ""),
-					  let known = declared[installation] else { return [] }
+				guard let installation = try? scenario.installation(for: step, label: "") else { return [] }
+				if step.relaunch {
+					relaunched.insert(installation)
+				}
+				guard relaunched.contains(installation) == false, let known = declared[installation] else { return [] }
 				return failures(in: step, phase: phase, index: index, known: known)
 			}
 		}
@@ -77,13 +83,26 @@ public enum RouteCheck {
 		return "\(kind.rawValue) route '\(route)' is not a route of this app; \(NavigationMap.suggestion(for: route, known: known))"
 	}
 
+	/// The routes `step` names, its wait's condition taken as written: the static check's form.
 	static func references(in step: Step, phase: String, index: Int) -> [Reference] {
+		references(in: step, phase: phase, index: index) { $0 }
+	}
+
+	/// The routes `step` names, as written: the one rule both the static check and the runner's
+	/// check before sending use. A wait names a route when its condition is `route` after
+	/// `resolvingCondition`, which the runner uses to resolve `${…}` in it.
+	static func references(
+		in step: Step,
+		phase: String,
+		index: Int,
+		resolvingCondition: (String) throws -> String
+	) rethrows -> [Reference] {
 		let location = StepReport.location(phase: phase, index: index, name: step.name)
 		var references: [Reference] = []
 		if let route = step.goto {
 			references.append(Reference(location: location, kind: .goto, route: route.rawValue))
 		}
-		if let wait = step.wait, wait.condition == HeadlessSession.routeCondition,
+		if let wait = step.wait, try resolvingCondition(wait.condition) == HeadlessSession.routeCondition,
 		   let route = wait.arguments["route"]?.stringValue {
 			references.append(Reference(location: location, kind: .wait, route: route))
 		}

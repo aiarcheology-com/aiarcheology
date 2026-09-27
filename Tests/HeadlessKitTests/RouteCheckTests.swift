@@ -207,6 +207,44 @@ final class RouteCheckTests: XCTestCase {
 		XCTAssertEqual(launcher.sent, ["a state"], "only the relaunch step's observation")
 	}
 
+	func testStepsAfterARelaunchAreCheckedAgainstTheRelaunchedBuild() async throws {
+		// The first launch is a build without `drawer`; the relaunch is one that declares it.
+		let olderBuild = NavigationMap(routes: CounterApp.declaredMap.routes.filter { $0.route != "drawer" })
+
+		let launcher = FakeLauncher()
+		launcher.firstLaunchMaps = ["a": olderBuild]
+		let report = try await run(#"""
+		{
+		  "schemaVersion": 1, "name": "relaunch-into-a-newer-build",
+		  "installations": { "a": {} },
+		  "steps": [
+		    { "expect": [ { "route": "home" } ] },
+		    { "relaunch": true },
+		    { "name": "open", "goto": "drawer", "expect": [ { "route": "drawer" } ] }
+		  ]
+		}
+		"""#, launcher: launcher)
+		XCTAssertNil(report.setupFailure, "a step after the relaunch is not judged by the first launch's routes")
+		XCTAssertTrue(report.passed, report.failures.joined(separator: "\n"))
+		XCTAssertEqual(launcher.sent, ["a state", "a state", "a goto"])
+
+		let typoLauncher = FakeLauncher()
+		typoLauncher.firstLaunchMaps = ["a": olderBuild]
+		let typo = try await run(#"""
+		{
+		  "schemaVersion": 1, "name": "typo-after-relaunch",
+		  "installations": { "a": {} },
+		  "steps": [ { "relaunch": true }, { "name": "open", "goto": "drawr" } ]
+		}
+		"""#, launcher: typoLauncher)
+		XCTAssertNil(typo.setupFailure)
+		XCTAssertEqual(typo.failures, [
+			#"steps[1] "open": goto route 'drawr' is not a route of this app; did you mean 'drawer'? \#(known)"#
+		], "checked at its step, against the relaunched build")
+		XCTAssertNil(try XCTUnwrap(typo.steps.dropFirst().first).route, "the app was never asked")
+		XCTAssertEqual(typoLauncher.sent, ["a state"], "only the relaunch step's observation")
+	}
+
 	// MARK: - An app that declares no routes
 
 	func testAnInstallationWithoutDeclaredRoutesKeepsTodaysBehavior() async throws {

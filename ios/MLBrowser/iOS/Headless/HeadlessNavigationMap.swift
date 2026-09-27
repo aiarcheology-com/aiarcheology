@@ -17,8 +17,8 @@ import HeadlessKit
 /// own — and the one condition under which it applies. Actions that stay on their route (`enable`,
 /// `refresh`, `set-backup`, …) are not transitions and are not declared.
 ///
-/// Kept honest by `HeadlessNavigationMapTests` (the sheet exits against `HeadlessRouteDecision`)
-/// and `HeadlessWalkTests` (every live transition of the states the scenarios reach).
+/// Kept honest by `HeadlessNavigationMapTests` (the sheet exits and the moves on the app's own against
+/// `HeadlessRouteDecision`) and `HeadlessWalkTests` (every live transition of the states the scenarios reach).
 enum HeadlessNavigationMap {
 
 	static let declaration = NavigationMap(routes: HeadlessRoute.allCases.map(declaration(for:)))
@@ -35,7 +35,8 @@ enum HeadlessNavigationMap {
 					moves(to: .welcome, "ready and a Welcome screen is owed"),
 					moves(to: .tour, "ready, no Welcome screen owed, and the tour is armed"),
 					moves(to: .consent, "ready with the analytics question unanswered or its scope unresolved"),
-					moves(to: .home, "ready with nothing owed")
+					moves(to: .home, "ready with nothing owed"),
+					moves(to: .backupConsent, "ready with a back-up question already pending and nothing owed ahead of it")
 				]
 			)
 		case .gate:
@@ -47,7 +48,8 @@ enum HeadlessNavigationMap {
 					moves(to: .welcome, "the window is open and its Welcome screen is owed"),
 					moves(to: .tour, "access is granted, no Welcome screen owed, and the tour is armed"),
 					moves(to: .consent, "access is granted with the analytics question unanswered"),
-					moves(to: .home, "access is granted with nothing owed")
+					moves(to: .home, "access is granted with nothing owed"),
+					moves(to: .backupConsent, "a back-up question is pending and nothing is owed ahead of it, over the app or the wall")
 				]
 			)
 		case .paywall:
@@ -58,7 +60,8 @@ enum HeadlessNavigationMap {
 					moves(to: .tour, "a subscription became active and the tour is armed"),
 					moves(to: .consent, "a subscription became active with the analytics question unanswered"),
 					moves(to: .home, "a subscription became active, menu closed"),
-					moves(to: .drawer, "a subscription became active while the paywall covered the open menu")
+					moves(to: .drawer, "a subscription became active while the paywall covered the open menu"),
+					moves(to: .backupConsent, "a back-up question is raised while the analytics question is not on screen")
 				]
 			)
 		case .welcome:
@@ -68,7 +71,9 @@ enum HeadlessNavigationMap {
 				transitions: [
 					TransitionDeclaration(action: "continue", to: .tour, condition: "the tour is armed"),
 					TransitionDeclaration(action: "continue", to: .consent, condition: "no tour, and the analytics question is unanswered"),
-					TransitionDeclaration(action: "continue", to: .home, condition: "nothing else is owed")
+					TransitionDeclaration(action: "continue", to: .home, condition: "nothing else is owed"),
+					moves(to: .paywall, "access ran out"),
+					moves(to: .backupConsent, "access ran out with a back-up question pending")
 				]
 			)
 		case .tour:
@@ -77,7 +82,9 @@ enum HeadlessNavigationMap {
 				summary: "The onboarding tour is armed or running.",
 				transitions: [
 					TransitionDeclaration(action: "skip", to: .consent, condition: "the analytics question is unanswered"),
-					TransitionDeclaration(action: "skip", to: .home, condition: "the analytics question is answered")
+					TransitionDeclaration(action: "skip", to: .home, condition: "the analytics question is answered"),
+					moves(to: .paywall, "access ran out"),
+					moves(to: .backupConsent, "access ran out with a back-up question pending")
 				]
 			)
 		case .consent:
@@ -94,7 +101,11 @@ enum HeadlessNavigationMap {
 				transitions: answered + [
 					moves(to: .home, "the held question's scope resolved with nothing to ask, menu closed"),
 					moves(to: .drawer, "the held question's scope resolved with nothing to ask, menu open"),
-					moves(to: .backupConsent, "the held question's scope resolved with nothing to ask and a back-up question is pending")
+					moves(
+						to: .backupConsent,
+						"a back-up question is pending and the held question's scope resolved with nothing to ask, or access ran out"
+					),
+					moves(to: .paywall, "access ran out")
 				]
 			)
 		case .home:
@@ -141,6 +152,12 @@ enum HeadlessNavigationMap {
 						to: .backupConsent,
 						condition: "findings saved before sign-in await the back-up question (verified only by the sign-in scenario)"
 					),
+					TransitionDeclaration(
+						action: "sign-in",
+						to: .paywall,
+						condition: "access ran out while the account screen was up: signing in closes it onto the wall "
+							+ "(verified only by the sign-in scenario)"
+					),
 					TransitionDeclaration(action: "sign-out", to: .drawer, condition: "access remains"),
 					TransitionDeclaration(action: "sign-out", to: .paywall, condition: "access ran out while the sheet was up")
 				]
@@ -168,7 +185,11 @@ enum HeadlessNavigationMap {
 			return RouteDeclaration(
 				route: route,
 				summary: "The back-up question for findings saved before this account signed in.",
-				transitions: answered
+				transitions: answered + [
+					// Both outrank the back-up question: it waits under them until they are done.
+					moves(to: .tour, "access returned while the question covered the wall, and the tour is armed"),
+					moves(to: .consent, "access returned while the question covered the wall, and the analytics question is unanswered")
+				]
 			)
 		}
 	}

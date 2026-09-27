@@ -19,6 +19,9 @@ final class FakeLauncher: InstallationLauncher {
 	var failingInstallations: Set<String> = []
 	/// Installations whose app declares no navigation map, as an app built before maps did.
 	var undeclaredInstallations: Set<String> = []
+	/// Maps an installation's first launch declares instead of `CounterApp.declaredMap`, as an older
+	/// build would; a relaunch declares the current map.
+	var firstLaunchMaps: [String: NavigationMap] = [:]
 	/// Every command sent, as `<installation> <command name>`, in order.
 	var sent: [String] = []
 	private var storedCounts: [String: Int] = [:]
@@ -33,6 +36,8 @@ final class FakeLauncher: InstallationLauncher {
 		app.count = relaunch ? storedCounts[installation, default: 0] : (options.value(at: "/start")?.intValue ?? 0)
 		if undeclaredInstallations.contains(installation) {
 			app.navigationMap = .empty
+		} else if relaunch == false, let map = firstLaunchMaps[installation] {
+			app.navigationMap = map
 		}
 		running[installation] = app
 		let driver = InProcessDriver(session: HeadlessSession(application: app, pollInterval: .milliseconds(5)))
