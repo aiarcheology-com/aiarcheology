@@ -42,7 +42,8 @@ public final class HeadlessSession {
 
 	/// The handshake reply for this app.
 	public var serverHello: ServerHello {
-		ServerHello(metadata: application.metadata)
+		let map = application.navigationMap
+		return ServerHello(metadata: application.metadata, routes: map.isEmpty ? nil : map.routeNames)
 	}
 
 	/// Runs `request` after every earlier request has finished, and describes the app afterwards.
@@ -81,6 +82,8 @@ public final class HeadlessSession {
 			return nil
 		case .help:
 			return help()
+		case .map:
+			return map()
 		case .perform(let name, let raw):
 			let screen = application.currentScreen()
 			guard let action = screen.actions().first(where: { $0.spec.name == name }) else {
@@ -100,6 +103,7 @@ public final class HeadlessSession {
 	}
 
 	private func goto(_ route: Route) async throws -> JSONValue? {
+		try requireDeclared(route)
 		let screen = application.currentScreen()
 		guard screen.route != route else { return nil }
 		let transitions = screen.actions().filter { $0.spec.navigatesTo == route }
@@ -142,6 +146,8 @@ public final class HeadlessSession {
 		if name == Self.routeCondition {
 			arguments = try Arguments.validated(raw, against: [Self.routeParameter], subject: "condition 'route'")
 			let target = Route(try arguments.string("route"))
+			// Rejected before polling: a misspelt route would otherwise wait out the whole timeout.
+			try requireDeclared(target)
 			predicate = { [application] _ in application.currentScreen().route == target }
 		} else {
 			let conditions = application.waitConditions()
@@ -190,6 +196,7 @@ public final class HeadlessSession {
 				"help",
 				"state",
 				"actions",
+				"map",
 				"perform <action> [name=value …]",
 				"goto <route>",
 				"wait <condition> [name=value …] [timeout=<seconds>]"
@@ -198,7 +205,64 @@ public final class HeadlessSession {
 		]
 	}
 
+	/// The declared routes and transitions, marked against the current screen.
+	///
+	/// A declared transition is possible under its condition; only `open` (offered now, leading
+	/// there) and `available` (offered now, destination decided when it runs) describe the present.
+	/// `undeclared` lists the current screen's transitions the map lacks — drift in the declaration.
+	private func map() -> JSONValue {
+		let map = application.navigationMap
+		let screen = application.currentScreen()
+		let live = screen.actions().map(\.spec)
+		let routes: [JSONValue] = map.routes.map { declaration in
+			let isCurrent = declaration.route == screen.route
+			let transitions: [JSONValue] = declaration.transitions.map { transition in
+				var entry: [String: JSONValue] = [
+					"to": .string(transition.to.rawValue),
+					"condition": .string(transition.condition)
+				]
+				if let action = transition.action {
+					entry["action"] = .string(action)
+					if isCurrent, let offered = live.first(where: { $0.name == action }) {
+						if offered.navigatesTo == transition.to {
+							entry["open"] = true
+						} else if offered.navigatesTo == nil {
+							entry["available"] = true
+						}
+					}
+				}
+				return .object(entry)
+			}
+			return [
+				"route": .string(declaration.route.rawValue),
+				"summary": .string(declaration.summary),
+				"current": .bool(isCurrent),
+				"transitions": .array(transitions)
+			]
+		}
+		let undeclared: [JSONValue] = live.compactMap { spec in
+			guard let target = spec.navigatesTo,
+				  map.declares(action: spec.name, from: screen.route, to: target) == false else { return nil }
+			return ["action": .string(spec.name), "to": .string(target.rawValue)]
+		}
+		return [
+			"guarantee": "possible",
+			"note": "A declared transition can happen when its condition holds; only 'open' and 'available' describe what the current screen offers now.",
+			"current": .string(screen.route.rawValue),
+			"routes": .array(routes),
+			"undeclared": .array(undeclared)
+		]
+	}
+
 	// MARK: - Helpers
+
+	/// Rejects a route the app's navigation map does not declare. An app that declares no map
+	/// accepts any route, as before maps existed.
+	private func requireDeclared(_ route: Route) throws {
+		let map = application.navigationMap
+		guard map.isEmpty == false, map.routeNames.contains(route) == false else { return }
+		throw HeadlessError(.invalidArgument, map.unknownRouteMessage(route.rawValue))
+	}
 
 	private static let routeParameter = ParameterSpec("route", .string, summary: "The route to wait for.")
 

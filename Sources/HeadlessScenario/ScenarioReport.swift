@@ -88,6 +88,11 @@ public struct StepReport: Codable, Sendable, Equatable {
 
 	/// `steps[3] "enable the model"` — how a failure message says where it happened.
 	public var location: String {
+		Self.location(phase: phase, index: index, name: name)
+	}
+
+	/// The same form for a step that has not run, as a check before the run reports it.
+	static func location(phase: String, index: Int, name: String?) -> String {
 		"\(phase)[\(index)]" + (name.map { " \"\($0)\"" } ?? "")
 	}
 

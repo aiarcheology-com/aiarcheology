@@ -45,6 +45,11 @@ public actor HeadlessClient: HeadlessDriving {
 		try await serialized { try await self.exchange(command) }
 	}
 
+	/// The routes from the last handshake; `nil` before `connect()` and after `close()`.
+	public func declaredRoutes() async -> [Route]? {
+		serverHello?.routes
+	}
+
 	/// Drops the connection and anything half-read from it; the next call reconnects.
 	public func close() {
 		connection?.cancel()

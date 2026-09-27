@@ -43,14 +43,25 @@ public struct ScenarioRunner: Sendable {
 		var setupFailure: String?
 		for name in scenario.installations.keys.sorted() {
 			do {
-				run.drivers[name] = try await launcher.launch(
+				let driver = try await launcher.launch(
 					installation: name,
 					options: scenario.installations[name]?.launch ?? .object([:]),
 					relaunch: false
 				)
+				run.drivers[name] = driver
+				run.declaredRoutes[name] = await driver.declaredRoutes()
 			} catch {
 				setupFailure = "launching '\(name)' failed: \(error)"
 				break
+			}
+		}
+		// Every route the scenario names is checked against what its installation declares before
+		// any step is sent: a typo then fails at once, not after the steps before it and a timeout.
+		// An installation that declares no routes is not checked, as before declarations existed.
+		if setupFailure == nil {
+			let undeclared = RouteCheck.failures(in: scenario, declared: run.declaredRoutes)
+			if undeclared.isEmpty == false {
+				setupFailure = "the scenario names routes the app does not declare:\n" + undeclared.joined(separator: "\n")
 			}
 		}
 
@@ -101,17 +112,31 @@ public struct ScenarioRunner: Sendable {
 			if step.relaunch {
 				try await launcher.terminate(installation: installation)
 				run.drivers[installation] = nil
-				run.drivers[installation] = try await launcher.launch(
+				run.declaredRoutes[installation] = nil
+				let relaunched = try await launcher.launch(
 					installation: installation,
 					options: run.scenario.installations[installation]?.launch ?? .object([:]),
 					relaunch: true
 				)
+				run.drivers[installation] = relaunched
+				// The new process may be a different build: its own handshake decides.
+				run.declaredRoutes[installation] = await relaunched.declaredRoutes()
 			}
 			guard let driver = run.drivers[installation] else {
 				throw ScenarioError("\(label): '\(installation)' is not running")
 			}
 			let substitution = Substitution(variables: run.variables, environment: environment)
-			let sent = try await driver.send(try Self.command(for: step, substitution: substitution))
+			let command = try Self.command(for: step, substitution: substitution)
+			// Resolved values — `${…}` included — are checked here, before anything is sent. An
+			// `expect route` is compared locally and would otherwise never reach the app's check.
+			let undeclared = try Self.undeclaredRoutes(
+				in: command,
+				expectations: step.expect,
+				known: run.declaredRoutes[installation],
+				substitution: substitution
+			)
+			guard undeclared.isEmpty else { throw UndeclaredRoutes(failures: undeclared) }
+			let sent = try await driver.send(command)
 			response = sent
 			failures = try Self.check(step.expect, against: sent, substitution: substitution)
 			if failures.isEmpty {
@@ -124,6 +149,8 @@ public struct ScenarioRunner: Sendable {
 					run.variables[variable] = value
 				}
 			}
+		} catch let error as UndeclaredRoutes {
+			failures.append(contentsOf: error.failures)
 		} catch {
 			failures.append("\(error)")
 		}
@@ -167,6 +194,34 @@ public struct ScenarioRunner: Sendable {
 		}
 		// A relaunch or a bare observation: report the screen as it now is.
 		return .state
+	}
+
+	/// The resolved routes `command` and `expectations` name that `known` does not contain; none
+	/// when the installation declared no routes.
+	private static func undeclaredRoutes(
+		in command: Command,
+		expectations: [Expectation],
+		known: [Route]?,
+		substitution: Substitution
+	) throws -> [String] {
+		guard let known, known.isEmpty == false else { return [] }
+		var named: [(kind: RouteCheck.Kind, route: String)] = []
+		switch command {
+		case .goto(let route):
+			named.append((.goto, route.rawValue))
+		case .wait(let condition, let arguments, _) where condition == HeadlessSession.routeCondition:
+			if let route = arguments["route"]?.stringValue {
+				named.append((.wait, route))
+			}
+		default:
+			break
+		}
+		for expectation in expectations {
+			if case .route(let route) = expectation {
+				named.append((.expect, try substitution.apply(to: route.rawValue)))
+			}
+		}
+		return named.compactMap { RouteCheck.problem(kind: $0.kind, route: $0.route, known: known) }
 	}
 
 	/// Every failed expectation, not just the first: one run shows everything that is wrong.
@@ -224,6 +279,8 @@ public struct ScenarioRunner: Sendable {
 private struct Run {
 	let scenario: Scenario
 	var drivers: [String: any HeadlessDriving] = [:]
+	/// The routes each running installation declared; absent when it declared none.
+	var declaredRoutes: [String: [Route]] = [:]
 	var variables: [String: JSONValue] = [:]
 	var steps: [StepReport] = []
 	var teardown: [StepReport] = []
@@ -242,6 +299,11 @@ private struct Run {
 			durationSeconds: Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18
 		)
 	}
+}
+
+/// A step that names routes its installation does not declare; it is never sent.
+private struct UndeclaredRoutes: Error {
+	let failures: [String]
 }
 
 /// `${name}` and `${env:NAME}` in scenario strings.

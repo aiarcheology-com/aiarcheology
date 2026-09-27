@@ -57,7 +57,11 @@ final class TransportTests: XCTestCase {
 		let moved = try await client.send(.goto("drawer"))
 		XCTAssertEqual(moved.route, "drawer")
 		let refused = try await client.send(.goto("nowhere"))
-		XCTAssertEqual(refused.error?.code, .unreachable, "an app-level error is a response, not a thrown error")
+		XCTAssertEqual(refused.error?.code, .invalidArgument, "an app-level error is a response, not a thrown error")
+		let unreachable = try await client.send(.goto("about"))
+		XCTAssertEqual(unreachable.error?.code, .unreachable, "a declared route no action here leads to")
+		let declared = await client.declaredRoutes()
+		XCTAssertEqual(declared, CounterApp.declaredMap.routeNames, "the client keeps the routes from the hello")
 		await client.close()
 		XCTAssertEqual(app.count, 2)
 	}

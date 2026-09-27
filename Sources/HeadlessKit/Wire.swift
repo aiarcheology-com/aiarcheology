@@ -71,6 +71,9 @@ public enum Command: Sendable, Equatable {
 	case state
 	/// The current screen, unchanged; kept distinct from `state` for clients that only list.
 	case actions
+	/// The navigation map: every declared route and the transitions that are possible from it,
+	/// with which of the current route's transitions are open now.
+	case map
 	case perform(action: String, arguments: [String: JSONValue])
 	/// Take the one transition from the current screen that leads to `route`.
 	case goto(Route)
@@ -83,6 +86,7 @@ public enum Command: Sendable, Equatable {
 		case .help: "help"
 		case .state: "state"
 		case .actions: "actions"
+		case .map: "map"
 		case .perform: "perform"
 		case .goto: "goto"
 		case .wait: "wait"
@@ -119,6 +123,8 @@ public struct Request: Codable, Sendable, Equatable {
 			command = .state
 		case "actions":
 			command = .actions
+		case "map":
+			command = .map
 		case "perform":
 			command = .perform(action: try container.decode(String.self, forKey: .action), arguments: arguments)
 		case "goto":
@@ -134,7 +140,7 @@ public struct Request: Codable, Sendable, Equatable {
 			// precisely, rather than as a generic malformed request.
 			throw HeadlessError(
 				.unknownCommand,
-				"Unknown command '\(name)' (commands: help, state, actions, perform, goto, wait)"
+				"Unknown command '\(name)' (commands: help, state, actions, map, perform, goto, wait)"
 			)
 		}
 	}
@@ -144,7 +150,7 @@ public struct Request: Codable, Sendable, Equatable {
 		try container.encode(id, forKey: .id)
 		try container.encode(command.name, forKey: .command)
 		switch command {
-		case .help, .state, .actions:
+		case .help, .state, .actions, .map:
 			break
 		case .perform(let action, let arguments):
 			try container.encode(action, forKey: .action)
@@ -249,9 +255,13 @@ public struct ClientHello: Codable, Sendable, Equatable {
 public struct ServerHello: Codable, Sendable, Equatable {
 	public let protocolVersion: Int
 	public let metadata: [String: JSONValue]
+	/// The routes the app declares, in declaration order; absent when it declares none. Optional so
+	/// an older peer, which neither sends nor reads it, still interoperates.
+	public let routes: [Route]?
 
-	public init(protocolVersion: Int = HeadlessProtocol.version, metadata: [String: JSONValue]) {
+	public init(protocolVersion: Int = HeadlessProtocol.version, metadata: [String: JSONValue], routes: [Route]? = nil) {
 		self.protocolVersion = protocolVersion
 		self.metadata = metadata
+		self.routes = routes
 	}
 }

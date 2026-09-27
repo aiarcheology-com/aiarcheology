@@ -161,10 +161,16 @@ public protocol HeadlessApplication: AnyObject {
 	func context() -> JSONValue
 	/// The conditions `wait` accepts, in addition to the built-in `route` condition.
 	func waitConditions() -> [WaitCondition]
+	/// The app's routes and the transitions that are **possible** between them, each with the
+	/// condition under which it applies — not a promise that any of them is open now; the current
+	/// screen's actions say that. A non-empty map also makes `goto` and `wait route` reject a route
+	/// it does not declare.
+	var navigationMap: NavigationMap { get }
 }
 
 extension HeadlessApplication {
 	public var metadata: [String: JSONValue] { [:] }
+	public var navigationMap: NavigationMap { .empty }
 	public func context() -> JSONValue { .object([:]) }
 	public func waitConditions() -> [WaitCondition] { [] }
 }

@@ -13,6 +13,13 @@ public protocol HeadlessDriving: AnyObject, Sendable {
 	/// Sends one command. Throws only when the app could not be reached; a command the app rejects
 	/// comes back as a `Response` whose `error` is set.
 	func send(_ command: Command) async throws -> Response
+	/// The routes the app declared in its handshake, or `nil` when it declared none — or predates
+	/// declaring them. A scenario runner checks the routes it names against these before a run.
+	func declaredRoutes() async -> [Route]?
+}
+
+extension HeadlessDriving {
+	public func declaredRoutes() async -> [Route]? { nil }
 }
 
 /// Drives a session in the same process — for testing adapters and scenarios without a transport.
@@ -29,5 +36,9 @@ public final class InProcessDriver: HeadlessDriving {
 	public func send(_ command: Command) async throws -> Response {
 		nextID += 1
 		return await session.handle(Request(id: String(nextID), command: command))
+	}
+
+	public func declaredRoutes() async -> [Route]? {
+		session.serverHello.routes
 	}
 }

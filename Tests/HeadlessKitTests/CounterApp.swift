@@ -20,6 +20,28 @@ final class CounterApp: HeadlessApplication {
 
 	var metadata: [String: JSONValue] { ["app": "counter"] }
 
+	/// The declaration a test can replace — with `.empty` for an app that declares none.
+	var navigationMap = CounterApp.declaredMap
+
+	/// Every real edge of the app. `about` is declared as `broken-transition`'s target, so the
+	/// session still reaches — and fails — the arrival check; `settings` and `profile` exist but
+	/// this fake never shows them.
+	static let declaredMap = NavigationMap(routes: [
+		RouteDeclaration(route: "home", summary: "The counter.", transitions: [
+			TransitionDeclaration(action: "open-drawer", to: "drawer", condition: "Always."),
+			TransitionDeclaration(action: "broken-transition", to: "about", condition: "Always.")
+		]),
+		RouteDeclaration(route: "drawer", summary: "The drawer.", transitions: [
+			TransitionDeclaration(action: "close", to: "home", condition: "Always."),
+			TransitionDeclaration(action: "settings-from-header", to: "settings", condition: "Always."),
+			TransitionDeclaration(action: "settings-from-footer", to: "settings", condition: "Always."),
+			TransitionDeclaration(action: "profile", to: "profile", condition: "Given a profile id.")
+		]),
+		RouteDeclaration(route: "settings", summary: "Settings."),
+		RouteDeclaration(route: "profile", summary: "A profile."),
+		RouteDeclaration(route: "about", summary: "About the app.")
+	])
+
 	func currentScreen() -> any HeadlessScreen {
 		isDrawerOpen ? DrawerScreen(app: self) : HomeScreen(app: self)
 	}

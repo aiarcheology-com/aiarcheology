@@ -17,6 +17,10 @@ final class FakeLauncher: InstallationLauncher {
 
 	var log: [String] = []
 	var failingInstallations: Set<String> = []
+	/// Installations whose app declares no navigation map, as an app built before maps did.
+	var undeclaredInstallations: Set<String> = []
+	/// Every command sent, as `<installation> <command name>`, in order.
+	var sent: [String] = []
 	private var storedCounts: [String: Int] = [:]
 	private var running: [String: CounterApp] = [:]
 
@@ -27,14 +31,43 @@ final class FakeLauncher: InstallationLauncher {
 		}
 		let app = CounterApp()
 		app.count = relaunch ? storedCounts[installation, default: 0] : (options.value(at: "/start")?.intValue ?? 0)
+		if undeclaredInstallations.contains(installation) {
+			app.navigationMap = .empty
+		}
 		running[installation] = app
-		return InProcessDriver(session: HeadlessSession(application: app, pollInterval: .milliseconds(5)))
+		let driver = InProcessDriver(session: HeadlessSession(application: app, pollInterval: .milliseconds(5)))
+		return RecordingDriver(driver: driver) { [unowned self] command in
+			self.sent.append("\(installation) \(command.name)")
+		}
 	}
 
 	func terminate(installation: String) async throws {
 		log.append("terminate \(installation)")
 		storedCounts[installation] = running[installation]?.count
 		running[installation] = nil
+	}
+}
+
+/// Forwards to an in-process driver and records what it sends, so a test can prove a step sent
+/// nothing.
+@MainActor
+final class RecordingDriver: HeadlessDriving {
+
+	let driver: InProcessDriver
+	let record: (Command) -> Void
+
+	init(driver: InProcessDriver, record: @escaping (Command) -> Void) {
+		self.driver = driver
+		self.record = record
+	}
+
+	func send(_ command: Command) async throws -> Response {
+		record(command)
+		return try await driver.send(command)
+	}
+
+	func declaredRoutes() async -> [Route]? {
+		await driver.declaredRoutes()
 	}
 }
 
