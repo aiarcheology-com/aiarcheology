@@ -22,6 +22,8 @@ final class AppChromeState: ObservableObject {
 
 	/// The drawer's sheets, shared by the drawer view and the headless build (AIA-0984).
 	let drawerPresentation = DrawerPresentation()
+	/// The web screen's save-finding sheet, shared by the web screen and the headless build (AIA-0984).
+	let saveFindingPresentation = SaveFindingPresentation()
 
 	@Published var mode = AppMode.web
 	/// Whether the drawer is open. Every path that closes it — the drawer's own controls through

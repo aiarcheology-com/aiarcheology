@@ -129,6 +129,7 @@
 		8AC650AB2B2B4CCB00922648 /* WebHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650AA2B2B4CCB00922648 /* WebHistory.swift */; };
 		8AC650AD2B2B9A6200922648 /* AppChromeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650AC2B2B9A6200922648 /* AppChromeState.swift */; };
 		AA0984200000000000000002 /* DrawerPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0984200000000000000001 /* DrawerPresentation.swift */; };
+		AA0984400000000000000002 /* SaveFindingPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0984400000000000000001 /* SaveFindingPresentation.swift */; };
 		8AC650B02B2B9B1800922648 /* DefaultRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650AF2B2B9B1800922648 /* DefaultRenderer.swift */; };
 		8AC6F8350835F00108350001 /* FindingSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC6F8350835F00108350002 /* FindingSource.swift */; };
 		8AC7CDED2AE7FCED00871074 /* SnapState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC7CDEC2AE7FCED00871074 /* SnapState.swift */; };
@@ -584,6 +585,7 @@
 		8AC650AA2B2B4CCB00922648 /* WebHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebHistory.swift; sourceTree = "<group>"; };
 		8AC650AC2B2B9A6200922648 /* AppChromeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppChromeState.swift; sourceTree = "<group>"; };
 		AA0984200000000000000001 /* DrawerPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerPresentation.swift; sourceTree = "<group>"; };
+		AA0984400000000000000001 /* SaveFindingPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveFindingPresentation.swift; sourceTree = "<group>"; };
 		8AC650AF2B2B9B1800922648 /* DefaultRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultRenderer.swift; sourceTree = "<group>"; };
 		8AC6F8350835F00108350002 /* FindingSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingSource.swift; sourceTree = "<group>"; };
 		8AC7CDEC2AE7FCED00871074 /* SnapState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapState.swift; sourceTree = "<group>"; };
@@ -1125,6 +1127,7 @@
 				8AC650A22B2B4BB000922648 /* DeepState.swift */,
 				8AC650AC2B2B9A6200922648 /* AppChromeState.swift */,
 				AA0984200000000000000001 /* DrawerPresentation.swift */,
+				AA0984400000000000000001 /* SaveFindingPresentation.swift */,
 				8A4F0E152F110A0300ABCDEF /* BrowserState.swift */,
 				8A4F0E922F110A0300ABCDEF /* WebContentRecoveryPolicy.swift */,
 				8A4F0E9A2F110A0300ABCDEF /* WebContentTerminationPolicy.swift */,
@@ -2176,6 +2179,7 @@
 				8AC6509F2B2B492C00922648 /* AppMode.swift in Sources */,
 				8AC650AD2B2B9A6200922648 /* AppChromeState.swift in Sources */,
 				AA0984200000000000000002 /* DrawerPresentation.swift in Sources */,
+				AA0984400000000000000002 /* SaveFindingPresentation.swift in Sources */,
 				8A7740D32B1894B3002E90D9 /* Bundle+Extension.swift in Sources */,
 				94048A692EE245D60064AC55 /* ModelImportView.swift in Sources */,
 				B10000000000000000000013 /* NativeModelConversionImportReport.swift in Sources */,

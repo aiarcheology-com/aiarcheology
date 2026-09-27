@@ -19,6 +19,9 @@ final class StagedImageCaptureTests: XCTestCase {
 	private var dataController: DataController!
 	private var deep: DeepState!
 	private var repository: FindingRepository!
+	/// The save sheet's presentation, shared with the web screen: where pick, cancel, save and detect
+	/// are observed.
+	private var presentation: SaveFindingPresentation!
 	private var stagedDirectory: URL!
 
 	override func setUp() async throws {
@@ -27,6 +30,7 @@ final class StagedImageCaptureTests: XCTestCase {
 		await dataController.awaitStoreReady()
 		deep = DeepState(dataController: dataController)
 		repository = FindingRepository(dataController: dataController)
+		presentation = SaveFindingPresentation()
 		stagedDirectory = FileManager.default.temporaryDirectory
 			.appending(path: "StagedImageCaptureTests-\(UUID().uuidString)", directoryHint: .isDirectory)
 		try FileManager.default.createDirectory(at: stagedDirectory, withIntermediateDirectories: true)
@@ -35,6 +39,7 @@ final class StagedImageCaptureTests: XCTestCase {
 	override func tearDown() async throws {
 		try? FileManager.default.removeItem(at: stagedDirectory)
 		stagedDirectory = nil
+		presentation = nil
 		repository = nil
 		deep = nil
 		dataController = nil
@@ -47,6 +52,7 @@ final class StagedImageCaptureTests: XCTestCase {
 			settings: Settings(),
 			repository: repository,
 			authState: AuthState(provider: MockAuthProvider(outcome: .ready)),
+			presentation: presentation,
 			stagedNames: staged,
 			stagedDirectory: stagedDirectory
 		)
@@ -125,7 +131,20 @@ final class StagedImageCaptureTests: XCTestCase {
 		XCTAssertEqual(detections.map(\.label), ["first-a", "first-b", "second-a"])
 		XCTAssertEqual(detections.first?.confidence ?? 0, 0.734, accuracy: 0.0001, "the observation's confidence, not the label's")
 		XCTAssertNotNil(capture.frame)
-		XCTAssertNil(capture.pendingCapture)
+		XCTAssertFalse(presentation.isPresented)
+	}
+
+	func test_detectAgain_closesTheSheetOfAnEarlierPick() async throws {
+		try stageImage(named: "terrain.png")
+		registerDetector(labels: ["mound"])
+		let capture = makeCapture(staged: ["terrain.png"])
+		_ = try await capture.detect(imageNamed: "terrain.png")
+		try capture.pick(index: 0)
+		XCTAssertTrue(presentation.isPresented)
+
+		_ = try await capture.detect(imageNamed: "terrain.png")
+
+		XCTAssertNil(presentation.capture, "a new detection pass drops the picked detection")
 	}
 
 	func test_pick_outOfRange_isRefused_andNothingIsPending() async throws {
@@ -140,7 +159,7 @@ final class StagedImageCaptureTests: XCTestCase {
 		XCTAssertThrowsError(try capture.pick(index: -1)) { error in
 			XCTAssertEqual(error as? StagedImageCapture.Failure, .detectionOutOfRange)
 		}
-		XCTAssertNil(capture.pendingCapture)
+		XCTAssertNil(presentation.capture)
 	}
 
 	func test_pick_beforeAnyDetection_hasNoFrame() {
@@ -162,10 +181,10 @@ final class StagedImageCaptureTests: XCTestCase {
 		_ = try await capture.detect(imageNamed: "terrain.png")
 
 		try capture.pick(index: 1)
-		XCTAssertEqual(capture.pendingCapture?.observation.primaryLabelIdentifier, "barrow")
+		XCTAssertEqual(presentation.capture?.observation.primaryLabelIdentifier, "barrow", "the pick presents the save sheet")
 		let id = try capture.save(title: "  Barrow  ", label: "tumulus")
 
-		XCTAssertNil(capture.pendingCapture)
+		XCTAssertNil(presentation.capture, "saving closes the save sheet")
 		let finding = try XCTUnwrap(Finding.select(id, in: dataController.container.viewContext))
 		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
 		XCTAssertEqual(finding.title, "Barrow")
@@ -179,10 +198,11 @@ final class StagedImageCaptureTests: XCTestCase {
 		let capture = makeCapture(staged: ["terrain.png"])
 		_ = try await capture.detect(imageNamed: "terrain.png")
 		try capture.pick(index: 0)
+		XCTAssertTrue(presentation.isPresented)
 
 		capture.cancel()
 
-		XCTAssertNil(capture.pendingCapture)
+		XCTAssertNil(presentation.capture)
 		XCTAssertNotNil(capture.frame, "cancelling closes the sheet, not the detections")
 	}
 }

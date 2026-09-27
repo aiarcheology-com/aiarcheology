@@ -29,7 +29,7 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 	}
 
 	func state() -> JSONValue {
-		guard let observation = capture.pendingCapture?.observation else { return [:] }
+		guard let observation = parts.chromeState.saveFindingPresentation.capture?.observation else { return [:] }
 		return [
 			"label": .string(observation.primaryLabelIdentifier ?? ""),
 			"confidence": .number(Self.rounded(Double(observation.confidence)))

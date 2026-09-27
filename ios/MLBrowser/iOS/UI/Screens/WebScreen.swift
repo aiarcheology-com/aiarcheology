@@ -222,8 +222,9 @@ struct WebScreenView: View {
 	/// snapshot so a just-enabled model runs on the current page right away.
 	@State private var runningClassifierIDs: Set<UUID> = []
 	@State private var runningDetectorIDs: Set<UUID> = []
-	/// The tapped detection being saved; non-nil presents the save sheet.
-	@State private var findingCapture: FindingCapture?
+	/// The tapped detection being saved; non-nil presents the save sheet. It lives on `chromeState`,
+	/// shared with the headless build (AIA-0984), and is cleared when this screen leaves.
+	private var saveFinding: SaveFindingPresentation { appState.chromeState.saveFindingPresentation }
 	/// Guards the asynchronous window between a centre alignment and the sheet appearing.
 	@State private var isResolvingCapture = false
 	/// Invalidates an asynchronous location resolution if the user keeps manipulating the page or
@@ -371,6 +372,7 @@ struct WebScreenView: View {
     }
 
     var body: some View {
+        @Bindable var saveFinding = self.saveFinding
         detectableWebContent
         .onReceive(appState.settings.$showIdentifiers) { value in
             showIdentifiers = value
@@ -420,7 +422,7 @@ struct WebScreenView: View {
             }
             .environmentObject(appState.settings)
         }
-        .sheet(item: $findingCapture, onDismiss: {
+        .sheet(item: $saveFinding.capture, onDismiss: {
             finishFindingCapture()
         }) { capture in
             SaveFindingSheet(
@@ -722,8 +724,8 @@ struct WebScreenView: View {
             // The screen can be unmounted mid-capture (mode switch): without
             // this, the snap timer would stay paused and the pick/sheet state
             // would leak into the next appearance.
-            guard findPickActive || isCapturingFinding || findingCapture != nil else { return }
-            findingCapture = nil
+            guard findPickActive || isCapturingFinding || saveFinding.capture != nil else { return }
+            saveFinding.capture = nil
             cancelFindPick()
         }
 
@@ -1062,7 +1064,7 @@ struct WebScreenView: View {
 	/// Alignment mode ends only when the capture is ready (or cancelled).
 	private func present(_ capture: FindingCapture) {
 		endFindPick()
-		findingCapture = capture
+		saveFinding.capture = capture
 	}
 
 	/// Leaves pick mode and brings the chrome's copy back in step, so the Find/Store control stops

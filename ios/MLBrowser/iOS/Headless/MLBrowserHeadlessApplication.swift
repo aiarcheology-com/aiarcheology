@@ -29,8 +29,9 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	/// `AnalyticsChoiceGate`'s memory of having rendered its content, kept here because it is
 	/// `@State` in the view.
 	private var hasEverShownAnalyticsContent = false
-	/// Detection on staged images and the save sheet's pending capture, for the life of the process.
-	/// Headless-only, so it is kept here rather than in `AppState`.
+	/// Detection on staged images, for the life of the process. Headless-only, so it is kept here
+	/// rather than in `AppState`; the save sheet's capture it picks is on `chromeState`, shared with the
+	/// web screen.
 	private let capture: StagedImageCapture
 
 	init(parts: HeadlessAppParts, launchOptions: JSONValue) {
@@ -47,6 +48,7 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 			settings: parts.settings,
 			repository: parts.findingRepository,
 			authState: parts.authState,
+			presentation: parts.chromeState.saveFindingPresentation,
 			stagedNames: parts.stagedNames,
 			stagedDirectory: parts.stagedDirectory
 		)
@@ -199,7 +201,7 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 			isDrawerOpen: isDrawerOpen,
 			hasEverShownAnalyticsContent: hasEverShownAnalyticsContent,
 			isAccountPresented: presentation.isAccountPresented,
-			isSaveFindingPresented: capture.pendingCapture != nil,
+			isSaveFindingPresented: parts.chromeState.saveFindingPresentation.isPresented,
 			isFindingsPresented: presentation.isFindingsPresented,
 			isBackupConsentPending: parts.findingsSync.backupConsentRequest != nil
 		)

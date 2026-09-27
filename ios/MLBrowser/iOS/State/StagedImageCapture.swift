@@ -57,13 +57,14 @@ final class StagedImageCapture {
 	private let settings: Settings
 	private let repository: FindingRepository
 	private let authState: AuthState
+	/// The save sheet's presentation, shared with the web screen: a picked detection is written here,
+	/// so the headless build reports the sheet from the model the web screen binds to (AIA-0984).
+	private let presentation: SaveFindingPresentation
 	private let stagedNames: [String]
 	private let stagedDirectory: URL
 
 	/// The last detection pass, filtered for display — what the web screen would be drawing.
 	private(set) var frame: AppliedDetectionFrame?
-	/// The picked detection: what the save sheet would be showing. Non-nil means the sheet is up.
-	private(set) var pendingCapture: FindingCapture?
 	/// The Author field's seed, read when the sheet opens, as the web screen hands the sheet
 	/// `defaultAuthor` at presentation; the sheet never re-reads it.
 	private var pendingAuthor = ""
@@ -73,6 +74,7 @@ final class StagedImageCapture {
 		settings: Settings,
 		repository: FindingRepository,
 		authState: AuthState,
+		presentation: SaveFindingPresentation,
 		stagedNames: [String],
 		stagedDirectory: URL = StagedImageCapture.defaultStagedDirectory
 	) {
@@ -80,6 +82,7 @@ final class StagedImageCapture {
 		self.settings = settings
 		self.repository = repository
 		self.authState = authState
+		self.presentation = presentation
 		self.stagedNames = stagedNames
 		self.stagedDirectory = stagedDirectory
 	}
@@ -110,7 +113,7 @@ final class StagedImageCapture {
 		let results = await deep.drivers.detect(on: image, tiling: settings.tilingSchemes)
 		let displayed = DetectionPresentation.filteredFrame(AppliedDetectionFrame(image: image, results: results))
 		frame = displayed
-		pendingCapture = nil
+		presentation.capture = nil
 		return Self.flattened(displayed).enumerated().map { index, detection in
 			Detection(
 				index: index,
@@ -127,7 +130,7 @@ final class StagedImageCapture {
 		let detections = Self.flattened(frame)
 		guard detections.indices.contains(index) else { throw Failure.detectionOutOfRange }
 		let detection = detections[index]
-		pendingCapture = FindingCapture(
+		presentation.capture = FindingCapture(
 			observation: detection.observation,
 			params: detection.params,
 			frame: frame,
@@ -139,14 +142,14 @@ final class StagedImageCapture {
 
 	/// The save sheet's Cancel.
 	func cancel() {
-		pendingCapture = nil
+		presentation.capture = nil
 	}
 
 	/// Saves the picked detection as a finding with the sheet's form values, then closes the sheet.
 	///
 	/// - Returns: the new finding's id.
 	func save(title: String, label: String = "") throws -> UUID {
-		guard let capture = pendingCapture else { throw Failure.noPendingCapture }
+		guard let capture = presentation.capture else { throw Failure.noPendingCapture }
 		// The sheet's own save call, with the unit rect: the full staged image and the detection's
 		// own box. The sheet's crop editor frames the image from its on-screen viewport, which the
 		// headless build does not have.
@@ -163,7 +166,7 @@ final class StagedImageCapture {
 				page: FindingPageURL.resolve(edited: "", captured: capture.pageURL)
 			)
 		)
-		pendingCapture = nil
+		presentation.capture = nil
 		return finding.entityId
 	}
 

@@ -67,7 +67,8 @@ struct HeadlessRouteDecision: Equatable {
 	/// while the drawer is open.
 	var isAccountPresented: Bool
 	/// Whether the save-finding sheet is up: a detection was picked and is neither saved nor
-	/// cancelled yet. `@State` on the web screen, kept by the headless application instead.
+	/// cancelled yet. The web screen's `SaveFindingPresentation.isPresented`, the model the web
+	/// screen binds to.
 	var isSaveFindingPresented: Bool
 	/// Whether the findings list is up: the drawer's `DrawerPresentation.isFindingsPresented`, the
 	/// model the drawer view binds to. Only meaningful while the drawer is open.
