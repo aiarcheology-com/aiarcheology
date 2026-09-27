@@ -108,15 +108,69 @@ class DependencyContainer {
     /// SwiftUI previews). All of these would otherwise take the real path and touch
     /// `Clerk.shared`, which traps (SIGILL) when Clerk was never configured. Release builds
     /// always use the real provider (the mock is `#if DEBUG`, so it can never ship).
+    ///
+    /// One exception, UI tests only: a launch that sets `UITestLaunchConfiguration.usesRealAuth`
+    /// gets the real provider (AIA-0984), or a trap — see ``authProviderSelection(isRunningUITests:isRunningUnderAnyTests:realAuthRequested:publishableKey:environment:)``.
     let usesMockAuth: Bool = {
         #if DEBUG
-        return AppEnvironment.isRunningUITests
-            || AppEnvironment.isRunningUnderAnyTests
-            || ClerkAuthProvider.publishableKey.hasPrefix("pk_") == false
+        // The *configured* backend and its key, deliberately, not `BackendEnvironment.current`:
+        // this runs while the container is built, before any `switch(to:)` can have set the
+        // override, so `configured` is the environment in force — read without the main actor.
+        let selection = DependencyContainer.authProviderSelection(
+            isRunningUITests: AppEnvironment.isRunningUITests,
+            isRunningUnderAnyTests: AppEnvironment.isRunningUnderAnyTests,
+            realAuthRequested: UITestLaunchConfiguration.requestsRealAuth,
+            publishableKey: ClerkAuthProvider.publishableKey(for: BackendEnvironment.configured),
+            environment: BackendEnvironment.configured
+        )
+        switch selection {
+        case .mock: return true
+        case .real: return false
+        case .refused(let reason): fatalError(reason)
+        }
         #else
         return false
         #endif
     }()
+
+    #if DEBUG
+    /// Which auth provider a DEBUG launch uses. `refused` is a misconfigured UI test, which the
+    /// caller traps on rather than quietly running it on the mock.
+    enum AuthProviderSelection: Equatable {
+        case mock
+        case real
+        case refused(String)
+    }
+
+    /// The decision behind ``usesMockAuth``, pure so it can be tested without a launch.
+    ///
+    /// The real-auth request is weighed **first**: evaluated after the keyless-clone rule, a
+    /// missing key would quietly pick the mock and the test would pass on the wrong provider. A
+    /// request outside a UI test is ignored (``UITestLaunchConfiguration/requestsRealAuth`` is
+    /// already false there). The development-only rule matches the headless build's: automation
+    /// signs in with `+clerk_test` addresses, which exist on the development instance only.
+    nonisolated static func authProviderSelection(
+        isRunningUITests: Bool,
+        isRunningUnderAnyTests: Bool,
+        realAuthRequested: Bool,
+        publishableKey: String,
+        environment: BackendEnvironment
+    ) -> AuthProviderSelection {
+        if isRunningUITests && realAuthRequested {
+            guard publishableKey.hasPrefix("pk_") else {
+                return .refused("UI test requested real auth (usesRealAuth), but this build has no Clerk publishable key. Add it to Secrets.xcconfig.")
+            }
+            guard environment == .development else {
+                return .refused("UI test requested real auth (usesRealAuth), but this build points at the \(environment.rawValue) backend. Real auth in a UI test is development only.")
+            }
+            return .real
+        }
+        if isRunningUITests || isRunningUnderAnyTests || publishableKey.hasPrefix("pk_") == false {
+            return .mock
+        }
+        return .real
+    }
+    #endif
 
     lazy var authProvider: AuthProviding = {
         #if DEBUG

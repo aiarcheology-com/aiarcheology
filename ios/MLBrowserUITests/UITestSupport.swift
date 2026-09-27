@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 15
+	var version = 16
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -57,6 +57,9 @@ struct LaunchConfig: Encodable {
 	/// Two deliveries in one session is the only way to exercise duplicate import, because every
 	/// launch starts from an empty store.
 	var sharedLinkDeliveries: Int?
+	/// Use the real Clerk provider (development instance, `+clerk_test` addresses) instead of the
+	/// mock (AIA-0984). `nil` = mock. The app traps without a `pk_` key or off development.
+	var usesRealAuth: Bool?
 }
 
 // MARK: - Accessibility identifiers

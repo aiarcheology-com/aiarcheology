@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 15
+	static let currentVersion = 16
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -129,6 +129,22 @@ struct UITestLaunchConfiguration: Codable {
 	/// an empty database and proves nothing. Delivering twice inside one session is also the honest
 	/// shape of the real case: a user re-scanning a printed card while the app is open.
 	var sharedLinkDeliveries: Int?
+
+	#if DEBUG
+	/// Use the real Clerk provider instead of `MockAuthProvider` for this launch (AIA-0984).
+	/// `nil`/`false` keeps the baseline: every UI test runs on the mock.
+	///
+	/// It exists for the headless-parity sign-in flow, which must sign in and out through Clerk's
+	/// own `AuthView` and `UserProfileView` on the **development** instance with a
+	/// `+clerk_test` address — the flow the headless build drives against the same instance. Read
+	/// only by ``requestsRealAuth``; `DependencyContainer.authProviderSelection` traps when the
+	/// build has no `pk_` key or does not point at development, so it never falls back to the mock.
+	/// `#if DEBUG`, like the mock it replaces, so Release neither decodes nor honours it.
+	///
+	/// Removal: delete this field, ``requestsRealAuth``, its input to the selection, and the
+	/// parity sign-in flow that sets it.
+	var usesRealAuth: Bool?
+	#endif
 
 	/// Decoded from the launch environment, or `nil` if absent. Traps on malformed input
 	/// or version mismatch — a UI test must never proceed on a misread configuration.
@@ -294,6 +310,15 @@ struct UITestLaunchConfiguration: Codable {
 		guard AppEnvironment.isRunningUITests else { return false }
 		return fromEnvironment?.startOnboardingTour == true
 	}
+
+	#if DEBUG
+	/// Whether this launch asks for the real Clerk provider (AIA-0984). The single consumer of
+	/// `usesRealAuth`. Always false outside UI tests.
+	static var requestsRealAuth: Bool {
+		guard AppEnvironment.isRunningUITests else { return false }
+		return fromEnvironment?.usesRealAuth == true
+	}
+	#endif
 
 	/// Whether this launch should auto-open the first seeded model's settings in type-review mode
 	/// (AIA-0402). The single consumer of `reviewFirstModelType`. Always false outside UI tests.
