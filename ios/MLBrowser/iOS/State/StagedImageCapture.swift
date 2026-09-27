@@ -19,7 +19,7 @@ import UIKit
 /// Every step calls what the UI calls: `DeepDrivers.detect(on:tiling:)` and
 /// `DetectionPresentation.filteredFrame(_:)` as the detection coordinator does, a `FindingCapture`
 /// built from a displayed detection as the web screen builds one, and
-/// `FindingRepository.save(capture:image:box:metadata:)` as the save sheet does.
+/// `FindingRepository.save(capture:cropRect:metadata:)` as the save sheet does.
 @MainActor
 final class StagedImageCapture {
 
@@ -143,13 +143,12 @@ final class StagedImageCapture {
 	/// - Returns: the new finding's id.
 	func save(title: String, label: String = "") throws -> UUID {
 		guard let capture = pendingCapture else { throw Failure.noPendingCapture }
-		// The full staged image, uncropped, with the detection's own box. The sheet's crop editor
-		// frames the image from its own on-screen viewport, which the headless build does not have;
-		// a later step routes this through an extracted crop-and-save overload.
+		// The sheet's own save call, with the unit rect: the full staged image and the detection's
+		// own box. The sheet's crop editor frames the image from its on-screen viewport, which the
+		// headless build does not have.
 		let finding = try repository.save(
 			capture: capture,
-			image: capture.frame.image,
-			box: capture.observation.boundingBox,
+			cropRect: CGRect(x: 0, y: 0, width: 1, height: 1),
 			metadata: FindingMetadata(
 				title: title,
 				label: label,

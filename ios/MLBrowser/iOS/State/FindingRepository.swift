@@ -109,6 +109,17 @@ final class FindingRepository {
 		didChangeFindings?()
 	}
 
+	/// Persists one finding from a capture and the crop the editor shows: bakes the crop
+	/// (``FindingCapture/cropped(to:)``), then runs the persist transaction below. The save sheet's
+	/// one call, and the headless build's (AIA-0975), which passes the unit rect: it has no editor
+	/// viewport to frame a crop from.
+	/// - Returns: the persisted, `.ready` finding.
+	@discardableResult
+	func save(capture: FindingCapture, cropRect: CGRect, metadata: FindingMetadata) throws -> Finding {
+		let (image, box) = capture.cropped(to: cropRect)
+		return try save(capture: capture, image: image, box: box, metadata: metadata)
+	}
+
 	/// Persists one finding. Image first, then the entity: a file without a row is self-healed by the
 	/// orphan sweep, while a row without a file would be a broken finding. Any entity failure deletes
 	/// both the pending object (it must not linger in the context for a later unrelated save to
