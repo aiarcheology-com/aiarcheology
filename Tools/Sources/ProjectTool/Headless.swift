@@ -136,13 +136,14 @@ struct Headless: AsyncParsableCommand {
 		static let configuration = CommandConfiguration(
 			abstract: "Run scenarios (default: every ios/HeadlessScenarios/*.json), each on fresh installations.",
 			discussion: """
-			Before building or launching anything, every route a scenario names (goto, wait route, expect \
-			route) is checked against the checked-in navigation map, \(HeadlessRouteLint.mapPath). A scenario \
+			Before building or launching anything, every route a scenario names (goto, wait route, and route \
+			or notRoute in expect and in a teardown step's unless) is checked against the checked-in navigation map, \(HeadlessRouteLint.mapPath). A scenario \
 			that does not load or names an undeclared route is reported and counted as failed, and does not \
 			run; the others still build and run. Only when none remains is nothing built. The checked-in map \
 			can lag a freshly changed declaration: regenerate it from the failing HeadlessNavigationMapTests \
 			equality test. The static check is an early filter: the running app's handshake is authoritative, \
-			and the runner checks the routes again after each launch. --lint runs the static check alone.
+			and the runner checks the routes again after each launch. --lint runs the static check alone. A \
+			teardown step skipped because its unless held is marked – and is not a warning.
 			"""
 		)
 
