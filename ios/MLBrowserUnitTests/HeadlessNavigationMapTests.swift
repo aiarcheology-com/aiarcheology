@@ -157,7 +157,7 @@ final class HeadlessNavigationMapTests: XCTestCase {
 		let encoder = JSONEncoder()
 		encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
 		let data = try encoder.encode(HeadlessNavigationMap.declaration)
-		return String(decoding: data, as: UTF8.self) + "\n"
+		return try XCTUnwrap(String(bytes: data, encoding: .utf8)) + "\n"
 	}
 
 	// MARK: - Sheet exits (Tier 1)
