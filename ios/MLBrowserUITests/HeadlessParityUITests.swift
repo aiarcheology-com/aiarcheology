@@ -39,7 +39,7 @@ final class HeadlessParityUITests: UITestCase {
 		"findings": [AID.findingsDismiss],
 		"save-finding": [AID.saveFindingSave],
 		"paywall": [AID.paywallContent],
-		"backup-consent": [AID.backupConsentConfirm],
+		"backup-consent": [AID.backupConsentConfirm]
 	]
 
 	/// The app proper: the layer every overlay and sheet sits above (see ``topmost(of:)``).
@@ -74,7 +74,7 @@ final class HeadlessParityUITests: UITestCase {
 			{ _ in },
 			{ _ in self.tap(AID.welcomeContinue) },
 			{ _ in self.tap(AID.tourSkip) },
-			{ _ in self.tap(AID.analyticsChoiceNotNow) },
+			{ _ in self.tap(AID.analyticsChoiceNotNow) }
 		])
 	}
 
@@ -93,7 +93,7 @@ final class HeadlessParityUITests: UITestCase {
 			{ step in self.waitForTopmostToLeave(self.lastRecorded, timeout: step.waitTimeout ?? Self.defaultStepTimeout) },
 			{ _ in self.tap(AID.analyticsChoiceNotNow) },
 			{ _ in self.openAccount() },
-			{ _ in self.signOutThroughClerk() },
+			{ _ in self.signOutThroughClerk() }
 		])
 	}
 
@@ -111,7 +111,7 @@ final class HeadlessParityUITests: UITestCase {
 			{ _ in self.waitForDetectionFrame() },
 			{ _ in self.pickUnderCrosshair() },
 			{ step in self.saveFinding(step) },
-			{ _ in self.tap(AID.signInSheetCancel) },
+			{ _ in self.tap(AID.signInSheetCancel) }
 		])
 	}
 
@@ -126,7 +126,7 @@ final class HeadlessParityUITests: UITestCase {
 			{ _ in self.tap(AID.cpu) },
 			{ _ in self.tap(AID.drawerFindings) },
 			{ _ in self.waitForExpiry(endsIn: endsIn) },
-			{ _ in self.tap(AID.findingsDismiss) },
+			{ _ in self.tap(AID.findingsDismiss) }
 		])
 	}
 
