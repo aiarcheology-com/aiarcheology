@@ -29,10 +29,8 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	/// `AnalyticsChoiceGate`'s memory of having rendered its content, kept here because it is
 	/// `@State` in the view.
 	private var hasEverShownAnalyticsContent = false
-	/// What the drawer's views present, kept here because it is `@State` in them.
-	private let presentation = HeadlessPresentation()
 	/// Detection on staged images and the save sheet's pending capture, for the life of the process.
-	/// Headless-only, like `presentation`, so it is kept here rather than in `AppState`.
+	/// Headless-only, so it is kept here rather than in `AppState`.
 	private let capture: StagedImageCapture
 
 	init(parts: HeadlessAppParts, launchOptions: JSONValue) {
@@ -79,9 +77,9 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 		case .tour: return HeadlessTourScreen(tour: parts.tour)
 		case .consent: return HeadlessConsentScreen(analytics: parts.analytics)
 		case .home: return HeadlessHomeScreen(chromeState: parts.chromeState, capture: capture)
-		case .drawer: return HeadlessDrawerScreen(parts: parts, presentation: presentation)
+		case .drawer: return HeadlessDrawerScreen(parts: parts)
 		case .account:
-			return HeadlessAccountScreen(parts: parts, presentation: presentation) { [unowned self] in
+			return HeadlessAccountScreen(parts: parts) { [unowned self] in
 				self.closeTarget(for: .account)
 			}
 		case .saveFinding:
@@ -89,7 +87,7 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 				self.closeTarget(for: .saveFinding)
 			}
 		case .findings:
-			return HeadlessFindingsScreen(parts: parts, presentation: presentation) { [unowned self] in
+			return HeadlessFindingsScreen(parts: parts) { [unowned self] in
 				self.closeTarget(for: .findings)
 			}
 		case .backupConsent: return HeadlessBackupConsentScreen(findingsSync: parts.findingsSync)
@@ -185,7 +183,8 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	/// (`MLBrowser.authGatedContent`), so nothing may be raised, remembered or started earlier.
 	private func routeDecision() -> HeadlessRouteDecision {
 		let isDrawerOpen = parts.chromeState.presentedSideMenu
-		presentation.dismissSheetsIfDrawerClosed(isDrawerOpen: isDrawerOpen)
+		// The drawer view's own sheets; `AppChromeState` dismisses them whenever the drawer closes.
+		let presentation = parts.chromeState.drawerPresentation
 		if parts.isReady() {
 			gate.reconcile()
 		}
@@ -468,7 +467,6 @@ struct HeadlessHomeScreen: HeadlessScreen {
 @MainActor
 struct HeadlessDrawerScreen: HeadlessScreen {
 	let parts: HeadlessAppParts
-	let presentation: HeadlessPresentation
 
 	var route: Route { "drawer" }
 
@@ -493,7 +491,8 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 
 	func actions() -> [HeadlessAction] {
 		let parts = parts
-		let presentation = presentation
+		// The drawer's sheets: the model the drawer view binds to.
+		let presentation = parts.chromeState.drawerPresentation
 		let id = ParameterSpec("id", .string, summary: "The model id, from state.models.")
 		var actions = [
 			HeadlessAction("close", summary: "Close the menu.", navigatesTo: "home") { _ in
@@ -531,7 +530,8 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 				summary: "Open the account screen: sign in, or the signed-in account.",
 				navigatesTo: "account"
 			) { _ in
-				presentation.isAccountPresented = true
+				// The footer's own choice: the sign-in sheet while anonymous, Settings once validated.
+				presentation.presentAccount(for: parts.authState.effectiveContext, usesRealAuth: parts.usesRealAuth)
 				return nil
 			})
 		case .suspended, .indeterminate:

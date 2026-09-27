@@ -12,8 +12,8 @@ import UIKit
 /// Detect on an image the headless launcher staged, pick a detection, and save it as a finding —
 /// the find → save loop the web screen runs on a page snapshot, without the browser.
 ///
-/// Headless-only, and owned by the headless application for the life of the process like its
-/// `HeadlessPresentation`: nothing in the app proper creates one. It lives in the State layer
+/// Headless-only, and owned by the headless application for the life of the process: nothing in the
+/// app proper creates one. It lives in the State layer
 /// because it handles `UIImage`, which the headless adapters may not import.
 ///
 /// Every step calls what the UI calls: `DeepDrivers.detect(on:tiling:)` and

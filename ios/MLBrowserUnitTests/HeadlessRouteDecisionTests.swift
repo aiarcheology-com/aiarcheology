@@ -281,21 +281,6 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 		XCTAssertEqual(saveOverDrawer.route(afterClosing: .home), .saveFinding, "a route that is not a sheet closes nothing")
 	}
 
-	@MainActor
-	func test_closingTheDrawer_dismissesItsSheets() {
-		let presentation = HeadlessPresentation()
-		presentation.isAccountPresented = true
-		presentation.isFindingsPresented = true
-
-		presentation.dismissSheetsIfDrawerClosed(isDrawerOpen: true)
-		XCTAssertTrue(presentation.isAccountPresented)
-		XCTAssertTrue(presentation.isFindingsPresented)
-
-		presentation.dismissSheetsIfDrawerClosed(isDrawerOpen: false)
-		XCTAssertFalse(presentation.isAccountPresented)
-		XCTAssertFalse(presentation.isFindingsPresented)
-	}
-
 	/// `AnalyticsChoiceGate` remembers content only while it is mounted — the root gate shows the
 	/// app, covered or not — and renders its content, a deferred ask included.
 	func test_theAnalyticsGatesMemory_followsItsMountAndItsOwnDisplay() {

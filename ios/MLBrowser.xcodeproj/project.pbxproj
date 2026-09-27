@@ -128,6 +128,7 @@
 		8AC650A92B2B4C8300922648 /* CoreDataManagable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650A82B2B4C8300922648 /* CoreDataManagable.swift */; };
 		8AC650AB2B2B4CCB00922648 /* WebHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650AA2B2B4CCB00922648 /* WebHistory.swift */; };
 		8AC650AD2B2B9A6200922648 /* AppChromeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650AC2B2B9A6200922648 /* AppChromeState.swift */; };
+		AA0984200000000000000002 /* DrawerPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0984200000000000000001 /* DrawerPresentation.swift */; };
 		8AC650B02B2B9B1800922648 /* DefaultRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650AF2B2B9B1800922648 /* DefaultRenderer.swift */; };
 		8AC6F8350835F00108350001 /* FindingSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC6F8350835F00108350002 /* FindingSource.swift */; };
 		8AC7CDED2AE7FCED00871074 /* SnapState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC7CDEC2AE7FCED00871074 /* SnapState.swift */; };
@@ -331,6 +332,7 @@
 		AA0970400000000000000002 /* AppEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970400000000000000001 /* AppEntry.swift */; };
 		AA0970410000000000000002 /* HeadlessLaunchOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */; };
 		AA0970500000000000000002 /* HeadlessRouteDecisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970500000000000000001 /* HeadlessRouteDecisionTests.swift */; };
+		AA0984300000000000000002 /* DrawerPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0984300000000000000001 /* DrawerPresentationTests.swift */; };
 		AA0975200000000000000002 /* StagedImageCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0975200000000000000001 /* StagedImageCaptureTests.swift */; };
 		AA0982100000000000000002 /* GateWorld.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0982100000000000000001 /* GateWorld.swift */; };
 		AA0982200000000000000002 /* HeadlessNavigationMapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0982200000000000000001 /* HeadlessNavigationMapTests.swift */; };
@@ -581,6 +583,7 @@
 		8AC650A82B2B4C8300922648 /* CoreDataManagable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataManagable.swift; sourceTree = "<group>"; };
 		8AC650AA2B2B4CCB00922648 /* WebHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebHistory.swift; sourceTree = "<group>"; };
 		8AC650AC2B2B9A6200922648 /* AppChromeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppChromeState.swift; sourceTree = "<group>"; };
+		AA0984200000000000000001 /* DrawerPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerPresentation.swift; sourceTree = "<group>"; };
 		8AC650AF2B2B9B1800922648 /* DefaultRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultRenderer.swift; sourceTree = "<group>"; };
 		8AC6F8350835F00108350002 /* FindingSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingSource.swift; sourceTree = "<group>"; };
 		8AC7CDEC2AE7FCED00871074 /* SnapState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapState.swift; sourceTree = "<group>"; };
@@ -776,6 +779,7 @@
 		AA0970400000000000000001 /* AppEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEntry.swift; sourceTree = "<group>"; };
 		AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessLaunchOptionsTests.swift; sourceTree = "<group>"; };
 		AA0970500000000000000001 /* HeadlessRouteDecisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessRouteDecisionTests.swift; sourceTree = "<group>"; };
+		AA0984300000000000000001 /* DrawerPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerPresentationTests.swift; sourceTree = "<group>"; };
 		AA0975200000000000000001 /* StagedImageCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StagedImageCaptureTests.swift; sourceTree = "<group>"; };
 		AA0982100000000000000001 /* GateWorld.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GateWorld.swift; sourceTree = "<group>"; };
 		AA0982200000000000000001 /* HeadlessNavigationMapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessNavigationMapTests.swift; sourceTree = "<group>"; };
@@ -1120,6 +1124,7 @@
 				B10000000000000000000018 /* NativeModelConversionExporter.swift */,
 				8AC650A22B2B4BB000922648 /* DeepState.swift */,
 				8AC650AC2B2B9A6200922648 /* AppChromeState.swift */,
+				AA0984200000000000000001 /* DrawerPresentation.swift */,
 				8A4F0E152F110A0300ABCDEF /* BrowserState.swift */,
 				8A4F0E922F110A0300ABCDEF /* WebContentRecoveryPolicy.swift */,
 				8A4F0E9A2F110A0300ABCDEF /* WebContentTerminationPolicy.swift */,
@@ -1444,6 +1449,7 @@
 				AA0970110000000000000001 /* AppRuntimeTests.swift */,
 				AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */,
 				AA0970500000000000000001 /* HeadlessRouteDecisionTests.swift */,
+				AA0984300000000000000001 /* DrawerPresentationTests.swift */,
 				AA0975200000000000000001 /* StagedImageCaptureTests.swift */,
 				AA0982100000000000000001 /* GateWorld.swift */,
 				AA0982200000000000000001 /* HeadlessNavigationMapTests.swift */,
@@ -2169,6 +2175,7 @@
 				8AC393D82B2BA35F00C9BA57 /* ObservationPointView.swift in Sources */,
 				8AC6509F2B2B492C00922648 /* AppMode.swift in Sources */,
 				8AC650AD2B2B9A6200922648 /* AppChromeState.swift in Sources */,
+				AA0984200000000000000002 /* DrawerPresentation.swift in Sources */,
 				8A7740D32B1894B3002E90D9 /* Bundle+Extension.swift in Sources */,
 				94048A692EE245D60064AC55 /* ModelImportView.swift in Sources */,
 				B10000000000000000000013 /* NativeModelConversionImportReport.swift in Sources */,
@@ -2477,6 +2484,7 @@
 				AA0970110000000000000002 /* AppRuntimeTests.swift in Sources */,
 				AA0970410000000000000002 /* HeadlessLaunchOptionsTests.swift in Sources */,
 				AA0970500000000000000002 /* HeadlessRouteDecisionTests.swift in Sources */,
+				AA0984300000000000000002 /* DrawerPresentationTests.swift in Sources */,
 				AA0975200000000000000002 /* StagedImageCaptureTests.swift in Sources */,
 				AA0982100000000000000002 /* GateWorld.swift in Sources */,
 				AA0982200000000000000002 /* HeadlessNavigationMapTests.swift in Sources */,

@@ -16,7 +16,6 @@ import HeadlessKit
 @MainActor
 struct HeadlessFindingsScreen: HeadlessScreen {
 	let parts: HeadlessAppParts
-	let presentation: HeadlessPresentation
 	/// Where `close` lands, asked for when the actions are listed: see
 	/// `HeadlessRouteDecision.route(afterClosing:)`.
 	let closeTarget: @MainActor () -> Route
@@ -46,7 +45,8 @@ struct HeadlessFindingsScreen: HeadlessScreen {
 
 	func actions() -> [HeadlessAction] {
 		let parts = parts
-		let presentation = presentation
+		// The drawer's sheets: the model the drawer view binds to.
+		let presentation = parts.chromeState.drawerPresentation
 		let findingsSync = parts.findingsSync
 		var actions = [
 			HeadlessAction("close", summary: "Close the findings list.", navigatesTo: closeTarget()) { _ in

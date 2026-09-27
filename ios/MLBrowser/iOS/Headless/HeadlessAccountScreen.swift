@@ -10,24 +10,6 @@ import ClerkKit
 import Foundation
 import HeadlessKit
 
-/// What the drawer's views present from their own `@State`, kept by the headless application
-/// instead — the same arrangement as the gates' `hasEverShownContent`.
-@MainActor
-final class HeadlessPresentation {
-	/// The drawer footer's account UI: `SignInSheet` while signed out, the account's Settings once
-	/// signed in. Cleared whenever the drawer is not open, because the UI never shows it without one.
-	var isAccountPresented = false
-	/// The drawer's Findings row: the findings list. Cleared with the drawer, like the account UI.
-	var isFindingsPresented = false
-
-	/// The drawer's sheets never show without the drawer: closing it by any path dismisses them.
-	func dismissSheetsIfDrawerClosed(isDrawerOpen: Bool) {
-		guard isDrawerOpen == false else { return }
-		isAccountPresented = false
-		isFindingsPresented = false
-	}
-}
-
 /// The account screen over the open menu: sign in while anonymous; once validated, sign out and the
 /// findings controls the account's Settings shows.
 ///
@@ -36,7 +18,6 @@ final class HeadlessPresentation {
 @MainActor
 struct HeadlessAccountScreen: HeadlessScreen {
 	let parts: HeadlessAppParts
-	let presentation: HeadlessPresentation
 	/// Where `close` lands, asked for when the actions are listed: see
 	/// `HeadlessRouteDecision.route(afterClosing:)`.
 	let closeTarget: @MainActor () -> Route
@@ -70,10 +51,11 @@ struct HeadlessAccountScreen: HeadlessScreen {
 
 	func actions() -> [HeadlessAction] {
 		let parts = parts
-		let presentation = presentation
+		// The drawer's sheets: the model the drawer view binds to.
+		let presentation = parts.chromeState.drawerPresentation
 		var actions = [
 			HeadlessAction("close", summary: "Close the account screen.", navigatesTo: closeTarget()) { _ in
-				presentation.isAccountPresented = false
+				presentation.dismissAccount()
 				return nil
 			}
 		]
@@ -101,7 +83,7 @@ struct HeadlessAccountScreen: HeadlessScreen {
 				// The call the account screen's and the paywall's Sign Out make.
 				await authState.signOut()
 				// Settings dismisses the account UI on sign-out: the user is done with account things.
-				presentation.isAccountPresented = false
+				presentation.dismissAccount()
 				// `signOut()` publishes `.signedOut` even when Clerk's request failed, because the app
 				// must not keep a user in who asked to leave. Automation must not call that a clean
 				// sign-out: the session would outlive the run.
@@ -166,7 +148,7 @@ struct HeadlessAccountScreen: HeadlessScreen {
 	private static func signIn(
 		arguments: Arguments,
 		parts: HeadlessAppParts,
-		presentation: HeadlessPresentation
+		presentation: DrawerPresentation
 	) async throws -> JSONValue? {
 		// The provider owns every refusal (mock auth, a non-test address, a production backend), so
 		// the rules live in one place; `headlessFailure(for:)` only chooses the error code.
@@ -188,7 +170,7 @@ struct HeadlessAccountScreen: HeadlessScreen {
 			)
 		}
 		// `SignInSheet` dismisses itself once the gate is ready.
-		presentation.isAccountPresented = false
+		presentation.dismissAccount()
 		return ["signedIn": .bool(isSignedIn(authState))]
 	}
 

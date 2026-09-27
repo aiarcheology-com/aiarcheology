@@ -62,14 +62,15 @@ struct HeadlessRouteDecision: Equatable {
 	/// Whether the analytics gate has ever rendered its content in this process — the memory
 	/// `AnalyticsChoiceGate` keeps in its own `@State`, kept by the headless application instead.
 	var hasEverShownAnalyticsContent: Bool
-	/// Whether the account screen is up — the sign-in sheet or the account's Settings, `@State` in the
-	/// drawer, kept by the headless application instead. Only meaningful while the drawer is open.
+	/// Whether the account screen is up — the sign-in sheet or the account's Settings: the drawer's
+	/// `DrawerPresentation.isAccountPresented`, the model the drawer view binds to. Only meaningful
+	/// while the drawer is open.
 	var isAccountPresented: Bool
 	/// Whether the save-finding sheet is up: a detection was picked and is neither saved nor
 	/// cancelled yet. `@State` on the web screen, kept by the headless application instead.
 	var isSaveFindingPresented: Bool
-	/// Whether the findings list is up — `@State` in the drawer, kept by the headless application
-	/// instead. Only meaningful while the drawer is open.
+	/// Whether the findings list is up: the drawer's `DrawerPresentation.isFindingsPresented`, the
+	/// model the drawer view binds to. Only meaningful while the drawer is open.
 	var isFindingsPresented: Bool
 	/// Whether the sync coordinator holds an unanswered back-up question.
 	var isBackupConsentPending: Bool

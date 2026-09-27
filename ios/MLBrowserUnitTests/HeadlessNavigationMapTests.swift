@@ -22,7 +22,7 @@ enum HeadlessReachableStates {
 		// Nothing is decided before `AppState` is ready: the route is `launching` whatever else holds.
 		guard decision.isReady else { return "not ready" }
 		// The account screen and the findings list are the drawer's sheets; closing the drawer by any
-		// path dismisses them (`HeadlessPresentation.dismissSheetsIfDrawerClosed`).
+		// path dismisses them (`AppChromeState.presentedSideMenu` → `DrawerPresentation.dismissSheets`).
 		if decision.isDrawerOpen == false && (decision.isAccountPresented || decision.isFindingsPresented) {
 			return "a drawer sheet is up with the drawer closed"
 		}
