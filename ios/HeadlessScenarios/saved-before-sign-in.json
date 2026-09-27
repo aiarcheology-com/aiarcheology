@@ -28,10 +28,10 @@
     {"on": "a", "perform": {"action": "close"}, "expect": [{"route": "drawer"}]}
   ],
   "teardown": [
-    {"on": "a", "name": "a: answer a pending analytics question", "perform": {"action": "deny"}, "bestEffort": true},
-    {"on": "a", "name": "a: leave the save sheet", "perform": {"action": "cancel"}, "bestEffort": true},
-    {"on": "a", "name": "a: leave the findings or account sheet", "perform": {"action": "close"}, "bestEffort": true},
-    {"on": "a", "name": "a: decline a pending back-up question (never uploads)", "perform": {"action": "decline"}, "bestEffort": true},
+    {"on": "a", "name": "a: answer a pending analytics question", "perform": {"action": "deny"}, "bestEffort": true, "unless": [{"equals": {"pointer": "/context/gate/consent", "value": "resolved"}}]},
+    {"on": "a", "name": "a: leave the save sheet", "perform": {"action": "cancel"}, "bestEffort": true, "unless": [{"notRoute": "save-finding"}]},
+    {"on": "a", "name": "a: leave the findings or account sheet", "perform": {"action": "close"}, "bestEffort": true, "unless": [{"notRoute": "findings"}, {"notRoute": "account"}]},
+    {"on": "a", "name": "a: decline a pending back-up question (never uploads)", "perform": {"action": "decline"}, "bestEffort": true, "unless": [{"notRoute": "backup-consent"}]},
     {"on": "a", "name": "a: reach the menu", "goto": "drawer", "bestEffort": true},
     {"on": "a", "name": "a: open the findings", "goto": "findings"},
     {"on": "a", "name": "a: settle in-flight sync", "perform": {"action": "synchronize"}},
