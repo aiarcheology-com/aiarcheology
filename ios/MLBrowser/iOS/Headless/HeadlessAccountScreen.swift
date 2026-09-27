@@ -17,15 +17,29 @@ final class HeadlessPresentation {
 	/// The drawer footer's account UI: `SignInSheet` while signed out, the account's Settings once
 	/// signed in. Cleared whenever the drawer is not open, because the UI never shows it without one.
 	var isAccountPresented = false
+	/// The drawer's Findings row: the findings list. Cleared with the drawer, like the account UI.
+	var isFindingsPresented = false
+
+	/// The drawer's sheets never show without the drawer: closing it by any path dismisses them.
+	func dismissSheetsIfDrawerClosed(isDrawerOpen: Bool) {
+		guard isDrawerOpen == false else { return }
+		isAccountPresented = false
+		isFindingsPresented = false
+	}
 }
 
-/// The account screen over the open menu: sign in while anonymous, sign out once validated.
+/// The account screen over the open menu: sign in while anonymous; once validated, sign out and the
+/// findings controls the account's Settings shows.
 ///
-/// Reports only whether an account is signed in — never the email address or the account id.
+/// Reports only whether an account is signed in and its back-up switch — never the email address or
+/// the account id.
 @MainActor
 struct HeadlessAccountScreen: HeadlessScreen {
 	let appState: AppState
 	let presentation: HeadlessPresentation
+	/// Where `close` lands, asked for when the actions are listed: see
+	/// `HeadlessRouteDecision.route(afterClosing:)`.
+	let closeTarget: @MainActor () -> Route
 
 	var route: Route { "account" }
 
@@ -39,15 +53,26 @@ struct HeadlessAccountScreen: HeadlessScreen {
 		authState.gate == .ready && authState.accountIdentifier != nil
 	}
 
+	/// The signed-in account, when Settings' back-up switch would show: a validated account and a
+	/// build with a Worker. The account travels with the decision, as it does from the switch.
+	private var backUpToggleAccount: String? {
+		guard Self.isSignedIn(appState.authState), appState.findingsSync.isCloudConfigured else { return nil }
+		return appState.authState.accountIdentifier
+	}
+
 	func state() -> JSONValue {
-		["signedIn": .bool(Self.isSignedIn(appState.authState))]
+		var state: [String: JSONValue] = ["signedIn": .bool(Self.isSignedIn(appState.authState))]
+		if backUpToggleAccount != nil {
+			state["backUpEnabled"] = .bool(appState.findingsSync.isBackUpEnabled)
+		}
+		return .object(state)
 	}
 
 	func actions() -> [HeadlessAction] {
 		let appState = appState
 		let presentation = presentation
 		var actions = [
-			HeadlessAction("close", summary: "Close the account screen.", navigatesTo: "drawer") { _ in
+			HeadlessAction("close", summary: "Close the account screen.", navigatesTo: closeTarget()) { _ in
 				presentation.isAccountPresented = false
 				return nil
 			}
@@ -69,6 +94,8 @@ struct HeadlessAccountScreen: HeadlessScreen {
 				try await Self.signIn(arguments: arguments, appState: appState, presentation: presentation)
 			})
 		case .validated:
+			// No `navigatesTo`: signing out is async and can change whether a back-up question is
+			// pending, so the response reports where the app landed.
 			actions.append(HeadlessAction("sign-out", summary: "Sign out of the account.") { _ in
 				let authState = appState.authState
 				// The call the account screen's and the paywall's Sign Out make.
@@ -83,10 +110,51 @@ struct HeadlessAccountScreen: HeadlessScreen {
 				}
 				return ["signedIn": .bool(Self.isSignedIn(authState))]
 			})
+			actions.append(contentsOf: signedInFindingsActions())
 		case .suspended, .indeterminate:
 			// Signing in cannot work offline and the account cannot be shown; only leaving is possible.
 			break
 		}
+		return actions
+	}
+
+	/// Settings' findings controls for the signed-in account: the back-up switch and Reset → Remove
+	/// Findings. Only while the account is validated, as the account's Settings is.
+	private func signedInFindingsActions() -> [HeadlessAction] {
+		guard Self.isSignedIn(appState.authState) else { return [] }
+		let findingsSync = appState.findingsSync
+		let findingRepository = appState.findingRepository
+		var actions: [HeadlessAction] = []
+		if let account = backUpToggleAccount {
+			let enabledParameter = ParameterSpec("enabled", .boolean, summary: "Whether the account backs findings up.")
+			actions.append(HeadlessAction(
+				"set-backup",
+				summary: "Switch backing up on or off, and wait for the sync it starts.",
+				parameters: [enabledParameter]
+			) { arguments in
+				let enabled = try arguments.boolean("enabled")
+				// The switch's own call. Nil means the coordinator refused it: the account changed.
+				guard let task = findingsSync.setBackUpEnabled(enabled, expectedAccount: account) else {
+					throw HeadlessError(.actionFailed, "the back-up switch was refused: the signed-in account changed")
+				}
+				await task.value
+				return ["backUpEnabled": .bool(findingsSync.isBackUpEnabled)]
+			})
+		}
+		// Returns once the local removal is done, as Settings does: neither starts a sync here.
+		actions.append(HeadlessAction(
+			"remove-all-findings",
+			summary: "Permanently delete every finding on this device and its screenshot."
+		) { _ in
+			do {
+				try await findingRepository.removeAllFindings()
+			} catch {
+				// Domain and code identify the failure; its message could carry a path.
+				let nsError = error as NSError
+				throw HeadlessError(.actionFailed, "the findings could not be removed (\(nsError.domain) \(nsError.code))")
+			}
+			return nil
+		})
 		return actions
 	}
 

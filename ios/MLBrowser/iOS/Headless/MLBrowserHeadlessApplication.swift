@@ -68,9 +68,26 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 		case .consent: return HeadlessConsentScreen(analytics: appState.analytics)
 		case .home: return HeadlessHomeScreen(chromeState: appState.chromeState, capture: capture)
 		case .drawer: return HeadlessDrawerScreen(appState: appState, presentation: presentation)
-		case .account: return HeadlessAccountScreen(appState: appState, presentation: presentation)
-		case .saveFinding: return HeadlessSaveFindingScreen(appState: appState, capture: capture)
+		case .account:
+			return HeadlessAccountScreen(appState: appState, presentation: presentation) { [unowned self] in
+				self.closeTarget(for: .account)
+			}
+		case .saveFinding:
+			return HeadlessSaveFindingScreen(appState: appState, capture: capture) { [unowned self] in
+				self.closeTarget(for: .saveFinding)
+			}
+		case .findings:
+			return HeadlessFindingsScreen(appState: appState, presentation: presentation) { [unowned self] in
+				self.closeTarget(for: .findings)
+			}
+		case .backupConsent: return HeadlessBackupConsentScreen(findingsSync: appState.findingsSync)
 		}
+	}
+
+	/// Where closing `sheet` lands, decided from the app's state at the moment a screen lists its
+	/// actions — the back-up question when one is pending, otherwise what the sheet covered.
+	private func closeTarget(for sheet: HeadlessRoute) -> Route {
+		Route(routeDecision().route(afterClosing: sheet).rawValue)
 	}
 
 	func context() -> JSONValue {
@@ -93,6 +110,7 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 
 	func waitConditions() -> [WaitCondition] {
 		let appState = appState
+		let findingID = ParameterSpec("id", .string, summary: "The finding id, from the findings list or save's result.")
 		return [
 			WaitCondition("ready", summary: "The app finished launching.") { _ in
 				appState.isReady
@@ -109,16 +127,37 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 			},
 			WaitCondition("signed-in", summary: "A validated account is signed in.") { _ in
 				HeadlessAccountScreen.isSignedIn(appState.authState)
+			},
+			WaitCondition(
+				"backed-up",
+				summary: "The finding is backed up: the state its row's icon shows.",
+				parameters: [findingID]
+			) { arguments in
+				let id = try HeadlessFindingsScreen.findingID(arguments)
+				return appState.findingsSync.backupStates[id] == .backedUp
+			},
+			WaitCondition(
+				"finding-present",
+				summary: "A ready finding with this id is in the local store.",
+				parameters: [findingID]
+			) { arguments in
+				let id = try HeadlessFindingsScreen.findingID(arguments)
+				return HeadlessFindingsScreen.isPresent(id, in: appState)
+			},
+			WaitCondition(
+				"finding-absent",
+				summary: "No ready finding with this id is in the local store.",
+				parameters: [findingID]
+			) { arguments in
+				let id = try HeadlessFindingsScreen.findingID(arguments)
+				return HeadlessFindingsScreen.isPresent(id, in: appState) == false
 			}
 		]
 	}
 
 	private func routeDecision() -> HeadlessRouteDecision {
 		let isDrawerOpen = appState.chromeState.presentedSideMenu
-		// The account UI is presented from the drawer; closing the drawer by any path dismisses it.
-		if isDrawerOpen == false {
-			presentation.isAccountPresented = false
-		}
+		presentation.dismissSheetsIfDrawerClosed(isDrawerOpen: isDrawerOpen)
 		return HeadlessRouteDecision(
 			isReady: appState.isReady,
 			isPaymentsSurfaceEnabled: appState.subscriptionState.isPaymentsSurfaceEnabled,
@@ -135,7 +174,9 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 			isDrawerOpen: isDrawerOpen,
 			hasEverShownContent: hasEverShownContent,
 			isAccountPresented: presentation.isAccountPresented,
-			isSaveFindingPresented: capture.pendingCapture != nil
+			isSaveFindingPresented: capture.pendingCapture != nil,
+			isFindingsPresented: presentation.isFindingsPresented,
+			isBackupConsentPending: appState.findingsSync.backupConsentRequest != nil
 		)
 	}
 }
@@ -345,6 +386,18 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 				try await Self.setEnabled(false, arguments: arguments, appState: appState)
 			}
 		]
+		// The Findings row, always in the menu; the tour disables it, but the tour has its own route.
+		actions.append(HeadlessAction(
+			"open-findings",
+			summary: "Open the findings list, and wait for the sync its opening starts.",
+			navigatesTo: "findings"
+		) { _ in
+			presentation.isFindingsPresented = true
+			// What the list does as it appears: heal leftover screenshot files, then ask the server.
+			FindingScreenshotStore.sweepOrphans(in: appState.dataController.container.viewContext)
+			await appState.findingsSync.syncNow()?.value
+			return nil
+		})
 		// The footer's own switch: a Sign In row while anonymous, the account row once validated, and
 		// nothing to tap while auth is resolving or offline.
 		switch appState.authState.effectiveContext {

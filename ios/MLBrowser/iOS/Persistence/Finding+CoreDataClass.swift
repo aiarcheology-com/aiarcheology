@@ -46,3 +46,22 @@ final public class Finding: NSManagedObject {
         }
     }
 }
+
+// MARK: - The findings list (AIA-0975)
+
+extension Finding {
+
+    /// The findings the list fetches: ready findings, newest first. One definition for the list's
+    /// `@FetchRequest` and the headless build's findings screen, so both see the same findings in
+    /// the same order.
+    static func findingsListFetchRequest() -> NSFetchRequest<Finding> {
+        let request: NSFetchRequest<Finding> = Finding.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \Finding.creationDate_, ascending: false)]
+        request.predicate = NSPredicate(
+            format: "%K == %@",
+            #keyPath(Finding.lifeCycleString),
+            CoreDataManageableState.ready.rawValue
+        )
+        return request
+    }
+}

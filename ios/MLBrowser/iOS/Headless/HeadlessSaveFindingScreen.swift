@@ -16,6 +16,9 @@ import HeadlessKit
 struct HeadlessSaveFindingScreen: HeadlessScreen {
 	let appState: AppState
 	let capture: StagedImageCapture
+	/// Where `cancel` lands, asked for when the actions are listed: see
+	/// `HeadlessRouteDecision.route(afterClosing:)`.
+	let closeTarget: @MainActor () -> Route
 
 	var route: Route { "save-finding" }
 
@@ -39,8 +42,8 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 		let title = ParameterSpec("title", .string, summary: "The finding's name; required, as the sheet requires it.")
 		let label = ParameterSpec("label", .string, required: false, summary: "The finding's label; empty by default.")
 		return [
-			// No `navigatesTo` yet: where a save's dismissal lands will depend on what presented the
-			// sheet. The response carries the route it reached.
+			// No `navigatesTo`: the save and the sync it awaits can raise the back-up question, so
+			// where the dismissal lands is known only afterwards. The response carries the route.
 			HeadlessAction(
 				"save",
 				summary: "Save the picked detection as a finding, then wait for the sync it triggers.",
@@ -48,7 +51,7 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 			) { arguments in
 				try await Self.save(arguments: arguments, appState: appState, capture: capture)
 			},
-			HeadlessAction("cancel", summary: "Close the sheet without saving.", navigatesTo: "home") { _ in
+			HeadlessAction("cancel", summary: "Close the sheet without saving.", navigatesTo: closeTarget()) { _ in
 				capture.cancel()
 				return nil
 			}

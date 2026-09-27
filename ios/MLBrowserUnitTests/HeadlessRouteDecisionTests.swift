@@ -31,7 +31,9 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 			isDrawerOpen: false,
 			hasEverShownContent: false,
 			isAccountPresented: false,
-			isSaveFindingPresented: false
+			isSaveFindingPresented: false,
+			isFindingsPresented: false,
+			isBackupConsentPending: false
 		)
 		adjust(&decision)
 		return decision
@@ -143,10 +145,121 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 		XCTAssertEqual(decision { $0.isSaveFindingPresented = true; $0.isReady = false }.route, .launching)
 	}
 
+	func test_theFindingsList_showsOnlyOverTheOpenDrawer() {
+		let content: (inout HeadlessRouteDecision) -> Void = {
+			$0.isTourPendingOrRunning = false
+			$0.consentPresentation = .resolved
+			$0.isFindingsPresented = true
+		}
+		XCTAssertEqual(decision { content(&$0); $0.isDrawerOpen = true }.route, .findings)
+		XCTAssertEqual(decision { content(&$0) }.route, .home, "the findings list never shows without the drawer")
+		XCTAssertEqual(HeadlessRoute.findings.rawValue, "findings")
+	}
+
+	func test_aPendingBackupQuestion_coversHomeAndTheDrawer() {
+		let pending: (inout HeadlessRouteDecision) -> Void = {
+			$0.isTourPendingOrRunning = false
+			$0.consentPresentation = .resolved
+			$0.isBackupConsentPending = true
+		}
+		XCTAssertEqual(decision { pending(&$0) }.route, .backupConsent)
+		XCTAssertEqual(decision { pending(&$0); $0.isDrawerOpen = true }.route, .backupConsent)
+		XCTAssertEqual(HeadlessRoute.backupConsent.rawValue, "backup-consent", "the route string screens and scenarios use")
+	}
+
+	func test_everySheet_winsOverAPendingBackupQuestion() {
+		let pending: (inout HeadlessRouteDecision) -> Void = {
+			$0.isTourPendingOrRunning = false
+			$0.consentPresentation = .resolved
+			$0.isBackupConsentPending = true
+		}
+		XCTAssertEqual(decision { pending(&$0); $0.isSaveFindingPresented = true }.route, .saveFinding)
+		XCTAssertEqual(decision { pending(&$0); $0.isDrawerOpen = true; $0.isAccountPresented = true }.route, .account)
+		XCTAssertEqual(decision { pending(&$0); $0.isDrawerOpen = true; $0.isFindingsPresented = true }.route, .findings)
+	}
+
+	func test_theAnalyticsQuestion_holdsTheBackupQuestion() {
+		XCTAssertEqual(decision {
+			$0.isTourPendingOrRunning = false
+			$0.hasEverShownContent = true
+			$0.isBackupConsentPending = true
+		}.route, .consent, "asked over content")
+		XCTAssertEqual(decision {
+			$0.isTourPendingOrRunning = false
+			$0.consentPresentation = .pending
+			$0.isBackupConsentPending = true
+		}.route, .consent, "held before content")
+		XCTAssertEqual(decision { $0.isBackupConsentPending = true }.route, .tour)
+	}
+
+	/// #974's order, kept: the analytics question outranks every sheet. No modelled flow reaches it
+	/// (`sign-in` closes the account screen before the question can arrive), so this pins the order
+	/// rather than a path.
+	func test_theAnalyticsQuestion_outranksEverySheet() {
+		let asked: (inout HeadlessRouteDecision) -> Void = {
+			$0.isTourPendingOrRunning = false
+			$0.hasEverShownContent = true
+			$0.isDrawerOpen = true
+		}
+		XCTAssertEqual(decision { asked(&$0); $0.isSaveFindingPresented = true }.route, .consent)
+		XCTAssertEqual(decision { asked(&$0); $0.isAccountPresented = true }.route, .consent)
+		XCTAssertEqual(decision { asked(&$0); $0.isFindingsPresented = true }.route, .consent)
+	}
+
+	func test_closingASheet_landsOnTheBackupQuestionWhenOneIsPending() {
+		let content: (inout HeadlessRouteDecision) -> Void = {
+			$0.isTourPendingOrRunning = false
+			$0.consentPresentation = .resolved
+		}
+		let account = decision { content(&$0); $0.isDrawerOpen = true; $0.isAccountPresented = true }
+		let findings = decision { content(&$0); $0.isDrawerOpen = true; $0.isFindingsPresented = true }
+		let save = decision { content(&$0); $0.isSaveFindingPresented = true }
+
+		XCTAssertEqual(account.route(afterClosing: .account), .drawer)
+		XCTAssertEqual(findings.route(afterClosing: .findings), .drawer)
+		XCTAssertEqual(save.route(afterClosing: .saveFinding), .home)
+
+		func pending(_ decision: HeadlessRouteDecision) -> HeadlessRouteDecision {
+			var pending = decision
+			pending.isBackupConsentPending = true
+			return pending
+		}
+		XCTAssertEqual(pending(account).route(afterClosing: .account), .backupConsent)
+		XCTAssertEqual(pending(findings).route(afterClosing: .findings), .backupConsent)
+		XCTAssertEqual(pending(save).route(afterClosing: .saveFinding), .backupConsent)
+	}
+
+	func test_closingASheet_keepsWhatElseIsPresented() {
+		// The save sheet over an open menu closes onto the menu, not onto home.
+		let saveOverDrawer = decision {
+			$0.isTourPendingOrRunning = false
+			$0.consentPresentation = .resolved
+			$0.isDrawerOpen = true
+			$0.isSaveFindingPresented = true
+		}
+		XCTAssertEqual(saveOverDrawer.route(afterClosing: .saveFinding), .drawer)
+		XCTAssertEqual(saveOverDrawer.route(afterClosing: .home), .saveFinding, "a route that is not a sheet closes nothing")
+	}
+
+	@MainActor
+	func test_closingTheDrawer_dismissesItsSheets() {
+		let presentation = HeadlessPresentation()
+		presentation.isAccountPresented = true
+		presentation.isFindingsPresented = true
+
+		presentation.dismissSheetsIfDrawerClosed(isDrawerOpen: true)
+		XCTAssertTrue(presentation.isAccountPresented)
+		XCTAssertTrue(presentation.isFindingsPresented)
+
+		presentation.dismissSheetsIfDrawerClosed(isDrawerOpen: false)
+		XCTAssertFalse(presentation.isAccountPresented)
+		XCTAssertFalse(presentation.isFindingsPresented)
+	}
+
 	func test_showsContent() {
 		XCTAssertEqual(
 			HeadlessRoute.allCases.filter(HeadlessRouteDecision.showsContent),
-			[.tour, .home, .drawer, .account, .saveFinding]
+			[.tour, .home, .drawer, .account, .saveFinding, .findings, .backupConsent]
 		)
 	}
 }

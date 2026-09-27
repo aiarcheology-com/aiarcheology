@@ -37,14 +37,7 @@ struct FindingsListView: View {
 	/// sheet and the drawer before the web screen loads the URL.
 	let onOpenPage: (URL) -> Void
 
-	@FetchRequest(
-		sortDescriptors: [NSSortDescriptor(keyPath: \Finding.creationDate_, ascending: false)],
-		predicate: NSPredicate(
-			format: "%K == %@",
-			#keyPath(Finding.lifeCycleString),
-			CoreDataManageableState.ready.rawValue
-		),
-		animation: .default)
+	@FetchRequest(fetchRequest: Finding.findingsListFetchRequest(), animation: .default)
 	private var findings: FetchedResults<Finding>
 
 	/// nil = no filter (all findings, including unlabeled ones).

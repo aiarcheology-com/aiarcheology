@@ -29,6 +29,11 @@ enum HeadlessRoute: String, CaseIterable {
 	case account
 	/// The save-finding sheet, over the app proper, for a picked detection.
 	case saveFinding = "save-finding"
+	/// The findings list, a sheet over the open menu.
+	case findings
+	/// The back-up question: findings from before this account signed in wait for the user to say
+	/// whether they may be backed up. A root overlay, so it sits below every sheet.
+	case backupConsent = "backup-consent"
 }
 
 /// What the app shows, decided from the same state — and the same pure deciders — the root views
@@ -61,6 +66,11 @@ struct HeadlessRouteDecision: Equatable {
 	/// Whether the save-finding sheet is up: a detection was picked and is neither saved nor
 	/// cancelled yet. `@State` on the web screen, kept by the headless application instead.
 	var isSaveFindingPresented: Bool
+	/// Whether the findings list is up — `@State` in the drawer, kept by the headless application
+	/// instead. Only meaningful while the drawer is open.
+	var isFindingsPresented: Bool
+	/// Whether the sync coordinator holds an unanswered back-up question.
+	var isBackupConsentPending: Bool
 
 	var route: HeadlessRoute {
 		guard isReady else { return .launching }
@@ -106,6 +116,8 @@ struct HeadlessRouteDecision: Equatable {
 			hasEverShownContent: hasEverShownContent,
 			isAskDeferred: isAskDeferred
 		)
+		// Consent outranking a sheet is #974's decision. No modelled flow reaches it: the one path
+		// that raises the question while a sheet is up, `sign-in`, closes the account screen first.
 		if consentDisplay != .content || asksOverContent {
 			return .consent
 		}
@@ -115,15 +127,45 @@ struct HeadlessRouteDecision: Equatable {
 			return .saveFinding
 		}
 
-		// The account screen is raised from the drawer's footer and never shows without the drawer.
-		guard isDrawerOpen else { return .home }
-		return isAccountPresented ? .account : .drawer
+		// The account screen and the findings list are raised from the drawer and never show
+		// without it.
+		if isDrawerOpen && isAccountPresented {
+			return .account
+		}
+		if isDrawerOpen && isFindingsPresented {
+			return .findings
+		}
+
+		// The back-up question is an overlay at the scene root: it draws below any sheet and over
+		// the app proper, menu open or not. The analytics question holds it, which the consent
+		// check above already covers.
+		if isBackupConsentPending {
+			return .backupConsent
+		}
+
+		return isDrawerOpen ? .drawer : .home
+	}
+
+	/// Where the app will be once `sheet` closes: this decision without that sheet.
+	///
+	/// Derived from `route` rather than written out, so a sheet's dismissal declares exactly the
+	/// screen the session will find after it — the back-up question when one is pending, otherwise
+	/// what the sheet covered. A route that is not a sheet is returned as the current route.
+	func route(afterClosing sheet: HeadlessRoute) -> HeadlessRoute {
+		var next = self
+		switch sheet {
+		case .saveFinding: next.isSaveFindingPresented = false
+		case .account: next.isAccountPresented = false
+		case .findings: next.isFindingsPresented = false
+		case .launching, .gate, .tour, .consent, .home, .drawer, .backupConsent: break
+		}
+		return next.route
 	}
 
 	/// Whether `route` puts the app proper on screen, which is what the gates remember.
 	static func showsContent(_ route: HeadlessRoute) -> Bool {
 		switch route {
-		case .tour, .home, .drawer, .account, .saveFinding: true
+		case .tour, .home, .drawer, .account, .saveFinding, .findings, .backupConsent: true
 		case .launching, .gate, .consent: false
 		}
 	}
