@@ -71,9 +71,12 @@ A scenario is a JSON file. Decoding is strict: an unknown key anywhere is an err
 {
   "schemaVersion": 1,
   "name": "enable-a-model",
-  "installations": { "a": { "launch": { "flags": { "isPaymentsEnabled": false } } } },
+  "installations": { "a": { "launch": { "flags": { "isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false } } } },
   "steps": [
-    { "on": "a", "wait": { "condition": "route", "arguments": { "route": "home" }, "timeout": 60 } },
+    { "on": "a", "wait": { "condition": "ready", "timeout": 120 }, "expect": [ { "route": "welcome" } ] },
+    { "on": "a", "perform": { "action": "continue" }, "expect": [ { "route": "tour" } ] },
+    { "on": "a", "perform": { "action": "skip" }, "expect": [ { "route": "consent" } ] },
+    { "on": "a", "perform": { "action": "deny" }, "expect": [ { "route": "home" } ] },
     { "on": "a", "goto": "drawer", "capture": { "model": "/state/models/0/id" } },
     { "on": "a", "perform": { "action": "enable", "arguments": { "id": "${model}" } },
       "expect": [ { "equals": { "pointer": "/state/models/0/enabled", "value": true } } ] },
@@ -107,7 +110,7 @@ xcodebuild build -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -configu
   - `-headlessFlag key=true|false` is repeatable and pins a feature flag over the live provider (below).
   - `-headlessStagedImage <name>` is repeatable and names an image the launcher staged (below). Only the name is passed, never a host path, and `launchOptions.stagedImages` echoes it.
   - `-mockSubscription subscribed|notSubscribed` replaces StoreKit with the mock. It is for manual `up` only, and **no committed scenario may use it**: `HeadlessScenarioPolicyTests` in the ProjectTool tests fails if one does.
-    - Why it still exists: without it the headless build runs real StoreKit (AIA-0976). Under `simctl launch`, with no scheme StoreKit configuration, StoreKit reaches the sandbox, loads the real product and reads as not subscribed. A *subscribed* install would need a real sandbox purchase, which automation must not make, and there is no supported way to apply a `.storekit` file to a `simctl`-launched app. The mock is the only way to look at a subscribed install headlessly.
+    - Why it still exists: without it the headless build runs real StoreKit (AIA-0976). Under `simctl launch`, with no scheme StoreKit configuration, the app checks its entitlements against the sandbox and reads as not subscribed. (The gating probe also fetched the real product from the sandbox; the headless build itself never fetches products, see the gaps below.) A *subscribed* install would need a real sandbox purchase, which automation must not make, and there is no supported way to apply a `.storekit` file to a `simctl`-launched app. The mock is the only way to look at a subscribed install headlessly.
     - How to remove it: when a subscribed state can be reached without a purchase, for example through a supported StoreKit test configuration for launched apps.
 - **Flag pins (AIA-0976).** Every scenario pins the four **entry flags**, which decide how a fresh install gets into the app. Everything else follows ConfigCat's Test environment unless a scenario is about it. `HeadlessScenarioPolicyTests` fails a scenario that leaves an entry flag unpinned.
   - `isPaymentsEnabled`: launch-captured. A fresh install has no mirrored value, so its first launch captures whatever the snapshot holds at that moment (the compiled default `false`, or the fetched Test value), and its relaunch captures the mirrored Test value. Unpinned, one scenario could meet the introduction on its first launch and the paywall or a free-access window after `relaunch`.
@@ -209,7 +212,7 @@ xcodebuild build -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -configu
   - `build`
   - `up --state a [--flag key=true…] [--image <repository path>…] [--mock-subscription subscribed]` (the mock is manual-only; see Launch options)
   - `exec --state a <command>`, for example `exec --state a perform enable id=…`
-  - `down --state a` and `reset --state a`
+  - `down --state a`, and `reset --state a`, which erases the device and resets its Keychain
   - `test [files…]`, which runs every `ios/HeadlessScenarios/*.json` by default
 
   It creates and uses only simulators named `aia-headless-<state>` and never touches any other device. It builds into `.deriveddata-headless`, so the app module `unittest.sh` reuses is not rebuilt. A scenario's first launch of an installation erases its device and resets its Keychain, making it a fresh install. A freshly erased device can refuse `simctl install` and `simctl launch` for a few seconds after it reports booted, so the tool retries each up to five times, two seconds apart, and prints every retry. `relaunch` keeps its data and does not reinstall. Reinstalling moves the app's data container, and preference writes the system has not yet flushed would be lost with the move. A relaunch quits the app the way a force-quit does, so a preference written in the moment before it can still be lost, as on a device.

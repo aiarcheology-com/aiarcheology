@@ -113,7 +113,7 @@ struct Headless: AsyncParsableCommand {
 		var state: String = "a"
 
 		func run() async throws {
-			try HeadlessSimulator(installation: state).erase()
+			try await HeadlessSimulator(installation: state).erase()
 		}
 	}
 
@@ -268,7 +268,9 @@ struct HeadlessSimulator {
 			// The free-access anchor lives in the Keychain, which survives app deletion by design.
 			// `erase` already clears it on the iOS 27.0 simulator (AIA-0976 measured it); the reset
 			// keeps a fresh install fresh on a runtime that might not.
-			try simctl(["keychain", udid, "reset"])
+			try await settling("keychain reset") {
+				try simctl(["keychain", udid, "reset"])
+			}
 		}
 		if install {
 			try await settling("install") {
@@ -360,10 +362,17 @@ struct HeadlessSimulator {
 		try? simctl(["shutdown", udid]) // Already shut down is fine.
 	}
 
-	func erase() throws {
+	/// Erases the device and resets its Keychain, as a scenario's fresh launch does, so `up` after
+	/// `reset` meets a fresh install too. The device is left shut down.
+	func erase() async throws {
 		guard let udid = try existingDevice() else { return }
 		try? simctl(["shutdown", udid]) // Already shut down is fine.
 		try simctl(["erase", udid])
+		try boot(udid)
+		try await settling("keychain reset") {
+			try simctl(["keychain", udid, "reset"])
+		}
+		try simctl(["shutdown", udid])
 	}
 
 	// MARK: - Devices
