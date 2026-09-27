@@ -264,6 +264,12 @@ struct HeadlessSimulator {
 			try simctl(["erase", udid])
 		}
 		try boot(udid)
+		if fresh {
+			// The free-access anchor lives in the Keychain, which survives app deletion by design.
+			// `erase` already clears it on the iOS 27.0 simulator (AIA-0976 measured it); the reset
+			// keeps a fresh install fresh on a runtime that might not.
+			try simctl(["keychain", udid, "reset"])
+		}
 		if install {
 			try await settling("install") {
 				try simctl(["install", udid, HeadlessWorkspace.app.path])

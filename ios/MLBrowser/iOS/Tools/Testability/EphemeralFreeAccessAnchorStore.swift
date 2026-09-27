@@ -11,10 +11,10 @@ import Foundation
 /// The durable half of the free-access anchor, held in memory only.
 ///
 /// Exists because the real one is *too* durable for a test harness. `Settings.init()` wipes the
-/// UI-test `UserDefaults` suite on every launch, but the Keychain item deliberately outlives both
-/// app deletion and `simctl erase` — so the first UI test that granted a window would leave an
-/// anchor behind that no later run could clear, permanently poisoning every "fresh install" path on
-/// that simulator. A per-process store makes each launch a genuine first install again.
+/// UI-test `UserDefaults` suite on every launch, but the Keychain item deliberately outlives app
+/// deletion, and test runs reinstall rather than erase — so the first UI test that granted a window
+/// would leave an anchor behind that no later run could clear, permanently poisoning every "fresh
+/// install" path on that simulator. A per-process store makes each launch a genuine first install again.
 ///
 /// `#if DEBUG` for the same reason as ``MockAuthProvider``: the environment markers that select it
 /// are launch-controlled, so the only guarantee that a shipping build cannot take this path is that

@@ -53,7 +53,7 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 	override func setUpWithError() throws {
 		try super.setUpWithError()
 		// Both stores get a per-test name. For the Keychain that is not tidiness: items survive app
-		// deletion and `simctl erase` by design, so a test writing under the production name would
+		// deletion by design, so a test writing under the production name would
 		// pass once and then fail on every later run on this simulator, forever.
 		storeName = "com.aiarcheology.ios.tests.freeAccess.\(UUID().uuidString)"
 		defaults = UserDefaults(suiteName: storeName)

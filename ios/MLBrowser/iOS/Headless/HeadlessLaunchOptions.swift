@@ -18,8 +18,9 @@ import HeadlessKit
 struct HeadlessLaunchOptions: Equatable {
 
 	/// `-mockSubscription subscribed|notSubscribed`, the same argument `MockSubscriptionProvider`
-	/// already parses. Needed because `simctl launch` never applies the scheme's StoreKit
-	/// configuration, so real StoreKit is always "not subscribed" in the Simulator.
+	/// already parses. For manual launches only: real StoreKit is the default and reads as not
+	/// subscribed, and a subscribed install would otherwise need a real sandbox purchase. No
+	/// committed scenario uses it (a ProjectTool test enforces that; AIA-0976).
 	let mockSubscription: String?
 
 	/// `-headlessFlag key=true|false`, repeatable: pins a feature flag over the live provider. A

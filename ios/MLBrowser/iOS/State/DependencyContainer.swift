@@ -137,9 +137,10 @@ class DependencyContainer {
     let usesMockSubscription: Bool = {
         #if DEBUG
         #if AIA_APP_INTERFACE_headless
-        // Headless (AIA-0970): `simctl launch` never applies the scheme's StoreKit configuration, so
-        // real StoreKit is always "not subscribed" there. A launch opts into the mock explicitly with
-        // `-mockSubscription`, which the handshake echoes; without it the real provider is used.
+        // Headless (AIA-0970): real StoreKit is the default. It reaches the sandbox and reads as not
+        // subscribed, and a subscribed install would need a real sandbox purchase (AIA-0976). A
+        // manual launch can still opt into the mock with `-mockSubscription`, which the handshake
+        // echoes; no committed scenario may.
         if HeadlessLaunchOptions.current.mockSubscription != nil {
             return true
         }
@@ -181,19 +182,18 @@ class DependencyContainer {
     /// The durable half of the free-access anchor.
     ///
     /// Tests and previews get the ephemeral store, for a reason specific to this feature: the
-    /// Keychain item deliberately outlives app deletion *and* `simctl erase`, while `Settings.init()`
-    /// wipes the UI-test defaults suite on every launch. A UI test that granted a window would
-    /// otherwise leave behind a durable anchor no later run could clear, permanently poisoning every
-    /// "fresh install" path on that simulator. `#if DEBUG` like `authProvider`'s mock: the markers
-    /// that select it are launch-controlled, so keeping the type out of shipping binaries is what
-    /// actually guarantees a Release build reaches the Keychain.
+    /// Keychain item deliberately outlives app deletion, while `Settings.init()` wipes the UI-test
+    /// defaults suite on every launch and test runs reinstall rather than erase. A UI test that
+    /// granted a window would otherwise leave behind a durable anchor no later run could clear,
+    /// permanently poisoning every "fresh install" path on that simulator. `#if DEBUG` like
+    /// `authProvider`'s mock: the markers that select it are launch-controlled, so keeping the type
+    /// out of shipping binaries is what actually guarantees a Release build reaches the Keychain.
+    ///
+    /// The headless build uses the Keychain (AIA-0976). Its fresh installs erase the device, and
+    /// `simctl erase` clears the item (measured on the iOS 27.0 simulator); the launcher also resets
+    /// the device's Keychain in case another runtime keeps it.
     lazy var freeAccessDurableStore: FreeAccessAnchorDurableStore = {
         #if DEBUG
-        // Headless installations (AIA-0970) are simulator devices that are erased for a fresh run.
-        // The Keychain anchor would survive that and poison every later "fresh install".
-        if AppEnvironment.isHeadlessBuild {
-            return EphemeralFreeAccessAnchorStore()
-        }
         if AppEnvironment.isRunningUITests
             || AppEnvironment.isRunningUnderAnyTests
             || AppEnvironment.isRunningInPreviews {
