@@ -133,11 +133,14 @@ struct HeadlessAccountScreen: HeadlessScreen {
 				parameters: [enabledParameter]
 			) { arguments in
 				let enabled = try arguments.boolean("enabled")
-				// The switch's own call. Nil means the coordinator refused it: the account changed.
-				guard let task = findingsSync.setBackUpEnabled(enabled, expectedAccount: account) else {
+				// The switch's own call. Nil means no cycle followed: either the coordinator refused the
+				// change (the signed-in account moved on) or it applied it while the account's cloud data
+				// is being erased, when no sync may run. The switch itself says which.
+				if let task = findingsSync.setBackUpEnabled(enabled, expectedAccount: account) {
+					await task.value
+				} else if findingsSync.isBackUpEnabled != enabled {
 					throw HeadlessError(.actionFailed, "the back-up switch was refused: the signed-in account changed")
 				}
-				await task.value
 				return ["backUpEnabled": .bool(findingsSync.isBackUpEnabled)]
 			})
 		}

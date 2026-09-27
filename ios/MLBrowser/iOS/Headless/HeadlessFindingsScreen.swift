@@ -136,7 +136,8 @@ struct HeadlessFindingsScreen: HeadlessScreen {
 	/// or has failed to be, before the response.
 	private static func delete(arguments: Arguments, appState: AppState) async throws -> JSONValue? {
 		let id = try findingID(arguments)
-		guard let finding = listedFindings(in: appState).first(where: { $0.entityId == id }) else {
+		let context = appState.dataController.container.viewContext
+		guard let finding = Finding.select(id, in: context), finding.lifeCycle == .ready else {
 			throw HeadlessError(.invalidArgument, "no finding '\(id.uuidString)' in the list")
 		}
 		do {

@@ -64,6 +64,9 @@ final class StagedImageCapture {
 	private(set) var frame: AppliedDetectionFrame?
 	/// The picked detection: what the save sheet would be showing. Non-nil means the sheet is up.
 	private(set) var pendingCapture: FindingCapture?
+	/// The Author field's seed, read when the sheet opens, as the web screen hands the sheet
+	/// `defaultAuthor` at presentation; the sheet never re-reads it.
+	private var pendingAuthor = ""
 
 	init(
 		deep: DeepState,
@@ -131,6 +134,7 @@ final class StagedImageCapture {
 			// A staged image comes from no page.
 			pageURL: nil
 		)
+		pendingAuthor = authState.accountDisplayName ?? ""
 	}
 
 	/// The save sheet's Cancel.
@@ -153,8 +157,8 @@ final class StagedImageCapture {
 				title: title,
 				label: label,
 				note: "",
-				// The sheet's seed for its Author field.
-				author: authState.accountDisplayName ?? "",
+				// The sheet's seed for its Author field, taken when the sheet opened.
+				author: pendingAuthor,
 				gps: "",
 				page: FindingPageURL.resolve(edited: "", captured: capture.pageURL)
 			)
