@@ -498,6 +498,18 @@ final class HeadlessRouteLintTests: XCTestCase {
 
 final class HeadlessReportTextTests: XCTestCase {
 
+	func testEachOutcomeHasItsOwnMarkAndASkipIsNeitherAPassNorAWarning() {
+		func step(failures: [String] = [], bestEffort: Bool = false, skipped: Bool = false) -> StepReport {
+			StepReport(phase: "teardown", index: 0, name: nil, installation: "a", command: "perform", route: "home",
+				failures: failures, bestEffort: bestEffort, skipped: skipped)
+		}
+		XCTAssertEqual(HeadlessReportText.mark(for: step()), "✓")
+		XCTAssertEqual(HeadlessReportText.mark(for: step(skipped: true)), "–")
+		XCTAssertEqual(HeadlessReportText.mark(for: step(bestEffort: true, skipped: true)), "–")
+		XCTAssertEqual(HeadlessReportText.mark(for: step(failures: ["x"], bestEffort: true)), "⚠︎")
+		XCTAssertEqual(HeadlessReportText.mark(for: step(failures: ["x"])), "✗")
+	}
+
 	func testEveryLineOfAMultiLineMessageIsIndented() {
 		XCTAssertEqual(
 			HeadlessReportText.indented(["setup: the scenario names routes the app does not declare:\nsteps[0]: a\nsteps[1]: b", "one line"], by: "   "),
@@ -599,7 +611,9 @@ final class HeadlessScenarioPolicyTests: XCTestCase {
 	/// identity flag makes the consent question wait on Clerk. See `specification/HEADLESS.md`.
 	static let entryFlags = ["isPaymentsEnabled", "isFreeAccessPeriodEnabled", "isAnalyticsEnabled", "isCrossDeviceAnalyticsIdentityEnabled"]
 
-	private func launchBlocks() throws -> [(scenario: String, installation: String, launch: [String: Any])] {
+	/// The committed scenario files, failing closed: an empty scan means the directory moved, not that
+	/// the policy holds.
+	private func scenarioFiles() throws -> [URL] {
 		let directory = URL(fileURLWithPath: #filePath)
 			.deletingLastPathComponent()
 			.appendingPathComponent("../../../ios/HeadlessScenarios")
@@ -607,6 +621,12 @@ final class HeadlessScenarioPolicyTests: XCTestCase {
 		let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
 			.filter { $0.pathExtension == "json" }
 			.sorted { $0.lastPathComponent < $1.lastPathComponent }
+		XCTAssertGreaterThanOrEqual(files.count, 15, "Expected the committed scenarios in \(directory.path).")
+		return files
+	}
+
+	private func launchBlocks() throws -> [(scenario: String, installation: String, launch: [String: Any])] {
+		let files = try scenarioFiles()
 		var blocks: [(String, String, [String: Any])] = []
 		for file in files {
 			let object = try JSONSerialization.jsonObject(with: Data(contentsOf: file))
@@ -616,8 +636,6 @@ final class HeadlessScenarioPolicyTests: XCTestCase {
 				blocks.append((file.lastPathComponent, name, launch))
 			}
 		}
-		// Fail closed: an empty scan means the directory moved, not that the policy holds.
-		XCTAssertGreaterThanOrEqual(files.count, 15, "Expected the committed scenarios in \(directory.path).")
 		return blocks
 	}
 
@@ -626,6 +644,20 @@ final class HeadlessScenarioPolicyTests: XCTestCase {
 	func testNoCommittedScenarioMocksTheSubscription() throws {
 		for block in try launchBlocks() {
 			XCTAssertNil(block.launch["mockSubscription"], "\(block.scenario) installation \(block.installation) uses -mockSubscription")
+		}
+	}
+
+	/// AIA-0990: a green run prints no warning for a cleanup that had nothing to do. Every best-effort
+	/// teardown action therefore says when it has nothing to do, with `unless`. Navigation (`goto`)
+	/// is exempt — reaching the current route is already a no-op — and so is the advisory
+	/// `usage.used == 0` observation, which sends nothing and whose warning is a real signal.
+	func testEveryBestEffortTeardownActionSaysWhenItHasNothingToDo() throws {
+		for file in try scenarioFiles() {
+			let object = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+			let teardown = object["teardown"] as? [[String: Any]] ?? []
+			for (index, step) in teardown.enumerated() where step["bestEffort"] as? Bool == true && step["perform"] != nil {
+				XCTAssertNotNil(step["unless"], "\(file.lastPathComponent) teardown[\(index)] is a best-effort action without unless")
+			}
 		}
 	}
 

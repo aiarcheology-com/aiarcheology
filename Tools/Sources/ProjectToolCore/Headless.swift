@@ -517,6 +517,15 @@ public enum HeadlessRepositoryRoot {
 /// How `headless test` prints report messages.
 public enum HeadlessReportText {
 
+	/// How `test` marks a step: `✓` passed, `–` skipped because its `unless` held (not a warning), `⚠︎`
+	/// a best-effort failure (a warning), `✗` a failure. Skipped is decided first: a skipped step
+	/// has no failures, so it would otherwise print as passed.
+	public static func mark(for step: StepReport) -> String {
+		if step.skipped { return "–" }
+		if step.passed { return "✓" }
+		return step.bestEffort ? "⚠︎" : "✗"
+	}
+
 	/// Every line of every message, indented: the first by `indent`, a message's continuation lines
 	/// two spaces deeper, so a multi-line failure still reads as one.
 	public static func indented(_ messages: [String], by indent: String) -> [String] {

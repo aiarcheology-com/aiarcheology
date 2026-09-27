@@ -200,8 +200,8 @@ struct Headless: AsyncParsableCommand {
 				print("▶︎ \(scenario.name)")
 				let report = await ScenarioRunner(launcher: SimulatorLauncher()).run(scenario)
 				for step in report.steps + report.teardown {
-					let mark = step.passed ? "✓" : (step.bestEffort ? "⚠︎" : "✗")
-					print("  \(mark) \(step.location)\(step.route.map { " → \($0)" } ?? "")")
+					let skipped = step.skipped ? " (skipped: unless held)" : ""
+					print("  \(HeadlessReportText.mark(for: step)) \(step.location)\(skipped)\(step.route.map { " → \($0)" } ?? "")")
 				}
 				// Never silent: a best-effort cleanup that did not run is printed on a green run too.
 				report.warnings.forEach { print("   warning: \($0)") }
