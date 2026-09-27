@@ -27,7 +27,11 @@ let package = Package(
         // so anything worth asserting on lives here rather than in ProjectTool itself.
         .target(
             name: "ProjectToolCore",
-            dependencies: [.product(name: "HeadlessKit", package: "NativeModelConverter")]
+            dependencies: [
+                .product(name: "HeadlessKit", package: "NativeModelConverter"),
+                // The static route check (AIA-0983) reads scenarios and runs the runner's own RouteCheck.
+                .product(name: "HeadlessScenario", package: "NativeModelConverter")
+            ]
         ),
         .executableTarget(
             name: "ProjectTool",
@@ -45,7 +49,11 @@ let package = Package(
         ),
         .testTarget(
             name: "ProjectToolCoreTests",
-            dependencies: ["ProjectToolCore", .product(name: "HeadlessKit", package: "NativeModelConverter")]
+            dependencies: [
+                "ProjectToolCore",
+                .product(name: "HeadlessKit", package: "NativeModelConverter"),
+                .product(name: "HeadlessScenario", package: "NativeModelConverter")
+            ]
         )
     ]
 )

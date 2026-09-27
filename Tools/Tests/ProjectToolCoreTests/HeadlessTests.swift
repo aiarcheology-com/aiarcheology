@@ -7,6 +7,7 @@
 
 import Foundation
 import HeadlessKit
+import HeadlessScenario
 import XCTest
 @testable import ProjectToolCore
 
@@ -234,9 +235,201 @@ final class HeadlessCommandLineTests: XCTestCase {
 	}
 
 	func testMistakesAreErrors() {
-		for words in [[], ["teleport"], ["goto"], ["goto", "a", "b"], ["state", "x"], ["perform"], ["perform", "a", "b"], ["wait", "c", "timeout=soon"]] {
+		for words in [[], ["teleport"], ["goto"], ["goto", "a", "b"], ["state", "x"], ["perform"], ["perform", "a", "b"], ["wait", "c", "timeout=soon"], ["map", "x"]] {
 			XCTAssertThrowsError(try HeadlessCommandLine.parse(words), "\(words)")
 		}
+	}
+
+	private func rejection(_ words: [String]) -> String? {
+		do {
+			_ = try HeadlessCommandLine.parse(words)
+			return nil
+		} catch {
+			return "\(error)"
+		}
+	}
+
+	func testMapTakesNoArgumentsAndNamesTheOptionOrder() throws {
+		XCTAssertEqual(try HeadlessCommandLine.parse(["map"]), .map)
+		// `exec map --format dot`: exec passes the words after the command through verbatim.
+		XCTAssertEqual(rejection(["map", "--format", "dot"]), "'map' takes no arguments; options go before the command: exec --format dot map")
+		XCTAssertEqual(rejection([]), "expected a command: help, state, actions, map, goto, perform, wait")
+	}
+
+	func testDotRendersOnlyTheMap() throws {
+		XCTAssertNoThrow(try HeadlessExecFormat.dot.check(.map))
+		XCTAssertNoThrow(try HeadlessExecFormat.json.check(.state))
+		XCTAssertNoThrow(try HeadlessExecFormat.json.check(.map))
+		XCTAssertThrowsError(try HeadlessExecFormat.dot.check(.state)) { error in
+			XCTAssertEqual("\(error)", "--format dot renders only the map command: exec --format dot map")
+		}
+		XCTAssertEqual(HeadlessExecFormat(rawValue: "dot"), .dot)
+		XCTAssertNil(HeadlessExecFormat(rawValue: "svg"))
+	}
+}
+
+final class HeadlessMapDotTests: XCTestCase {
+
+	/// A small `map` result: home is current, with an open, an available, a plain and an
+	/// action-less edge, one undeclared live transition to a declared route and one to an unknown one.
+	private let result: JSONValue = [
+		"guarantee": "possible",
+		"current": "home",
+		"routes": [
+			["route": "launching", "summary": "Starting up.", "current": false, "transitions": [
+				["to": "home", "condition": "ready"]
+			]],
+			["route": "home", "summary": "The \"app\" proper\\main.", "current": true, "transitions": [
+				["action": "open-drawer", "to": "drawer", "condition": "always", "open": true],
+				["action": "continue", "to": "save-finding", "condition": "a detection\nis held", "available": true],
+				["action": "sign-out", "to": "launching", "condition": "signed in"]
+			]],
+			["route": "drawer", "summary": "The menu.", "current": false, "transitions": []],
+			["route": "save-finding", "summary": "Save.", "current": false, "transitions": []]
+		],
+		"undeclared": [
+			["action": "open-settings", "to": "drawer"],
+			["action": "teleport", "to": "no-such-route"]
+		]
+	]
+
+	func testTheGraphMarksCurrentOpenAvailableActionlessAndUndeclared() throws {
+		XCTAssertEqual(try HeadlessMapDot.render(result), #"""
+		digraph "navigation map" {
+			label="Possible transitions, not guaranteed; current: home";
+			labelloc=t;
+			rankdir=LR;
+			node [shape=box, style=rounded, fontname="Helvetica"];
+			edge [fontname="Helvetica", fontsize=10];
+			"launching" [tooltip="Starting up."];
+			"home" [tooltip="The \"app\" proper\\main.", style="rounded,filled,bold", fillcolor="gold"];
+			"drawer" [tooltip="The menu."];
+			"save-finding" [tooltip="Save."];
+			"no-such-route" [color="red", fontcolor="red", tooltip="not a declared route"];
+			"launching" -> "home" [label="on its own", style="dashed", fontname="Helvetica-Oblique", tooltip="ready"];
+			"home" -> "drawer" [label="open-drawer (open)", color="forestgreen", fontcolor="forestgreen", penwidth="2.5", tooltip="always"];
+			"home" -> "save-finding" [label="continue (available)", color="royalblue", fontcolor="royalblue", penwidth="2", tooltip="a detection\nis held"];
+			"home" -> "launching" [label="sign-out", tooltip="signed in"];
+			"home" -> "drawer" [label="open-settings (undeclared)", color="red", fontcolor="red", style="dashed"];
+			"home" -> "no-such-route" [label="teleport (undeclared)", color="red", fontcolor="red", style="dashed"];
+		}
+		"""#)
+	}
+
+	func testTheSameResultRendersTheSameText() throws {
+		XCTAssertEqual(try HeadlessMapDot.render(result), try HeadlessMapDot.render(result))
+	}
+
+	func testSomethingElseIsNotAMap() {
+		for value: JSONValue in [["route": "home"], "map", ["routes": [["summary": "no name"]]], ["routes": [], "undeclared": [["action": "x", "to": "y"]]]] {
+			XCTAssertThrowsError(try HeadlessMapDot.render(value), value.jsonString) { error in
+				XCTAssertTrue("\(error)".hasPrefix("not a map result"), "\(error)")
+			}
+		}
+	}
+}
+
+final class HeadlessRouteLintTests: XCTestCase {
+
+	private let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("HeadlessRouteLintTests-\(UUID().uuidString)")
+
+	/// The checkout this file lives in; a macOS package test runs from it.
+	private static let repository = URL(fileURLWithPath: #filePath)
+		.deletingLastPathComponent()
+		.appendingPathComponent("../../..")
+		.standardizedFileURL
+
+	override func tearDownWithError() throws {
+		try? FileManager.default.removeItem(at: scratch) // Some tests never create it.
+	}
+
+	private func write(_ text: String, to path: String) throws -> URL {
+		let file = scratch.appendingPathComponent(path)
+		try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+		try Data(text.utf8).write(to: file)
+		return file
+	}
+
+	func testATypoIsCaughtWithTheClosestRoute() throws {
+		let lint = try HeadlessRouteLint(repositoryRoot: Self.repository)
+		let file = try write(#"""
+		{
+		  "schemaVersion": 1, "name": "typo",
+		  "installations": { "a": {} },
+		  "steps": [ { "name": "wait for home", "wait": { "condition": "route", "arguments": { "route": "hme" } } } ],
+		  "teardown": []
+		}
+		"""#, to: "typo.json")
+		let outcomes = lint.check([file])
+		guard case .checked(_, let scenario, let failures) = try XCTUnwrap(outcomes.first) else {
+			return XCTFail("the scenario should load: \(outcomes)")
+		}
+		XCTAssertEqual(scenario.name, "typo")
+		XCTAssertEqual(failures.count, 1)
+		XCTAssertTrue(
+			failures.first?.hasPrefix(#"steps[0] "wait for home": wait route 'hme' is not a route of this app; did you mean 'home'? (known: "#) == true,
+			"\(failures)"
+		)
+		XCTAssertFalse(outcomes[0].passed)
+	}
+
+	func testAFileThatDoesNotLoadFails() throws {
+		let lint = HeadlessRouteLint(map: NavigationMap(routes: [RouteDeclaration(route: "home", summary: "Home.")]))
+		let file = try write(#"{"schemaVersion": 1, "name": "x", "installations": {"a": {}}, "stepz": []}"#, to: "bad.json")
+		let outcome = try XCTUnwrap(lint.check([file]).first)
+		guard case .unreadable(let failed, _) = outcome else { return XCTFail("\(outcome)") }
+		XCTAssertEqual(failed, file)
+		XCTAssertFalse(outcome.passed)
+	}
+
+	func testAMissingMapFailsAndSaysHowToRegenerateIt() throws {
+		try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+		XCTAssertThrowsError(try HeadlessRouteLint(repositoryRoot: scratch)) { error in
+			let text = "\(error)"
+			XCTAssertTrue(error is HeadlessRouteLint.MapUnavailable, text)
+			XCTAssertTrue(text.contains("ios/HeadlessScenarios/Map/navigation-map.json"), text)
+			XCTAssertTrue(text.contains("HeadlessNavigationMapTests"), text)
+		}
+	}
+
+	func testAnUndecodableOrEmptyMapFails() throws {
+		for content in [#"{"routes": "#, #"{"routes": []}"#] {
+			_ = try write(content, to: HeadlessRouteLint.mapPath)
+			XCTAssertThrowsError(try HeadlessRouteLint(repositoryRoot: scratch), content) { error in
+				XCTAssertTrue("\(error)".contains("HeadlessNavigationMapTests"), "\(error)")
+			}
+		}
+	}
+
+	/// Every committed scenario names only routes the committed map declares.
+	func testEveryCommittedScenarioPassesAgainstTheCommittedMap() throws {
+		let lint = try HeadlessRouteLint(repositoryRoot: Self.repository)
+		let files = try FileManager.default.contentsOfDirectory(
+			at: Self.repository.appendingPathComponent("ios/HeadlessScenarios"),
+			includingPropertiesForKeys: nil
+		)
+		.filter { $0.pathExtension == "json" }
+		.sorted { $0.lastPathComponent < $1.lastPathComponent }
+		// Fail closed: an empty scan means the directory moved, not that the scenarios pass.
+		XCTAssertGreaterThanOrEqual(files.count, 15)
+		for outcome in lint.check(files) {
+			XCTAssertTrue(outcome.passed, "\(outcome)")
+		}
+	}
+}
+
+final class HeadlessReportTextTests: XCTestCase {
+
+	func testEveryLineOfAMultiLineMessageIsIndented() {
+		XCTAssertEqual(
+			HeadlessReportText.indented(["setup: the scenario names routes the app does not declare:\nsteps[0]: a\nsteps[1]: b", "one line"], by: "   "),
+			[
+				"   setup: the scenario names routes the app does not declare:",
+				"     steps[0]: a",
+				"     steps[1]: b",
+				"   one line"
+			]
+		)
 	}
 }
 

@@ -7,6 +7,7 @@
 
 import Foundation
 import HeadlessKit
+import HeadlessScenario
 
 /// The simulator devices the headless tooling may touch — only its own.
 ///
@@ -208,13 +209,20 @@ public enum HeadlessCommandLine {
 
 	public static func parse(_ words: [String]) throws -> Command {
 		guard let verb = words.first else {
-			throw Invalid(description: "expected a command: help, state, actions, goto, perform, wait")
+			throw Invalid(description: "expected a command: help, state, actions, map, goto, perform, wait")
 		}
 		let rest = Array(words.dropFirst())
 		switch verb {
 		case "help", "state", "actions":
 			guard rest.isEmpty else { throw Invalid(description: "'\(verb)' takes no arguments") }
 			return verb == "help" ? .help : verb == "state" ? .state : .actions
+		case "map":
+			// `exec` passes everything after the command through verbatim, so `exec map --format dot`
+			// arrives here with the option as a word.
+			guard rest.isEmpty else {
+				throw Invalid(description: "'map' takes no arguments; options go before the command: exec --format dot map")
+			}
+			return .map
 		case "goto":
 			guard rest.count == 1 else { throw Invalid(description: "usage: goto <route>") }
 			return .goto(Route(rest[0]))
@@ -248,6 +256,207 @@ public enum HeadlessCommandLine {
 			result[parts[0]] = .string(parts[1])
 		}
 		return result
+	}
+}
+
+/// How `exec` prints a response (AIA-0982).
+public enum HeadlessExecFormat: String, CaseIterable, Sendable {
+	/// The whole response document.
+	case json
+	/// The `map` result as a Graphviz digraph (`HeadlessMapDot`).
+	case dot
+
+	public struct Invalid: Error, CustomStringConvertible {
+		public let description: String
+	}
+
+	/// Refuses a format that cannot print `command`'s response: `dot` renders only `map`.
+	public func check(_ command: Command) throws {
+		guard self == .dot else { return }
+		guard command == .map else {
+			throw Invalid(description: "--format dot renders only the map command: exec --format dot map")
+		}
+	}
+}
+
+/// Renders a `map` result as a Graphviz digraph (AIA-0982): one node per declared route and one edge
+/// per declared transition, in declaration order, so the same map always renders the same text.
+///
+/// - The current route is filled.
+/// - An edge is labelled with its action; one the app takes on its own is dashed and italic.
+/// - Open edges (offered now, leading there) are green and bold; available ones (offered now, the
+///   destination decided when the action runs) are blue.
+/// - Undeclared live transitions are red, dashed and labelled undeclared.
+///
+/// Every edge's tooltip is its condition: the graph shows what is **possible**, not guaranteed.
+public enum HeadlessMapDot {
+
+	public struct Invalid: Error, CustomStringConvertible {
+		public let description: String
+	}
+
+	public static func render(_ result: JSONValue) throws -> String {
+		guard let members = result.objectValue, let routes = members["routes"]?.arrayValue else {
+			throw Invalid(description: "not a map result: expected an object with 'routes'")
+		}
+		let current = members["current"]?.stringValue
+		var lines = [
+			"digraph \"navigation map\" {",
+			"\tlabel=\(quote("Possible transitions, not guaranteed" + (current.map { "; current: \($0)" } ?? "")));",
+			"\tlabelloc=t;",
+			"\trankdir=LR;",
+			"\tnode [shape=box, style=rounded, fontname=\"Helvetica\"];",
+			"\tedge [fontname=\"Helvetica\", fontsize=10];"
+		]
+		var declared: Set<String> = []
+		var edges: [String] = []
+		for (index, entry) in routes.enumerated() {
+			guard let route = entry.objectValue, let name = route["route"]?.stringValue else {
+				throw Invalid(description: "not a map result: routes[\(index)] has no 'route'")
+			}
+			declared.insert(name)
+			var node: [(String, String)] = [("tooltip", route["summary"]?.stringValue ?? "")]
+			if name == current {
+				node += [("style", "rounded,filled,bold"), ("fillcolor", "gold")]
+			}
+			lines.append("\t\(quote(name)) \(attributes(node));")
+			for (position, transitionValue) in (route["transitions"]?.arrayValue ?? []).enumerated() {
+				guard let transition = transitionValue.objectValue, let target = transition["to"]?.stringValue else {
+					throw Invalid(description: "not a map result: routes[\(index)].transitions[\(position)] has no 'to'")
+				}
+				var edge: [(String, String)]
+				if let action = transition["action"]?.stringValue {
+					if transition["open"]?.boolValue == true {
+						edge = [("label", "\(action) (open)"), ("color", "forestgreen"), ("fontcolor", "forestgreen"), ("penwidth", "2.5")]
+					} else if transition["available"]?.boolValue == true {
+						edge = [("label", "\(action) (available)"), ("color", "royalblue"), ("fontcolor", "royalblue"), ("penwidth", "2")]
+					} else {
+						edge = [("label", action)]
+					}
+				} else {
+					edge = [("label", "on its own"), ("style", "dashed"), ("fontname", "Helvetica-Oblique")]
+				}
+				edge.append(("tooltip", transition["condition"]?.stringValue ?? ""))
+				edges.append("\t\(quote(name)) -> \(quote(target)) \(attributes(edge));")
+			}
+		}
+		for (index, entry) in (members["undeclared"]?.arrayValue ?? []).enumerated() {
+			guard let transition = entry.objectValue,
+				  let action = transition["action"]?.stringValue,
+				  let target = transition["to"]?.stringValue,
+				  let current else {
+				throw Invalid(description: "not a map result: undeclared[\(index)] needs 'action', 'to' and a current route")
+			}
+			// A live target the map does not declare at all: drawn red rather than as a plain node.
+			if declared.insert(target).inserted {
+				lines.append("\t\(quote(target)) \(attributes([("color", "red"), ("fontcolor", "red"), ("tooltip", "not a declared route")]));")
+			}
+			edges.append("\t\(quote(current)) -> \(quote(target)) \(attributes([("label", "\(action) (undeclared)"), ("color", "red"), ("fontcolor", "red"), ("style", "dashed")]));")
+		}
+		return (lines + edges + ["}"]).joined(separator: "\n")
+	}
+
+	/// `[label="close", color="red"]`, in the given order.
+	private static func attributes(_ pairs: [(String, String)]) -> String {
+		"[" + pairs.map { "\($0.0)=\(quote($0.1))" }.joined(separator: ", ") + "]"
+	}
+
+	/// A DOT quoted string: backslashes and quotes escaped, line breaks as `\n`.
+	static func quote(_ text: String) -> String {
+		var quoted = "\""
+		for character in text {
+			switch character {
+			case "\\": quoted += "\\\\"
+			case "\"": quoted += "\\\""
+			case "\n", "\r", "\r\n": quoted += "\\n"
+			default: quoted.append(character)
+			}
+		}
+		return quoted + "\""
+	}
+}
+
+/// The static route check shared by `headless test --lint` and the check `headless test` runs
+/// before it builds (AIA-0983): every route a scenario names, against the checked-in navigation map.
+///
+/// It is an early filter only. The running app's handshake is authoritative: the runner checks the
+/// routes again after each launch, against what that build declares.
+public struct HeadlessRouteLint {
+
+	/// The checked-in copy of the app's declaration, relative to the repository root.
+	public static let mapPath = "ios/HeadlessScenarios/Map/navigation-map.json"
+
+	/// The map cannot be used. Never a skip: without it nothing would be checked.
+	public struct MapUnavailable: Error, CustomStringConvertible {
+		public let description: String
+	}
+
+	/// One scenario file's result.
+	public enum Outcome: Equatable {
+		/// The file loaded; `failures` is empty when every route it names is declared.
+		case checked(file: URL, scenario: Scenario, failures: [String])
+		/// The file does not load as a scenario.
+		case unreadable(file: URL, error: String)
+
+		public var passed: Bool {
+			if case .checked(_, _, let failures) = self { return failures.isEmpty }
+			return false
+		}
+	}
+
+	public let map: NavigationMap
+
+	public init(map: NavigationMap) {
+		self.map = map
+	}
+
+	/// Loads `mapPath` under `repositoryRoot`. A missing, unreadable, undecodable or empty map throws.
+	public init(repositoryRoot: URL) throws {
+		let file = repositoryRoot.appendingPathComponent(Self.mapPath)
+		let regenerate = "It is regenerated by the failing HeadlessNavigationMapTests equality test "
+			+ "(test_theCheckedInMap_isTheDeclaration, in the unit test plan), which prints the new content."
+		let decoded: NavigationMap
+		do {
+			decoded = try HeadlessCoding.makeDecoder().decode(NavigationMap.self, from: Data(contentsOf: file))
+		} catch {
+			throw MapUnavailable(description: "cannot read the navigation map \(Self.mapPath): \(error). \(regenerate)")
+		}
+		// An empty map declares no routes, and the check would then pass every scenario unchecked.
+		guard decoded.isEmpty == false else {
+			throw MapUnavailable(description: "the navigation map \(Self.mapPath) declares no routes. \(regenerate)")
+		}
+		self.init(map: decoded)
+	}
+
+	/// One line per route `scenario` names that the map does not declare.
+	public func failures(in scenario: Scenario) -> [String] {
+		RouteCheck.failures(in: scenario, known: map.routeNames)
+	}
+
+	/// Loads and checks each file, in order; a file that does not load is an outcome, not a throw.
+	public func check(_ files: [URL]) -> [Outcome] {
+		files.map { file in
+			do {
+				let scenario = try Scenario.load(contentsOf: file)
+				return .checked(file: file, scenario: scenario, failures: failures(in: scenario))
+			} catch {
+				return .unreadable(file: file, error: "\(error)")
+			}
+		}
+	}
+}
+
+/// How `headless test` prints report messages.
+public enum HeadlessReportText {
+
+	/// Every line of every message, indented: the first by `indent`, a message's continuation lines
+	/// two spaces deeper, so a multi-line failure still reads as one.
+	public static func indented(_ messages: [String], by indent: String) -> [String] {
+		messages.flatMap { message in
+			message.split(separator: "\n", omittingEmptySubsequences: false).enumerated().map { index, line in
+				(index == 0 ? indent : indent + "  ") + line
+			}
+		}
 	}
 }
 

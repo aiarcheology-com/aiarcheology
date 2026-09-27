@@ -73,22 +73,33 @@ struct Headless: AsyncParsableCommand {
 
 	struct Exec: AsyncParsableCommand {
 		static let configuration = CommandConfiguration(
-			abstract: "Send one command: help, state, actions, goto <route>, perform <action> [k=v…], wait <condition> [k=v…] [timeout=s]."
+			abstract: "Send one command: help, state, actions, map, goto <route>, perform <action> [k=v…], wait <condition> [k=v…] [timeout=s].",
+			discussion: "Options go before the command: everything after it is passed to the app, e.g. exec --format dot map."
 		)
 
 		@Option(name: .long, help: "Installation name.")
 		var state: String = "a"
+
+		@Option(name: .long, help: "json (the response) or dot (the map result as a Graphviz graph; map only).")
+		var format: HeadlessExecFormat = .json
 
 		@Argument(parsing: .captureForPassthrough, help: "The command and its arguments.")
 		var command: [String] = []
 
 		func run() async throws {
 			let parsed = try HeadlessCommandLine.parse(command)
+			// Before anything touches a simulator.
+			try format.check(parsed)
 			let simulator = try HeadlessSimulator(installation: state)
 			let client = HeadlessClient(endpoint: try simulator.readEndpoint())
 			let response = try await client.send(parsed)
 			await client.close()
-			print(response.document.jsonString)
+			// A failed response prints as JSON whatever the format: its error is the point.
+			if format == .dot, response.ok, let result = response.result {
+				print(try HeadlessMapDot.render(result))
+			} else {
+				print(response.document.jsonString)
+			}
 			if response.ok == false { throw ExitCode.failure }
 		}
 	}
@@ -118,34 +129,55 @@ struct Headless: AsyncParsableCommand {
 	}
 
 	struct Test: AsyncParsableCommand {
-		static let configuration = CommandConfiguration(abstract: "Run scenarios (default: every ios/HeadlessScenarios/*.json), each on fresh installations.")
+		static let configuration = CommandConfiguration(
+			abstract: "Run scenarios (default: every ios/HeadlessScenarios/*.json), each on fresh installations.",
+			discussion: """
+			Before building or launching anything, every route a scenario names (goto, wait route, expect \
+			route) is checked against the checked-in navigation map, \(HeadlessRouteLint.mapPath). A scenario \
+			that does not load or names an undeclared route fails the command there, and nothing is built. \
+			That static check is an early filter: the running app's handshake is authoritative, and the \
+			runner checks the routes again after each launch. --lint runs the static check alone.
+			"""
+		)
 
 		@Flag(name: .long, help: "Use the existing headless build instead of building first.")
 		var noBuild = false
+
+		@Flag(name: .long, help: "Only check the scenarios' routes against the checked-in navigation map: no build, no simulator.")
+		var lint = false
 
 		@Argument(help: "Scenario files.")
 		var files: [String] = []
 
 		func run() async throws {
-			if noBuild == false {
-				try HeadlessWorkspace.build()
-			}
 			let paths = files.isEmpty ? try HeadlessWorkspace.defaultScenarios() : files.map { URL(fileURLWithPath: $0) }
 			guard paths.isEmpty == false else {
 				throw ValidationError("no scenarios found")
 			}
+			let outcomes = try HeadlessRouteLint(repositoryRoot: HeadlessWorkspace.root).check(paths)
+			let failing = outcomes.filter { $0.passed == false }
+			if lint {
+				outcomes.forEach(Self.printLint)
+				guard failing.isEmpty else {
+					print("\(failing.count) of \(paths.count) scenario(s) failed the route check.")
+					throw ExitCode.failure
+				}
+				print("All \(paths.count) scenario(s) name only declared routes.")
+				return
+			}
+			guard failing.isEmpty else {
+				failing.forEach(Self.printLint)
+				print("\(failing.count) of \(paths.count) scenario(s) failed the route check; nothing was built or launched.")
+				throw ExitCode.failure
+			}
+			print("Route check: all \(paths.count) scenario(s) name only declared routes.")
+			if noBuild == false {
+				try HeadlessWorkspace.build()
+			}
 			var failed: [String] = []
 			var installations: Set<String> = []
-			for path in paths {
-				let scenario: Scenario
-				do {
-					scenario = try Scenario.load(contentsOf: path)
-				} catch {
-					// One unreadable file must not stop the others, or leave their simulators running.
-					failed.append(path.lastPathComponent)
-					print("❌ \(path.lastPathComponent): \(error)")
-					continue
-				}
+			for outcome in outcomes {
+				guard case .checked(_, let scenario, _) = outcome else { continue } // The check above let none through.
 				installations.formUnion(scenario.installations.keys)
 				print("▶︎ \(scenario.name)")
 				let report = await ScenarioRunner(launcher: SimulatorLauncher()).run(scenario)
@@ -160,7 +192,8 @@ struct Headless: AsyncParsableCommand {
 				} else {
 					failed.append(scenario.name)
 					print("❌ \(scenario.name)")
-					report.failures.forEach { print("   \($0)") }
+					// Every line: a setup failure such as the route check's lists one step per line.
+					HeadlessReportText.indented(report.failures, by: "   ").forEach { print($0) }
 				}
 			}
 			for installation in installations {
@@ -172,8 +205,22 @@ struct Headless: AsyncParsableCommand {
 			}
 			print("All \(paths.count) scenario(s) passed.")
 		}
+
+		/// `✓ <scenario>`, or `✗ <scenario>` and each failure on its own indented line.
+		private static func printLint(_ outcome: HeadlessRouteLint.Outcome) {
+			switch outcome {
+			case .checked(_, let scenario, let failures):
+				print("\(failures.isEmpty ? "✓" : "✗") \(scenario.name)")
+				HeadlessReportText.indented(failures, by: "   ").forEach { print($0) }
+			case .unreadable(let file, let error):
+				print("✗ \(file.lastPathComponent)")
+				HeadlessReportText.indented([error], by: "   ").forEach { print($0) }
+			}
+		}
 	}
 }
+
+extension HeadlessExecFormat: ExpressibleByArgument {}
 
 /// Launches scenario installations on their own simulators: fresh (erased) for a run's first
 /// launch, with their data for a relaunch.
