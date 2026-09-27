@@ -316,3 +316,54 @@ final class HeadlessSimulatorChoiceTests: XCTestCase {
 		XCTAssertThrowsError(try HeadlessSimulatorChoice.choose(runtimesJSON: runtimes, sdkVersion: "25.0"))
 	}
 }
+
+/// What every committed scenario may put in its `launch` blocks (AIA-0976).
+///
+/// Reads `ios/HeadlessScenarios/*.json` from the repository this test file lives in, so the policy is
+/// checked by the package tests rather than by a grep someone has to remember.
+final class HeadlessScenarioPolicyTests: XCTestCase {
+
+	/// The flags that decide how a fresh install enters the app, which every scenario pins: two are
+	/// launch-captured with no cached value on a fresh install, the analytics switch is live, and the
+	/// identity flag makes the consent question wait on Clerk. See `specification/HEADLESS.md`.
+	static let entryFlags = ["isPaymentsEnabled", "isFreeAccessPeriodEnabled", "isAnalyticsEnabled", "isCrossDeviceAnalyticsIdentityEnabled"]
+
+	private func launchBlocks() throws -> [(scenario: String, installation: String, launch: [String: Any])] {
+		let directory = URL(fileURLWithPath: #filePath)
+			.deletingLastPathComponent()
+			.appendingPathComponent("../../../ios/HeadlessScenarios")
+			.standardizedFileURL
+		let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+			.filter { $0.pathExtension == "json" }
+			.sorted { $0.lastPathComponent < $1.lastPathComponent }
+		var blocks: [(String, String, [String: Any])] = []
+		for file in files {
+			let object = try JSONSerialization.jsonObject(with: Data(contentsOf: file))
+			let installations = try XCTUnwrap((object as? [String: Any])?["installations"] as? [String: Any], file.lastPathComponent)
+			for (name, value) in installations {
+				let launch = (value as? [String: Any])?["launch"] as? [String: Any] ?? [:]
+				blocks.append((file.lastPathComponent, name, launch))
+			}
+		}
+		// Fail closed: an empty scan means the directory moved, not that the policy holds.
+		XCTAssertGreaterThanOrEqual(files.count, 15, "Expected the committed scenarios in \(directory.path).")
+		return blocks
+	}
+
+	/// Real StoreKit is the default, and a scenario runs the app the way a new user meets it. The
+	/// mock stays a manual `up` option only.
+	func testNoCommittedScenarioMocksTheSubscription() throws {
+		for block in try launchBlocks() {
+			XCTAssertNil(block.launch["mockSubscription"], "\(block.scenario) installation \(block.installation) uses -mockSubscription")
+		}
+	}
+
+	func testEveryInstallationPinsTheEntryFlags() throws {
+		for block in try launchBlocks() {
+			let flags = block.launch["flags"] as? [String: Any] ?? [:]
+			for key in Self.entryFlags {
+				XCTAssertNotNil(flags[key] as? Bool, "\(block.scenario) installation \(block.installation) does not pin \(key)")
+			}
+		}
+	}
+}

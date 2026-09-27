@@ -4,15 +4,15 @@
   "installations": {
     "a": {
       "launch": {
-        "mockSubscription": "subscribed",
-        "flags": { "isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": false, "isCrossDeviceAnalyticsIdentityEnabled": false }
+        "flags": { "isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false }
       }
     }
   },
   "steps": [
-    { "name": "launch", "wait": { "condition": "ready", "timeout": 120 }, "expect": [ { "route": "tour" } ] },
+    { "name": "launch", "wait": { "condition": "ready", "timeout": 120 }, "expect": [ { "route": "welcome" }, { "equals": { "pointer": "/state/offer", "value": "freeAccess" } } ] },
+    { "name": "continue past the free-access Welcome screen", "perform": { "action": "continue" }, "expect": [ { "route": "tour" } ] },
     { "name": "skip the tour", "perform": { "action": "skip" }, "expect": [ { "route": "consent" } ] },
-    { "name": "decline analytics", "perform": { "action": "deny" }, "expect": [ { "route": "home" } ] },
+    { "name": "decline analytics", "perform": { "action": "deny" }, "expect": [ { "route": "home" }, { "equals": { "pointer": "/context/analytics/enabled", "value": false } } ] },
     { "name": "open the menu", "goto": "drawer",
       "capture": { "model": "/state/models/0/id", "gate": "/context/gate" } },
     { "name": "switch the first model on", "perform": { "action": "enable", "arguments": { "id": "${model}" } },

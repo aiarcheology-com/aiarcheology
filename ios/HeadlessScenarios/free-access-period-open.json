@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "name": "free-access-period-open",
+  "installations": {"a": {"launch": {"flags": {"isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false}}}},
+  "steps": [
+    {"name": "a fresh install is granted the window and offered it", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "welcome"}, {"equals": {"pointer": "/state/offer", "value": "freeAccess"}}, {"equals": {"pointer": "/state/days", "value": 14}}, {"equals": {"pointer": "/context/gate/freeAccess", "value": "open"}}, {"equals": {"pointer": "/context/gate/isSubscribed", "value": false}}, {"equals": {"pointer": "/context/gate/display", "value": "content"}}, {"equals": {"pointer": "/context/gate/welcome", "value": "freeAccess"}}]},
+    {"name": "Continue acknowledges day 0 and starts the tour", "perform": {"action": "continue"}, "expect": [{"route": "tour"}, {"equals": {"pointer": "/context/gate/isDay0AcknowledgementPending", "value": false}}, {"equals": {"pointer": "/context/gate/welcome", "value": null}}]},
+    {"name": "skip the tour", "perform": {"action": "skip"}, "expect": [{"route": "consent"}]},
+    {"name": "decline analytics", "perform": {"action": "deny"}, "expect": [{"route": "home"}, {"equals": {"pointer": "/context/gate/freeAccess", "value": "open"}}]},
+    {"name": "quit and reopen the app", "relaunch": true},
+    {"name": "the window is still open, and its Welcome screen is not offered twice", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "home"}, {"equals": {"pointer": "/context/gate/freeAccess", "value": "open"}}, {"equals": {"pointer": "/context/gate/welcomeDue", "value": false}}, {"equals": {"pointer": "/context/gate/display", "value": "content"}}]}
+  ]
+}

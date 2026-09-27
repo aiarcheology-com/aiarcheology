@@ -4,17 +4,17 @@
   "installations": {
     "a": {
       "launch": {
-        "mockSubscription": "subscribed",
-        "flags": { "isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": false, "isCrossDeviceAnalyticsIdentityEnabled": false }
+        "flags": { "isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false }
       }
     }
   },
   "steps": [
-    { "name": "a fresh install finishes launching into the tour",
+    { "name": "a fresh install finishes launching into the free-access Welcome screen",
       "wait": { "condition": "ready", "timeout": 120 },
-      "expect": [ { "route": "tour" }, { "equals": { "pointer": "/context/backendEnvironment", "value": "development" } } ] },
+      "expect": [ { "route": "welcome" }, { "equals": { "pointer": "/state/offer", "value": "freeAccess" } }, { "equals": { "pointer": "/context/backendEnvironment", "value": "development" } } ] },
+    { "name": "continue past the free-access Welcome screen", "perform": { "action": "continue" }, "expect": [ { "route": "tour" } ] },
     { "name": "skip the tour", "perform": { "action": "skip" }, "expect": [ { "route": "consent" } ] },
-    { "name": "decline analytics", "perform": { "action": "deny" }, "expect": [ { "route": "home" } ] },
+    { "name": "decline analytics", "perform": { "action": "deny" }, "expect": [ { "route": "home" }, { "equals": { "pointer": "/context/analytics/enabled", "value": false } } ] },
     { "name": "no teleporting: home does not lead back to consent", "goto": "consent",
       "expect": [ { "error": "unreachable" }, { "route": "home" } ] },
     { "name": "open the menu", "goto": "drawer",

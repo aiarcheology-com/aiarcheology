@@ -1,11 +1,12 @@
 {
   "schemaVersion": 1,
   "name": "saved-before-sign-in",
-  "installations": {"a": {"launch": {"mockSubscription": "subscribed", "flags": {"isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": false, "isCrossDeviceAnalyticsIdentityEnabled": false}, "stage": ["ios/MLBrowserUnitTests/Fixtures/terrain_iphone.png"]}}},
+  "installations": {"a": {"launch": {"flags": {"isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false}, "stage": ["ios/MLBrowserUnitTests/Fixtures/terrain_iphone.png"]}}},
   "steps": [
-    {"on": "a", "name": "a fresh install on real auth, the fixture staged; cross-device analytics identity pinned off, so no account question", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "tour"}, {"equals": {"pointer": "/context/backendEnvironment", "value": "development"}}, {"equals": {"pointer": "/context/auth/usesRealAuth", "value": true}}]},
+    {"on": "a", "name": "a fresh install on real auth, the fixture staged; cross-device analytics identity pinned off, so no account question", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "welcome"}, {"equals": {"pointer": "/state/offer", "value": "freeAccess"}}, {"equals": {"pointer": "/context/backendEnvironment", "value": "development"}}, {"equals": {"pointer": "/context/auth/usesRealAuth", "value": true}}]},
+    {"on": "a", "name": "continue past the free-access Welcome screen", "perform": {"action": "continue"}, "expect": [{"route": "tour"}]},
     {"on": "a", "perform": {"action": "skip"}, "expect": [{"route": "consent"}]},
-    {"on": "a", "perform": {"action": "deny"}, "expect": [{"route": "home"}]},
+    {"on": "a", "perform": {"action": "deny"}, "expect": [{"route": "home"}, {"equals": {"pointer": "/context/analytics/enabled", "value": false}}]},
     {"on": "a", "name": "open the menu; the first model is a bundled demo detector", "goto": "drawer", "capture": {"model": "/state/models/0/id"}, "expect": [{"equals": {"pointer": "/state/models/0/name", "value": "Fortification relicts in LIDAR 1 (greyscale)"}}]},
     {"on": "a", "name": "switch it on", "perform": {"action": "enable", "arguments": {"id": "${model}"}}, "expect": [{"equals": {"pointer": "/result/loaded", "value": true}}]},
     {"on": "a", "perform": {"action": "close"}, "expect": [{"route": "home"}]},

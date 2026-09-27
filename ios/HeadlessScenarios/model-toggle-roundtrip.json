@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "name": "model-toggle-roundtrip",
+  "installations": {"a": {"launch": {"flags": {"isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false}}}},
+  "steps": [
+    {"name": "a fresh install launches into the free-access Welcome screen", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "welcome"}, {"equals": {"pointer": "/state/offer", "value": "freeAccess"}}, {"equals": {"pointer": "/context/backendEnvironment", "value": "development"}}]},
+    {"name": "continue past the free-access Welcome screen", "perform": {"action": "continue"}, "expect": [{"route": "tour"}]},
+    {"name": "skip the tour", "perform": {"action": "skip"}, "expect": [{"route": "consent"}]},
+    {"name": "decline analytics", "perform": {"action": "deny"}, "expect": [{"route": "home"}, {"equals": {"pointer": "/context/analytics/enabled", "value": false}}]},
+    {"name": "open the menu", "goto": "drawer", "capture": {"model": "/state/models/0/id"}, "expect": [{"equals": {"pointer": "/state/models/0/enabled", "value": false}}]},
+    {"name": "switch the first model on", "perform": {"action": "enable", "arguments": {"id": "${model}"}}, "expect": [{"equals": {"pointer": "/result/loaded", "value": true}}]},
+    {"name": "switch it off: it unloads", "perform": {"action": "disable", "arguments": {"id": "${model}"}}, "expect": [{"equals": {"pointer": "/result/loaded", "value": false}}, {"equals": {"pointer": "/state/models/0/enabled", "value": false}}, {"equals": {"pointer": "/state/models/0/loaded", "value": false}}]},
+    {"name": "and on again: it loads again", "perform": {"action": "enable", "arguments": {"id": "${model}"}}, "expect": [{"equals": {"pointer": "/result/loaded", "value": true}}, {"equals": {"pointer": "/state/models/0/enabled", "value": true}}]},
+    {"name": "quit and reopen the app", "relaunch": true},
+    {"name": "the last choice survived", "wait": {"condition": "model-loaded", "arguments": {"id": "${model}"}, "timeout": 120}},
+    {"name": "and the menu shows it on", "goto": "drawer", "expect": [{"equals": {"pointer": "/state/models/0/id", "value": "${model}"}}, {"equals": {"pointer": "/state/models/0/enabled", "value": true}}]}
+  ]
+}

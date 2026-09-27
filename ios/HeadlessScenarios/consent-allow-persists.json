@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "name": "consent-allow-persists",
+  "installations": {"a": {"launch": {"flags": {"isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false}}}},
+  "steps": [
+    {"name": "a fresh install launches into the free-access Welcome screen", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "welcome"}, {"equals": {"pointer": "/state/offer", "value": "freeAccess"}}, {"equals": {"pointer": "/context/backendEnvironment", "value": "development"}}]},
+    {"name": "continue past the free-access Welcome screen", "perform": {"action": "continue"}, "expect": [{"route": "tour"}]},
+    {"name": "skip the tour", "perform": {"action": "skip"}, "expect": [{"route": "consent"}]},
+    {"name": "allow analytics", "perform": {"action": "allow"}, "expect": [{"route": "home"}, {"equals": {"pointer": "/context/analytics/enabled", "value": true}}, {"equals": {"pointer": "/context/gate/consent", "value": "resolved"}}]},
+    {"name": "still on and answered a moment later", "expect": [{"route": "home"}, {"equals": {"pointer": "/context/analytics/enabled", "value": true}}]},
+    {"name": "quit and reopen the app", "relaunch": true},
+    {"name": "the answer survived: no question, analytics still on", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "home"}, {"equals": {"pointer": "/context/analytics/enabled", "value": true}}, {"equals": {"pointer": "/context/gate/consent", "value": "resolved"}}]},
+    {"name": "and the question is not reachable", "goto": "consent", "expect": [{"error": "unreachable"}, {"route": "home"}]}
+  ]
+}

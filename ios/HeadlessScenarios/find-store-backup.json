@@ -4,10 +4,10 @@
   "installations": {
     "a": {
       "launch": {
-        "mockSubscription": "subscribed",
         "flags": {
           "isPaymentsEnabled": true,
-          "isFreeAccessPeriodEnabled": false,
+          "isFreeAccessPeriodEnabled": true,
+          "isAnalyticsEnabled": true,
           "isCrossDeviceAnalyticsIdentityEnabled": false
         },
         "stage": ["ios/MLBrowserUnitTests/Fixtures/terrain_iphone.png"]
@@ -15,10 +15,10 @@
     },
     "b": {
       "launch": {
-        "mockSubscription": "subscribed",
         "flags": {
           "isPaymentsEnabled": true,
-          "isFreeAccessPeriodEnabled": false,
+          "isFreeAccessPeriodEnabled": true,
+          "isAnalyticsEnabled": true,
           "isCrossDeviceAnalyticsIdentityEnabled": false
         }
       }
@@ -28,13 +28,14 @@
     { "on": "a", "name": "a launches on real auth with the fixture staged (no account analytics question: cross-device identity pinned off)",
       "wait": { "condition": "ready", "timeout": 120 },
       "expect": [
-        { "route": "tour" },
+        { "route": "welcome" }, { "equals": { "pointer": "/state/offer", "value": "freeAccess" } },
         { "equals": { "pointer": "/context/backendEnvironment", "value": "development" } },
         { "equals": { "pointer": "/context/auth/usesRealAuth", "value": true } },
         { "equals": { "pointer": "/context/launchOptions/stagedImages/0", "value": "terrain_iphone.png" } }
       ] },
+    { "on": "a", "name": "continue past the free-access Welcome screen", "perform": { "action": "continue" }, "expect": [ { "route": "tour" } ] },
     { "on": "a", "perform": { "action": "skip" }, "expect": [ { "route": "consent" } ] },
-    { "on": "a", "perform": { "action": "deny" }, "expect": [ { "route": "home" } ] },
+    { "on": "a", "perform": { "action": "deny" }, "expect": [ { "route": "home" }, { "equals": { "pointer": "/context/analytics/enabled", "value": false } } ] },
     { "on": "a", "name": "a opens the menu; the first model is a bundled demo detector", "goto": "drawer",
       "capture": { "model": "/state/models/0/id" },
       "expect": [ { "equals": { "pointer": "/state/models/0/name", "value": "Fortification relicts in LIDAR 1 (greyscale)" } } ] },
@@ -60,9 +61,10 @@
       "expect": [ { "exists": "/result/id" }, { "route": "home" } ] },
     { "on": "a", "name": "the ledger says it is backed up",
       "wait": { "condition": "backed-up", "arguments": { "id": "${finding}" }, "timeout": 60 } },
-    { "on": "b", "name": "b is a fresh install", "wait": { "condition": "ready", "timeout": 120 }, "expect": [ { "route": "tour" } ] },
+    { "on": "b", "name": "b is a fresh install", "wait": { "condition": "ready", "timeout": 120 }, "expect": [ { "route": "welcome" }, { "equals": { "pointer": "/state/offer", "value": "freeAccess" } } ] },
+    { "on": "b", "name": "continue past the free-access Welcome screen", "perform": { "action": "continue" }, "expect": [ { "route": "tour" } ] },
     { "on": "b", "perform": { "action": "skip" } },
-    { "on": "b", "perform": { "action": "deny" }, "expect": [ { "route": "home" } ] },
+    { "on": "b", "perform": { "action": "deny" }, "expect": [ { "route": "home" }, { "equals": { "pointer": "/context/analytics/enabled", "value": false } } ] },
     { "on": "b", "goto": "drawer" },
     { "on": "b", "goto": "account" },
     { "on": "b", "name": "b signs in to the same account",
