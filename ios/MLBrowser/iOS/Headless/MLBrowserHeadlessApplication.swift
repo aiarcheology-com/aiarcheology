@@ -98,6 +98,8 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	}
 
 	func context() -> JSONValue {
+		// For its effects: the gates settle before their inputs are reported, as they would have on
+		// this render.
 		_ = routeDecision()
 		return [
 			"isReady": .bool(appState.isReady),
@@ -324,8 +326,8 @@ struct HeadlessWelcomeScreen: HeadlessScreen {
 		guard let presented = gate.presentedPrompt else { return [] }
 		return [
 			HeadlessAction("continue", summary: "Continue past the Welcome screen.") { [gate] _ in
-				// The button's own call. The tour the lowering starts is picked up by the next
-				// reconcile, as the view's handlers pick it up on the next render.
+				// The button's own call. Lowering the screen releases the claim and starts an armed
+				// tour in the same call, as it does in the app.
 				gate.continueWelcome(presented)
 				return nil
 			}

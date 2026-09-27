@@ -156,9 +156,18 @@ final class SubscriptionGateCoordinatorTests: XCTestCase {
 		isPaymentsEnabled: Bool = true,
 		isFreeAccessPeriodEnabled: Bool = true,
 		outcome: MockSubscriptionProvider.Outcome = .notSubscribed,
-		seededFastRecord: FreeAccessWindow.Record? = nil
+		seededFastRecord: FreeAccessWindow.Record? = nil,
+		separateInstall: Bool = false
 	) async throws -> World {
-		let defaults = try XCTUnwrap(defaults)
+		let defaults: UserDefaults
+		if separateInstall {
+			// A second, independent install: its own tour and anchor storage.
+			let name = "\(suiteName).other"
+			defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+			addTeardownBlock { UserDefaults().removePersistentDomain(forName: name) }
+		} else {
+			defaults = try XCTUnwrap(self.defaults)
+		}
 		let clock = TestClock(try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 3, day: 2, hour: 18))))
 		if let seededFastRecord {
 			defaults.set(try JSONEncoder().encode(seededFastRecord), forKey: FreeAccessAnchorService.defaultsKey)
@@ -365,6 +374,145 @@ final class SubscriptionGateCoordinatorTests: XCTestCase {
 		XCTAssertEqual(gate.coordinator.display, .wall)
 		XCTAssertFalse(gate.coordinator.hasEverShownContent)
 		XCTAssertNil(gate.coordinator.presentedPrompt)
+	}
+
+	// MARK: - The headless build's reconcile()
+
+	/// What a flow leaves behind, for comparing two ways of driving it.
+	private struct Outcome: Equatable {
+		let display: RootGateDisplay
+		let presentedPrompt: WelcomePresentation?
+		let hasEverShownContent: Bool
+		let isTourActive: Bool
+		let isTourArmed: Bool
+		let isWelcomePresented: Bool
+		let isDay0AcknowledgementPending: Bool
+		let isIntroductionOwed: Bool
+		let events: [AnalyticsEvent]
+
+		@MainActor
+		init(_ world: World, _ gate: SubscriptionGateCoordinator) {
+			display = gate.display
+			presentedPrompt = gate.presentedPrompt
+			hasEverShownContent = gate.hasEverShownContent
+			isTourActive = world.tour.isActive
+			isTourArmed = world.tour.isArmed
+			isWelcomePresented = world.freeAccess.isWelcomePresented
+			isDay0AcknowledgementPending = world.freeAccess.isDay0AcknowledgementPending
+			isIntroductionOwed = world.tour.isIntroductionOwed
+			events = world.tracker.events
+		}
+	}
+
+	/// One flow's steps, applied to either driver: `settle` renders or reconciles.
+	private typealias Flow = (World, SubscriptionGateCoordinator, () -> Void) throws -> Void
+
+	/// Runs `flow` once through the view's handlers and once through `reconcile()`, each on its own
+	/// fresh install, and requires the same outcome at every checkpoint the flow marks.
+	private func assertReconcileMatchesTheView(
+		isPaymentsEnabled: Bool = true,
+		isFreeAccessPeriodEnabled: Bool = true,
+		outcome: MockSubscriptionProvider.Outcome = .notSubscribed,
+		seededFastRecord: FreeAccessWindow.Record? = nil,
+		_ flow: Flow,
+		file: StaticString = #filePath,
+		line: UInt = #line
+	) async throws {
+		var viewCheckpoints: [Outcome] = []
+		let viewWorld = try await makeWorld(
+			isPaymentsEnabled: isPaymentsEnabled, isFreeAccessPeriodEnabled: isFreeAccessPeriodEnabled,
+			outcome: outcome, seededFastRecord: seededFastRecord
+		)
+		let view = GateViewDriver(world: viewWorld)
+		viewCheckpoints.append(Outcome(viewWorld, view.coordinator))
+		try flow(viewWorld, view.coordinator) {
+			view.render()
+			viewCheckpoints.append(Outcome(viewWorld, view.coordinator))
+		}
+
+		var reconcileCheckpoints: [Outcome] = []
+		let headlessWorld = try await makeWorld(
+			isPaymentsEnabled: isPaymentsEnabled, isFreeAccessPeriodEnabled: isFreeAccessPeriodEnabled,
+			outcome: outcome, seededFastRecord: seededFastRecord, separateInstall: true
+		)
+		let headless = headlessWorld.coordinator()
+		headless.reconcile()
+		reconcileCheckpoints.append(Outcome(headlessWorld, headless))
+		try flow(headlessWorld, headless) {
+			headless.reconcile()
+			reconcileCheckpoints.append(Outcome(headlessWorld, headless))
+		}
+
+		XCTAssertEqual(reconcileCheckpoints, viewCheckpoints, file: file, line: line)
+	}
+
+	func testReconcile_matchesTheView_firstRunThenContinue() async throws {
+		try await assertReconcileMatchesTheView { _, gate, settle in
+			let presented = try XCTUnwrap(gate.presentedPrompt)
+			gate.continueWelcome(presented)
+			settle()
+		}
+	}
+
+	func testReconcile_matchesTheView_paymentsOffIntroduction() async throws {
+		try await assertReconcileMatchesTheView(isPaymentsEnabled: false) { _, gate, settle in
+			let presented = try XCTUnwrap(gate.presentedPrompt)
+			gate.continueWelcome(presented)
+			settle()
+		}
+	}
+
+	func testReconcile_matchesTheView_entitlementArrivingMidWelcome() async throws {
+		try await assertReconcileMatchesTheView { world, _, settle in
+			world.provider.simulateEntitlementChange(to: .subscribed)
+			settle()
+		}
+	}
+
+	func testReconcile_matchesTheView_wallThenPurchase() async throws {
+		try await assertReconcileMatchesTheView(isFreeAccessPeriodEnabled: false) { world, _, settle in
+			settle()
+			world.provider.simulateEntitlementChange(to: .subscribed)
+			settle()
+		}
+	}
+
+	func testReconcile_matchesTheView_expiryOverContent() async throws {
+		try await assertReconcileMatchesTheView { world, gate, settle in
+			let presented = try XCTUnwrap(gate.presentedPrompt)
+			gate.continueWelcome(presented)
+			settle()
+			world.clock.now = try XCTUnwrap(self.calendar.date(byAdding: .day, value: 16, to: world.clock.now))
+			world.foreground()
+			settle()
+		}
+	}
+
+	func testReconcile_matchesTheView_subscriberWithAnUnshownDay0() async throws {
+		let start = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 3, day: 2, hour: 12)))
+		let owedWindow = FreeAccessWindow.Record(
+			grantedAt: start,
+			expiresAt: try XCTUnwrap(calendar.date(byAdding: .day, value: 14, to: start)),
+			maxObservedDate: start,
+			day0Shown: false
+		)
+		try await assertReconcileMatchesTheView(outcome: .subscribed, seededFastRecord: owedWindow) { _, _, settle in
+			settle()
+		}
+	}
+
+	/// A Welcome screen that is up stays up however often the headless build reconciles.
+	func testReconcile_isIdempotent_withAWelcomeScreenUp() async throws {
+		let world = try await makeWorld()
+		let gate = world.coordinator()
+		gate.reconcile()
+		let first = Outcome(world, gate)
+		XCTAssertNotNil(first.presentedPrompt)
+
+		gate.reconcile()
+		gate.reconcile()
+
+		XCTAssertEqual(Outcome(world, gate), first)
 	}
 
 	// MARK: - Observation

@@ -79,8 +79,7 @@ struct HeadlessRouteDecision: Equatable {
 
 		switch display {
 		case .hold: return .gate
-		// The paywall covers everything under the root gate, the analytics question included.
-		case .wall, .wallOverContent: return .paywall
+		case .wall, .wallOverContent: return paywallOrWhatCoversIt
 		case .content: break
 		}
 
@@ -128,6 +127,37 @@ struct HeadlessRouteDecision: Equatable {
 		}
 
 		return isDrawerOpen ? .drawer : .home
+	}
+
+	/// The paywall, unless something drawn above the root gate covers it.
+	///
+	/// The paywall is the gate's own overlay (or, as the wall, its whole content), so it covers the
+	/// analytics question and the app proper. Two things are drawn above the gate: a sheet the app
+	/// presented before access ran out (only possible over `.wallOverContent`, where the content is
+	/// still mounted), and the back-up question, which sits at the scene root and holds only while
+	/// the analytics question is on screen.
+	private var paywallOrWhatCoversIt: HeadlessRoute {
+		if display == .wallOverContent {
+			if isSaveFindingPresented { return .saveFinding }
+			if isDrawerOpen && isAccountPresented { return .account }
+			if isDrawerOpen && isFindingsPresented { return .findings }
+		}
+		if isBackupConsentPending && isAnalyticsQuestionOnScreen == false {
+			return .backupConsent
+		}
+		return .paywall
+	}
+
+	/// Whether `AnalyticsChoiceGate` is putting its question on screen, which is what holds the
+	/// back-up question (`ConsentQuestionOnScreenKey`). The gate is not mounted behind the wall.
+	private var isAnalyticsQuestionOnScreen: Bool {
+		guard display == .content || display == .wallOverContent else { return false }
+		let asksOverContent = AnalyticsChoiceDisplay.asksOverContent(
+			presentation: consentPresentation,
+			hasEverShownContent: hasEverShownAnalyticsContent,
+			isAskDeferred: isAskDeferred
+		)
+		return analyticsDisplay == .choice || asksOverContent
 	}
 
 	/// Whether the consent question must wait: `AnalyticsChoiceGate.isAskDeferred`.

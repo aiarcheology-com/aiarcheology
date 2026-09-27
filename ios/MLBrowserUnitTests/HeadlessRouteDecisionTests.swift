@@ -89,15 +89,47 @@ final class HeadlessRouteDecisionTests: XCTestCase {
 		XCTAssertEqual(decision { $0.display = .content }.route, .tour)
 	}
 
-	func test_thePaywallOverTheApp_coversTheConsentQuestionAndEverySheet() {
+	func test_thePaywallOverTheApp_coversTheConsentQuestionAndTheApp() {
 		XCTAssertEqual(decision {
 			$0.display = .wallOverContent
 			$0.isTourPendingOrRunning = false
 			$0.hasEverShownAnalyticsContent = true
-			$0.isDrawerOpen = true
-			$0.isAccountPresented = true
-			$0.isSaveFindingPresented = true
-		}.route, .paywall)
+		}.route, .paywall, "the question is under the gate's overlay")
+		XCTAssertEqual(decision { $0.display = .wallOverContent; $0.isDrawerOpen = true }.route, .paywall)
+	}
+
+	/// A sheet presented before access ran out is drawn above the whole gate, so it stays usable and
+	/// can be closed; the paywall is what it closes onto.
+	func test_aSheetOpenWhenAccessRunsOut_staysAboveThePaywall() {
+		let expired: (inout HeadlessRouteDecision) -> Void = {
+			$0.display = .wallOverContent
+			$0.isTourPendingOrRunning = false
+			$0.consentPresentation = .resolved
+		}
+		XCTAssertEqual(decision { expired(&$0); $0.isSaveFindingPresented = true }.route, .saveFinding)
+		XCTAssertEqual(decision { expired(&$0); $0.isDrawerOpen = true; $0.isAccountPresented = true }.route, .account)
+		let findings = decision { expired(&$0); $0.isDrawerOpen = true; $0.isFindingsPresented = true }
+		XCTAssertEqual(findings.route, .findings)
+		XCTAssertEqual(findings.route(afterClosing: .findings), .paywall)
+		XCTAssertEqual(decision { $0.display = .wall; $0.isSaveFindingPresented = true }.route, .paywall, "no app behind the wall to present from")
+	}
+
+	/// The back-up question sits at the scene root, above the gate, and holds only for the analytics
+	/// question — which the paywall hides but does not unmount.
+	func test_theBackupQuestion_isAboveThePaywall_unlessTheAnalyticsQuestionHoldsIt() {
+		XCTAssertEqual(decision { $0.display = .wall; $0.isBackupConsentPending = true }.route, .backupConsent)
+		XCTAssertEqual(decision {
+			$0.display = .wallOverContent
+			$0.isTourPendingOrRunning = false
+			$0.consentPresentation = .resolved
+			$0.isBackupConsentPending = true
+		}.route, .backupConsent)
+		XCTAssertEqual(decision {
+			$0.display = .wallOverContent
+			$0.isTourPendingOrRunning = false
+			$0.hasEverShownAnalyticsContent = true
+			$0.isBackupConsentPending = true
+		}.route, .paywall, "held by the analytics question under the paywall")
 	}
 
 	func test_aRaisedWelcomeScreen_isTheWelcomeRoute_overTheTour() {
