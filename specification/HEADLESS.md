@@ -95,7 +95,7 @@ The protocol is JSON Lines over TCP on `127.0.0.1`: one JSON document per line, 
 
 `HeadlessServer` binds an ephemeral port. It writes `{host, port, token}` atomically, with mode `0600`, to the endpoint file, and removes the file on `stop()`. A killed app cannot remove its file, so a launcher must not treat the file as proof that the app is running. `HeadlessClient` reports a refused connection as `notRunning`: the app is not running, or was suspended. A connection that sends no valid hello within 10 seconds is closed.
 
-**What the token protects.** Loopback is reachable by every local process. The token (256 random bits, compared in constant time) keeps out processes that cannot read the endpoint file. That guards against accidental or ordinary local access, such as another tool probing ports. It is **not** a boundary against code running as the same user, which can read the file. The safety boundary is elsewhere: the server exists only in debug builds, and ML Browser's production locks (see [Never production](#ml-browsers-headless-build)) keep automation away from production data.
+**What the token protects.** Loopback is reachable by every local process. The token (256 random bits, compared in constant time) keeps out processes that cannot read the endpoint file. That guards against accidental or ordinary local access, such as another tool probing ports. It is **not** a boundary against code running as the same user, which can read the file. The safety boundary is elsewhere: the server exists only in debug builds, and ML Browser's production locks (see [Never production](#ml-browsers-headless-mode)) keep automation away from production data.
 
 ## Scenarios (schema v1)
 
@@ -130,8 +130,8 @@ A scenario is a JSON file. Decoding is strict: an unknown key anywhere is an err
   - An installation's steps from its first `relaunch` on, teardown included, are left out of this check: the relaunched process may be another build, so the check before each step judges them against its handshake.
   - Before each step is sent, its resolved routes, `${…}` values included, are checked again against the installation's latest handshake, so a relaunch into another build is checked against that build. This includes `expect route`, which is compared locally and would never reach the app's own check.
   - An installation whose app declares no routes is not checked.
-  - **Static check.** `headless.sh test --lint [files…]` runs the same check with no build and no simulator, against a checked-in copy of the app's map (see [ML Browser's navigation map](#ml-browsers-headless-build)). Plain `headless.sh test` runs it first, before building or launching anything. A scenario that fails it or does not load is reported and counted as failed, and does not run; the others still build and run. Only when no scenario remains is nothing built. Both forms must run from the repository root, and say so before reading the map when they do not.
-    - The checked-in map can lag a freshly changed declaration. It then blocks the affected scenarios before the build, even though the new build would accept them. The fix is to regenerate the file from the failing `HeadlessNavigationMapTests` equality test (see [Keeping it equal](#ml-browsers-headless-build)).
+  - **Static check.** `headless.sh test --lint [files…]` runs the same check with no build and no simulator, against a checked-in copy of the app's map (see [ML Browser's navigation map](#ml-browsers-headless-mode)). Plain `headless.sh test` runs it first, before building or launching anything. A scenario that fails it or does not load is reported and counted as failed, and does not run; the others still build and run. Only when no scenario remains is nothing built. Both forms must run from the repository root, and say so before reading the map when they do not.
+    - The checked-in map can lag a freshly changed declaration. It then blocks the affected scenarios before the build, even though the new build would accept them. The fix is to regenerate the file from the failing `HeadlessNavigationMapTests` equality test (see [Keeping it equal](#ml-browsers-headless-mode)).
     - It is an early filter: the running app's handshake is authoritative, and the runner checks the routes again after each launch, against what that build declares.
   - **How fast a typo fails.** `--lint`, the pre-build check and the session's rejection of a `goto` or `wait route` each fail within a second. The runner's post-launch check runs only after the simulator launch, which takes 30–120 seconds.
 - **`bestEffort`** (teardown only): `"bestEffort": true` turns the step's failure into a warning instead of a failed run. Use it for cleanup that must be attempted from wherever a failed run stopped. It is never silent: the report lists it under `warnings`, its step carries `"bestEffort": true` in the report's JSON, and `headless.sh test` prints it as `warning:`. The decoder and `validate()` both refuse it outside `teardown`, so it cannot weaken a step's assertions. An ordinary teardown step that fails still fails the run.
@@ -146,18 +146,30 @@ A scenario is a JSON file. Decoding is strict: an unknown key anywhere is an err
 - **Compatibility within a version.** Compatibility within a schema version is **backward only**: a newer runner accepts every file an older one accepted, with the same meaning. There is no forward compatibility, because decoding is strict: an older runner rejects a file that uses a newer optional key, such as `bestEffort` (before AIA-0974) or `unless` and `notRoute` (before AIA-0990). A change that alters the meaning of an existing file bumps `schemaVersion`.
 - **The report.** `ScenarioReport` is `Codable`. Its JSON form carries every step's `failures`, `bestEffort` and `skipped`, which the package tests check. `headless.sh test` prints the report as text and writes no report file; there is no JUnit output.
 
-## ML Browser's headless build
+## ML Browser's headless mode
 
-ML Browser builds without its UI when `AIA_APP_INTERFACE=headless` is passed to `xcodebuild`:
+Headless mode is a launch mode of ML Browser's Debug app (AIA-0991; until then, AIA-0970's separate headless build). Launched with `-interface headless`, the app runs without its UI:
 
 ```sh
-xcodebuild build -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -configuration Debug \
-  -destination "generic/platform=iOS Simulator" -derivedDataPath .deriveddata-headless \
-  AIA_APP_INTERFACE=headless
+scripts/headless.sh build          # or ./scripts/unittest.sh, which makes the same build
+scripts/headless.sh up --state a   # installs it on aia-headless-a and launches it with -interface headless
 ```
 
 - **Same app.** `AppEntry` launches `MLBrowserHeadless` instead of `MLBrowser`. It keeps the same app delegate, bootstrap and `AppRuntime`, and the same composition root. The one window shows a status line, and a `HeadlessServer` answers in place of the views. What the views did themselves is either reproduced by the adapters or left out; [Differences from the app](#differences-from-the-app) lists each case.
-- **Real composition.** The headless build uses what a Debug build uses: Clerk's development instance, the development findings backend, ConfigCat's Test environment, and persistent storage. Each simulator device is one installation of the app.
+- **Which builds share one binary.** `headless.sh build` is the build half of `./scripts/unittest.sh`: `xcodebuild build-for-testing -testPlan MLBrowserUnitTests` with `AIA_INCLUDE_TEST_FIXTURES=YES`, in `unittest.sh`'s DerivedData (`.deriveddata`, or `DERIVED_DATA_PATH`; `SPM_CACHE_PATH` as there). Its destination is `aia-headless-a` by id instead of the unit tests' iPhone, which changes only asset thinning.
+  - Measured on AIA-0991: after the unit tests, `headless.sh build` compiles no Swift and links nothing; the app executable and `ML Browser.debug.dylib` keep their UUIDs. The UI plan and the `HeadlessParity` plan, run with the same flags into the same DerivedData, reuse that product the same way. So the unit tests, the UI tests, the parity plan and headless mode run one binary.
+  - `build-for-testing`, not `build`: the test build links the root package's products (HeadlessKit, SupportLogFormat, NativeModelConverter) into the app as frameworks it shares with the test bundle, while a plain `build` links them statically, and each relinks the other's app.
+  - **Not the product of Xcode's Run button.** Run builds the scheme's `build` action into Xcode's own DerivedData, without the fixtures flag. It compiles the same Swift in the same configuration (the flag only adds bundle resources, below), but it is another binary: the package products are linked statically, and it carries no FastViT fixture. Headless mode runs from it too: see [Debugging headless mode in Xcode](#debugging-headless-mode-in-xcode).
+  - Every build into the shared DerivedData must pass `AIA_INCLUDE_TEST_FIXTURES=YES`: the fixture phase removes the fixture from a build without it, and `up` installs whatever product is there.
+  - The fixture must be fetched first; `embed_apple_test_models.sh` fails the build without it. `headless.sh build` runs `scripts/fetch_apple_test_models.sh` first, as `unittest.sh` does.
+  - Never run `headless.sh build` or `test` while `unittest.sh` or a UI test run uses the same DerivedData. After `unittest.sh`, `headless.sh test --no-build` and `up` use its product directly; a no-op `headless.sh build` still costs about 20 s of script phases and signing.
+  - `.deriveddata-headless`, the old separate build's DerivedData, is no longer used and can be deleted by hand.
+- **What selects it.** `-interface headless`, a key/value pair: a bare flag would take the next argument as its value. `AppInterface.resolve` reads it, and exists only in Debug builds:
+  - Only a build for the development backend reads it. There, the last `-interface` wins; `-interface ui`, or none, is the app. A missing value, a value starting with `-`, or any other value stops the launch, as the old build setting refused any value but `ui` or `headless`. So does `headless` in a test host (`XCTestConfigurationFilePath` or `UI_TESTING`), because the scheme hands its launch arguments to the tests.
+  - A Debug build against production **ignores** `-interface` unread and launches the app: the entry point and the server are not compiled into it, so there is nothing to select and nothing a value could stop.
+  - A Release build contains no code that reads `-interface`.
+  - A UI launch never parses the headless launch options below, so a stale one cannot stop it.
+- **Real composition.** Headless mode uses what a Debug build uses: Clerk's development instance, the development findings backend, ConfigCat's Test environment, and persistent storage. Each simulator device is one installation of the app. The bundle also carries the unit tests' FastViT fixture (a [Differences](#differences-from-the-app) row).
 - **Launch options.** Pass them as launch arguments. Each is echoed in the handshake `metadata` and in `context`.
   - `-headlessFlag key=true|false` is repeatable and pins a feature flag over the live provider (below).
   - `-headlessStagedImage <name>` is repeatable and names an image the launcher staged (below). Only the name is passed, never a host path, and `launchOptions.stagedImages` echoes it.
@@ -180,13 +192,13 @@ xcodebuild build -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -configu
   - Before every launch it copies each file into `Library/Application Support/Headless/Staged/<name>` in the app's data container.
   - Nothing is downloaded at run time. The picture stands in for the page snapshot the web screen detects on; browsing stays out of scope.
   - The scenarios use `ios/MLBrowserUnitTests/Fixtures/terrain_iphone.png`, an existing unit-test fixture from AIA-0306 whose source is not recorded. It is a grayscale terrain hillshade with no people, text or personal data. It is staged into local simulators and uploaded only to the development backend, so it adds no new distribution.
-- **No crash reporting (a named substitution).** `headless.sh build` passes `SENTRY_DSN=` to `xcodebuild`, so the headless build has an empty DSN and the app leaves Sentry off, as it does in any build without the secret. The handshake reports `crashReporting: false`, and the launcher refuses to drive a build that reports anything else. A build made another way, or before this change, fails with a request to rebuild.
+- **No crash reporting (a named substitution).** Headless mode runs the no-op crash reporter, even when a `SENTRY_TEST_*` variable asks for Sentry (`DependencyContainer.forcesNoOpCrashReporter`, AIA-0991). The build keeps its DSN; a Debug build never starts Sentry without `SENTRY_TEST_*` anyway, so the `SENTRY_DSN=` the old headless build passed only changed what the handshake reported. The handshake's `crashReporting` now reports the reporter actually in use, and the launcher refuses to drive a process that says anything but `false`.
   - Why: Sentry's "Github Alert" rule has no environment filter, so the first error-level event from any environment, development included, opens a GitHub issue. Scenarios provoke failures on purpose, and a flaky soak would file issues.
-  - How to remove it: delete the `SENTRY_DSN=` argument in `HeadlessWorkspace.build()` once that rule ignores the `development` environment.
+  - How to remove it: drop the headless-mode force in `DependencyContainer` once that rule ignores the `development` environment.
 - **Endpoint.** The server publishes `Library/Application Support/Headless/endpoint.json` in the app's data container (`xcrun simctl get_app_container <device> com.aiarcheology.ios data`).
 - **Never production.** Three independent locks keep headless automation away from production data:
-  1. The build's validation phase refuses `headless` outside `Debug` with the `development` backend.
-  2. The server refuses to start unless the backend is `development`, and the in-app backend switch is disabled.
+  1. Compile time: `AppEntry`'s headless branch, `MLBrowserHeadless` and its command server compile only under `DEBUG && AIA_BACKEND_ENV_development` (an architecture test checks the whole-file wrap), so neither Release nor a Debug build against production contains a listener. Such a build ignores `-interface`.
+  2. The server refuses to start unless the backend is `development`, and the in-app backend switch refuses in headless mode.
   3. The handshake reports `backendEnvironment`, so a launcher can refuse anything else.
 - **Real by default (AIA-0976).** A fresh install enters the way a new user does: real StoreKit, the real Keychain free-access anchor, the free-access Welcome screen, the tour, then the consent question.
   - **The Keychain anchor.** The headless build uses `KeychainFreeAccessAnchorService`, as a user's install does. A throwaway probe build (never committed) read and wrote the production anchor item at launch on `aia-headless-a`, iOS 27.0 simulator, Xcode 27.2 beta:
@@ -284,22 +296,37 @@ xcodebuild build -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -configu
       - Signing in with the same address afterwards creates a new user with an empty namespace. Scenarios name only the address.
     - **Never call the Worker's account-erase route (`DELETE /v1/me/data`) from automation or by hand.** It fences the Clerk user id permanently, and every later write for it fails with `410 account_deleting`.
 - **Tooling.** `scripts/headless.sh` wraps `ProjectTool headless`:
-  - `build`
+  - `build`, the Debug app's build (`unittest.sh`'s; not needed right after it)
   - `up --state a [--flag key=true…] [--image <repository path>…] [--free-access-ends-in <seconds>] [--mock-subscription subscribed]` (the mock is manual-only; see Launch options)
   - `exec --state a [--format json|dot] <command>`, for example `exec --state a perform enable id=…`, or `exec --state a --format dot map` (`dot` renders only `map`; options go before the command)
   - `down --state a`, and `reset --state a`, which erases the device and resets its Keychain
-  - `test [files…]`, which runs every `ios/HeadlessScenarios/*.json` by default, after the static route check
+  - `test [--no-build] [files…]`, which runs every `ios/HeadlessScenarios/*.json` by default, after the static route check; `--no-build` uses the product already there, for example right after `unittest.sh`
   - `test --lint [files…]`, which runs only the static route check: no build, no simulator
 
-  It creates and uses only simulators named `aia-headless-<state>` and never touches any other device. It builds into `.deriveddata-headless`, so the app module `unittest.sh` reuses is not rebuilt. A scenario's first launch of an installation erases its device and resets its Keychain, making it a fresh install. A freshly erased device can refuse `simctl install` and `simctl launch` for a few seconds after it reports booted, so the tool retries each up to five times, two seconds apart, and prints every retry. `relaunch` keeps its data and does not reinstall. Reinstalling moves the app's data container, and preference writes the system has not yet flushed would be lost with the move. A relaunch quits the app the way a force-quit does, so a preference written in the moment before it can still be lost, as on a device.
+  It creates and uses only simulators named `aia-headless-<state>` and never touches any other device. `build` makes `unittest.sh`'s build in its DerivedData (see [which builds share one binary](#ml-browsers-headless-mode)), and every launch passes `-interface headless` ahead of the scenario's options. A scenario's first launch of an installation erases its device and resets its Keychain, making it a fresh install. A freshly erased device can refuse `simctl install` and `simctl launch` for a few seconds after it reports booted, so the tool retries each up to five times, two seconds apart, and prints every retry. `relaunch` keeps its data and does not reinstall. Reinstalling moves the app's data container, and preference writes the system has not yet flushed would be lost with the move. A relaunch quits the app the way a force-quit does, so a preference written in the moment before it can still be lost, as on a device.
 - **Things a run cannot control:** remote `appMessages` can change during a run, and a live message may raise a notification-authorization alert on the device. Neither may be asserted.
 - **Analytics signals from automation.** `consent-allow-persists` chooses `allow`, so every run of it sends the buffered funnel (`free_access.window_granted`, `welcome.shown`, `free_access.continue_tapped`, onboarding) to TelemetryDeck: anonymous, about ten runs per soak. The SDK marks every signal from a Debug build as test mode, and there is one app ID. This is kept on purpose, not substituted: blanking the app ID would let the scenario pass with analytics never activating. If the owner prefers no test signals at all, `TELEMETRYDECK_APP_ID=` in `HeadlessWorkspace.build()` is the alternative, and the scenario would then need a store-level check instead of `context.analytics.enabled`.
 - **Error codes.** `error-contract` provokes, against the real app, `unknownAction`, `unreachable`, `unknownCondition`, `timeout`, `actionFailed` (`detect-image` on the committed text file `ios/HeadlessScenarios/Fixtures/not-an-image.png`) and `invalidArgument`, and checks that the app still works afterwards. `malformedRequest`, `unknownCommand`, `unauthorized` and `protocolMismatch` cannot be written in a scenario; the HeadlessKit tests cover them.
 - **Soak notes.** A `relaunch` right after a preference write can lose it, as a force-quit can on a device. The sensitive step is in `onboarding-interrupted`: a relaunch right after `skip`, whose write is `TourState.markSeen()`. If it is lost, that installation shows `tour` where `consent` is expected.
 
+### Debugging headless mode in Xcode
+
+The MLBrowser scheme has a disabled launch argument, `-interface headless` (Edit Scheme › Run › Arguments).
+
+1. Create the device once, for example with `scripts/headless.sh up --state a`. Xcode's run destination must be an existing `aia-headless-<name>`: `exec` finds the app's endpoint by that device name only.
+2. Tick `-interface headless`, pick `aia-headless-a` as the run destination, and Run. Breakpoints work as in any Debug run.
+3. Drive it from a terminal: `scripts/headless.sh exec --state a state`, `exec --state a goto drawer`, and so on.
+4. Untick the argument before running tests: the scheme hands it to the test hosts, which then stop at launch.
+
+How it differs from `up`:
+
+- Run applies the scheme's `Configuration.storekit`, so StoreKit answers from that local configuration, not from the sandbox a `simctl launch` reaches.
+- The scheme passes no headless options: flags follow ConfigCat's Test environment unless you add `-headlessFlag key=value` arguments, and nothing is staged, so `detect-image` has no image until an `up --image …` stages one.
+- Run installs Xcode's own product on the device (see [which builds share one binary](#ml-browsers-headless-mode)); the next `up` reinstalls the shared one.
+
 ### Differences from the app
 
-Every way the headless build differs from the app, in four categories. Later tickets change their own rows.
+Every way headless mode differs from the app, in four categories. Later tickets change their own rows.
 
 - **Equivalent:** the same production operation as the UI.
 - **Projection:** the UI's representation is removed and the semantics are kept.
@@ -325,8 +352,9 @@ Every way the headless build differs from the app, in four categories. Later tic
 | `save` stores the whole staged image: the unit rect makes `FindingCapture.cropped(to:)` return it unchanged | Substitution | no on-screen viewport to frame from | the pixel crop and the re-normalized box never run; the full frame is uploaded | give `save` a nominal viewport so the sheet's framing runs |
 | `-headlessFlag` pins the four entry flags over ConfigCat | Substitution | launch-captured flags race the first fetch (AIA-0976) | pinned flags ignore the Test environment | a dedicated ConfigCat environment for automation |
 | `-mockSubscription` replaces StoreKit, for manual `up` only | Substitution | a subscribed install needs a real purchase | none in scenarios: no committed scenario may use it | a supported StoreKit test configuration for launched apps |
-| `-headlessFreeAccessEndsIn` seeds a short free-access window (`FreeAccessExpirySeed`) | Substitution | a real window lasts days | the expiry path is real; only the anchor is seeded | see [Launch options](#ml-browsers-headless-build) |
-| `SENTRY_DSN=` is empty, so crash reporting is off | Substitution | Sentry's alert rule would file issues for provoked failures | crash reporting is untested headlessly | once that rule ignores `development` |
+| `-headlessFreeAccessEndsIn` seeds a short free-access window (`FreeAccessExpirySeed`) | Substitution | a real window lasts days | the expiry path is real; only the anchor is seeded | see [Launch options](#ml-browsers-headless-mode) |
+| Headless mode runs the no-op crash reporter, even with `SENTRY_TEST_*` set | Substitution | Sentry's alert rule would file issues for provoked failures | crash reporting is untested headlessly | once that rule ignores `development` |
+| The product carries the unit tests' FastViT fixture (`AIA_INCLUDE_TEST_FIXTURES=YES`: `FastViTT8F16.mlmodelc` and its licence files in the bundle) | Substitution | one product with `unittest.sh`, so a build after it recompiles nothing (AIA-0991) | the bundle differs from a user's install. No headless behavior changes: `DemoDataManager` loads the fixture only in a UI test that asks for it, and a fresh install's drawer lists the same two models, in the same order, with and without it (measured on AIA-0991) | a fixture-free build, which means a second product and DerivedData |
 | `loadProducts()` | Omission | it runs from `WelcomeView` and `PaywallView` | prices and introductory-offer eligibility are never fetched or shown | not planned: scenarios would depend on the StoreKit sandbox |
 | `paywall.shown` | Omission | sent by `PaywallView` | the event cannot be verified headlessly (`welcome.shown` still is) | not planned |
 | The paywall's controls: purchase, restore, sign in, sign out, delete account, export or remove findings | Omission | purchase and restore need the App Store; the rest are paywall-only views | a walled user's escape hatches are untested | offer them as `paywall` actions |

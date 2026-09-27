@@ -86,8 +86,18 @@ public struct StagedImage: Equatable {
 
 /// What one launch needs: the app's launch arguments and the images to stage before it starts.
 public struct HeadlessLaunch: Equatable {
+	/// The launch block's options, as the app's launch arguments.
 	public let arguments: [String]
 	public let stagedImages: [StagedImage]
+
+	/// What selects headless mode in the Debug app (AIA-0991), ahead of every launch's options. A
+	/// key/value pair, as the app reads it.
+	public static let headlessInterface = ["-interface", "headless"]
+
+	/// Everything `simctl launch` passes to the app: headless mode, then the options.
+	public var processArguments: [String] {
+		Self.headlessInterface + arguments
+	}
 }
 
 /// Turns a scenario installation's `launch` block into the app's launch arguments and the images to

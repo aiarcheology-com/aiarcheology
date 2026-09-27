@@ -23,7 +23,10 @@ struct Headless: AsyncParsableCommand {
 	)
 
 	struct Build: AsyncParsableCommand {
-		static let configuration = CommandConfiguration(abstract: "Build the headless app into .deriveddata-headless.")
+		static let configuration = CommandConfiguration(
+			abstract: "Build the Debug app that headless mode runs from: unittest.sh's build, in its DerivedData.",
+			discussion: "After ./scripts/unittest.sh it recompiles no Swift. Never run it while unittest.sh or a UI test run uses the same DerivedData."
+		)
 
 		func run() async throws {
 			try HeadlessWorkspace.build()
@@ -147,7 +150,7 @@ struct Headless: AsyncParsableCommand {
 			"""
 		)
 
-		@Flag(name: .long, help: "Use the existing headless build instead of building first.")
+		@Flag(name: .long, help: "Use the Debug app already built (by unittest.sh or headless.sh build) instead of building first.")
 		var noBuild = false
 
 		@Flag(name: .long, help: "Only check the scenarios' routes against the checked-in navigation map: no build, no simulator.")
@@ -253,42 +256,68 @@ struct SimulatorLauncher: InstallationLauncher {
 	}
 }
 
-/// The repository's build of the headless app.
+/// The repository's Debug build of the app, which headless mode runs from (AIA-0991).
+///
+/// The same build `scripts/unittest.sh` makes, in the same DerivedData, so one product serves the unit
+/// tests, the UI tests and headless mode, and a build right after `unittest.sh` compiles no Swift.
 enum HeadlessWorkspace {
 
 	static var root: URL {
 		URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 	}
 
-	/// Its own DerivedData: the headless compile condition would otherwise rebuild the app module
-	/// that `unittest.sh` and the UI tests reuse from `.deriveddata`.
+	private static var environment: [String: String] { ProcessInfo.processInfo.environment }
+
+	/// `unittest.sh`'s: `DERIVED_DATA_PATH` when set, else `.deriveddata`.
 	static var derivedData: URL {
-		root.appendingPathComponent(".deriveddata-headless")
+		if let path = environment["DERIVED_DATA_PATH"], path.isEmpty == false {
+			return URL(fileURLWithPath: path)
+		}
+		return root.appendingPathComponent(".deriveddata")
 	}
 
 	static var app: URL {
 		derivedData.appendingPathComponent("Build/Products/Debug-iphonesimulator/ML Browser.app")
 	}
 
+	/// `unittest.sh`'s build, argument for argument: the build half of its `test`
+	/// (`build-for-testing -testPlan MLBrowserUnitTests`), with the same settings
+	/// (`AIA_INCLUDE_TEST_FIXTURES=YES`), DerivedData and package cache, and a destination named by
+	/// id, so it compiles one architecture. The destination is installation `a`'s simulator rather
+	/// than the unit tests' iPhone; that changes only asset thinning, never a compile or a link.
+	/// `-configuration Debug` is what the scheme's test action uses anyway; `-quiet` affects output only.
+	///
+	/// `build-for-testing`, not `build`: the test build links the root package's products into the app
+	/// as frameworks it shares with the test bundle, a plain `build` links them statically, and each
+	/// relinks the other's app (measured; AIA-0991). So after `unittest.sh` this recompiles and
+	/// relinks nothing.
+	///
+	/// No crash-reporting override: headless mode runs the no-op reporter whatever the build carries
+	/// (`DependencyContainer`), and the launcher checks the handshake says so.
 	static func build() throws {
 		try HeadlessRepositoryRoot.require(root)
-		let status = try runShellCommand("xcodebuild", arguments: [
-			"build",
+		// The fixture the build embeds (`embed_apple_test_models.sh`) must be on disk first, as in
+		// unittest.sh; without it the build fails.
+		let fetch = try runShellCommand("scripts/fetch_apple_test_models.sh", arguments: [])
+		guard fetch == 0 else { throw ExitCode(fetch) }
+		let destination = try HeadlessSimulator(installation: "a").buildDestination()
+		var arguments = [
+			"build-for-testing",
 			"-workspace", "ios/MLBrowser.xcworkspace",
 			"-scheme", "MLBrowser",
+			"AIA_INCLUDE_TEST_FIXTURES=YES",
+			"-testPlan", "MLBrowserUnitTests",
 			"-configuration", "Debug",
-			"-destination", "generic/platform=iOS Simulator",
+			"-destination", "platform=iOS Simulator,id=\(destination)",
 			"-derivedDataPath", derivedData.path,
 			"-skipPackagePluginValidation",
 			"-skipMacroValidation",
-			"-quiet",
-			"AIA_APP_INTERFACE=headless",
-			// No crash reporting from automation (AIA-0975): Sentry's "Github Alert" rule turns the first
-			// error or fatal event of any environment into a GitHub issue, and scenario runs provoke
-			// failures on purpose. The app disables Sentry when the DSN is empty. Remove this line once
-			// that rule ignores the development environment.
-			"SENTRY_DSN="
-		])
+			"-quiet"
+		]
+		if let cache = environment["SPM_CACHE_PATH"], cache.isEmpty == false {
+			arguments += ["-clonedSourcePackagesDirPath", cache]
+		}
+		let status = try runShellCommand("xcodebuild", arguments: arguments)
 		guard status == 0 else { throw ExitCode(status) }
 	}
 
@@ -309,11 +338,11 @@ struct HeadlessSimulator {
 		deviceName = try HeadlessDevice.deviceName(for: installation)
 	}
 
-	/// Launches the headless build — erasing the device first when `fresh`, installing the current
+	/// Launches the app in headless mode — erasing the device first when `fresh`, installing the current
 	/// build when `install` — and returns a connected client for the new endpoint.
 	func launch(options: JSONValue, fresh: Bool, install: Bool) async throws -> HeadlessClient {
 		guard FileManager.default.fileExists(atPath: HeadlessWorkspace.app.path) else {
-			throw ValidationError("no headless build at \(HeadlessWorkspace.app.path); run `scripts/headless.sh build` first")
+			throw ValidationError("no Debug build at \(HeadlessWorkspace.app.path); run `scripts/headless.sh build` (or ./scripts/unittest.sh) first")
 		}
 		let launch = try HeadlessLaunchArguments.make(from: options, repositoryRoot: HeadlessWorkspace.root)
 		let udid = try ensureDevice()
@@ -338,7 +367,7 @@ struct HeadlessSimulator {
 		// On every launch, relaunches included: a relaunch re-sends the same options, and the app is
 		// told the names again, so the files must match the repository's current copies.
 		try await stage(launch.stagedImages, udid: udid)
-		let pid = try await launchApp(udid: udid, arguments: launch.arguments)
+		let pid = try await launchApp(udid: udid, arguments: launch.processArguments)
 		let (client, hello) = try await connectWhenListening(udid: udid, pid: pid)
 		// The launcher's lock on production data; the build and the app hold the other two.
 		guard hello.metadata["backendEnvironment"] == "development" else {
@@ -346,12 +375,12 @@ struct HeadlessSimulator {
 			try terminate()
 			throw ValidationError("the headless app reports backend \(hello.metadata["backendEnvironment"]?.jsonString ?? "none"); refusing to drive anything but development")
 		}
-		// `headless.sh build` leaves Sentry off (see `HeadlessWorkspace.build`); a build made any other
-		// way, or before that, would send the failures scenarios provoke to Sentry and on to GitHub.
+		// Headless mode runs the no-op crash reporter (AIA-0991); a process that runs a real one would
+		// send the failures scenarios provoke to Sentry and on to GitHub.
 		guard hello.metadata["crashReporting"] == false else {
 			await client.close()
 			try terminate()
-			throw ValidationError("the headless app reports crashReporting \(hello.metadata["crashReporting"]?.jsonString ?? "unknown"); rebuild with `scripts/headless.sh build`")
+			throw ValidationError("the headless app reports crashReporting \(hello.metadata["crashReporting"]?.jsonString ?? "unknown"); headless mode must run without a crash reporter, so refusing to drive it")
 		}
 		return client
 	}
@@ -461,6 +490,11 @@ struct HeadlessSimulator {
 		return matches.first?.udid
 	}
 
+	/// The simulator `HeadlessWorkspace.build` targets: this installation's own, created if missing.
+	func buildDestination() throws -> String {
+		try ensureDevice()
+	}
+
 	private func ensureDevice() throws -> String {
 		precondition(HeadlessDevice.isToolDevice(named: deviceName), "only aia-headless- devices are ever touched")
 		if let udid = try existingDevice() { return udid }
@@ -522,7 +556,7 @@ struct HeadlessSimulator {
 			}
 			try await Task.sleep(for: .milliseconds(250))
 		}
-		throw ValidationError("the app on \(deviceName) did not accept a connection within 120 s (\(lastError.map { "\($0)" } ?? "no endpoint published")); is this the headless build?")
+		throw ValidationError("the app on \(deviceName) did not accept a connection within 120 s (\(lastError.map { "\($0)" } ?? "no endpoint published")); was it launched in headless mode?")
 	}
 
 	// MARK: - Processes

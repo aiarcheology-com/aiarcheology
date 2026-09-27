@@ -119,6 +119,15 @@ final class HeadlessLaunchArgumentsTests: XCTestCase {
 		XCTAssertEqual(try make([:]), HeadlessLaunch(arguments: [], stagedImages: []))
 	}
 
+	/// Every launch selects headless mode first (AIA-0991): without it the Debug app starts its UI and
+	/// the launcher waits for an endpoint that never appears.
+	func testProcessArgumentsStartWithTheHeadlessInterface() throws {
+		XCTAssertEqual(try make([:]).processArguments, ["-interface", "headless"])
+		let launch = try make(["mockSubscription": "subscribed", "flags": ["isPaymentsEnabled": true]])
+		XCTAssertEqual(Array(launch.processArguments.prefix(2)), ["-interface", "headless"])
+		XCTAssertEqual(Array(launch.processArguments.dropFirst(2)), launch.arguments)
+	}
+
 	func testMistakesAreErrors() {
 		let invalid: [JSONValue] = [
 			"subscribed",
