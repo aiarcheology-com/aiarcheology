@@ -535,6 +535,12 @@ extension TestabilityIdentification {
 		case tourBubble
 		// App Messages banner container (AIA-0115)
 		case appMessageBanner
+		/// The web screen's content, a container (AIA-0984): the parity test's probe for the app
+		/// proper with the menu closed.
+		case webScreenContent
+		/// Clerk's account profile pushed inside Settings, a container (AIA-0984): the parity test's
+		/// probe for the signed-in account screen, which has no element of ours on it.
+		case settingsAccountProfile
 	}
 
 	/// State-introspection probes for UI tests. A `.checkpoint(_:value:)` modifier
