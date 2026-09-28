@@ -128,6 +128,13 @@ final class HeadlessLaunchArgumentsTests: XCTestCase {
 		XCTAssertEqual(Array(launch.processArguments.dropFirst(2)), launch.arguments)
 	}
 
+	/// AIA-0994: the audit switch is a run option, added after the options; a scenario cannot set it.
+	func testTheAppMovesSwitchIsARunOptionOnly() throws {
+		XCTAssertEqual(HeadlessLaunch.appMovesArguments(.oneHop), [], "the app's default needs no argument")
+		XCTAssertEqual(HeadlessLaunch.appMovesArguments(.off), ["-headlessAppMoves", "off"])
+		XCTAssertNotNil(rejection(["appMoves": "off"]), "not a scenario launch key")
+	}
+
 	func testMistakesAreErrors() {
 		let invalid: [JSONValue] = [
 			"subscribed",

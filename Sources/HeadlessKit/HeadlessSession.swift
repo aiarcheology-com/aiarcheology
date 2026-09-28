@@ -22,6 +22,8 @@ public final class HeadlessSession {
 	public let application: any HeadlessApplication
 	public let defaultWaitTimeout: Duration
 	public let pollInterval: Duration
+	/// Whether an action may also land one move on the app's own past what it declares (AIA-0994).
+	public let appMoves: AppMoves
 
 	/// The last command accepted, which the next one waits for.
 	///
@@ -34,11 +36,13 @@ public final class HeadlessSession {
 	public init(
 		application: any HeadlessApplication,
 		defaultWaitTimeout: Duration = .seconds(30),
-		pollInterval: Duration = .milliseconds(50)
+		pollInterval: Duration = .milliseconds(50),
+		appMoves: AppMoves = .oneHop
 	) {
 		self.application = application
 		self.defaultWaitTimeout = defaultWaitTimeout
 		self.pollInterval = pollInterval
+		self.appMoves = appMoves
 	}
 
 	/// The handshake reply for this app.
@@ -94,7 +98,7 @@ public final class HeadlessSession {
 				)
 			}
 			let arguments = try Arguments.validated(raw, against: action.spec.parameters, subject: "'\(name)'")
-			return try await perform(action, arguments: arguments)
+			return try await perform(action, on: screen.route, arguments: arguments)
 		case .goto(let route):
 			return try await goto(route)
 		case .wait(let name, let raw, let timeout):
@@ -120,24 +124,49 @@ public final class HeadlessSession {
 				"Cannot go to '\(route)': '\(transition.spec.name)' needs arguments; use perform"
 			)
 		}
-		return try await perform(transition, arguments: Arguments())
+		return try await perform(transition, on: screen.route, arguments: Arguments())
 	}
 
-	/// Runs an action and holds a declared transition to its word.
-	private func perform(_ action: HeadlessAction, arguments: Arguments) async throws -> JSONValue? {
+	/// Runs an action and holds it to where it declares it leads (AIA-0994; `AcceptedLandings`).
+	///
+	/// Landing anywhere else means the adapter and the app disagree about navigation — exactly the
+	/// drift this layer exists to expose — so it fails with `undeclaredTransition` instead of reporting
+	/// success. A handler that throws is not checked: its own failure is the answer.
+	private func perform(_ action: HeadlessAction, on origin: Route, arguments: Arguments) async throws -> JSONValue? {
 		let result = try await action.handler(arguments)
-		// A transition that did not arrive means the adapter and the app disagree about navigation —
-		// exactly the drift this layer exists to expose, so it fails instead of reporting success.
-		if let target = action.spec.navigatesTo {
-			let arrived = application.currentScreen().route
-			guard arrived == target else {
-				throw HeadlessError(
-					.actionFailed,
-					"'\(action.spec.name)' declares a transition to '\(target)' but the app shows '\(arrived)'"
-				)
-			}
+		let map = application.navigationMap
+		guard let landings = AcceptedLandings(action: action.spec, origin: origin, map: map, appMoves: appMoves) else {
+			return result
+		}
+		let arrived = application.currentScreen().route
+		guard landings.accepted.contains(arrived) else {
+			throw HeadlessError(.undeclaredTransition, Self.undeclared(
+				action.spec.name, from: origin, landedOn: arrived, landings: landings, map: map, appMoves: appMoves
+			))
 		}
 		return result
+	}
+
+	/// `'close' on 'drawer' landed on 'drawer'; declared: home; accepted after the app's own moves: paywall, consent`
+	static func undeclared(
+		_ action: String,
+		from origin: Route,
+		landedOn arrived: Route,
+		landings: AcceptedLandings,
+		map: NavigationMap,
+		appMoves: AppMoves
+	) -> String {
+		let declared = landings.staysOn.map { "none (stays on '\($0)')" }
+			?? landings.declared.map(\.rawValue).joined(separator: ", ")
+		let moves: String
+		if map.isEmpty {
+			moves = "none (no navigation map)"
+		} else if appMoves == .off {
+			moves = "none (app moves off)"
+		} else {
+			moves = landings.appMoves.isEmpty ? "none" : landings.appMoves.map(\.rawValue).joined(separator: ", ")
+		}
+		return "'\(action)' on '\(origin)' landed on '\(arrived)'; declared: \(declared); accepted after the app's own moves: \(moves)"
 	}
 
 	private func wait(for name: String, raw: [String: JSONValue], timeout seconds: Double?) async throws {

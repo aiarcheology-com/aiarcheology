@@ -55,6 +55,9 @@ struct Headless: AsyncParsableCommand {
 		@Option(name: .long, help: "Stage a .png/.jpg/.jpeg from the repository, path relative to its root, in the app's container (repeatable).")
 		var image: [String] = []
 
+		@Option(name: .long, help: "oneHop (default) or off: off accepts only declared transitions, to audit the navigation map.")
+		var appMoves: AppMoves = .oneHop
+
 		func run() async throws {
 			var options: [String: JSONValue] = [:]
 			if let mockSubscription { options["mockSubscription"] = .string(mockSubscription) }
@@ -71,7 +74,7 @@ struct Headless: AsyncParsableCommand {
 			// As a scenario's `stage`, so it gets the same validation and staging.
 			if image.isEmpty == false { options["stage"] = .array(image.map(JSONValue.string)) }
 			let simulator = try HeadlessSimulator(installation: state)
-			let client = try await simulator.launch(options: .object(options), fresh: false, install: true)
+			let client = try await simulator.launch(options: .object(options), fresh: false, install: true, appMoves: appMoves)
 			let hello = try await client.connect()
 			await client.close()
 			print(JSONValue.object(hello.metadata).jsonString)
@@ -156,6 +159,9 @@ struct Headless: AsyncParsableCommand {
 		@Flag(name: .long, help: "Only check the scenarios' routes against the checked-in navigation map: no build, no simulator.")
 		var lint = false
 
+		@Option(name: .long, help: "oneHop (default) or off: off accepts only declared transitions on every launch of the run, to audit the navigation map.")
+		var appMoves: AppMoves = .oneHop
+
 		@Argument(help: "Scenario files.")
 		var files: [String] = []
 
@@ -195,6 +201,9 @@ struct Headless: AsyncParsableCommand {
 			} else {
 				print("Route check: \(failed.count) of \(paths.count) scenario(s) failed and will not run; running the other \(plan.runnable.count).")
 			}
+			if appMoves == .off {
+				print("⚠︎ --app-moves off: every launch accepts only declared transitions. A map audit, not the gate: the suite's gate is the default run.")
+			}
 			if noBuild == false {
 				try HeadlessWorkspace.build()
 			}
@@ -202,7 +211,7 @@ struct Headless: AsyncParsableCommand {
 			for scenario in plan.runnable {
 				installations.formUnion(scenario.installations.keys)
 				print("▶︎ \(scenario.name)")
-				let report = await ScenarioRunner(launcher: SimulatorLauncher()).run(scenario)
+				let report = await ScenarioRunner(launcher: SimulatorLauncher(appMoves: appMoves)).run(scenario)
 				for step in report.steps + report.teardown {
 					let skipped = step.skipped ? " (\(StepReport.skippedNote))" : ""
 					print("  \(HeadlessReportText.mark(for: step)) \(step.location)\(skipped)\(step.route.map { " → \($0)" } ?? "")")
@@ -221,11 +230,12 @@ struct Headless: AsyncParsableCommand {
 			for installation in installations {
 				try? HeadlessSimulator(installation: installation).shutdown() // Best effort: frees the Simulator after the run.
 			}
+			let mode = appMoves == .off ? " with --app-moves off" : ""
 			if failed.isEmpty == false {
-				print("\(failed.count) of \(paths.count) scenario(s) failed: \(failed.joined(separator: ", "))")
+				print("\(failed.count) of \(paths.count) scenario(s) failed\(mode): \(failed.joined(separator: ", "))")
 				throw ExitCode.failure
 			}
-			print("All \(paths.count) scenario(s) passed.")
+			print("All \(paths.count) scenario(s) passed\(mode).")
 		}
 
 		/// `✓ <scenario>`, or `✗ <scenario>` and each failure on its own indented line.
@@ -238,15 +248,25 @@ struct Headless: AsyncParsableCommand {
 
 extension HeadlessExecFormat: ExpressibleByArgument {}
 
+extension AppMoves: @retroactive ExpressibleByArgument {}
+
 /// Launches scenario installations on their own simulators: fresh (erased) for a run's first
 /// launch, with their data for a relaunch.
 struct SimulatorLauncher: InstallationLauncher {
+
+	/// Every launch of the run carries it, relaunches included.
+	let appMoves: AppMoves
 
 	func launch(installation: String, options: JSONValue, relaunch: Bool) async throws -> any HeadlessDriving {
 		let simulator = try HeadlessSimulator(installation: installation)
 		// A relaunch is a user reopening the app: no reinstall. Reinstalling moves the app's data
 		// container, and preference writes the system had not flushed yet are lost with the move.
-		let client = try await simulator.launch(options: options, fresh: relaunch == false, install: relaunch == false)
+		let client = try await simulator.launch(
+			options: options,
+			fresh: relaunch == false,
+			install: relaunch == false,
+			appMoves: appMoves
+		)
 		try await client.connect()
 		return client
 	}
@@ -345,7 +365,7 @@ struct HeadlessSimulator {
 
 	/// Launches the app in headless mode — erasing the device first when `fresh`, installing the current
 	/// build when `install` — and returns a connected client for the new endpoint.
-	func launch(options: JSONValue, fresh: Bool, install: Bool) async throws -> HeadlessClient {
+	func launch(options: JSONValue, fresh: Bool, install: Bool, appMoves: AppMoves) async throws -> HeadlessClient {
 		guard FileManager.default.fileExists(atPath: HeadlessWorkspace.app.path) else {
 			throw ValidationError("no Debug build at \(HeadlessWorkspace.app.path); run `scripts/headless.sh build` (or ./scripts/unittest.sh) first")
 		}
@@ -374,7 +394,7 @@ struct HeadlessSimulator {
 		// On every launch, relaunches included: a relaunch re-sends the same options, and the app is
 		// told the names again, so the files must match the repository's current copies.
 		try await stage(launch.stagedImages, udid: udid)
-		let pid = try await launchApp(udid: udid, arguments: launch.processArguments)
+		let pid = try await launchApp(udid: udid, arguments: launch.processArguments + HeadlessLaunch.appMovesArguments(appMoves))
 		let (client, hello) = try await connectWhenListening(udid: udid, pid: pid)
 		// The launcher's lock on production data; the build and the app hold the other two.
 		guard hello.metadata["backendEnvironment"] == "development" else {
@@ -388,6 +408,14 @@ struct HeadlessSimulator {
 			await client.close()
 			try terminate()
 			throw ValidationError("the headless app reports crashReporting \(hello.metadata["crashReporting"]?.jsonString ?? "unknown"); headless mode must run without a crash reporter, so refusing to drive it")
+		}
+		// The run's transition rule reached the app (AIA-0994): a map audit that silently ran with the
+		// hop on would pass for the wrong reason.
+		let reported = hello.metadata["launchOptions"]?.value(at: "/appMoves")
+		guard reported == .string(appMoves.rawValue) else {
+			await client.close()
+			try terminate()
+			throw ValidationError("the headless app reports appMoves \(reported?.jsonString ?? "none"), not \(appMoves.rawValue); rebuild it (scripts/headless.sh build)")
 		}
 		return client
 	}

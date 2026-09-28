@@ -47,6 +47,9 @@ public struct HeadlessError: Error, Codable, Hashable, Sendable, CustomStringCon
 		public static let invalidArgument = Code(rawValue: "invalidArgument")
 		/// The action ran and failed.
 		public static let actionFailed = Code(rawValue: "actionFailed")
+		/// The action ran, and the app ended up on a route it does not declare (AIA-0994): the adapter
+		/// and the app disagree about navigation.
+		public static let undeclaredTransition = Code(rawValue: "undeclaredTransition")
 		public static let timeout = Code(rawValue: "timeout")
 		public static let unauthorized = Code(rawValue: "unauthorized")
 		public static let protocolMismatch = Code(rawValue: "protocolMismatch")

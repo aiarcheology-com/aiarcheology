@@ -90,10 +90,10 @@ final class HeadlessSessionTests: XCTestCase {
 
 	func testADeclaredTransitionThatDoesNotArriveFails() async {
 		let response = await send(.perform(action: "broken-transition", arguments: [:]))
-		XCTAssertEqual(response.error?.code, .actionFailed)
+		XCTAssertEqual(response.error?.code, .undeclaredTransition)
 		XCTAssertEqual(
 			response.error?.message,
-			"'broken-transition' declares a transition to 'about' but the app shows 'home'",
+			"'broken-transition' on 'home' landed on 'home'; declared: about; accepted after the app's own moves: none",
 			"the declared route passes the map check and fails on arrival"
 		)
 		XCTAssertEqual(response.route, "home")

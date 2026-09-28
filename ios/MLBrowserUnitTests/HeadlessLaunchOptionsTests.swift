@@ -27,7 +27,8 @@ final class HeadlessLaunchOptionsTests: XCTestCase {
 		XCTAssertEqual(options.json, [
 			"mockSubscription": "subscribed",
 			"flags": ["isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": false],
-			"stagedImages": []
+			"stagedImages": [],
+			"appMoves": "oneHop"
 		])
 	}
 
@@ -42,7 +43,8 @@ final class HeadlessLaunchOptionsTests: XCTestCase {
 		XCTAssertEqual(options.json, [
 			"mockSubscription": "subscribed",
 			"flags": [:],
-			"stagedImages": ["terrain-b.png", "terrain-a.png"]
+			"stagedImages": ["terrain-b.png", "terrain-a.png"],
+			"appMoves": "oneHop"
 		])
 	}
 
@@ -67,7 +69,8 @@ final class HeadlessLaunchOptionsTests: XCTestCase {
 		XCTAssertEqual(options.json, [
 			"flags": ["isPaymentsEnabled": true],
 			"stagedImages": [],
-			"freeAccessEndsIn": 90
+			"freeAccessEndsIn": 90,
+			"appMoves": "oneHop"
 		])
 	}
 
@@ -85,7 +88,17 @@ final class HeadlessLaunchOptionsTests: XCTestCase {
 		XCTAssertNil(options.mockSubscription)
 		XCTAssertTrue(options.flagOverrides.isEmpty)
 		XCTAssertTrue(options.stagedImages.isEmpty)
-		XCTAssertEqual(options.json, ["flags": [:], "stagedImages": []])
+		XCTAssertEqual(options.appMoves, .oneHop, "the one-hop rule is the default; off is an explicit audit")
+		XCTAssertEqual(options.json, ["flags": [:], "stagedImages": [], "appMoves": "oneHop"])
+	}
+
+	/// AIA-0994: `off` turns the app's own moves off for a map audit, and is echoed.
+	func test_readsTheAppMovesSwitch_andEchoesIt() {
+		let off = HeadlessLaunchOptions(arguments: ["/path/ML Browser", "-headlessAppMoves", "off"])
+		XCTAssertEqual(off.appMoves, .off)
+		XCTAssertEqual(off.json.value(at: "/appMoves"), "off")
+		let explicit = HeadlessLaunchOptions(arguments: ["/path/ML Browser", "-headlessAppMoves", "oneHop"])
+		XCTAssertEqual(explicit.appMoves, .oneHop)
 	}
 }
 

@@ -65,6 +65,27 @@ public struct NavigationMap: Codable, Hashable, Sendable {
 		declaration(for: from)?.transitions.contains { $0.action == action && $0.to == to } ?? false
 	}
 
+	/// Where `action` from `route` is declared to lead, in declaration order; empty when the map
+	/// declares no edge for it (AIA-0994).
+	public func targets(of action: String, from route: Route) -> [Route] {
+		declaration(for: route)?.transitions.filter { $0.action == action }.map(\.to) ?? []
+	}
+
+	/// Where the app can move on its own in **one** step from any of `routes`: the targets of their
+	/// action-less edges (AIA-0994).
+	public func appMoves(from routes: Set<Route>) -> Set<Route> {
+		Set(self.routes.filter { routes.contains($0.route) }.flatMap { declaration in
+			declaration.transitions.filter { $0.action == nil }.map(\.to)
+		})
+	}
+
+	/// `routes` in declaration order; any the map does not declare follow, sorted by name.
+	public func ordered(_ routes: Set<Route>) -> [Route] {
+		let declared = routeNames.filter(routes.contains)
+		let others = routes.subtracting(declared).sorted { $0.rawValue < $1.rawValue }
+		return declared + others
+	}
+
 	/// The declared route closest to `text`, for a "did you mean" hint; `nil` for an empty map.
 	public func closest(to text: String) -> Route? {
 		Self.closest(to: text, among: routeNames)

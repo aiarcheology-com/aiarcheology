@@ -38,6 +38,11 @@ struct HeadlessLaunchOptions: Equatable {
 	/// paywall arrive mid-session through the app's own expiry path. Seeded by the headless entry
 	/// before `AppState` exists; an install that already holds an anchor keeps it.
 	let freeAccessEndsIn: Int?
+	/// `-headlessAppMoves oneHop|off` (AIA-0994): whether an action may also land one move on the app's
+	/// own past where it declares. Absent means `oneHop`, the rule every run uses; `off` is only for
+	/// auditing the navigation map (`headless.sh test --app-moves off`, HEADLESS.md), where every
+	/// failure is a missing declaration or a race the hop absorbs.
+	let appMoves: AppMoves
 
 	/// The options this process was launched with. Read only in headless mode (AIA-0991): parsing
 	/// traps on a malformed option, and a UI launch must not stop on a stale one.
@@ -50,6 +55,7 @@ struct HeadlessLaunchOptions: Equatable {
 		var flagOverrides: [FeatureFlagKey: Bool] = [:]
 		var stagedImages: [String] = []
 		var freeAccessEndsIn: Int?
+		var appMoves = AppMoves.oneHop
 		var index = arguments.startIndex
 		while index < arguments.endIndex {
 			let argument = arguments[index]
@@ -78,6 +84,12 @@ struct HeadlessLaunchOptions: Equatable {
 				}
 				freeAccessEndsIn = seconds
 				index += 2
+			case "-headlessAppMoves":
+				guard let parsed = value.flatMap(AppMoves.init(rawValue:)) else {
+					fatalError("-headlessAppMoves needs oneHop or off, got \(value ?? "nothing")")
+				}
+				appMoves = parsed
+				index += 2
 			default:
 				index += 1
 			}
@@ -86,6 +98,7 @@ struct HeadlessLaunchOptions: Equatable {
 		self.flagOverrides = flagOverrides
 		self.stagedImages = stagedImages
 		self.freeAccessEndsIn = freeAccessEndsIn
+		self.appMoves = appMoves
 	}
 
 	/// `text` as seconds a launch may ask for, or `nil`. Not private so the rule can be tested
@@ -126,6 +139,7 @@ struct HeadlessLaunchOptions: Equatable {
 		]
 		members["mockSubscription"] = mockSubscription.map(JSONValue.string)
 		members["freeAccessEndsIn"] = freeAccessEndsIn.map { .number(Double($0)) }
+		members["appMoves"] = .string(appMoves.rawValue)
 		return .object(members)
 	}
 }

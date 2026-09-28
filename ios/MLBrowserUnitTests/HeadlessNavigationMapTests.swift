@@ -309,9 +309,13 @@ final class HeadlessNavigationMapTests: XCTestCase {
 			switch state.display {
 			case .content:
 				// Once the app proper has shown, a closed window lays the wall over it, never swaps it.
-				change("access ran out") { $0.display = .wallOverContent }
+				// Also the foreground entitlement re-check (AIA-0993, `AppRuntime`): its one route
+				// effect is this display change, so it adds no edge of its own (AIA-0994).
+				change("access ran out: the window closed, or the foreground re-check found no subscription") {
+					$0.display = .wallOverContent
+				}
 			case .wall, .wallOverContent:
-				change("access returned") { $0.display = .content }
+				change("access returned: a subscription arrived, or the foreground re-check found one") { $0.display = .content }
 			case .hold:
 				// `.wallOverContent` cannot follow the hold, which only precedes the app proper ever
 				// showing; it is included anyway and adds no move of its own.

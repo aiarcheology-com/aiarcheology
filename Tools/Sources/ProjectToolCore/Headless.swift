@@ -153,6 +153,16 @@ public struct HeadlessLaunch: Equatable {
 	public var processArguments: [String] {
 		Self.headlessInterface + arguments
 	}
+
+	/// What turns the app's own moves off for a map audit (AIA-0994): a run option, never a scenario's
+	/// launch key, so a committed scenario cannot weaken the transition check. Nothing for `oneHop`,
+	/// the app's default.
+	public static func appMovesArguments(_ appMoves: AppMoves) -> [String] {
+		switch appMoves {
+		case .oneHop: []
+		case .off: ["-headlessAppMoves", AppMoves.off.rawValue]
+		}
+	}
 }
 
 /// Turns a scenario installation's `launch` block into the app's launch arguments and the images to

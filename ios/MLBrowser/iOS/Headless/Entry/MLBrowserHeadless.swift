@@ -95,7 +95,10 @@ final class HeadlessServerController {
 			launchOptions: launchOptions.json,
 			crashReporting: DependencyContainer.shared.usesRealCrashReporter
 		)
-		let server = HeadlessServer(session: HeadlessSession(application: application), endpointFile: Self.endpointFile)
+		let server = HeadlessServer(
+			session: HeadlessSession(application: application, appMoves: launchOptions.appMoves),
+			endpointFile: Self.endpointFile
+		)
 		self.server = server
 		do {
 			let endpoint = try await server.start()

@@ -17,7 +17,9 @@ import HeadlessKit
 /// own — and the one condition under which it applies. Actions that stay on their route (`enable`,
 /// `refresh`, `set-backup`, …) are not transitions and are not declared.
 ///
-/// Kept honest by `HeadlessNavigationMapTests` (the sheet exits and the moves on the app's own against
+/// Enforced: after every action the session accepts only what the action declares here, plus one
+/// move on the app's own (`HeadlessSession`, AIA-0994), so a declaration the app does not keep fails
+/// the action with `undeclaredTransition`. Kept honest by `HeadlessNavigationMapTests` (the sheet exits and the moves on the app's own against
 /// `HeadlessRouteDecision`) and `HeadlessWalkTests` (every live transition of the states the scenarios reach).
 enum HeadlessNavigationMap {
 
