@@ -152,16 +152,28 @@ final class HeadlessNavigationMapTests: XCTestCase {
 	// MARK: - Action names are scoped to their screen (AIA-0992)
 
 	/// An action name means something only on the screen that offers it. A client reads `actions`,
-	/// and before it performs one the app may move on its own; if the new screen offered an action of
-	/// the same name, the client would run that one instead of failing with `unknownAction`. So two
-	/// routes joined by an action-less edge, in either direction, must not share an action name.
+	/// and before it performs one the app may move on its own, possibly more than once; if the screen
+	/// it then shows offered an action of the same name, the client would run that one instead of
+	/// failing with `unknownAction`. So no route may share an action name with any route the app can
+	/// reach from it through its own moves (action-less edges) — which includes every pair joined by
+	/// one such edge, in either direction.
 	///
-	/// Returns one line per shared name, e.g. `drawer <-> consent share 'close'`; empty when none.
+	/// Returns one line per shared name, e.g. `consent <-> drawer share 'close'`; empty when none.
 	static func actionNamesSharedAcrossAppMoves(offered: [Route: Set<String>], in map: NavigationMap) -> [String] {
-		var pairs: Set<[Route]> = []
+		var moves: [Route: Set<Route>] = [:]
 		for declaration in map.routes {
-			for transition in declaration.transitions where transition.action == nil {
-				pairs.insert([declaration.route, transition.to].sorted { $0.rawValue < $1.rawValue })
+			moves[declaration.route] = Set(declaration.transitions.filter { $0.action == nil }.map(\.to))
+		}
+		var pairs: Set<[Route]> = []
+		for start in map.routeNames {
+			var reached: Set<Route> = []
+			var frontier = moves[start] ?? []
+			while let route = frontier.popFirst() {
+				guard reached.insert(route).inserted else { continue }
+				frontier.formUnion(moves[route] ?? [])
+			}
+			for route in reached where route != start {
+				pairs.insert([start, route].sorted { $0.rawValue < $1.rawValue })
 			}
 		}
 		return pairs.sorted { $0.map(\.rawValue).joined() < $1.map(\.rawValue).joined() }.compactMap { pair in

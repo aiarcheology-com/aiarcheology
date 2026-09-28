@@ -53,13 +53,32 @@ public final class HeadlessSession {
 
 	/// Runs `request` after every earlier request has finished, and describes the app afterwards.
 	public func handle(_ request: Request) async -> Response {
+		await enqueue(request).value
+	}
+
+	/// Queues `request` behind every request queued before it and returns its eventual response.
+	///
+	/// Synchronous, so the order of calls is the order the commands run in. A transport that queues
+	/// each request as it arrives keeps a client's commands ahead of the next client's, even when the
+	/// first client has already given up the controller slot (AIA-0992).
+	public func enqueue(_ request: Request) -> Task<Response, Never> {
+		schedule { session in await session.execute(request) }
+	}
+
+	/// ``reject(id:error:)``, taken in its turn in the queue: for a request the transport could not
+	/// decode, answered in order with the requests around it.
+	public func enqueueRejection(id: String, error: HeadlessError) -> Task<Response, Never> {
+		schedule { session in session.reject(id: id, error: error) }
+	}
+
+	private func schedule(_ work: @escaping @MainActor (HeadlessSession) async -> Response) -> Task<Response, Never> {
 		let previous = tail
 		let current = Task { @MainActor in
 			await previous?.value
-			return await self.execute(request)
+			return await work(self)
 		}
 		tail = Task { _ = await current.value }
-		return await current.value
+		return current
 	}
 
 	/// A failure response that still carries the current screen — for a request the transport could

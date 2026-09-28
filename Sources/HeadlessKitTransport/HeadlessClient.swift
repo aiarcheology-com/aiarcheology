@@ -156,7 +156,13 @@ public actor HeadlessClient: HeadlessDriving {
 	private func readLine() async throws -> Data {
 		while lines.isEmpty {
 			guard let connection else { throw HeadlessTransportError(.closed, "not connected") }
-			guard let chunk = try await Self.receive(on: connection) else {
+			let received = try await Self.receive(on: connection)
+			// Closed or replaced while this read waited: the bytes belong to a connection that is gone,
+			// and must not reach the buffer the next connection reads from.
+			guard self.connection === connection else {
+				throw HeadlessTransportError(.closed, "the connection was closed")
+			}
+			guard let chunk = received else {
 				drop()
 				throw HeadlessTransportError(.closed, "the server closed the connection")
 			}

@@ -260,6 +260,36 @@ final class TransportTests: XCTestCase {
 		await next.close()
 	}
 
+	/// Requests a client sent before it stopped sending run before the next controller's, even though
+	/// its end of stream freed the slot while they were still queued.
+	func testAPipelinedClientsRequestsRunBeforeTheNextControllers() async throws {
+		let endpoint = try await server.start()
+		let pipelined = Task.detached {
+			try await RawSocket.exchange(port: endpoint.port, send: [
+				#"{"hello":{"protocolVersion":1,"token":"\#(endpoint.token)"}}"#,
+				#"{"id":"1","command":"wait","condition":"count-at-least","arguments":{"value":1},"timeout":0.3}"#,
+				#"{"id":"2","command":"perform","action":"increment"}"#
+			], expectLines: 3, halfClose: true)
+		}
+		// Admitted once the first client's end of stream arrived, which is after both its requests.
+		let next = HeadlessClient(endpoint: endpoint, requestTimeout: .seconds(5))
+		var connected = false
+		for _ in 0..<200 where connected == false {
+			do {
+				try await next.connect()
+				connected = true
+			} catch let error as HeadlessTransportError where error.message.hasPrefix("busy:") {
+				try await Task.sleep(for: .milliseconds(5))
+			}
+		}
+		XCTAssertTrue(connected)
+		let state = try await next.send(.state)
+		XCTAssertEqual(state.state, ["count": 1], "the first client's increment ran before this request")
+		let lines = try await pipelined.value
+		XCTAssertTrue(lines[2].contains(#""ok":true"#), lines[2])
+		await next.close()
+	}
+
 	/// Polls `condition` on the main actor for up to two seconds.
 	private static func eventually(_ condition: @MainActor () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
 		for _ in 0..<200 {

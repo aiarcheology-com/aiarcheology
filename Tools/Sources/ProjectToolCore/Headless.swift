@@ -349,7 +349,7 @@ public enum HeadlessCommandLine {
 			return .perform(action: action, arguments: try typed(arguments, against: spec.parameters, subject: "'\(action)'"))
 		case .wait(let condition, let arguments, let timeout) where arguments.isEmpty == false:
 			let help = try await driver.send(.help)
-			guard let spec = conditions(in: help).first(where: { $0.name == condition }) else { return command }
+			guard let spec = try conditions(in: help).first(where: { $0.name == condition }) else { return command }
 			return .wait(
 				condition: condition,
 				arguments: try typed(arguments, against: spec.parameters, subject: "condition '\(condition)'"),
@@ -386,7 +386,8 @@ public enum HeadlessCommandLine {
 		case .string:
 			return .string(text)
 		case .integer:
-			guard let integer = Int(text), abs(integer) <= largestExactInteger else {
+			// A range, not `abs`: `abs(Int.min)` traps.
+			guard let integer = Int(text), (-largestExactInteger...largestExactInteger).contains(integer) else {
 				throw invalid("an integer within ±\(largestExactInteger)")
 			}
 			return .number(Double(integer))
@@ -402,11 +403,18 @@ public enum HeadlessCommandLine {
 		}
 	}
 
-	/// `help`'s wait conditions; none when the response carries none it can read.
-	private static func conditions(in help: Response) -> [WaitConditionSpec] {
-		guard let value = help.result?.value(at: "/conditions"),
-			  let data = try? HeadlessCoding.makeEncoder().encode(value) else { return [] }
-		return (try? HeadlessCoding.makeDecoder().decode([WaitConditionSpec].self, from: data)) ?? []
+	/// `help`'s wait conditions. Unreadable ones are an error here: sending the text unconverted
+	/// would make the app report a type error for a value the user typed correctly.
+	private static func conditions(in help: Response) throws -> [WaitConditionSpec] {
+		guard let value = help.result?.value(at: "/conditions") else {
+			throw Invalid(description: "the app's help lists no wait conditions, so the arguments cannot be typed: \(help.error?.description ?? "no result")")
+		}
+		do {
+			let data = try HeadlessCoding.makeEncoder().encode(value)
+			return try HeadlessCoding.makeDecoder().decode([WaitConditionSpec].self, from: data)
+		} catch {
+			throw Invalid(description: "the app's wait conditions could not be read, so the arguments cannot be typed: \(error)")
+		}
 	}
 
 	/// `name=value` words as text; ``typed(_:via:)`` converts them to the declared types.

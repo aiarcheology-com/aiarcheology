@@ -206,7 +206,8 @@ private final class Readiness {
 /// observer-only connections, and a second hello while there is a controller is refused with `busy`.
 /// A connection that has not sent its hello never holds the slot, so a stalled socket cannot lock the
 /// controller out; one that stops sending (end of stream, a failure, a protocol violation) gives it up
-/// at once. Requests it already sent still finish first: the session runs commands one at a time.
+/// at once. Requests it already sent still run first: each is queued in the session as it arrives, and
+/// the session runs commands one at a time, in that order.
 @MainActor
 private final class ServerConnection {
 
@@ -331,11 +332,30 @@ private final class ServerConnection {
 			authenticate(line)
 			return
 		}
+		guard let server else { return close() }
 		pendingAnswers += 1
+		// Queued in the session now, not once the earlier answers are out: a client that sends several
+		// requests and then stops sending gives up the controller slot at once, and its requests must
+		// still run before the next controller's (AIA-0992).
+		let answer = Self.enqueue(line, in: server.session)
 		let previous = tail
 		tail = Task { @MainActor [weak self] in
 			await previous?.value
-			await self?.answer(line)
+			let response = await answer.value
+			self?.deliver(response)
+		}
+	}
+
+	/// Queues one request line in the session: the request, or the failure to read it.
+	private static func enqueue(_ line: Data, in session: HeadlessSession) -> Task<Response, Never> {
+		let decoder = HeadlessCoding.makeDecoder()
+		do {
+			return session.enqueue(try decoder.decode(Request.self, from: line))
+		} catch {
+			// Echo the id when there is one, so the client can still pair the failure with its request.
+			let id = (try? decoder.decode(JSONValue.self, from: line))?.value(at: "/id")?.stringValue ?? ""
+			let failure = (error as? HeadlessError) ?? HeadlessError(.malformedRequest, describe(error))
+			return session.enqueueRejection(id: id, error: failure)
 		}
 	}
 
@@ -366,23 +386,13 @@ private final class ServerConnection {
 		send(Envelope.ServerHelloLine(hello: server.session.serverHello))
 	}
 
-	private func answer(_ line: Data) async {
+	/// Sends an answer, in request order, unless the connection stopped answering meanwhile.
+	private func deliver(_ response: Response) {
 		defer {
 			pendingAnswers -= 1
 			closeIfDrained()
 		}
-		guard let server, phase.answersRequests else { return }
-		let decoder = HeadlessCoding.makeDecoder()
-		let response: Response
-		do {
-			let request = try decoder.decode(Request.self, from: line)
-			response = await server.session.handle(request)
-		} catch {
-			// Echo the id when there is one, so the client can still pair the failure with its request.
-			let id = (try? decoder.decode(JSONValue.self, from: line))?.value(at: "/id")?.stringValue ?? ""
-			let failure = (error as? HeadlessError) ?? HeadlessError(.malformedRequest, Self.describe(error))
-			response = server.session.reject(id: id, error: failure)
-		}
+		guard phase.answersRequests else { return }
 		send(response)
 	}
 

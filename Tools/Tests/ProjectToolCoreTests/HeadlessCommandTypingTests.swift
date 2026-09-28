@@ -100,7 +100,7 @@ final class HeadlessCommandTypingTests: XCTestCase {
 			try HeadlessCommandLine.typed(["count": "-9007199254740991"], against: count, subject: "t"),
 			["count": .number(-9_007_199_254_740_991)]
 		)
-		for text in ["9007199254740992", "-9007199254740992", "9007199254740993"] {
+		for text in ["9007199254740992", "-9007199254740992", "9007199254740993", "\(Int.max)", "\(Int.min)"] {
 			XCTAssertThrowsError(try HeadlessCommandLine.typed(["count": .string(text)], against: count, subject: "t"), text)
 		}
 	}
