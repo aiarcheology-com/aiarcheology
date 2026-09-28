@@ -505,8 +505,10 @@ paths. On 2026-09-17, tags `1.0.7` / `1.0.8` were repointed to their correspondi
 commits, preserving tag annotations and release contents apart from the photos and their Xcode
 resource entries. The temporary `main-public` / `develop-public` branches and the old backup
 branches `main-old` / `develop-old` were deleted after recovery verification on the same date.
-**Repository-wide cleanup remains incomplete:** historical PR references and other GitHub copies
-still need cleanup. See [NOTICE](NOTICE), section 5, and
+GitHub Support has removed the affected historical PR references. On 2026-09-28, an independent
+API check found none of the 368 affected refs and returned 404 for all 22 photo blobs. The affected
+PR discussions remain, but their Commits and Files changed views may error. Cached views and
+source archives were not independently verified; publication checks remain open. See [NOTICE](NOTICE), section 5, and
 [#906, A2](https://github.com/aiarcheology-com/aiarcheology/issues/906) for the remaining publication
 work. Removal does not grant rights to historical copies.
 
