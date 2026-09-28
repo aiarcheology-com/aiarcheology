@@ -156,6 +156,22 @@ final class AppRuntimeForegroundEntitlementTests: XCTestCase {
 		await drainMainActor()
 	}
 
+	/// Posts one foreground that a second, always-eligible re-check also observes, and waits for that
+	/// one. Both re-checks take the same path, and the observer under test was registered first, so a
+	/// re-check it wrongly started would have run by then: a positive signal for a negative assertion,
+	/// rather than a guess at how many hops to wait.
+	private func postForegroundPastSentinel(_ center: NotificationCenter) async {
+		let sentinel = CountingSubscriptionProvider()
+		let sentinelReadiness = Readiness()
+		sentinelReadiness.isReady = true
+		observe(
+			center,
+			readiness: sentinelReadiness,
+			subscriptionState: SubscriptionState(provider: sentinel, isPaymentsEnabled: true)
+		)
+		await postForegroundAndWait(center, provider: sentinel, until: 1)
+	}
+
 	func test_foreground_beforeReady_doesNotRecheck_thenRechecksOnceReady() async {
 		let provider = CountingSubscriptionProvider()
 		let subscriptionState = SubscriptionState(provider: provider, isPaymentsEnabled: true)
@@ -163,8 +179,7 @@ final class AppRuntimeForegroundEntitlementTests: XCTestCase {
 		let readiness = Readiness()
 		observe(center, readiness: readiness, subscriptionState: subscriptionState)
 
-		postForeground(center)
-		await drainMainActor()
+		await postForegroundPastSentinel(center)
 		XCTAssertEqual(provider.startCalls, 0, "the gate that did this was not mounted before the app was ready")
 
 		readiness.isReady = true
@@ -195,8 +210,7 @@ final class AppRuntimeForegroundEntitlementTests: XCTestCase {
 		readiness.isReady = true
 		observe(center, readiness: readiness, subscriptionState: subscriptionState)
 
-		postForeground(center)
-		await drainMainActor()
+		await postForegroundPastSentinel(center)
 		XCTAssertEqual(provider.startCalls, 0)
 	}
 

@@ -172,9 +172,10 @@ final class AppRuntime {
 	/// during it has to queue a re-evaluation — see ``startAuthWhenReady()``.
 	///
 	/// On each `willEnterForeground`, once ready and with the payments surface on, it starts exactly
-	/// one ``SubscriptionState/start()``. Registered before the auth refresh, so in practice the
-	/// re-check starts first on a foreground, as entitlement resolves before auth at launch; the order
-	/// of observers is not a contract.
+	/// one ``SubscriptionState/start()``, unserialized, as the view did: nothing coalesces it with a
+	/// purchase, a restore or an earlier re-check still in flight. It is registered before the auth
+	/// refresh, but both only start a task that then waits on StoreKit or the network, so neither
+	/// the observer order nor which one finishes first is a contract.
 	static func recheckEntitlementOnForeground(
 		notifications: NotificationCenter,
 		isReady: @escaping @MainActor () -> Bool,

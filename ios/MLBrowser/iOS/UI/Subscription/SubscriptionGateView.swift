@@ -250,8 +250,6 @@ struct SubscriptionGateView<Content: View>: View {
 		.onChange(of: freeAccess.welcomeClaims) { _, _ in
 			coordinator.welcomeClaimsChanged()
 		}
-		// The foreground entitlement re-check that used to hang off this view runs in `AppRuntime`
-		// (AIA-0993), so headless mode does it too.
     }
 
 	/// The hard wall: the screen a user with no access and no window left arrives at.
