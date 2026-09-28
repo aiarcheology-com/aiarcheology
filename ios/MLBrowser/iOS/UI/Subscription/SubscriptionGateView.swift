@@ -250,13 +250,8 @@ struct SubscriptionGateView<Content: View>: View {
 		.onChange(of: freeAccess.welcomeClaims) { _, _ in
 			coordinator.welcomeClaimsChanged()
 		}
-        // Re-check entitlement on foreground: a subscription that lapses while backgrounded
-        // may push no `Transaction.updates` event, so without this the gate could stay open
-        // on a stale entitlement until the next cold launch.
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            guard subscriptionState.isPaymentsSurfaceEnabled else { return }
-            Task { await subscriptionState.start() }
-        }
+		// The foreground entitlement re-check that used to hang off this view runs in `AppRuntime`
+		// (AIA-0993), so headless mode does it too.
     }
 
 	/// The hard wall: the screen a user with no access and no window left arrives at.

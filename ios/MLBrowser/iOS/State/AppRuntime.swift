@@ -11,7 +11,7 @@ import UIKit
 
 /// What the app does whether or not any view is on screen: bootstrap, and the work that used to
 /// hang off the root scene's modifiers — store-dependent services, the detailed-log brake,
-/// background/foreground handling, and starting auth.
+/// background/foreground handling, the foreground entitlement re-check (AIA-0993), and starting auth.
 ///
 /// Both entry points use it: `MLBrowser` (the SwiftUI app) and headless mode (AIA-0970).
 /// That is what makes headless mode the app itself rather than a second implementation of it.
@@ -62,6 +62,7 @@ final class AppRuntime {
 		startStoreDependentServices()
 		bindDetailedApplicationLog()
 		observeBackgroundAndForeground()
+		observeForegroundForEntitlement()
 		startAuthWhenReady()
 	}
 
@@ -142,6 +143,51 @@ final class AppRuntime {
 			// Resume is a continuation of the same detection session, not a new run.
 			appState.detectionState.ontheflyDetectionTapped(recordAnalytics: false, isUserInitiated: false)
 		}
+	}
+
+	/// Re-checks the StoreKit entitlement on every foreground once the app is ready (AIA-0993; it used
+	/// to be `SubscriptionGateView`'s `onReceive`). A subscription that lapses while the app is in the
+	/// background may push no `Transaction.updates` event, so without this the gate could stay open on
+	/// a stale entitlement until the next cold launch.
+	private func observeForegroundForEntitlement() {
+		// Captured strongly: the runtime owns `appState` for the life of the process, and `AppState`
+		// does not reference the runtime, so there is no cycle.
+		let appState = appState
+		Self.recheckEntitlementOnForeground(
+			notifications: .default,
+			isReady: { appState.isReady },
+			subscriptionState: appState.subscriptionState
+		)
+		.store(in: &subscriptions)
+	}
+
+	/// The foreground entitlement re-check itself, parameterised so it can be tested without an
+	/// `AppState`.
+	///
+	/// It is registered at `start()` and checks readiness **when the foreground arrives**, rather than
+	/// being armed after `isReady` as auth's foreground refresh is, because the two are opposite. The
+	/// view that did this was mounted only once `isReady` was true, and the launch entitlement check
+	/// (`AppState.initialize()`) finishes *before* `isReady`, so a foreground during that check was
+	/// skipped, and must stay skipped. Auth's first check runs after `isReady`, and a foreground
+	/// during it has to queue a re-evaluation — see ``startAuthWhenReady()``.
+	///
+	/// On each `willEnterForeground`, once ready and with the payments surface on, it starts exactly
+	/// one ``SubscriptionState/start()``. Registered before the auth refresh, so in practice the
+	/// re-check starts first on a foreground, as entitlement resolves before auth at launch; the order
+	/// of observers is not a contract.
+	static func recheckEntitlementOnForeground(
+		notifications: NotificationCenter,
+		isReady: @escaping @MainActor () -> Bool,
+		subscriptionState: SubscriptionState
+	) -> AnyCancellable {
+		notifications.publisher(for: UIApplication.willEnterForegroundNotification)
+			.sink { _ in
+				MainActor.assumeIsolated {
+					guard isReady(), subscriptionState.isPaymentsSurfaceEnabled else { return }
+					LoggingPolicy.info("Entitlement re-check on foreground", logger: .lifecycle)
+					Task { await subscriptionState.start() }
+				}
+			}
 	}
 
 	// MARK: - After AppState is ready
