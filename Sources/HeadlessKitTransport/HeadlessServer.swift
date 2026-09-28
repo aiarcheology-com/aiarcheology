@@ -181,6 +181,11 @@ public final class HeadlessServer {
 	fileprivate func connectionClosed(_ connection: ServerConnection) {
 		connections[ObjectIdentifier(connection)] = nil
 	}
+
+	/// Whether a connection other than `connection` is driving the app (AIA-0992).
+	fileprivate func hasController(besides connection: ServerConnection) -> Bool {
+		connections.values.contains { $0 !== connection && $0.isController }
+	}
 }
 
 /// Resumes the start continuation exactly once, whichever listener state arrives first.
@@ -195,6 +200,13 @@ private final class Readiness {
 }
 
 /// One client connection: a handshake, then requests answered in order.
+///
+/// At most one connection is the **controller** (AIA-0992): the one that completed the hello and still
+/// reads requests. A read is a render — `state` reconciles the app's gates — so there are no
+/// observer-only connections, and a second hello while there is a controller is refused with `busy`.
+/// A connection that has not sent its hello never holds the slot, so a stalled socket cannot lock the
+/// controller out; one that stops sending (end of stream, a failure, a protocol violation) gives it up
+/// at once. Requests it already sent still finish first: the session runs commands one at a time.
 @MainActor
 private final class ServerConnection {
 
@@ -208,6 +220,8 @@ private final class ServerConnection {
 		case closed
 
 		var readsInput: Bool { self == .awaitingHello || self == .authenticated }
+		/// Only a connection that can still send requests holds the controller slot.
+		var holdsController: Bool { self == .authenticated }
 		var answersRequests: Bool { self == .authenticated || self == .finishing }
 	}
 
@@ -223,6 +237,8 @@ private final class ServerConnection {
 	/// Requests accepted and not yet answered.
 	private var pendingAnswers = 0
 	private var handshakeDeadline: Task<Void, Never>?
+
+	var isController: Bool { phase.holdsController }
 
 	init(connection: NWConnection, server: HeadlessServer) {
 		self.connection = connection
@@ -337,6 +353,13 @@ private final class ServerConnection {
 		}
 		guard Self.constantTimeEquals(hello.token, server.token) else {
 			return reject(HeadlessError(.unauthorized, "wrong token"))
+		}
+		// After the token: a peer without it learns nothing, not even that the app is in use.
+		guard server.hasController(besides: self) == false else {
+			return reject(HeadlessError(
+				.busy,
+				"another client is driving this app; one controller at a time (disconnect it, or wait for it to finish)"
+			))
 		}
 		phase = .authenticated
 		handshakeDeadline?.cancel()

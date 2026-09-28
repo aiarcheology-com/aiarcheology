@@ -50,6 +50,9 @@ public struct HeadlessError: Error, Codable, Hashable, Sendable, CustomStringCon
 		public static let timeout = Code(rawValue: "timeout")
 		public static let unauthorized = Code(rawValue: "unauthorized")
 		public static let protocolMismatch = Code(rawValue: "protocolMismatch")
+		/// Another client is driving the app: only one connection may (AIA-0992). Sent in the hello's
+		/// error line; the connection is then closed.
+		public static let busy = Code(rawValue: "busy")
 	}
 
 	public let code: Code

@@ -26,8 +26,9 @@ public final class HeadlessSession {
 	/// The last command accepted, which the next one waits for.
 	///
 	/// Commands are serialized because an action's handler suspends while its effect completes. Two
-	/// interleaved commands would each see — and report — the other's half-finished state, and two
-	/// clients (a scenario and an agent) could otherwise drive the same app at once.
+	/// interleaved commands would each see — and report — the other's half-finished state. The
+	/// transport admits one controlling client at a time (AIA-0992); a client that has just given up
+	/// the slot may still have a command running here, and the next client's commands wait behind it.
 	private var tail: Task<Void, Never>?
 
 	public init(

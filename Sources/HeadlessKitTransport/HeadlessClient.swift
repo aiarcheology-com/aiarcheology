@@ -50,8 +50,25 @@ public actor HeadlessClient: HeadlessDriving {
 		serverHello?.routes
 	}
 
-	/// Drops the connection and anything half-read from it; the next call reconnects.
-	public func close() {
+	/// How long `close()` waits for the server to finish the connection before dropping it.
+	public nonisolated static let closeGracePeriod: Duration = .seconds(1)
+
+	/// Ends the connection; the next call reconnects.
+	///
+	/// Graceful (AIA-0992): it stops sending, then waits — at most ``closeGracePeriod`` — for the
+	/// server to close its side, which it does once it has answered everything already sent. By then
+	/// the server has given up this client's controller slot, so a client that connects right after
+	/// this returns (`up`, then `exec`) is not refused as `busy`. A server still busy with an
+	/// abandoned request keeps its side open; the wait then ends at the grace period.
+	public func close() async {
+		guard let connection else { return drop() }
+		self.connection = nil
+		drop()
+		await Self.finish(connection, within: Self.closeGracePeriod)
+	}
+
+	/// Drops the connection and anything half-read from it at once; the next call reconnects.
+	private func drop() {
 		connection?.cancel()
 		connection = nil
 		serverHello = nil
@@ -79,7 +96,7 @@ public actor HeadlessClient: HeadlessDriving {
 		guard endpoint.port != 0, let port = NWEndpoint.Port(rawValue: endpoint.port) else {
 			throw HeadlessTransportError(.connectionFailed, "invalid port \(endpoint.port)")
 		}
-		close()
+		drop()
 		let connection = NWConnection(host: NWEndpoint.Host(endpoint.host), port: port, using: .tcp)
 		self.connection = connection
 		do {
@@ -96,7 +113,7 @@ public actor HeadlessClient: HeadlessDriving {
 			}
 			throw HeadlessTransportError(.malformedMessage, "the server did not answer the hello")
 		} catch {
-			close()
+			drop()
 			throw error
 		}
 	}
@@ -113,11 +130,11 @@ public actor HeadlessClient: HeadlessDriving {
 		do {
 			response = try HeadlessCoding.makeDecoder().decode(Response.self, from: line)
 		} catch {
-			close()
+			drop()
 			throw HeadlessTransportError(.malformedMessage, "unreadable response: \(error)")
 		}
 		guard response.id == id else {
-			close()
+			drop()
 			throw HeadlessTransportError(.malformedMessage, "response \(response.id) does not answer request \(id)")
 		}
 		return response
@@ -140,13 +157,13 @@ public actor HeadlessClient: HeadlessDriving {
 		while lines.isEmpty {
 			guard let connection else { throw HeadlessTransportError(.closed, "not connected") }
 			guard let chunk = try await Self.receive(on: connection) else {
-				close()
+				drop()
 				throw HeadlessTransportError(.closed, "the server closed the connection")
 			}
 			do {
 				lines.append(contentsOf: try buffer.append(chunk))
 			} catch {
-				close()
+				drop()
 				throw HeadlessTransportError(.malformedMessage, "line longer than \(LineBuffer.maximumLineLength) bytes")
 			}
 		}
@@ -166,7 +183,7 @@ public actor HeadlessClient: HeadlessDriving {
 					// The operation may have won while this slept; it cancelled us, so stop here.
 					try Task.checkCancellation()
 					expiry.mark()
-					await self.close()
+					await self.drop()
 					throw HeadlessTransportError(.timeout, "no answer within \(timeout)")
 				}
 				defer { group.cancelAll() }
@@ -211,6 +228,27 @@ public actor HeadlessClient: HeadlessDriving {
 				}
 			}
 			connection.start(queue: queue)
+		}
+	}
+
+	/// Sends end-of-stream, then reads until the peer finishes too, fails, or `grace` runs out.
+	private static func finish(_ connection: NWConnection, within grace: Duration) async {
+		connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .idempotent)
+		await withTaskGroup(of: Void.self) { group in
+			group.addTask {
+				// Anything still arriving answers requests nobody waits for any more.
+				while true {
+					// `nil` both when the server has finished and when the connection failed.
+					guard (try? await receive(on: connection)) != nil else { return }
+				}
+			}
+			group.addTask {
+				try? await Task.sleep(for: grace)
+			}
+			await group.next()
+			group.cancelAll()
+			// Unblocks a read still waiting on the socket, so the group can end.
+			connection.cancel()
 		}
 	}
 

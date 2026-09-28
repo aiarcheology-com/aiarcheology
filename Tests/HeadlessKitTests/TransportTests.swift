@@ -95,14 +95,158 @@ final class TransportTests: XCTestCase {
 		} catch let error as HeadlessTransportError {
 			XCTAssertEqual(error.kind, .timeout, "\(error)")
 		}
-		// The app is still finishing the abandoned wait; the next request queues behind it and may
-		// itself time out once. What matters is that the client reconnects and gets an answer.
+		// The timed-out client closed its connection, which gave up the controller slot at once
+		// (AIA-0992): the app is still finishing the abandoned wait, and the next request queues
+		// behind it and may itself time out once. Each timeout closes again, so it is never `busy`.
 		var recovered: Response?
 		for _ in 0..<20 where recovered == nil {
-			recovered = try? await client.send(.state) // A timeout here is expected while the app catches up.
+			do {
+				recovered = try await client.send(.state)
+			} catch let error as HeadlessTransportError {
+				XCTAssertEqual(error.kind, .timeout, "only a timeout is expected while the app catches up: \(error)")
+			}
 		}
 		XCTAssertEqual(recovered?.route, "home")
 		await client.close()
+	}
+
+	// MARK: - One controller (AIA-0992)
+
+	func testASecondHelloIsBusyWhileAClientIsConnected() async throws {
+		let endpoint = try await server.start()
+		let first = HeadlessClient(endpoint: endpoint)
+		try await first.connect()
+		let second = HeadlessClient(endpoint: endpoint)
+		do {
+			try await second.connect()
+			XCTFail("a second client connected while the first drives the app")
+		} catch let error as HeadlessTransportError {
+			XCTAssertEqual(error.kind, .handshakeRejected, "\(error)")
+			XCTAssertTrue(error.message.hasPrefix("busy:"), error.message)
+		}
+		let answer = try await first.send(.perform(action: "increment", arguments: [:]))
+		XCTAssertTrue(answer.ok, "the controller keeps working")
+		XCTAssertEqual(app.count, 1)
+		try await Self.eventually { self.server.connectionCount == 1 }
+		await first.close()
+	}
+
+	func testTheBusyErrorLineIsOnTheWireAndTheConnectionCloses() async throws {
+		let endpoint = try await server.start()
+		let first = HeadlessClient(endpoint: endpoint)
+		try await first.connect()
+		let lines = try await RawSocket.exchange(port: endpoint.port, send: [
+			#"{"hello":{"protocolVersion":1,"token":"\#(endpoint.token)"}}"#,
+			#"{"id":"1","command":"perform","action":"increment"}"#
+		], expectLines: 1, readUntilClosed: true)
+		XCTAssertEqual(lines.count, 1, "nothing after the refused hello is answered: \(lines)")
+		let error = try HeadlessCoding.makeDecoder().decode(JSONValue.self, from: Data(lines[0].utf8))
+		XCTAssertEqual(error.value(at: "/error/code"), "busy")
+		XCTAssertEqual(app.count, 0)
+		await first.close()
+	}
+
+	func testAWrongTokenIsUnauthorizedEvenWhileBusy() async throws {
+		let endpoint = try await server.start()
+		let first = HeadlessClient(endpoint: endpoint)
+		try await first.connect()
+		let intruder = HeadlessClient(endpoint: HeadlessEndpoint(port: endpoint.port, token: "wrong"))
+		do {
+			try await intruder.connect()
+			XCTFail("connected with a wrong token")
+		} catch let error as HeadlessTransportError {
+			XCTAssertTrue(error.message.hasPrefix("unauthorized:"), "a peer without the token learns nothing: \(error.message)")
+		}
+		await first.close()
+	}
+
+	func testAConnectionWithoutAHelloDoesNotHoldTheSlot() async throws {
+		let endpoint = try await server.start()
+		let silent = try RawSocket.open(port: endpoint.port)
+		defer { Darwin.close(silent) }
+		try await Self.eventually { self.server.connectionCount == 1 }
+		let client = HeadlessClient(endpoint: endpoint)
+		try await client.connect()
+		let answer = try await client.send(.state)
+		XCTAssertTrue(answer.ok)
+		await client.close()
+	}
+
+	func testClosingTheControllerFreesTheSlotAtOnce() async throws {
+		let endpoint = try await server.start()
+		// Closed and replaced with no delay, repeatedly: the worst case of `up` followed by `exec`.
+		for round in 0..<20 {
+			let client = HeadlessClient(endpoint: endpoint)
+			do {
+				try await client.connect()
+			} catch {
+				XCTFail("round \(round): the previous controller's close did not free the slot: \(error)")
+			}
+			await client.close()
+		}
+	}
+
+	func testAControllerMidWaitHoldsTheSlotUntilItDisconnects() async throws {
+		let endpoint = try await server.start()
+		let waiter = HeadlessClient(endpoint: endpoint, requestTimeout: .seconds(5))
+		try await waiter.connect()
+		let wait = Task { try await waiter.send(.wait(condition: "count-at-least", arguments: ["value": 1], timeout: 0.3)) }
+		let other = HeadlessClient(endpoint: endpoint)
+		do {
+			try await other.connect()
+			XCTFail("connected while another client's wait is running on an open connection")
+		} catch let error as HeadlessTransportError {
+			XCTAssertTrue(error.message.hasPrefix("busy:"), error.message)
+		}
+		let answered = try await wait.value
+		XCTAssertEqual(answered.error?.code, .timeout, "the wait itself answers on the open connection")
+		do {
+			try await other.connect()
+			XCTFail("an open, idle controller still holds the slot")
+		} catch let error as HeadlessTransportError {
+			XCTAssertTrue(error.message.hasPrefix("busy:"), error.message)
+		}
+		await waiter.close()
+		try await other.connect()
+		await other.close()
+	}
+
+	func testAClientThatTimedOutAndDisconnectedFreesTheSlotPromptly() async throws {
+		let endpoint = try await server.start()
+		let impatient = HeadlessClient(endpoint: endpoint, requestTimeout: .milliseconds(100))
+		let started = ContinuousClock.now
+		do {
+			_ = try await impatient.send(.wait(condition: "count-at-least", arguments: ["value": 1], timeout: 1))
+			XCTFail("the request outlived the client's timeout")
+		} catch let error as HeadlessTransportError {
+			XCTAssertEqual(error.kind, .timeout, "\(error)")
+		}
+		// The timeout dropped the connection while the abandoned wait still runs in the app. The slot
+		// is free as soon as the server sees the close, long before that wait ends: a drop sends no
+		// goodbye to wait for, so the next hello may arrive a moment before the close is processed.
+		let next = HeadlessClient(endpoint: endpoint, requestTimeout: .seconds(5))
+		var connected = false
+		while connected == false, ContinuousClock.now - started < .milliseconds(500) {
+			do {
+				try await next.connect()
+				connected = true
+			} catch let error as HeadlessTransportError where error.message.hasPrefix("busy:") {
+				try await Task.sleep(for: .milliseconds(10))
+			}
+		}
+		XCTAssertTrue(connected, "the slot was still held half-way through the abandoned wait")
+		let answer = try await next.send(.state)
+		XCTAssertTrue(answer.ok, "answered once the abandoned wait ends")
+		await next.close()
+	}
+
+	/// Polls `condition` on the main actor for up to two seconds.
+	private static func eventually(_ condition: @MainActor () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
+		for _ in 0..<200 {
+			if condition() { return }
+			try await Task.sleep(for: .milliseconds(10))
+		}
+		XCTFail("condition never held", file: file, line: line)
 	}
 
 	func testTheEndpointFileIsPublishedPrivatelyAndRemovedOnStop() async throws {
@@ -230,6 +374,26 @@ private enum RawSocket {
 
 	struct Failure: Error, CustomStringConvertible {
 		let description: String
+	}
+
+	/// Opens a connection and returns its descriptor without sending anything; the caller closes it.
+	static func open(port: UInt16) throws -> Int32 {
+		let descriptor = socket(AF_INET, SOCK_STREAM, 0)
+		guard descriptor >= 0 else { throw Failure(description: "socket failed") }
+		var address = sockaddr_in()
+		address.sin_family = sa_family_t(AF_INET)
+		address.sin_port = port.bigEndian
+		address.sin_addr.s_addr = inet_addr("127.0.0.1")
+		let connected = withUnsafePointer(to: &address) {
+			$0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+				connect(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+			}
+		}
+		guard connected == 0 else {
+			Darwin.close(descriptor)
+			throw Failure(description: "connect failed")
+		}
+		return descriptor
 	}
 
 	/// Sends `lines`, then reads until `expectLines` lines arrived — or, with `readUntilClosed`,
