@@ -33,6 +33,11 @@ final class HeadlessWalkTests: XCTestCase {
 	]
 
 	private var scratch: URL!
+	/// Every walker made, for the action names each saw.
+	private var walkers: [Walker] = []
+	/// The back-up question's action names: the walk cannot reach the route, and its actions do not
+	/// depend on state, so they are read from the screen itself.
+	private var backupConsentActionNames: Set<String> = []
 	private var realDirectoriesBefore: [String: [String]?] = [:]
 
 	override func setUp() async throws {
@@ -52,6 +57,7 @@ final class HeadlessWalkTests: XCTestCase {
 		)
 		try? FileManager.default.removeItem(at: scratch)
 		scratch = nil
+		walkers.removeAll()
 		StubWorkerProtocol.reset()
 		try await super.tearDown()
 	}
@@ -82,6 +88,21 @@ final class HeadlessWalkTests: XCTestCase {
 
 		// A walk that stopped visited only part of its routes; the coverage check would only repeat that.
 		guard stopped.isEmpty else { return }
+
+		// AIA-0992: the action names every route offers — declared, seen live, and the unwalked
+		// back-up question's — never collide across a move on the app's own.
+		let map = HeadlessNavigationMap.declaration
+		var offered = HeadlessNavigationMapTests.declaredActionNames(in: map)
+		for walker in walkers {
+			offered.merge(walker.offered) { $0.union($1) }
+		}
+		offered[Route(HeadlessRoute.backupConsent.rawValue), default: []].formUnion(backupConsentActionNames)
+		XCTAssertFalse(backupConsentActionNames.isEmpty, "the back-up question offers no actions to check")
+		let shared = HeadlessNavigationMapTests.actionNamesSharedAcrossAppMoves(offered: offered, in: map)
+		XCTAssertTrue(
+			shared.isEmpty,
+			"An app move between these routes would make an action name mean another action:\n" + shared.joined(separator: "\n")
+		)
 		XCTAssertTrue(
 			visited.isDisjoint(with: Self.unvisited.keys),
 			"walked routes are listed as unvisited: \(visited.intersection(Self.unvisited.keys).map(\.rawValue))"
@@ -310,7 +331,10 @@ final class HeadlessWalkTests: XCTestCase {
 		XCTAssertNotEqual(parts.findingsDirectory, FindingScreenshotStore.directory, "[walk \(name)]")
 
 		let application = MLBrowserHeadlessApplication(parts: parts, launchOptions: .object([:]), crashReporting: false)
-		return Walker(name: name, application: application, world: world, ready: ready)
+		backupConsentActionNames.formUnion(HeadlessBackupConsentScreen(findingsSync: parts.findingsSync).actions().map(\.spec.name))
+		let walker = Walker(name: name, application: application, world: world, ready: ready)
+		walkers.append(walker)
+		return walker
 	}
 
 	/// Writes a real 10×10 PNG.
@@ -354,6 +378,8 @@ private final class Walker {
 	private let driver: InProcessDriver
 	private let map = HeadlessNavigationMap.declaration
 	private(set) var visited: Set<HeadlessRoute> = []
+	/// The action names each observed route offered live.
+	private(set) var offered: [Route: Set<String>] = [:]
 	/// The route of the last observed state.
 	private var current: HeadlessRoute?
 
@@ -387,6 +413,7 @@ private final class Walker {
 		XCTAssertEqual(route, expected, "[walk \(name)]", file: file, line: line)
 		visited.insert(route)
 		current = route
+		offered[response.route, default: []].formUnion(response.actions.map(\.name))
 
 		// The drift check: every offered action that declares a destination is a declared edge.
 		XCTAssertEqual(

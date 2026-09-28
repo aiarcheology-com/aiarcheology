@@ -149,6 +149,46 @@ final class HeadlessNavigationMapTests: XCTestCase {
 		}
 	}
 
+	// MARK: - Action names are scoped to their screen (AIA-0992)
+
+	/// An action name means something only on the screen that offers it. A client reads `actions`,
+	/// and before it performs one the app may move on its own; if the new screen offered an action of
+	/// the same name, the client would run that one instead of failing with `unknownAction`. So two
+	/// routes joined by an action-less edge, in either direction, must not share an action name.
+	///
+	/// Returns one line per shared name, e.g. `drawer <-> consent share 'close'`; empty when none.
+	static func actionNamesSharedAcrossAppMoves(offered: [Route: Set<String>], in map: NavigationMap) -> [String] {
+		var pairs: Set<[Route]> = []
+		for declaration in map.routes {
+			for transition in declaration.transitions where transition.action == nil {
+				pairs.insert([declaration.route, transition.to].sorted { $0.rawValue < $1.rawValue })
+			}
+		}
+		return pairs.sorted { $0.map(\.rawValue).joined() < $1.map(\.rawValue).joined() }.compactMap { pair in
+			let shared = offered[pair[0], default: []].intersection(offered[pair[1], default: []])
+			guard shared.isEmpty == false else { return nil }
+			return "\(pair[0]) <-> \(pair[1]) share \(shared.sorted().map { "'\($0)'" }.joined(separator: ", "))"
+		}
+	}
+
+	/// Every route's action names, as far as the map declares them: the actions that leave the route.
+	/// `HeadlessWalkTests` adds the ones that stay (`enable`, `detect-image`, `refresh`, …).
+	static func declaredActionNames(in map: NavigationMap) -> [Route: Set<String>] {
+		var names: [Route: Set<String>] = [:]
+		for declaration in map.routes {
+			names[declaration.route] = Set(declaration.transitions.compactMap(\.action))
+		}
+		return names
+	}
+
+	func test_routesJoinedByAMoveOnTheAppsOwn_shareNoActionName() {
+		let shared = Self.actionNamesSharedAcrossAppMoves(offered: Self.declaredActionNames(in: map), in: map)
+		XCTAssertTrue(
+			shared.isEmpty,
+			"An app move between these routes would make an action name mean another action:\n" + shared.joined(separator: "\n")
+		)
+	}
+
 	func test_noTransitionIsDeclaredTwice() {
 		for declaration in map.routes {
 			let pairs = declaration.transitions.map { "\($0.action ?? "(on its own)") → \($0.to)" }
