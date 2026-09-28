@@ -147,7 +147,9 @@ final class AppRuntimeForegroundEntitlementTests: XCTestCase {
 		until expected: Int
 	) async {
 		let started = expectation(description: "entitlement re-check started")
-		provider.onStart = { if provider.startCalls >= expected { started.fulfill() } }
+		// `==`, not `>=`: an extra re-check must reach the count assertion, not over-fulfil the
+		// expectation, which XCTest turns into a crash.
+		provider.onStart = { if provider.startCalls == expected { started.fulfill() } }
 		postForeground(center)
 		await fulfillment(of: [started], timeout: 5)
 		provider.onStart = nil
