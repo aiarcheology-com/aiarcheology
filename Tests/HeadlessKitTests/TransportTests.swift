@@ -110,6 +110,26 @@ final class TransportTests: XCTestCase {
 		await client.close()
 	}
 
+	/// Strict wire types (AIA-0992): text for a typed parameter is refused on the wire, before the
+	/// handler runs; converting `k=v` is the command line's job.
+	func testAStringForATypedParameterIsRejectedOnTheWire() async throws {
+		let endpoint = try await server.start()
+		let lines = try await RawSocket.exchange(port: endpoint.port, send: [
+			#"{"hello":{"protocolVersion":1,"token":"\#(endpoint.token)"}}"#,
+			#"{"id":"1","command":"perform","action":"increment","arguments":{"by":"2"}}"#,
+			#"{"id":"2","command":"perform","action":"rename","arguments":{"name":"n","loud":"true"}}"#,
+			#"{"id":"3","command":"perform","action":"increment","arguments":{"by":2}}"#
+		], expectLines: 4)
+		let decoder = HeadlessCoding.makeDecoder()
+		let integer = try decoder.decode(Response.self, from: Data(lines[1].utf8))
+		XCTAssertEqual(integer.error?.code, .invalidArgument, lines[1])
+		let boolean = try decoder.decode(Response.self, from: Data(lines[2].utf8))
+		XCTAssertEqual(boolean.error?.code, .invalidArgument, lines[2])
+		let native = try decoder.decode(Response.self, from: Data(lines[3].utf8))
+		XCTAssertTrue(native.ok, lines[3])
+		XCTAssertEqual(app.count, 2, "only the natively typed request ran")
+	}
+
 	// MARK: - One controller (AIA-0992)
 
 	func testASecondHelloIsBusyWhileAClientIsConnected() async throws {

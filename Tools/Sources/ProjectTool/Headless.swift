@@ -99,7 +99,7 @@ struct Headless: AsyncParsableCommand {
 			try format.check(parsed)
 			let simulator = try HeadlessSimulator(installation: state)
 			let client = HeadlessClient(endpoint: try simulator.readEndpoint())
-			let response = try await client.send(parsed)
+			let response = try await client.send(try await HeadlessCommandLine.typed(parsed, via: client))
 			await client.close()
 			// A failed response prints as JSON whatever the format: its error is the point.
 			if format == .dot, response.ok, let result = response.result {

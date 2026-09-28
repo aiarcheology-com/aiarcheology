@@ -53,7 +53,7 @@ final class HeadlessSessionTests: XCTestCase {
 	// MARK: - perform
 
 	func testPerformRunsTheHandlerAndReportsTheStateAfterIt() async {
-		let response = await send(.perform(action: "increment", arguments: ["by": "3"]))
+		let response = await send(.perform(action: "increment", arguments: ["by": 3]))
 		XCTAssertTrue(response.ok, "\(String(describing: response.error))")
 		XCTAssertEqual(response.result, ["count": 3])
 		XCTAssertEqual(response.state, ["count": 3])
@@ -69,8 +69,8 @@ final class HeadlessSessionTests: XCTestCase {
 		XCTAssertEqual(app.count, 0)
 	}
 
-	func testPerformPassesOnlyDeclaredConvertedArguments() async {
-		let response = await send(.perform(action: "rename", arguments: ["name": "n", "loud": "false", "weight": "2"]))
+	func testPerformPassesOnlyDeclaredArguments() async {
+		let response = await send(.perform(action: "rename", arguments: ["name": "n", "loud": false, "weight": 2]))
 		XCTAssertEqual(response.result?.value(at: "/arguments"), ["name": "n", "loud": false, "weight": 2])
 	}
 

@@ -48,8 +48,11 @@ public struct Arguments: Sendable, Equatable {
 		HeadlessError(.invalidArgument, "'\(name)' must be \(kind)")
 	}
 
-	/// Validates raw client arguments against `parameters`, converting the textual forms a
-	/// command line produces (`"3"`, `"true"`) into the declared types.
+	/// Validates raw client arguments against `parameters`. Types are strict (AIA-0992): each value
+	/// must already be the declared JSON type — a string for `string`, an integral number for
+	/// `integer`, a finite number for `number`, a boolean for `boolean`. Converting command-line text
+	/// is the command line's job (ProjectTool's `exec` reads the declared types first), not the
+	/// protocol's: `"3"` for an integer is rejected, as is `7` for a string.
 	///
 	/// - Parameter subject: names the action or condition in error messages.
 	static func validated(
@@ -87,8 +90,8 @@ public struct Arguments: Sendable, Equatable {
 		return Arguments(result)
 	}
 
-	/// `value` as `kind`, or `nil` when it cannot be read as one. Written with explicit branches:
-	/// every `nil` here must mean "not convertible", never a JSON null.
+	/// `value` when it is of `kind`, or `nil` when it is not. Written with explicit branches: every
+	/// `nil` here must mean "the wrong type", never a JSON null.
 	private static func convert(_ value: JSONValue, to kind: ParameterSpec.Kind) -> JSONValue? {
 		switch kind {
 		case .string: convertToString(value)
@@ -102,12 +105,7 @@ public struct Arguments: Sendable, Equatable {
 		switch value {
 		case .string:
 			return value
-		case .number(let number):
-			if let integer = JSONValue.exactInteger(number) { return .string(String(integer)) }
-			return .string(String(number))
-		case .bool(let flag):
-			return .string(flag ? "true" : "false")
-		case .null, .array, .object:
+		case .null, .number, .bool, .array, .object:
 			return nil
 		}
 	}
@@ -117,22 +115,16 @@ public struct Arguments: Sendable, Equatable {
 		case .number(let number):
 			guard JSONValue.exactInteger(number) != nil else { return nil }
 			return value
-		case .string(let text):
-			guard let integer = Int(text) else { return nil }
-			return .number(Double(integer))
-		case .null, .bool, .array, .object:
+		case .null, .bool, .string, .array, .object:
 			return nil
 		}
 	}
 
 	private static func convertToNumber(_ value: JSONValue) -> JSONValue? {
 		switch value {
-		case .number:
-			return value
-		case .string(let text):
-			guard let number = Double(text), number.isFinite else { return nil }
-			return .number(number)
-		case .null, .bool, .array, .object:
+		case .number(let number):
+			return number.isFinite ? value : nil
+		case .null, .bool, .string, .array, .object:
 			return nil
 		}
 	}
@@ -141,10 +133,6 @@ public struct Arguments: Sendable, Equatable {
 		switch value {
 		case .bool:
 			return value
-		case .string(let text) where text.lowercased() == "true":
-			return .bool(true)
-		case .string(let text) where text.lowercased() == "false":
-			return .bool(false)
 		case .null, .number, .string, .array, .object:
 			return nil
 		}

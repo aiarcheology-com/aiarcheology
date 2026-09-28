@@ -323,7 +323,83 @@ public enum HeadlessCommandLine {
 		}
 	}
 
-	/// `name=value` words as string arguments; the app converts them to the declared types.
+	/// `command` with its `name=value` text converted to the types the app declares (AIA-0992).
+	///
+	/// The protocol takes native JSON types only, so the command line asks first: `perform` reads the
+	/// current screen's `actions`, `wait` reads `help`'s conditions (the built-in `route` included).
+	/// Text becomes the declared kind and is never guessed from its look: `title=2024` stays a string
+	/// for a string parameter. A command without arguments needs no conversion and costs no extra
+	/// request. An action or parameter the app does not declare is left as text, so the app's own
+	/// answer (`unknownAction`, `invalidArgument`) says what is wrong.
+	public static func typed(_ command: Command, via driver: any HeadlessDriving) async throws -> Command {
+		switch command {
+		case .perform(let action, let arguments) where arguments.isEmpty == false:
+			let offered = try await driver.send(.actions).actions
+			guard let spec = offered.first(where: { $0.name == action }) else { return command }
+			return .perform(action: action, arguments: try typed(arguments, against: spec.parameters, subject: "'\(action)'"))
+		case .wait(let condition, let arguments, let timeout) where arguments.isEmpty == false:
+			let help = try await driver.send(.help)
+			guard let spec = conditions(in: help).first(where: { $0.name == condition }) else { return command }
+			return .wait(
+				condition: condition,
+				arguments: try typed(arguments, against: spec.parameters, subject: "condition '\(condition)'"),
+				timeout: timeout
+			)
+		case .help, .state, .actions, .map, .perform, .goto, .wait:
+			return command
+		}
+	}
+
+	/// The largest integer a JSON number (a `Double`) holds exactly: beyond it, `Int` → `Double`
+	/// rounds, and the app would receive a different number than the one typed.
+	static let largestExactInteger = 9_007_199_254_740_991
+
+	/// Converts each textual argument `parameters` declares to its kind; others stay text.
+	static func typed(
+		_ arguments: [String: JSONValue],
+		against parameters: [ParameterSpec],
+		subject: String
+	) throws -> [String: JSONValue] {
+		var result = arguments
+		for parameter in parameters {
+			guard case .string(let text) = arguments[parameter.name] else { continue }
+			result[parameter.name] = try convert(text, to: parameter.kind, name: parameter.name, subject: subject)
+		}
+		return result
+	}
+
+	private static func convert(_ text: String, to kind: ParameterSpec.Kind, name: String, subject: String) throws -> JSONValue {
+		func invalid(_ expected: String) -> Invalid {
+			Invalid(description: "\(subject): '\(name)' must be \(expected), got '\(text)'")
+		}
+		switch kind {
+		case .string:
+			return .string(text)
+		case .integer:
+			guard let integer = Int(text), abs(integer) <= largestExactInteger else {
+				throw invalid("an integer within ±\(largestExactInteger)")
+			}
+			return .number(Double(integer))
+		case .number:
+			guard let number = Double(text), number.isFinite else { throw invalid("a finite number") }
+			return .number(number)
+		case .boolean:
+			switch text.lowercased() {
+			case "true": return .bool(true)
+			case "false": return .bool(false)
+			default: throw invalid("true or false")
+			}
+		}
+	}
+
+	/// `help`'s wait conditions; none when the response carries none it can read.
+	private static func conditions(in help: Response) -> [WaitConditionSpec] {
+		guard let value = help.result?.value(at: "/conditions"),
+			  let data = try? HeadlessCoding.makeEncoder().encode(value) else { return [] }
+		return (try? HeadlessCoding.makeDecoder().decode([WaitConditionSpec].self, from: data)) ?? []
+	}
+
+	/// `name=value` words as text; ``typed(_:via:)`` converts them to the declared types.
 	private static func pairs(_ words: [String]) throws -> [String: JSONValue] {
 		var result: [String: JSONValue] = [:]
 		for word in words {

@@ -119,7 +119,7 @@ final class JSONValueAndWireTests: XCTestCase {
 
 	// MARK: - Arguments
 
-	func testArgumentsConvertTextualForms() throws {
+	func testArgumentsAcceptTheDeclaredTypes() throws {
 		let parameters = [
 			ParameterSpec("count", .integer),
 			ParameterSpec("flag", .boolean),
@@ -127,7 +127,7 @@ final class JSONValueAndWireTests: XCTestCase {
 			ParameterSpec("name", .string)
 		]
 		let arguments = try Arguments.validated(
-			["count": "3", "flag": "TRUE", "ratio": "0.5", "name": 7],
+			["count": 3, "flag": true, "ratio": 0.5, "name": "7"],
 			against: parameters,
 			subject: "test"
 		)
@@ -135,6 +135,31 @@ final class JSONValueAndWireTests: XCTestCase {
 		XCTAssertEqual(try arguments.boolean("flag"), true)
 		XCTAssertEqual(try arguments.number("ratio"), 0.5)
 		XCTAssertEqual(try arguments.string("name"), "7")
+	}
+
+	/// Strict wire types (AIA-0992): the textual forms a command line produces are not converted.
+	func testArgumentsRejectEveryOtherType() {
+		let cases: [(ParameterSpec, JSONValue)] = [
+			(ParameterSpec("count", .integer), "3"),
+			(ParameterSpec("count", .integer), 1.5),
+			(ParameterSpec("count", .integer), true),
+			(ParameterSpec("flag", .boolean), "true"),
+			(ParameterSpec("flag", .boolean), "TRUE"),
+			(ParameterSpec("flag", .boolean), 1),
+			(ParameterSpec("ratio", .number), "0.5"),
+			(ParameterSpec("ratio", .number), false),
+			(ParameterSpec("name", .string), 7),
+			(ParameterSpec("name", .string), false),
+			(ParameterSpec("name", .string), ["a"])
+		]
+		for (parameter, value) in cases {
+			XCTAssertThrowsError(
+				try Arguments.validated([parameter.name: value], against: [parameter], subject: "test"),
+				"\(parameter.name) accepted \(value.jsonString)"
+			) { error in
+				XCTAssertEqual((error as? HeadlessError)?.code, .invalidArgument)
+			}
+		}
 	}
 
 	func testArgumentsRejectWhatTheyCannotConvert() {
