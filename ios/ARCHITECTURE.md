@@ -59,8 +59,10 @@ production always launch `MLBrowser`.
 Both entries bootstrap through `AppRuntime` (`State/AppRuntime.swift`): observability, Clerk, then
 the composition root, in that order. `AppRuntime.start()` then runs the process-level work that
 used to hang off the root scene — store-dependent services, the detailed-log brake,
-background/foreground handling, and auth, which starts only once `AppState.isReady`. Presentation
-stays in the UI entry: overlays, URL intake, the production banner, and the Clerk session watcher.
+background/foreground handling, and auth, which starts only once `AppState.isReady` — and the
+foreground entitlement re-check, which used to hang off `SubscriptionGateView` (AIA-0993).
+Presentation stays in the UI entry: overlays, URL intake, the production banner, and the Clerk
+session watcher.
 
 The root `AppState`
 (`@StateObject`) is built by `DependencyContainer.makeAppState()`: it receives the shared services
