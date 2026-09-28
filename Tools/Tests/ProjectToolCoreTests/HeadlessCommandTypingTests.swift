@@ -89,6 +89,19 @@ final class HeadlessCommandTypingTests: XCTestCase {
 		XCTAssertFalse(driver.sent.contains { $0.name == "perform" || $0.name == "wait" }, "nothing unconverted reaches the app")
 	}
 
+	/// Help without readable conditions: sending the text anyway would earn a misleading type error.
+	func testUnreadableWaitConditionsAreACommandLineError() async throws {
+		for result: JSONValue? in [nil, ["conditions": "not a list"]] {
+			let help = StubDriver(help: Response(id: "1", route: "home", state: [:], actions: [], context: [:], result: result))
+			do {
+				_ = try await HeadlessCommandLine.typed(.wait(condition: "c", arguments: ["n": "3"], timeout: nil), via: help)
+				XCTFail("typed with unreadable conditions: \(String(describing: result))")
+			} catch let error as HeadlessCommandLine.Invalid {
+				XCTAssertTrue(error.description.contains("cannot be typed"), error.description)
+			}
+		}
+	}
+
 	/// A JSON number is a `Double`: beyond 2^53 an `Int` would arrive rounded, as a different number.
 	func testIntegersBeyondTheExactRangeAreRefused() throws {
 		let count = [ParameterSpec("count", .integer)]
@@ -151,5 +164,19 @@ private final class RecordingDriver: HeadlessDriving {
 	func send(_ command: Command) async throws -> Response {
 		sent.append(command)
 		return try await inner.send(command)
+	}
+}
+
+/// Answers every command with one canned response.
+private final class StubDriver: HeadlessDriving, @unchecked Sendable {
+	// @unchecked: immutable after init.
+	private let help: Response
+
+	init(help: Response) {
+		self.help = help
+	}
+
+	func send(_ command: Command) async throws -> Response {
+		help
 	}
 }
