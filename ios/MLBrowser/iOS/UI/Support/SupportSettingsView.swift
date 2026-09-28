@@ -55,6 +55,7 @@ struct SupportSettingsView: View {
 	}
 }
 
+#if DEBUG
 #Preview {
 	NavigationStack {
 		SupportSettingsView()
@@ -62,3 +63,4 @@ struct SupportSettingsView: View {
 			.environmentObject(SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: false))
 	}
 }
+#endif
