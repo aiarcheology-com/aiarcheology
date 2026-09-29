@@ -13,7 +13,6 @@ import UniformTypeIdentifiers
 /// presented as a sheet from the drawer's Findings section.
 struct FindingsListView: View {
 	@Environment(\.dismiss) private var dismiss
-	@Environment(\.managedObjectContext) private var moc
 	/// Held only to hand on to the share composer's own sheet, which needs it live (AIA-0650).
 	@EnvironmentObject private var featureFlags: FeatureFlagsState
 

@@ -769,10 +769,6 @@ extension FindingsSyncCycleTests {
 		XCTAssertNil(sut.lastManualBackup, "starting a synchronize clears the older back-up outcome")
 	}
 
-	/// AIA-0758: `syncNow()` hands back the cycle already running and used to schedule the follow-up
-	/// fire-and-forget. Awaiting the returned task therefore returned while the cycle that could
-	/// actually see the caller's change had not started -- pull-to-refresh stopped spinning early,
-	/// and a pressed button reported success on work that predated the press.
 	/// What opening the findings list does, for the list and headless `open-findings` alike
 	/// (AIA-1003): sweep the directory it is given -- dropping a file no finding references, keeping
 	/// one that is referenced -- and start the sync it hands back.
@@ -801,6 +797,10 @@ extension FindingsSyncCycleTests {
 		XCTAssertFalse(StubWorkerProtocol.requests.isEmpty, "the returned task is the cycle that asked the server")
 	}
 
+	/// AIA-0758: `syncNow()` hands back the cycle already running and used to schedule the follow-up
+	/// fire-and-forget. Awaiting the returned task therefore returned while the cycle that could
+	/// actually see the caller's change had not started -- pull-to-refresh stopped spinning early,
+	/// and a pressed button reported success on work that predated the press.
 	func testAwaitingSyncNowWaitsForTheCycleQueuedWhileOneWasRunning() async throws {
 		StubWorkerProtocol.handler = { _ in
 			(200, StubWorkerProtocol.json([

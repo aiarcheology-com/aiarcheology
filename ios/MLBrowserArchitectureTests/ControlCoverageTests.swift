@@ -99,7 +99,8 @@ final class ControlCoverageTests: XCTestCase {
 		let views = try Self.swiftFiles(under: iOS.appendingPathComponent("UI"))
 		let headless = try Self.swiftFiles(under: iOS.appendingPathComponent("Headless"))
 		XCTAssertFalse(views.isEmpty || headless.isEmpty, "the scan found no sources; it is broken, not clean")
-		let actionNames = try Set(headless.values.flatMap { try Self.matches(#""([a-z]+(?:-[a-z]+)*)""#, in: Self.source($0)) })
+		// Declared actions only: `HeadlessAction(` then its name, on the same line or the next.
+		let actionNames = try Set(headless.values.flatMap { try Self.matches(#"HeadlessAction\(\s*"([a-z-]+)""#, in: Self.source($0)) })
 
 		for (path, url) in views {
 			if let entries = Self.covered[path] {
@@ -114,7 +115,7 @@ final class ControlCoverageTests: XCTestCase {
 				}
 				for action in Set(entries.keys.filter { $0.hasPrefix("action:") }.map { String($0.dropFirst(7)) })
 				where actionNames.contains(action) == false {
-					XCTFail("\(path): headless action '\(action)' does not exist under Headless/")
+					XCTFail("\(path): headless action '\(action)' is not a HeadlessAction declared under Headless/")
 				}
 			} else if Self.uncovered.keys.contains(where: { $0.hasSuffix("/") ? path.hasPrefix($0) : path == $0 }) == false {
 				XCTFail("UI/\(path) is neither a covered view nor in a declared uncovered area — add it to `covered` or `uncovered`")
