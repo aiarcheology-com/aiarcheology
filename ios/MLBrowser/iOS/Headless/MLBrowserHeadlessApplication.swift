@@ -532,21 +532,16 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 			await parts.findingsSync.syncNow()?.value
 			return nil
 		})
-		// The footer's own switch: a Sign In row while anonymous, the account row once validated, and
-		// nothing to tap while auth is resolving or offline.
-		switch parts.authState.effectiveContext {
-		case .anonymous, .validated:
+		// The footer's own rule: offered while its row is tappable.
+		if let offer = DrawerPresentation.accountOffer(for: parts.authState.effectiveContext), offer != .offline {
 			actions.append(HeadlessAction(
 				"open-account",
 				summary: "Open the account screen: sign in, or the signed-in account.",
 				navigatesTo: "account"
 			) { _ in
-				// The footer's own choice: the sign-in sheet while anonymous, Settings once validated.
-				presentation.presentAccount(for: parts.authState.effectiveContext, usesRealAuth: parts.usesRealAuth)
+				presentation.presentAccount(offer, usesRealAuth: parts.usesRealAuth)
 				return nil
 			})
-		case .suspended, .indeterminate:
-			break
 		}
 		return actions
 	}

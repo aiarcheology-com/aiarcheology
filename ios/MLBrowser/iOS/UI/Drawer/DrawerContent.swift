@@ -401,32 +401,27 @@ struct DrawerContent: View {
         }
     }
 
-    /// The drawer's bottom slot: always "who am I" (AIA-0536). Sign In while signed out; the
-    /// signed-in account otherwise, deep-linking to Settings → Manage Account. Pinned via
-    /// `safeAreaInset` so it cannot scroll away, and absent entirely for `.indeterminate` /
-    /// `.suspended` — sign-in would fail offline, and the account row would promise a profile
-    /// Clerk cannot show.
+    /// The drawer's bottom slot: always "who am I" (AIA-0536). What it offers is
+    /// `DrawerPresentation.accountOffer(for:)`, shared with headless mode (AIA-1003). Pinned via
+    /// `safeAreaInset` so it cannot scroll away.
     @ViewBuilder
     private var accountFooter: some View {
-        switch authState.effectiveContext {
-        case .anonymous:
+        switch DrawerPresentation.accountOffer(for: authState.effectiveContext) {
+        case .signIn:
             accountFooterButton(title: L10n.Auth.SignIn.button, systemImage: "person.crop.circle") {
-                // The context this row was drawn for, as before the model took the choice over.
-                presentation.presentAccount(for: .anonymous, usesRealAuth: usesRealAuth)
+                // The offer this row was drawn for, as before the model took the choice over.
+                presentation.presentAccount(.signIn, usesRealAuth: usesRealAuth)
             }
             .testability(Testability.Button.drawerSignIn)
-        case let .validated(account):
+        case .account:
             // The email is read at render time, not observed — safe because the footer re-renders
             // on every context change (authState IS observed), and the email cannot change without
             // one. Mock auth has no Clerk instance to read, so it falls back to the generic label.
             accountFooterButton(title: signedInLabel, systemImage: "person.crop.circle.fill") {
-                // Deep-link only on the real-auth path: the profile destination reads
-                // `Clerk.shared`, which traps when Clerk was never configured, so a mock-auth tap
-                // opens plain Settings instead of pushing a screen that would crash.
-                presentation.presentAccount(for: .validated(account), usesRealAuth: usesRealAuth)
+                presentation.presentAccount(.account, usesRealAuth: usesRealAuth)
             }
             .testability(Testability.Button.drawerAccount)
-        case .suspended:
+        case .offline:
             // Signed in, unverifiable — the account still EXISTS and the slot must say so
             // (an empty slot reads as broken, which is how this state was found). Disabled:
             // sign-in would fail with no network, and Clerk cannot render the profile.
@@ -444,7 +439,7 @@ struct DrawerContent: View {
                 .foregroundStyle(.secondary)
             }
             .testability(Testability.Label.drawerAccountOffline)
-        case .indeterminate:
+        case nil:
             // Transient (auth is still resolving) — a row that flickers in and out for a second
             // at launch is worse than a brief absence.
             EmptyView()

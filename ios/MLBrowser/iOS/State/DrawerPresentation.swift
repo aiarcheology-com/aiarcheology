@@ -19,6 +19,9 @@ enum SettingsPresentation: Hashable, Identifiable {
 	}
 }
 
+/// The drawer footer's row: Sign In, the signed-in account, or the account shown as offline.
+enum AccountOffer { case signIn, account, offline }
+
 /// The sheets the drawer presents: the findings list, the sign-in sheet and Settings.
 ///
 /// One model shared by the SwiftUI drawer, which binds its `.sheet`s to it, and headless mode,
@@ -49,18 +52,26 @@ final class DrawerPresentation {
 		isSignInPresented || settings != nil
 	}
 
+	/// What the drawer footer offers in each auth context — the one rule the footer draws and
+	/// headless mode's `open-account` follows (AIA-1003). `offline` is shown but not tappable: sign-in
+	/// would fail with no network, and Clerk cannot render the profile. `nil` while auth is resolving.
+	static func accountOffer(for context: EffectiveAuthContext) -> AccountOffer? {
+		switch context {
+		case .anonymous: .signIn
+		case .validated: .account
+		case .suspended: .offline
+		case .indeterminate: nil
+		}
+	}
+
 	/// The drawer footer's tap: sign in while anonymous; once validated, Settings — seeded at Manage
 	/// Account on real auth only, because that destination reads `Clerk.shared`, which traps when
-	/// Clerk was never configured. The footer offers nothing to tap while auth is resolving or
-	/// offline, so those contexts present nothing.
-	func presentAccount(for context: EffectiveAuthContext, usesRealAuth: Bool) {
-		switch context {
-		case .anonymous:
-			isSignInPresented = true
-		case .validated:
-			settings = usesRealAuth ? .manageAccount : .settings
-		case .suspended, .indeterminate:
-			break
+	/// Clerk was never configured. The offline offer has nothing to tap and presents nothing.
+	func presentAccount(_ offer: AccountOffer, usesRealAuth: Bool) {
+		switch offer {
+		case .signIn: isSignInPresented = true
+		case .account: settings = usesRealAuth ? .manageAccount : .settings
+		case .offline: break
 		}
 	}
 

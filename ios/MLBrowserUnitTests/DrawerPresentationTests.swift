@@ -13,11 +13,21 @@ import XCTest
 @MainActor
 final class DrawerPresentationTests: XCTestCase {
 
-	func test_presentAccount_whileAnonymous_presentsSignIn() {
+	/// The footer's offer in each of the four auth contexts: the one rule the drawer footer draws and
+	/// headless mode's `open-account` follows (AIA-1003).
+	func test_accountOffer_coversEveryAuthContext() {
+		XCTAssertEqual(DrawerPresentation.accountOffer(for: .anonymous), .signIn)
+		XCTAssertEqual(DrawerPresentation.accountOffer(for: .validated("account")), .account)
+		XCTAssertEqual(DrawerPresentation.accountOffer(for: .suspended("account")), .offline)
+		XCTAssertEqual(DrawerPresentation.accountOffer(for: .suspended(nil)), .offline)
+		XCTAssertNil(DrawerPresentation.accountOffer(for: .indeterminate))
+	}
+
+	func test_presentAccount_signIn_presentsSignIn() {
 		for usesRealAuth in [true, false] {
 			let presentation = DrawerPresentation()
 
-			presentation.presentAccount(for: .anonymous, usesRealAuth: usesRealAuth)
+			presentation.presentAccount(.signIn, usesRealAuth: usesRealAuth)
 
 			XCTAssertTrue(presentation.isSignInPresented)
 			XCTAssertNil(presentation.settings)
@@ -25,38 +35,35 @@ final class DrawerPresentationTests: XCTestCase {
 		}
 	}
 
-	func test_presentAccount_onceValidated_onRealAuth_presentsManageAccount() {
+	func test_presentAccount_account_onRealAuth_presentsManageAccount() {
 		let presentation = DrawerPresentation()
 
-		presentation.presentAccount(for: .validated("account"), usesRealAuth: true)
+		presentation.presentAccount(.account, usesRealAuth: true)
 
 		XCTAssertEqual(presentation.settings, .manageAccount)
 		XCTAssertFalse(presentation.isSignInPresented)
 	}
 
 	/// Mock auth has no configured Clerk instance, which the Manage Account destination reads.
-	func test_presentAccount_onceValidated_onMockAuth_presentsPlainSettings() {
+	func test_presentAccount_account_onMockAuth_presentsPlainSettings() {
 		let presentation = DrawerPresentation()
 
-		presentation.presentAccount(for: .validated("account"), usesRealAuth: false)
+		presentation.presentAccount(.account, usesRealAuth: false)
 
 		XCTAssertEqual(presentation.settings, .settings)
 		XCTAssertFalse(presentation.isSignInPresented)
 	}
 
-	/// The footer offers nothing to tap while auth is resolving or offline.
-	func test_presentAccount_whileSuspendedOrIndeterminate_presentsNothing() {
-		let contexts: [EffectiveAuthContext] = [.suspended(nil), .suspended("account"), .indeterminate]
-		for context in contexts {
-			for usesRealAuth in [true, false] {
-				let presentation = DrawerPresentation()
+	/// The offline card has nothing to tap; while auth is resolving there is no offer at all.
+	func test_presentAccount_offline_presentsNothing() {
+		for usesRealAuth in [true, false] {
+			let presentation = DrawerPresentation()
 
-				presentation.presentAccount(for: context, usesRealAuth: usesRealAuth)
+			presentation.presentAccount(.offline, usesRealAuth: usesRealAuth)
 
-				XCTAssertFalse(presentation.isAccountPresented, "\(context)")
-				XCTAssertFalse(presentation.isSignInPresented, "\(context)")
-				XCTAssertNil(presentation.settings, "\(context)")
-			}
+			XCTAssertFalse(presentation.isAccountPresented)
+			XCTAssertFalse(presentation.isSignInPresented)
+			XCTAssertNil(presentation.settings)
 		}
 	}
 
