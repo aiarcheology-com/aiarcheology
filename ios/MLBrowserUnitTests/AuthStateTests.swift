@@ -598,13 +598,26 @@ final class AuthStateTests: XCTestCase {
 		await fulfillment(of: [handedOff, ownerFinished], timeout: 2)
 		XCTAssertNil(sut.accountIdentifier, "the cancelled pass restored an account that signed out")
 
+		// The fresh task has no handle to await; its published result is the signal.
+		let accountB = Self.accountB
+		let publishedB = expectation(description: "B is published")
+		let observation = sut.$accountIdentifier.sink { if $0 == accountB { publishedB.fulfill() } }
 		provider.resumeValidation()
-		for _ in 0..<100 where sut.accountIdentifier != Self.accountB {
-			await Task.yield()
-		}
-		XCTAssertEqual(sut.accountIdentifier, Self.accountB)
+		await fulfillment(of: [publishedB], timeout: 2)
+		observation.cancel()
 		XCTAssertEqual(sut.gate, .ready)
-		owner.cancel()
+	}
+
+	/// A `CancellationError` from a pass whose task nobody cancelled is a failure, not a
+	/// cancellation. Treated as a cancellation it would be handed to a fresh task that fails the
+	/// same way, for ever; the refresh must end after that one pass.
+	func testRefresh_CancellationErrorFromAnUncancelledPass_IsNotHandedOn() async {
+		let (provider, sut) = await signedOutAppThatJustSignedIn()
+		let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+		provider.resumeValidation(throwing: CancellationError())
+		await finish([owner], waitingFor: [ownerFinished])
+		for _ in 0..<20 { await Task.yield() }
+		XCTAssertEqual(provider.validationCount, 1, "the failed pass was handed to another task")
 	}
 
 	// MARK: - Reconnecting (AIA-0757)

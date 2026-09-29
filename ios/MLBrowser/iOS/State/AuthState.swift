@@ -486,12 +486,14 @@ final class AuthState: ObservableObject {
             // cancelled while the answer came back.
             setSignedOut()
             return .settled
-        } catch let error where error is CancellationError || Task.isCancelled {
+        } catch where Task.isCancelled {
             // A cancelled pass has no result, and "no result" is not "signed out" or "offline":
-            // leave the gate and the account as they are. Checked by `Task.isCancelled` as well as
-            // by type, because `ClerkAuthProvider` reports a cancelled round trip as `.offline`.
-            // Before this, a cancelled pass landed `.offline` through the shipping provider and
-            // `.signedOut` through any provider that throws the raw cancellation (AIA-0987).
+            // leave the gate and the account as they are. Decided by this task's cancellation, not
+            // by the error's type: `ClerkAuthProvider` reports a cancelled round trip as `.offline`,
+            // and a `CancellationError` from a task nobody cancelled is a failure like any other —
+            // treating it as cancellation would hand the pass to a fresh task that fails the same
+            // way, for ever. Before this, a cancelled pass landed `.offline` through the shipping
+            // provider and `.signedOut` through one that throws the raw cancellation (AIA-0987).
             return .cancelled
         } catch AuthValidationError.offline {
             // Identity deliberately left as-is: losing connectivity is not a change of account.
