@@ -24,6 +24,8 @@ Test Focus: The app can now run with no subscription at all. In this build that 
 
 - Leaving and returning: what runs at launch and in the background was reorganised. With detection on, go Home and back: it pauses and resumes. A model download keeps going. Sign-in state is right after returning.
 
+- Menu > Sign In, then finish signing in. The sign-in screen must close by itself; report it if it stays open.
+
 STILL WORTH RETESTING FROM THE PREVIOUS BUILD
 
 - Large model import: Menu > Models > Import a ~500 MB .tar detector checkpoint. It should either import, or show a clear "not enough memory" message, never make the app vanish. Please send the numbers from the message and the conversion log (Models > failed import > log icon > Share), with your device named. A model that imported fine before but now reports low memory is a bug.
