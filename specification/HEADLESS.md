@@ -25,7 +25,7 @@ The main purpose is a **fast verification loop for agents**: an agent changes th
 - **Moving `loadProducts` out of the views**: scenarios would then depend on the StoreKit sandbox network (#970, 2026-09-27).
 - **A general `not` expectation**: `not equals` on a misspelt pointer always holds, so a typo would silently pass or, in `unless`, silently skip. `notRoute` covers the case that needs negation and is route-checked.
 
-## Products (root `Package.swift`)
+## Products (the HeadlessKit package)
 
 | Product | Depends on | Purpose |
 |-|-|-|
@@ -33,7 +33,19 @@ The main purpose is a **fast verification loop for agents**: an agent changes th
 | `HeadlessKitTransport` | Network.framework | `HeadlessServer` (loopback JSON Lines) and `HeadlessClient` |
 | `HeadlessScenario` | `HeadlessKit` | Declarative JSON scenarios and `ScenarioRunner` |
 
-The package has no third-party dependencies. Tests: `swift test --filter HeadlessKitTests`, on macOS. They also run in the root package CI job.
+The package has no third-party dependencies. Since AIA-1005 it lives in its own private repository, [aiarcheology-com/HeadlessKit](https://github.com/aiarcheology-com/HeadlessKit) (MIT, history kept), and ML Browser consumes it by URL. Its tests (`swift test` there, 128 at 0.1.0) run in that repository and its own CI, not in this one.
+
+### Where ML Browser pins it
+
+- **Two pins, one version.** The Xcode project (`XCRemoteSwiftPackageReference "HeadlessKit"`, exact version) and `Tools/Package.swift` (`exact:`) pin the same tag, currently `v0.1.0`. `HeadlessKitPackageTests` in ProjectToolCoreTests fails when the three `Package.resolved` files (Tools, the workspace, the project) disagree on its revision or when a manifest asks for another version, so ProjectTool and the app always speak the same wire protocol. It also fails if `Sources/HeadlessKit*`, `Sources/HeadlessScenario` or `Tests/HeadlessKit*` reappear here.
+- **Credentials.** The repository is private, so resolving it needs GitHub credentials for git over HTTPS: run `gh auth setup-git` once. That covers Xcode, `xcodebuild`, and every `swift … --package-path Tools` caller (`headless.sh`, `unittest.sh`, `deliver.sh`, `slopguard-baseline.sh`, `aia-xcode-cloud-poll.sh`). CI needs its own access: GitHub Actions reads it through the `HEADLESSKIT_READ_TOKEN` secret (`harmonize.yml`), and Xcode Cloud through a repository grant in App Store Connect.
+- **Changing the kit.** The kit's code in ML Browser's history is frozen at `v0.1.0`. A change, including a review fix on an open ML Browser PR, goes to the HeadlessKit repository: merge it there, tag a new version and add it to that repository's `CHANGELOG.md`, then bump both pins here (the Xcode project's version and `Tools/Package.swift`'s `exact:`), resolve both (`xcodebuild -resolvePackageDependencies -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser`, then the same with `-project ios/MLBrowser.xcodeproj`, and `swift package resolve --package-path Tools`), and commit all three `Package.resolved` files.
+
+### Developing against a local checkout
+
+To change the kit and the app together without a release, point both consumers at a local clone:
+- **The app:** drag the clone's folder into the workspace in Xcode's navigator. The folder must be named `HeadlessKit`: a local package's identity is its directory name, and a clone under another name fails resolution with "doesn't match override's identity". With the same identity it overrides the pinned one in every build of the workspace, Xcode's and `xcodebuild`'s (`unittest.sh`, `headless.sh build`), for as long as the reference is there. Adding it edits a checked-in file (`contents.xcworkspacedata`), so remove the reference before you commit and check that it and the `Package.resolved` files are unchanged.
+- **Tools:** `swift package --package-path Tools edit --path <absolute path to the clone> headlesskit` makes `swift run --package-path Tools ProjectTool headless …` build against the clone. While it is edited, SwiftPM drops the pin from `Tools/Package.resolved`, so do not commit that file then. `swift package --package-path Tools unedit headlesskit` restores the pin.
 
 ## Adopting it in an app
 
@@ -174,7 +186,7 @@ scripts/headless.sh up --state a   # installs it on aia-headless-a and launches 
 - **Same app.** `AppEntry` launches `MLBrowserHeadless` instead of `MLBrowser`. It keeps the same app delegate, bootstrap and `AppRuntime`, and the same composition root. The one window shows a status line, and a `HeadlessServer` answers in place of the views. What the views did themselves is either reproduced by the adapters or left out; [Differences from the app](#differences-from-the-app) lists each case.
 - **Which builds share one binary.** `headless.sh build` is the build half of `./scripts/unittest.sh`: `xcodebuild build-for-testing -testPlan MLBrowserUnitTests` with `AIA_INCLUDE_TEST_FIXTURES=YES`, in `unittest.sh`'s DerivedData (`.deriveddata`, or `DERIVED_DATA_PATH`; `SPM_CACHE_PATH` as there). Its destination is `aia-headless-a` by id instead of the unit tests' iPhone, which changes only asset thinning.
   - Measured on AIA-0991: after the unit tests, `headless.sh build` compiles no Swift and links nothing; the app executable and `ML Browser.debug.dylib` keep their UUIDs. The UI plan and the `HeadlessParity` plan, run with the same flags into the same DerivedData, reuse that product the same way. So the unit tests, the UI tests, the parity plan and headless mode run one binary.
-  - `build-for-testing`, not `build`: the test build links the root package's products (HeadlessKit, SupportLogFormat, NativeModelConverter) into the app as frameworks it shares with the test bundle, while a plain `build` links them statically, and each relinks the other's app.
+  - `build-for-testing`, not `build`: the test build links the package products (HeadlessKit, SupportLogFormat, NativeModelConverter) into the app as frameworks it shares with the test bundle, while a plain `build` links them statically, and each relinks the other's app.
   - **Not the product of Xcode's Run button.** Run builds the scheme's `build` action into Xcode's own DerivedData, without the fixtures flag. It compiles the same Swift in the same configuration (the flag only adds bundle resources, below), but it is another binary: the package products are linked statically, and it carries no FastViT fixture. Headless mode runs from it too: see [Debugging headless mode in Xcode](#debugging-headless-mode-in-xcode).
   - Every build into the shared DerivedData must pass `AIA_INCLUDE_TEST_FIXTURES=YES`: the fixture phase removes the fixture from a build without it, and `up` installs whatever product is there. A build with other settings replaces the product too: `scripts/slopguard-baseline.sh`'s coverage build (`-enableCodeCoverage YES`) builds into the same DerivedData, so the next `headless.sh build` recompiles.
   - The fixture must be fetched first; `embed_apple_test_models.sh` fails the build without it. `headless.sh build` runs `scripts/fetch_apple_test_models.sh` first, as `unittest.sh` does.

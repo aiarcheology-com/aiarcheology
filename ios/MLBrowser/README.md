@@ -10,8 +10,15 @@ commands, fixtures, and test-result interpretation, see [TESTING.md](../../speci
 From the repository root:
 
 ```bash
+gh auth setup-git   # once: git over HTTPS reads the private HeadlessKit package with your gh login
 swift run --package-path Tools ProjectTool setup
 ```
+
+`Tools` and the app depend on [aiarcheology-com/HeadlessKit](https://github.com/aiarcheology-com/HeadlessKit),
+a private repository, so package resolution needs read access to it and GitHub credentials for git
+over HTTPS (`gh auth setup-git`, or any credential helper that has them). Without them, resolution
+fails with an authentication or "repository not found" error. See
+[HEADLESS.md](../../specification/HEADLESS.md#where-ml-browser-pins-it).
 
 This installs required tools and configures git. Tools go to `/usr/local/bin` when it is
 writable, otherwise to `~/.local/bin`, which `ProjectTool` creates and then reminds you to put on
@@ -238,6 +245,9 @@ swift run --package-path Tools ProjectTool secrets clean
 
 In Xcode Cloud, secrets are injected via environment variables in:
 - `ios/ci_scripts/ci_pre_xcodebuild.sh`
+
+Xcode Cloud resolves the private HeadlessKit package only with a repository grant for
+`aiarcheology-com/HeadlessKit` (App Store Connect > Xcode Cloud > Settings > Repositories).
 
 For release preparation, follow the [delivery reference](../../README.md#-emergency-delivery-lane-xcode-cloud-fallback).
 Preserve the existing `ITSAppUsesNonExemptEncryption` metadata in `MLBrowser-Info.plist`; omitting

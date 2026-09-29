@@ -15,6 +15,7 @@ The flagship use case — and where the name comes from — is archeology: brows
 | `ios/` | The Xcode workspace (`MLBrowser.xcworkspace`), app sources, unit/UI/architecture tests, test plans, and Xcode Cloud `ci_scripts/` |
 | `Package.swift`, `Sources/NativeModelConverter/` | `NativeModelConverter` Swift package: a native `.aiagraph` → Core ML converter used by the iOS app. |
 | `Tools/` | `ProjectTool` — a SwiftPM CLI for repo setup, pinned-tool installation, and secrets management |
+| (external) | [HeadlessKit](https://github.com/aiarcheology-com/HeadlessKit), private: the screen/action package behind headless mode, pinned by URL from the Xcode project and `Tools/Package.swift` ([HEADLESS.md](specification/HEADLESS.md)) |
 | `scripts/` | Developer scripts: lint, codegen, architectural tests, unit tests |
 | `cloudflare/` | Cloudflare Worker relaying Sentry issues into GitHub Issues ([details](cloudflare/README.md)) |
 | `.github/workflows/` | CI: SwiftLint, Harmonize (architecture tests), issue-key automation |
@@ -143,15 +144,19 @@ maintained in [NATIVE_MODEL_CONVERSION.md](specification/NATIVE_MODEL_CONVERSION
 git clone git@github.com:aiarcheology-com/aiarcheology.git
 cd aiarcheology
 
-# 1. Install pinned tools, configure git hooks (one-time)
+# 1. Let git over HTTPS use your GitHub login: Tools and the app depend on the private
+#    aiarcheology-com/HeadlessKit package (one-time; needs read access to that repository)
+gh auth setup-git
+
+# 2. Install pinned tools, configure git hooks (one-time)
 swift run --package-path Tools ProjectTool setup
 
-# 2. Provide ios/Secrets.xcconfig — the build will not start without it. Pick ONE:
+# 3. Provide ios/Secrets.xcconfig — the build will not start without it. Pick ONE:
 #    (a) maintainers, with the project vault:
 swift run --package-path Tools ProjectTool secrets generate
 #    (b) everyone else: see "Building without the project vault" below.
 
-# 3. Open the workspace and run the MLBrowser scheme
+# 4. Open the workspace and run the MLBrowser scheme
 open ios/MLBrowser.xcworkspace
 ```
 
