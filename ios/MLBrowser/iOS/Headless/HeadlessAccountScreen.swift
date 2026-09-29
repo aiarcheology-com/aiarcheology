@@ -25,8 +25,9 @@ struct HeadlessAccountScreen: HeadlessScreen {
 
 	var route: Route { "account" }
 
-	/// Upper bound for the gate to settle after Clerk completes the sign-in. The refresh that
-	/// follows may coalesce with a pass already in flight, so the action waits for the outcome.
+	/// Upper bound for the gate to reach a signed-in state after Clerk completes the sign-in. The
+	/// refresh that follows waits for a pass of its own (AIA-0987), but that pass can still land
+	/// `.offline` and be retried, so the action waits for the outcome.
 	static let signInSettleTimeout: Duration = .seconds(30)
 
 	/// A validated account is signed in: the gate is ready and names an account. The one definition

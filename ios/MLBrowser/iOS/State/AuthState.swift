@@ -227,8 +227,30 @@ final class AuthState: ObservableObject {
     /// `refreshPending` so exactly one more pass runs afterward — avoiding redundant
     /// round-trips without *dropping* a trigger (e.g. an out-of-band sign-out arriving
     /// mid-refresh still gets re-evaluated rather than leaving a stale gate).
+    ///
+    /// A coalesced caller also *waits* for that pass (``refreshWaiters``). Until AIA-0987 it
+    /// returned at once, before its pass had even started: `SignInSheet` then read the gate the
+    /// Clerk session watcher's in-flight pass had not yet updated, found it still `.signedOut`,
+    /// and stayed open over a completed sign-in.
     private var isRefreshing = false
     private var refreshPending = false
+
+    /// How many passes the running refresh loop has started; the ordinal of the current one.
+    private var passesStarted = 0
+
+    /// Callers that arrived while a pass was running, each waiting for a pass that *started after
+    /// it arrived* to settle (AIA-0987). Released per pass, not when the loop drains: a trigger
+    /// that keeps arriving (the watcher, a foreground) keeps the loop running, and must not
+    /// postpone a caller whose own pass has already finished.
+    private var refreshWaiters: [Int: RefreshWaiter] = [:]
+    private var nextWaiterID = 0
+
+    private struct RefreshWaiter {
+        /// The ordinal of the pass that was running when the caller arrived. Any later settled pass
+        /// answers it.
+        let arrivedDuringPass: Int
+        let continuation: CheckedContinuation<Void, Never>
+    }
 
     /// Watches for the network coming back (AIA-0757). Optional and **defaulted to `nil`**: the
     /// production monitor is constructed at the composition boundary (`AccountSession`) and nowhere
@@ -310,20 +332,67 @@ final class AuthState: ObservableObject {
     }
 
     /// Re-evaluate the gate. Safe to call on launch and on every foreground.
+    ///
+    /// On return, a pass that started after this call has settled, so ``gate`` reflects the
+    /// provider's state as of the call — also when the call was coalesced into a pass already
+    /// running. A caller that reads the gate afterwards (the sign-in sheet, headless sign-in)
+    /// relies on this (AIA-0987). A coalesced caller whose task is cancelled returns early, without
+    /// that guarantee.
     func refresh() async {
         if isRefreshing {
             // A pass is already running — request one more afterward instead of
-            // running concurrently or dropping this trigger.
+            // running concurrently or dropping this trigger, and wait for it.
             refreshPending = true
+            await waitForPass(after: passesStarted)
             return
         }
         isRefreshing = true
-        defer { isRefreshing = false }
         repeat {
             refreshPending = false
-            await evaluateGate()
+            passesStarted += 1
+            let pass = passesStarted
+            if await evaluateGate() {
+                releaseWaiters(answeredBy: pass)
+            }
         } while refreshPending
         settleOfflineRetry()
+        isRefreshing = false
+        // Nothing can still be waiting: each waiter set `refreshPending`, so a later pass ran, and a
+        // pass that did not settle queued another. Released anyway, so that a future exit path
+        // cannot strand one — a stranded waiter is a sheet that never closes. `refresh()` has no
+        // throwing path; keep this the loop's only exit.
+        releaseWaiters(answeredBy: .max)
+    }
+
+    /// Suspends until a pass that started after `pass` settles, or until the calling task is
+    /// cancelled.
+    private func waitForPass(after pass: Int) async {
+        let id = nextWaiterID
+        nextWaiterID += 1
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                guard Task.isCancelled == false else {
+                    continuation.resume()
+                    return
+                }
+                refreshWaiters[id] = RefreshWaiter(arrivedDuringPass: pass, continuation: continuation)
+            }
+        } onCancel: {
+            // Runs off the main actor. The hop is enqueued behind the synchronous registration
+            // above, so it always finds the waiter it is meant to release (or nothing, if a pass
+            // already did).
+            Task { @MainActor [weak self] in
+                self?.refreshWaiters.removeValue(forKey: id)?.continuation.resume()
+            }
+        }
+    }
+
+    private func releaseWaiters(answeredBy pass: Int) {
+        let answered = refreshWaiters.filter { $0.value.arrivedDuringPass < pass }
+        for (id, waiter) in answered {
+            refreshWaiters.removeValue(forKey: id)
+            waiter.continuation.resume()
+        }
     }
 
     /// One rule, applied to the *outcome* of every refresh: if it ended `.offline`, try once more
@@ -360,10 +429,12 @@ final class AuthState: ObservableObject {
         }
     }
 
-    private func evaluateGate() async {
+    /// Returns whether the pass settled the gate. `false` only when another account arrived during
+    /// validation: that pass published nothing and queued another, so nobody waiting is answered.
+    private func evaluateGate() async -> Bool {
         guard provider.isSignedIn else {
             setSignedOut()
-            return
+            return true
         }
 
         // Bind this validation to a specific account. `validateSession()` suspends, and a sign-out
@@ -393,11 +464,11 @@ final class AuthState: ObservableObject {
             // `.suspended(nil)` is the common shape rather than the exotic one.
             effectiveContext = .suspended(accountIdentifier)
             setGate(.offline)
-            return
+            return true
         } catch {
             // Revoked / banned / signed out elsewhere — fall back to sign-in.
             setSignedOut()
-            return
+            return true
         }
 
         // Re-check signed-in status: `validateSession()` suspends, and a sign-out can
@@ -405,7 +476,7 @@ final class AuthState: ObservableObject {
         // mid-refresh sign-out would still land on `.ready` rather than `.signedOut`.
         guard provider.isSignedIn else {
             setSignedOut()
-            return
+            return true
         }
 
         // A different account arrived while we were validating. Publishing now would mark the new
@@ -413,7 +484,7 @@ final class AuthState: ObservableObject {
         // that was never about it. Queue another pass instead; the loop in `refresh()` runs it.
         guard provider.accountIdentifier == accountUnderValidation else {
             refreshPending = true
-            return
+            return false
         }
 
         // Read fresh rather than reusing the pre-`await` local, so the published value can only
@@ -424,6 +495,7 @@ final class AuthState: ObservableObject {
         // anonymous user, it is an unusable one. Fail to `.indeterminate` rather than select a scope.
         effectiveContext = validatedAccount.map(EffectiveAuthContext.validated) ?? .indeterminate
         setGate(.ready)
+        return true
     }
 
     /// Sign out and return to the sign-in screen.
