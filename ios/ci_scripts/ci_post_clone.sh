@@ -58,7 +58,10 @@ echo "📦 Running ProjectTool setup..."
 
 cd "${CI_PRIMARY_REPOSITORY_PATH:-$(git rev-parse --show-toplevel)}"
 
-if swift run --package-path Tools ProjectTool setup --only swiftlint --only swiftgen; then
+# Tools depends on the private HeadlessKit repository (AIA-1005). Without read access, git would
+# wait for a password prompt that never comes; GIT_TERMINAL_PROMPT=0 makes it fail at once, and the
+# manual fallback below installs the tools instead.
+if GIT_TERMINAL_PROMPT=0 swift run --package-path Tools ProjectTool setup --only swiftlint --only swiftgen; then
     echo "   ✅ ProjectTool setup completed"
 else
     echo "   ⚠️  ProjectTool setup failed, attempting manual fallback..."
