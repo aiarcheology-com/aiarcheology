@@ -347,11 +347,18 @@ final class AuthState: ObservableObject {
         settleOfflineRetry()
         isRefreshing = false
         // Nothing can still be waiting: each waiter set `refreshPending`, so a later pass ran, and a
-        // pass that did not settle queued another. Released anyway, so that a future exit path
-        // cannot strand one — a stranded waiter is a sheet that never closes. `refresh()` has no
-        // throwing path; keep this the loop's only exit.
+        // pass that did not settle queued another. The assert flags a broken invariant in Debug;
+        // the release still runs, because a stranded waiter is a sheet that never closes.
+        // `refresh()` has no throwing path; keep this the loop's only exit.
+        assert(refreshWaiters.isEmpty, "a refresh waiter outlived the loop that should have answered it")
         releaseWaiters(answeredBy: .max)
     }
+
+    #if DEBUG
+    /// How many coalesced callers are waiting. Tests only: it lets a test know a caller has joined
+    /// before it moves the pass on, instead of trusting scheduler order.
+    var refreshWaiterCount: Int { refreshWaiters.count }
+    #endif
 
     /// Suspends until a pass that started after `pass` settles, or until the calling task is
     /// cancelled.
