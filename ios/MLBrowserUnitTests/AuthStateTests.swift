@@ -479,11 +479,7 @@ final class AuthStateTests: XCTestCase {
 	func testRefresh_ThePassACallerWaitsOnFails_ReleasesTheCaller() async {
 		let failures: [(Error, AuthGate)] = [
 			(AuthValidationError.offline, .offline),
-			(AuthValidationError.noValidSession, .signedOut),
-			// A raw error falls into `evaluateGate()`'s catch-all, which signs out. The shipping
-			// `ClerkAuthProvider` never throws one (it maps unknown failures to `.offline`); this
-			// case is here for the release, not to endorse the sign-out.
-			(CancellationError(), .signedOut)
+			(AuthValidationError.noValidSession, .signedOut)
 		]
 		for (error, expectedGate) in failures {
 			let (provider, sut) = await signedOutAppThatJustSignedIn()
@@ -516,6 +512,99 @@ final class AuthStateTests: XCTestCase {
 		provider.resumeValidation()
 		await finish([owner, waiter], waitingFor: [waiterReturned, ownerFinished])
 		XCTAssertEqual(outcome.gate, .signedOut)
+	}
+
+	// MARK: - A cancelled pass (AIA-0987)
+
+	/// A cancelled pass has no result, and "no result" is not "signed out": the gate and the
+	/// account stay as they were. Both ways a cancelled round trip surfaces are covered — the raw
+	/// cancellation, and `.offline`, which is how `ClerkAuthProvider` reports one.
+	func testRefresh_ThePassIsCancelled_LeavesTheGateAndTheAccountUnchanged() async {
+		let cancellations: [Error] = [CancellationError(), AuthValidationError.offline]
+		for thrown in cancellations {
+			let provider = SuspendableAuthProvider(accountIdentifier: Self.accountA)
+			let sut = AuthState(provider: provider)
+			await sut.start()
+			XCTAssertEqual(sut.gate, .ready)
+
+			let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+			owner.cancel()
+			provider.resumeValidation(throwing: thrown)
+			await finish([owner], waitingFor: [ownerFinished])
+
+			XCTAssertEqual(sut.gate, .ready, "a cancelled pass that threw \(thrown) changed the gate")
+			XCTAssertEqual(sut.accountIdentifier, Self.accountA, "after \(thrown)")
+			XCTAssertEqual(sut.effectiveContext, .validated(Self.accountA), "after \(thrown)")
+		}
+	}
+
+	/// The fix must not work by never signing out: Clerk answering "no session" is a real
+	/// sign-out, whether or not the pass's task was cancelled while the answer came back.
+	func testRefresh_NoSessionAnswer_SignsOutWhetherOrNotThePassWasCancelled() async {
+		for cancelsThePass in [false, true] {
+			let provider = SuspendableAuthProvider(accountIdentifier: Self.accountA)
+			let sut = AuthState(provider: provider)
+			await sut.start()
+			XCTAssertEqual(sut.gate, .ready)
+
+			let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+			if cancelsThePass { owner.cancel() }
+			provider.resumeValidation(throwing: AuthValidationError.noValidSession)
+			await finish([owner], waitingFor: [ownerFinished])
+
+			XCTAssertEqual(sut.gate, .signedOut, "cancelled: \(cancelsThePass)")
+			XCTAssertNil(sut.accountIdentifier, "cancelled: \(cancelsThePass)")
+		}
+	}
+
+	/// A caller waiting on the loop of a cancelled task is not stranded, and not answered by the
+	/// cancelled pass either: a fresh task runs the pass it asked for, and it reads that result.
+	func testRefresh_CancelledPassWithACallerWaiting_AFreshPassAnswersTheCaller() async {
+		let (provider, sut) = await signedOutAppThatJustSignedIn()
+		let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+		let (caller, callerReturned, outcome) = await startJoiner(sut, "the caller")
+
+		owner.cancel()
+		let handedOff = expectation(description: "the caller's pass runs in a fresh task")
+		provider.suspendNextValidation = handedOff
+		provider.resumeValidation(throwing: CancellationError())
+		await fulfillment(of: [handedOff, ownerFinished], timeout: 2)
+		XCTAssertNil(outcome.gate, "the caller was answered by the cancelled pass")
+		XCTAssertEqual(sut.gate, .signedOut, "the cancelled pass changed nothing")
+
+		provider.resumeValidation()
+		await finish([caller], waitingFor: [callerReturned])
+		XCTAssertEqual(outcome.gate, .ready)
+		XCTAssertEqual(provider.validationCount, 2)
+	}
+
+	/// A pass validating a new account stops publishing the outgoing one before it suspends. If it
+	/// is then cancelled, the outgoing account must not come back (it is no longer signed in), and
+	/// the incoming one is still owed a validation: a fresh task runs it, with nobody asking.
+	func testRefresh_CancelledPassThatStoppedPublishingAnAccount_AFreshPassValidatesTheNewOne() async {
+		let provider = SuspendableAuthProvider(accountIdentifier: Self.accountA)
+		let sut = AuthState(provider: provider)
+		await sut.start()
+		XCTAssertEqual(sut.accountIdentifier, Self.accountA)
+
+		provider.accountIdentifier = Self.accountB
+		let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+		XCTAssertNil(sut.accountIdentifier, "A stops being published before B's validation")
+
+		owner.cancel()
+		let handedOff = expectation(description: "B's validation runs in a fresh task")
+		provider.suspendNextValidation = handedOff
+		provider.resumeValidation(throwing: CancellationError())
+		await fulfillment(of: [handedOff, ownerFinished], timeout: 2)
+		XCTAssertNil(sut.accountIdentifier, "the cancelled pass restored an account that signed out")
+
+		provider.resumeValidation()
+		for _ in 0..<100 where sut.accountIdentifier != Self.accountB {
+			await Task.yield()
+		}
+		XCTAssertEqual(sut.accountIdentifier, Self.accountB)
+		XCTAssertEqual(sut.gate, .ready)
+		owner.cancel()
 	}
 
 	// MARK: - Reconnecting (AIA-0757)

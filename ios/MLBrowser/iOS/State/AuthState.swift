@@ -326,7 +326,7 @@ final class AuthState: ObservableObject {
     /// provider's state as of the call — also when the call was coalesced into a pass already
     /// running. A caller that reads the gate afterwards (the sign-in sheet, headless sign-in)
     /// relies on this (AIA-0987). A coalesced caller whose task is cancelled returns early, without
-    /// that guarantee.
+    /// that guarantee. A pass whose own task is cancelled changes nothing; see ``evaluateGate()``.
     func refresh() async {
         if isRefreshing {
             // A pass is already running — request one more afterward instead of
@@ -336,20 +336,38 @@ final class AuthState: ObservableObject {
             return
         }
         isRefreshing = true
+        var cancelled = false
         repeat {
             refreshPending = false
             passesStarted += 1
             let pass = passesStarted
-            if await evaluateGate() {
-                releaseWaiters(answeredBy: pass)
+            switch await evaluateGate() {
+            case .settled: releaseWaiters(answeredBy: pass)
+            case .superseded: break
+            case .cancelled: cancelled = true
             }
-        } while refreshPending
+        } while refreshPending && cancelled == false
+        if cancelled {
+            // This task can run no further pass: every one would be cancelled too. It had no
+            // outcome to settle, so the offline retry is left as it was. Anything still owed moves
+            // to a fresh task, whose pass answers it — no caller is stranded or answered with a
+            // result nobody produced. Owed: a queued trigger, a caller waiting for its pass, or an
+            // account the pass stopped publishing before validation (a fact about the provider,
+            // kept rather than restored) with the incoming one not yet validated.
+            isRefreshing = false
+            let accountOwed = accountIdentifier != provider.accountIdentifier
+            if refreshPending || refreshWaiters.isEmpty == false || accountOwed {
+                Task { await self.refresh() }
+            }
+            return
+        }
         settleOfflineRetry()
         isRefreshing = false
         // Nothing can still be waiting: each waiter set `refreshPending`, so a later pass ran, and a
         // pass that did not settle queued another. The assert flags a broken invariant in Debug;
         // the release still runs, because a stranded waiter is a sheet that never closes.
-        // `refresh()` has no throwing path; keep this the loop's only exit.
+        // `refresh()` has no throwing path; the cancelled exit above hands its waiters on, and
+        // this is the only other one.
         assert(refreshWaiters.isEmpty, "a refresh waiter outlived the loop that should have answered it")
         releaseWaiters(answeredBy: .max)
     }
@@ -425,12 +443,21 @@ final class AuthState: ObservableObject {
         }
     }
 
-    /// Returns whether the pass settled the gate. `false` only when another account arrived during
-    /// validation: that pass published nothing and queued another, so nobody waiting is answered.
-    private func evaluateGate() async -> Bool {
+    /// What one pass of ``evaluateGate()`` did, which decides whether it answers waiting callers.
+    private enum PassOutcome {
+        /// The gate now reflects the provider: waiting callers are answered.
+        case settled
+        /// Another account arrived during validation: nothing was published and another pass is
+        /// queued, so nobody waiting is answered.
+        case superseded
+        /// The pass's task was cancelled before validation returned an answer: nothing changed.
+        case cancelled
+    }
+
+    private func evaluateGate() async -> PassOutcome {
         guard provider.isSignedIn else {
             setSignedOut()
-            return true
+            return .settled
         }
 
         // Bind this validation to a specific account. `validateSession()` suspends, and a sign-out
@@ -454,17 +481,29 @@ final class AuthState: ObservableObject {
 
         do {
             try await provider.validateSession()
+        } catch AuthValidationError.noValidSession {
+            // The server's answer: this session is gone. A real sign-out, even if the task was
+            // cancelled while the answer came back.
+            setSignedOut()
+            return .settled
+        } catch let error where error is CancellationError || Task.isCancelled {
+            // A cancelled pass has no result, and "no result" is not "signed out" or "offline":
+            // leave the gate and the account as they are. Checked by `Task.isCancelled` as well as
+            // by type, because `ClerkAuthProvider` reports a cancelled round trip as `.offline`.
+            // Before this, a cancelled pass landed `.offline` through the shipping provider and
+            // `.signedOut` through any provider that throws the raw cancellation (AIA-0987).
+            return .cancelled
         } catch AuthValidationError.offline {
             // Identity deliberately left as-is: losing connectivity is not a change of account.
             // On a cold offline launch that identity is still `nil` — this line is the reason
             // `.suspended(nil)` is the common shape rather than the exotic one.
             effectiveContext = .suspended(accountIdentifier)
             setGate(.offline)
-            return true
+            return .settled
         } catch {
             // Revoked / banned / signed out elsewhere — fall back to sign-in.
             setSignedOut()
-            return true
+            return .settled
         }
 
         // Re-check signed-in status: `validateSession()` suspends, and a sign-out can
@@ -472,7 +511,7 @@ final class AuthState: ObservableObject {
         // mid-refresh sign-out would still land on `.ready` rather than `.signedOut`.
         guard provider.isSignedIn else {
             setSignedOut()
-            return true
+            return .settled
         }
 
         // A different account arrived while we were validating. Publishing now would mark the new
@@ -480,7 +519,7 @@ final class AuthState: ObservableObject {
         // that was never about it. Queue another pass instead; the loop in `refresh()` runs it.
         guard provider.accountIdentifier == accountUnderValidation else {
             refreshPending = true
-            return false
+            return .superseded
         }
 
         // Read fresh rather than reusing the pre-`await` local, so the published value can only
@@ -491,7 +530,7 @@ final class AuthState: ObservableObject {
         // anonymous user, it is an unusable one. Fail to `.indeterminate` rather than select a scope.
         effectiveContext = validatedAccount.map(EffectiveAuthContext.validated) ?? .indeterminate
         setGate(.ready)
-        return true
+        return .settled
     }
 
     /// Sign out and return to the sign-in screen.
