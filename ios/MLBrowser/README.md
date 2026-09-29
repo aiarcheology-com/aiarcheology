@@ -15,9 +15,10 @@ swift run --package-path Tools ProjectTool setup
 ```
 
 `Tools` and the app depend on [aiarcheology-com/HeadlessKit](https://github.com/aiarcheology-com/HeadlessKit),
-a private repository, so package resolution needs read access to it and GitHub credentials for git
-over HTTPS (`gh auth setup-git`, or any credential helper that has them). Without them, resolution
-fails with an authentication or "repository not found" error. See
+a private repository, so package resolution needs read access to it. `swift` and git read GitHub
+credentials from a git credential helper (`gh auth setup-git`). Xcode and `xcodebuild` use their
+own git by default, which does not read git config: add a GitHub account in Xcode > Settings >
+Accounts. Without credentials, resolution fails with an authentication or "repository not found" error. See
 [HEADLESS.md](../../specification/HEADLESS.md#where-ml-browser-pins-it).
 
 This installs required tools and configures git. Tools go to `/usr/local/bin` when it is

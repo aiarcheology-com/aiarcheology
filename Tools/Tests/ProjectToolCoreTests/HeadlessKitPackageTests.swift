@@ -61,20 +61,26 @@ final class HeadlessKitPackageTests: XCTestCase {
 		}
 
 		// The manifests ask for exactly the version that is resolved, so a resolve cannot drift.
-		XCTAssertTrue(
-			try text("Tools/Package.swift").contains(#".package(url: "\#(Self.url)", exact: "\#(tool.version)")"#),
-			"Tools/Package.swift must pin HeadlessKit with exact: \"\(tool.version)\""
-		)
-		let project = try text("ios/MLBrowser.xcodeproj/project.pbxproj")
-		let reference = try XCTUnwrap(
-			project.range(of: #"repositoryURL = "\#(Self.url)";"#),
-			"The Xcode project has no package reference to \(Self.url)"
-		)
-		let requirement = project[reference.upperBound...].prefix(120)
-		XCTAssertTrue(
-			requirement.contains("kind = exactVersion;") && requirement.contains("version = \(tool.version);"),
-			"The Xcode project must pin HeadlessKit to exactly \(tool.version), got: \(requirement)"
-		)
+		let manifest = try text("Tools/Package.swift")
+		let exactPin = try Regex(#"\.package\(\s*url:\s*"\#(NSRegularExpression.escapedPattern(for: Self.url))"\s*,\s*exact:\s*"([^"]+)"\s*\)"#)
+		let manifestVersions = manifest.matches(of: exactPin).map { String($0.output[1].substring ?? "") }
+		XCTAssertEqual(manifestVersions, [tool.version], "Tools/Package.swift must pin HeadlessKit once, with exact: \"\(tool.version)\"")
+
+		let requirements = try projectRequirements(for: Self.url)
+		XCTAssertEqual(requirements.count, 1, "The Xcode project must reference \(Self.url) exactly once")
+		XCTAssertEqual(requirements.first?["kind"] as? String, "exactVersion", "The Xcode project must pin HeadlessKit to an exact version")
+		XCTAssertEqual(requirements.first?["version"] as? String, tool.version, "The Xcode project pins another HeadlessKit version than Tools")
+	}
+
+	/// The `requirement` of every remote package reference to `url` in the Xcode project, read as the
+	/// property list it is rather than by its text layout.
+	private func projectRequirements(for url: String) throws -> [[String: Any]] {
+		let data = try Data(contentsOf: Self.repository.appendingPathComponent("ios/MLBrowser.xcodeproj/project.pbxproj"))
+		let plist = try XCTUnwrap(try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+		let objects = try XCTUnwrap(plist["objects"] as? [String: [String: Any]], "project.pbxproj has no objects")
+		return objects.values
+			.filter { $0["isa"] as? String == "XCRemoteSwiftPackageReference" && $0["repositoryURL"] as? String == url }
+			.compactMap { $0["requirement"] as? [String: Any] }
 	}
 
 	/// From v0.1.0 on, a change to the kit is a new HeadlessKit version and a pin bump, never an

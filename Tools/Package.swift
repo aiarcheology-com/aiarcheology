@@ -23,7 +23,8 @@ let package = Package(
         .package(name: "NativeModelConverter", path: ".."),
         // Headless mode's kit (AIA-0970), in its own private repository since AIA-1005. The app
         // pins the same exact version in the Xcode project, and ProjectToolCoreTests fails when the
-        // two Package.resolved files disagree, so the tool and the app speak one wire protocol.
+        // manifests or the three Package.resolved files (Tools, the workspace, the project)
+        // disagree, so the tool and the app speak one wire protocol.
         // Resolving it needs GitHub credentials for git over HTTPS (`gh auth setup-git`).
         .package(url: "https://github.com/aiarcheology-com/HeadlessKit.git", exact: "0.1.0")
     ],

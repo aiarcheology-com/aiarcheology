@@ -49,11 +49,11 @@ jobs:
       # HeadlessKit is a private repository (AIA-1005), and the checkout token reads only this one.
       # Resolution covers the whole workspace whatever the scheme, so without a credential it fails.
       # HEADLESSKIT_READ_TOKEN is a fine-grained token with read-only Contents on
-      # aiarcheology-com/HeadlessKit. The rewrite is scoped to that repository's URL, so no other
-      # package resolves with it. A missing secret fails here, with the reason, instead of as an
-      # unexplained resolution error below. xcodebuild's built-in git does not read git config, so
-      # the defaults switch makes every xcodebuild in this job, including harmonize.sh's, use the
-      # system git that applies the rewrite.
+      # aiarcheology-com/HeadlessKit. The rewrite matches the package's exact URL as the Xcode
+      # project spells it, so no other package resolves with it. A missing secret fails here, with
+      # the reason, instead of as an unexplained resolution error below. xcodebuild's built-in git
+      # does not read git config: the resolve step passes -scmProvider system, and the defaults
+      # switch does the same for harmonize.sh's xcodebuild.
       - name: Authorize HeadlessKit
         run: |
           if [[ -z "${HEADLESSKIT_READ_TOKEN:-}" ]]; then
@@ -61,8 +61,8 @@ jobs:
             exit 1
           fi
           git config --global \
-            "url.https://x-access-token:${HEADLESSKIT_READ_TOKEN}@github.com/aiarcheology-com/HeadlessKit.insteadOf" \
-            "https://github.com/aiarcheology-com/HeadlessKit"
+            "url.https://x-access-token:${HEADLESSKIT_READ_TOKEN}@github.com/aiarcheology-com/HeadlessKit.git.insteadOf" \
+            "https://github.com/aiarcheology-com/HeadlessKit.git"
           defaults write com.apple.dt.Xcode IDEPackageSupportUseBuiltinSCM -bool NO
         env:
           HEADLESSKIT_READ_TOKEN: ${{ secrets.HEADLESSKIT_READ_TOKEN }}
@@ -75,7 +75,7 @@ jobs:
       - name: Resolve package dependencies
         run: |
           for i in 1 2 3; do
-            xcodebuild -resolvePackageDependencies \
+            xcodebuild -resolvePackageDependencies -scmProvider system \
               -workspace ios/MLBrowser.xcworkspace \
               -scheme MLBrowserArchitectureTests \
               -clonedSourcePackagesDirPath "$SPM_CACHE_PATH" && exit 0
