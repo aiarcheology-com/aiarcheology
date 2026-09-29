@@ -1,5 +1,5 @@
 {
-  "originHash" : "59d362d2cc94de3955b2f8cb892f04b658cdaa19f4dcdbad4b43abf37ab58842",
+  "originHash" : "837bf5fafcaddbe7b51968b48bee0781f54abf4b01f517a4d19c297a8467a58a",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -35,6 +35,15 @@
       "state" : {
         "revision" : "1279fbf4d87c9b9bd230e91911194145959e6d54",
         "version" : "0.9.0"
+      }
+    },
+    {
+      "identity" : "headlesskit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/aiarcheology-com/HeadlessKit.git",
+      "state" : {
+        "revision" : "e2d75dee2404c7fc55a6f0ccbe132147e3bdfa90",
+        "version" : "0.1.0"
       }
     },
     {

@@ -1940,6 +1940,7 @@
 				94CFCA7000000000000000A1 /* XCRemoteSwiftPackageReference "swift-sdk" */,
 				A35000000000000000000005 /* XCRemoteSwiftPackageReference "SwiftSDK" */,
 				B1000000000000000000000A /* XCLocalSwiftPackageReference ".." */,
+				AA1005000000000000000001 /* XCRemoteSwiftPackageReference "HeadlessKit" */,
 			);
 			preferredProjectObjectVersion = 56;
 			productRefGroup = 8AE0BC012A97B0B30086DDF9 /* Products */;
@@ -3049,6 +3050,14 @@
 				version = 2.14.1;
 			};
 		};
+		AA1005000000000000000001 /* XCRemoteSwiftPackageReference "HeadlessKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/aiarcheology-com/HeadlessKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.1.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -3104,17 +3113,17 @@
 		};
 		AA0970300000000000000001 /* HeadlessKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = B1000000000000000000000A /* XCLocalSwiftPackageReference ".." */;
+			package = AA1005000000000000000001 /* XCRemoteSwiftPackageReference "HeadlessKit" */;
 			productName = HeadlessKit;
 		};
 		AA0970310000000000000001 /* HeadlessKitTransport */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = B1000000000000000000000A /* XCLocalSwiftPackageReference ".." */;
+			package = AA1005000000000000000001 /* XCRemoteSwiftPackageReference "HeadlessKit" */;
 			productName = HeadlessKitTransport;
 		};
 		AA0970320000000000000001 /* HeadlessKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = B1000000000000000000000A /* XCLocalSwiftPackageReference ".." */;
+			package = AA1005000000000000000001 /* XCRemoteSwiftPackageReference "HeadlessKit" */;
 			productName = HeadlessKit;
 		};
 		B10000000000000000000006 /* NativeModelConverter */ = {
