@@ -139,7 +139,11 @@ final class HeadlessWalkTests: XCTestCase {
 		let account = try await walker.perform("open-account", arrivesAt: .account)
 		XCTAssertEqual(account.state.value(at: "/signedIn"), .bool(false), "[walk fresh]")
 		try await walker.perform("close", arrivesAt: .drawer)
+		// `open-findings` sweeps the screenshot directory these parts name, not the app's (AIA-1003).
+		let orphan = scratch.appending(path: "fresh/Findings/\(UUID().uuidString).jpg")
+		try Data([0]).write(to: orphan)
 		try await walker.perform("open-findings", arrivesAt: .findings)
+		XCTAssertFalse(FileManager.default.fileExists(atPath: orphan.path), "[walk fresh] the orphan was not swept")
 		try await walker.perform("close", arrivesAt: .drawer)
 		try await walker.perform("close", arrivesAt: .home)
 

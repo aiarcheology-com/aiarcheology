@@ -314,6 +314,22 @@ final class FindingsSyncCoordinator: ObservableObject {
         syncNow()
     }
 
+    /// What opening the findings list does, shared by the list's `onAppear` and headless
+    /// `open-findings` (AIA-1003). First self-heal write-time leftovers (image written, entity insert
+    /// failed) and failed file deletes; this runs on the viewContext/MainActor, and the save sheet is
+    /// dismissed before the list can open, so it never races a save. Then ask the server: opening the
+    /// list is the moment the user asks "what have I got?", and none of the other triggers fires when
+    /// the change was made on another device while the app stayed open (AIA-0758). The bare cycle, not
+    /// `synchronizeNow`: nobody pressed anything, so no spinner and no outcome line. `syncNow`
+    /// coalesces, so re-presenting the list cannot stack cycles.
+    ///
+    /// - Parameter directory: the screenshot directory to sweep; headless passes the one its parts name.
+    @discardableResult
+    func activateFindings(directory: URL? = FindingScreenshotStore.directory) -> Task<Void, Never>? {
+        FindingScreenshotStore.sweepOrphans(in: context, directory: directory)
+        return syncNow()
+    }
+
     /// Runs a cycle unless one is already running. Safe to call from a foreground notification, a
     /// connectivity change, or straight after a save.
     /// Returns the running cycle so a test can await it. Production callers ignore it: a sync is

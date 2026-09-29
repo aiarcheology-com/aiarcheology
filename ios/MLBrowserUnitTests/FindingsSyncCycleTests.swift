@@ -773,6 +773,34 @@ extension FindingsSyncCycleTests {
 	/// fire-and-forget. Awaiting the returned task therefore returned while the cycle that could
 	/// actually see the caller's change had not started -- pull-to-refresh stopped spinning early,
 	/// and a pressed button reported success on work that predated the press.
+	/// What opening the findings list does, for the list and headless `open-findings` alike
+	/// (AIA-1003): sweep the directory it is given -- dropping a file no finding references, keeping
+	/// one that is referenced -- and start the sync it hands back.
+	func testActivatingFindingsSweepsTheGivenDirectoryThenStartsASync() async throws {
+		StubWorkerProtocol.handler = { _ in
+			(200, StubWorkerProtocol.json([
+				"findings": [], "nextCursor": NSNull(), "hasMore": false,
+				"usage": ["used": 0, "limit": 52_428_800]
+			]))
+		}
+		let finding = try saveFinding(title: "Referenced")
+		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
+		let directory = scratch.appendingPathComponent("screenshots", isDirectory: true)
+		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+		let referenced = directory.appendingPathComponent(try XCTUnwrap(finding.screenshotFilename))
+		let orphan = directory.appendingPathComponent("\(UUID().uuidString).jpg")
+		try Data([0]).write(to: referenced)
+		try Data([0]).write(to: orphan)
+		StubWorkerProtocol.requests = []
+
+		let cycle = try XCTUnwrap(sut.activateFindings(directory: directory), "opening the list starts a sync")
+
+		XCTAssertFalse(FileManager.default.fileExists(atPath: orphan.path), "a file no finding references is swept")
+		XCTAssertTrue(FileManager.default.fileExists(atPath: referenced.path), "a referenced file is kept")
+		await cycle.value
+		XCTAssertFalse(StubWorkerProtocol.requests.isEmpty, "the returned task is the cycle that asked the server")
+	}
+
 	func testAwaitingSyncNowWaitsForTheCycleQueuedWhileOneWasRunning() async throws {
 		StubWorkerProtocol.handler = { _ in
 			(200, StubWorkerProtocol.json([

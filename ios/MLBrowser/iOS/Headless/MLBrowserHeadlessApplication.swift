@@ -524,12 +524,8 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 			navigatesTo: "findings"
 		) { _ in
 			presentation.isFindingsPresented = true
-			// What the list does as it appears: heal leftover screenshot files, then ask the server.
-			FindingScreenshotStore.sweepOrphans(
-				in: parts.dataController.container.viewContext,
-				directory: parts.findingsDirectory
-			)
-			await parts.findingsSync.syncNow()?.value
+			// What the list does as it appears, in the screenshot directory these parts name.
+			await parts.findingsSync.activateFindings(directory: parts.findingsDirectory)?.value
 			return nil
 		})
 		// The footer's own rule: offered while its row is tappable.
