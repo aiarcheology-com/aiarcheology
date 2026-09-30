@@ -329,6 +329,7 @@
 		AA0970110000000000000002 /* AppRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970110000000000000001 /* AppRuntimeTests.swift */; };
 		AA0970300000000000000002 /* HeadlessKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA0970300000000000000001 /* HeadlessKit */; };
 		AA0970310000000000000002 /* HeadlessKitTransport in Frameworks */ = {isa = PBXBuildFile; productRef = AA0970310000000000000001 /* HeadlessKitTransport */; };
+		AA1007000000000000000002 /* HeadlessKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = AA1007000000000000000001 /* HeadlessKitUI */; };
 		AA0970320000000000000002 /* HeadlessKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA0970320000000000000001 /* HeadlessKit */; };
 		AA0970400000000000000002 /* AppEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970400000000000000001 /* AppEntry.swift */; };
 		AA0970410000000000000002 /* HeadlessLaunchOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0970410000000000000001 /* HeadlessLaunchOptionsTests.swift */; };
@@ -933,6 +934,7 @@
 				AA0643030000000000000002 /* SupportLogFormat in Frameworks */,
 				AA0970300000000000000002 /* HeadlessKit in Frameworks */,
 				AA0970310000000000000002 /* HeadlessKitTransport in Frameworks */,
+				AA1007000000000000000002 /* HeadlessKitUI in Frameworks */,
 			);
 		};
 		8AE0BC132A97B0B40086DDF9 /* Frameworks */ = {
@@ -1826,6 +1828,7 @@
 				AA0643030000000000000001 /* SupportLogFormat */,
 				AA0970300000000000000001 /* HeadlessKit */,
 				AA0970310000000000000001 /* HeadlessKitTransport */,
+				AA1007000000000000000001 /* HeadlessKitUI */,
 			);
 			productName = MLBrowser;
 			productReference = D6E1AE1C3040CA74006FA5FE /* ML Browser.app */;
@@ -3120,6 +3123,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA1005000000000000000001 /* XCRemoteSwiftPackageReference "HeadlessKit" */;
 			productName = HeadlessKitTransport;
+		};
+		AA1007000000000000000001 /* HeadlessKitUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA1005000000000000000001 /* XCRemoteSwiftPackageReference "HeadlessKit" */;
+			productName = HeadlessKitUI;
 		};
 		AA0970320000000000000001 /* HeadlessKit */ = {
 			isa = XCSwiftPackageProductDependency;

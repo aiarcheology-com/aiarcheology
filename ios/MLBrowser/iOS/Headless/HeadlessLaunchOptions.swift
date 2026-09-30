@@ -41,21 +41,25 @@ struct HeadlessLaunchOptions: Equatable {
 	/// `-headlessAppMoves oneHop|off` (AIA-0994): whether an action may also land one move on the app's
 	/// own past where it declares. Absent means `oneHop`, the rule every run uses; `off` is only for
 	/// auditing the navigation map (`headless.sh test --app-moves off`, HEADLESS.md), where every
-	/// failure is a missing declaration or a race the hop absorbs.
+	/// failure is a missing declaration or a race the hop absorbs. Parsed by the kit's
+	/// `HeadlessLaunch` (AIA-1007), which hands the same value to the session; kept here to echo it.
 	let appMoves: AppMoves
 
 	/// The options this process was launched with. Read only in headless mode (AIA-0991): parsing
 	/// traps on a malformed option, and a UI launch must not stop on a stale one.
-	static let current = HeadlessLaunchOptions(arguments: ProcessInfo.processInfo.arguments)
+	static let current = HeadlessLaunchOptions(
+		arguments: ProcessInfo.processInfo.arguments,
+		appMoves: HeadlessLaunch.current.appMoves
+	)
 
-	/// Reads the options from `arguments`. A malformed option stops the launch: an automation run on
-	/// a misread configuration would pass or fail for the wrong reason.
-	init(arguments: [String]) {
+	/// Reads the options from `arguments`, with `appMoves` as the kit parsed it. A malformed option
+	/// stops the launch: an automation run on a misread configuration would pass or fail for the
+	/// wrong reason.
+	init(arguments: [String], appMoves: AppMoves = .oneHop) {
 		var mockSubscription: String?
 		var flagOverrides: [FeatureFlagKey: Bool] = [:]
 		var stagedImages: [String] = []
 		var freeAccessEndsIn: Int?
-		var appMoves = AppMoves.oneHop
 		var index = arguments.startIndex
 		while index < arguments.endIndex {
 			let argument = arguments[index]
@@ -84,12 +88,6 @@ struct HeadlessLaunchOptions: Equatable {
 				}
 				freeAccessEndsIn = seconds
 				index += 2
-			case "-headlessAppMoves":
-				guard let parsed = value.flatMap(AppMoves.init(rawValue:)) else {
-					fatalError("-headlessAppMoves needs oneHop or off, got \(value ?? "nothing")")
-				}
-				appMoves = parsed
-				index += 2
 			default:
 				index += 1
 			}
@@ -99,6 +97,25 @@ struct HeadlessLaunchOptions: Equatable {
 		self.stagedImages = stagedImages
 		self.freeAccessEndsIn = freeAccessEndsIn
 		self.appMoves = appMoves
+	}
+
+	/// `-headlessFreeAccessEndsIn` (AIA-0984), for the headless entry to call before `bootstrap`,
+	/// because `AppState`'s initializer starts the task that runs `FreeAccessState.start()`, the
+	/// first read of the window.
+	@MainActor
+	func seedFreeAccessExpiry(container: DependencyContainer) {
+		guard let seconds = freeAccessEndsIn else { return }
+		let result = FreeAccessExpirySeed.seedWindowEnding(
+			inSeconds: seconds,
+			fastStore: container.settings.persistenceStore,
+			durableStore: container.freeAccessDurableStore
+		)
+		// An existing anchor is expected on a relaunch, which passes the option again. An unreadable
+		// Keychain is not: the run would go on in a days-long window and fail minutes later at its
+		// `access-ended` wait, far from the cause.
+		if case .failure(.durableStoreUnreadable) = result {
+			fatalError("-headlessFreeAccessEndsIn: the free-access Keychain anchor could not be read, so the window was not seeded")
+		}
 	}
 
 	/// `text` as seconds a launch may ask for, or `nil`. Not private so the rule can be tested

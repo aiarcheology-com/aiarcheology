@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if DEBUG
+import HeadlessKit
+#endif
 
 /// Centralized environment detection for the app (build config, tests, distribution).
 ///
@@ -376,39 +379,22 @@ enum AppInterface: Equatable {
 	///   `UI_TESTING`). The scheme hands its launch arguments to the tests, so a developer who left
 	///   the scheme's `-interface headless` on would otherwise run the unit-test host as a server, or
 	///   a UI test headless with its data wiped on every launch.
+	/// - In headless mode, a malformed `-headlessAppMoves` is refused too; a UI launch never reads it.
 	static func resolve(arguments: [String], environment: [String: String], backend: BackendEnvironment) -> Result<AppInterface, Refusal> {
 		guard backend == .development else { return .success(.ui) }
-		var requested: String??
-		var index = arguments.startIndex
-		while index < arguments.endIndex {
-			guard arguments[index] == "-interface" else {
-				index += 1
-				continue
-			}
-			let next = arguments.index(after: index)
-			if next < arguments.endIndex, arguments[next].hasPrefix("-") == false {
-				requested = .some(arguments[next])
-				index = arguments.index(after: next)
-			} else {
-				requested = .some(nil)
-				index = next
-			}
+		// The kit reads `-interface` and `-headlessAppMoves` and refuses an XCTest host (AIA-1007).
+		let launch: HeadlessLaunch
+		do {
+			launch = try HeadlessLaunch(arguments: arguments, environment: environment)
+		} catch {
+			return .failure(Refusal(message: String(describing: error)))
 		}
-		guard let requested else { return .success(.ui) }
-		switch requested {
-		case "ui":
-			return .success(.ui)
-		case "headless":
-			// The markers `isRunningUnderAnyTests` and `isRunningUITests` read, read the same way.
-			if environment["XCTestConfigurationFilePath"] != nil || environment["UI_TESTING"] == "1" {
-				return .failure(Refusal(message: "-interface headless in a test host: turn off the scheme's -interface argument before running tests"))
-			}
-			return .success(.headless)
-		case .some(let value):
-			return .failure(Refusal(message: "-interface must be ui or headless, got \(value)"))
-		case .none:
-			return .failure(Refusal(message: "-interface needs a value: ui or headless"))
+		guard launch.isRequested else { return .success(.ui) }
+		// The UI tests' marker, which `isRunningUITests` reads; the kit knows only XCTest's.
+		if environment["UI_TESTING"] == "1" {
+			return .failure(Refusal(message: "-interface headless in a test host: turn off the scheme's -interface argument before running tests"))
 		}
+		return .success(.headless)
 	}
 }
 #endif

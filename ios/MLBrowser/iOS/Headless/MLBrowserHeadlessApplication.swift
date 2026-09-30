@@ -58,6 +58,16 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 		)
 	}
 
+	/// The application headless mode serves (AIA-1007): this launch's options over the app's own
+	/// state, with the crash reporter actually in use.
+	convenience init(appState: AppState, launchOptions: HeadlessLaunchOptions = .current) {
+		self.init(
+			parts: HeadlessAppParts(appState: appState, launchOptions: launchOptions),
+			launchOptions: launchOptions.json,
+			crashReporting: DependencyContainer.shared.usesRealCrashReporter
+		)
+	}
+
 	var metadata: [String: JSONValue] {
 		let info = Bundle.main.infoDictionary ?? [:]
 		return [

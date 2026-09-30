@@ -515,8 +515,9 @@ final class ArchitectureTests: XCTestCase {
     // MARK: - Headless mode (AIA-0970, AIA-0991)
 
     /// Headless mode's command server must exist only in a Debug build against the development
-    /// backend. Every file that imports the transport, starts a `HeadlessServer` or names an
-    /// `NWListener` is wrapped whole in `#if DEBUG && AIA_BACKEND_ENV_development`, so neither a
+    /// backend. Every file that imports the transport or HeadlessKitUI, starts a `HeadlessServer`
+    /// or a `HeadlessServerView` (or `.headless(…)`), or names an `NWListener` is wrapped whole in
+    /// `#if DEBUG && AIA_BACKEND_ENV_development`, so neither a
     /// shipping build nor a Debug build against production can compile a listener into the app.
     /// Since AIA-0991 no build setting selects the mode; this wrap is the compile-time lock.
     func testHeadlessCommandServerExistsOnlyInDevelopmentDebugBuilds() {
@@ -536,10 +537,13 @@ final class ArchitectureTests: XCTestCase {
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { $0.isEmpty == false && $0.hasPrefix("//") == false }
             let usesTransport = code.contains { line in
-                // `import HeadlessKitTransport`, `@_exported import …`, `import struct HeadlessKitTransport.X`.
-                let importsTransport = line.contains("import ") && (line.hasSuffix(" HeadlessKitTransport")
-                    || line.contains(" HeadlessKitTransport ") || line.contains(" HeadlessKitTransport."))
-                return importsTransport || line.contains("NWListener") || line.contains("HeadlessServer(")
+                // `import HeadlessKitTransport`, `@_exported import …`, `import struct HeadlessKitTransport.X`;
+                // the same for HeadlessKitUI, whose view owns the server (AIA-1007).
+                let importsServer = line.contains("import ") && ["HeadlessKitTransport", "HeadlessKitUI"].contains { module in
+                    line.hasSuffix(" \(module)") || line.contains(" \(module) ") || line.contains(" \(module).")
+                }
+                return importsServer || line.contains("NWListener") || line.contains("HeadlessServer(")
+                    || line.contains("HeadlessServerView(") || line.contains(".headless(")
             }
             guard usesTransport else { continue }
             if Self.isWhollyGuarded(code, by: guardLine) {
@@ -590,7 +594,7 @@ final class ArchitectureTests: XCTestCase {
             let relativePath = Self.relativePath(for: fileURL)
             do {
                 let lines = try Self.readLines(of: fileURL)
-                offenders += Self.findImports(inLines: lines, relativePath: relativePath, modules: ["SwiftUI", "UIKit"])
+                offenders += Self.findImports(inLines: lines, relativePath: relativePath, modules: ["SwiftUI", "UIKit", "HeadlessKitUI"])
             } catch {
                 XCTFail("Headless adapter scan could not read \(relativePath): \(error) — failing closed.")
             }
@@ -598,7 +602,7 @@ final class ArchitectureTests: XCTestCase {
         XCTAssertTrue(
             offenders.isEmpty,
             """
-            Headless adapters must not import SwiftUI or UIKit — call the state objects the views call instead:
+            Headless adapters must not import SwiftUI, UIKit or HeadlessKitUI — call the state objects the views call instead:
             \(offenders.map { "\($0.relativePath):\($0.lineNumber)  \($0.line)" }.joined(separator: "\n"))
             """
         )

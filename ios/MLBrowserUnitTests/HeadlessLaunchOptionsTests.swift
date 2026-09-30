@@ -92,13 +92,12 @@ final class HeadlessLaunchOptionsTests: XCTestCase {
 		XCTAssertEqual(options.json, ["flags": [:], "stagedImages": [], "appMoves": "oneHop"])
 	}
 
-	/// AIA-0994: `off` turns the app's own moves off for a map audit, and is echoed.
-	func test_readsTheAppMovesSwitch_andEchoesIt() {
-		let off = HeadlessLaunchOptions(arguments: ["/path/ML Browser", "-headlessAppMoves", "off"])
+	/// AIA-0994: `off` turns the app's own moves off for a map audit, and is echoed. The kit's
+	/// `HeadlessLaunch` parses it (AIA-1007); the options take the parsed value.
+	func test_echoesTheAppMovesSwitch() {
+		let off = HeadlessLaunchOptions(arguments: ["/path/ML Browser", "-headlessAppMoves", "off"], appMoves: .off)
 		XCTAssertEqual(off.appMoves, .off)
 		XCTAssertEqual(off.json.value(at: "/appMoves"), "off")
-		let explicit = HeadlessLaunchOptions(arguments: ["/path/ML Browser", "-headlessAppMoves", "oneHop"])
-		XCTAssertEqual(explicit.appMoves, .oneHop)
 	}
 }
 
