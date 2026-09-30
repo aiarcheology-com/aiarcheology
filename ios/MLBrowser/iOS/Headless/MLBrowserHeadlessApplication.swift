@@ -24,7 +24,7 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	private let parts: HeadlessAppParts
 	private let launchOptions: JSONValue
 	/// Whether this process runs a crash reporter that sends events: the reporter actually in use,
-	/// never the build's DSN (AIA-0991). The launcher refuses a process that says `true`.
+	/// never the build's DSN (AIA-0991). ProjectTool (`MLBrowserHeadless.refusal`) refuses a process that says `true`.
 	private let crashReporting: Bool
 	/// The root gate's orchestration — the object `SubscriptionGateView` runs on, one per window. The
 	/// headless build has exactly one window, so it owns exactly one.
