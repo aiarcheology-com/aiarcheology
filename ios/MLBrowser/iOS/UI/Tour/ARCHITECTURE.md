@@ -22,7 +22,7 @@ flowchart TB
         OVL["TourOverlayModifier<br/>(.tourOverlay at root)"]
         SPOT["TourSpotlight<br/>dim + cutout"]
         BUB["TourBubble<br/>text + Next + Skip"]
-        PK["TourAnchorPreferenceKey<br/>[TourAnchorID: Anchor&lt;CGRect&gt;]"]
+        PK["TourTargetPreferenceKey<br/>[TourAnchorID: TourTargetReference]"]
         TGT[".tourTarget(_:)"]
     end
 
@@ -56,7 +56,7 @@ flowchart TB
     WS -->|.tourTarget .addressBar| TGT
     DC -->|.tourTarget .demoModels (whole drawer)| TGT
     SFS -->|.tourTarget .saveButton| TGT
-    TGT -->|anchorPreference .bounds| PK
+    TGT -->|weak native view markers| PK
 
     AS -->|initialize → migrateAndArmIfNeeded (arms)| TS
     SGV -->|startTourIfClear → startIfArmed (starts)| TS
@@ -144,15 +144,15 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     participant Tgt as .tourTarget views
-    participant PK as TourAnchorPreferenceKey
+    participant PK as TourTargetPreferenceKey
     participant OVL as TourOverlay (root)
     participant TS as TourState
     participant U as User
 
-    Tgt->>PK: publish bounds anchor (layout-driven)
-    OVL->>PK: read anchors[currentStep.target]
-    Note over OVL: anchor nil (mid drawer-open animation)<br/>→ cutout withheld, bubble still shown (centered)
-    OVL->>OVL: resolve rect = proxy[anchor]
+    Tgt->>PK: publish weak native view reference
+    OVL->>PK: read targets[currentStep.target]
+    Note over OVL: target unavailable (detached / outside overlay)<br/>→ cutout withheld, bubble still shown (centered)
+    OVL->>OVL: convert live target bounds into overlay coordinates (UIKit)
     OVL->>OVL: TourSpotlight(cutout) + TourBubble(measured height clamp)
     OVL-->>TS: .checkpoint(.tourStep) for UI tests
 
@@ -169,8 +169,13 @@ sequenceDiagram
 
 ## Notes
 - **Symbol-stripping safe:** steps match on the `TourAnchorID` enum, not stringly-typed names.
-- **Coordinate space:** the overlay's `GeometryReader` resolves anchors with `.ignoresSafeArea()`,
-  matching `TourSpotlight`'s full-screen draw — otherwise every cutout is offset by the top inset.
+- **Coordinate space (AIA-1014):** transparent UIKit markers measure targets and the overlay in
+  one window, including native toolbar hosting offsets on Mac. Preferences carry weak view
+  references; an animation timeline samples the current conversion at most 30 times per second
+  only while the overlay is mounted. This follows host movement/reparenting without caching a
+  stale rectangle or delaying replay by a guessed duration. Detached, hidden, empty, cross-window
+  and out-of-bounds targets are withheld; the bubble and Skip remain available. The overlay marker
+  fills the same safe-area-ignoring area as the dim, pulse and tap region.
 - **Dim taps never dismiss:** the dim has no tap gesture; only the explicit **Skip** button ends
   the tour. An interrupted tour re-arms (the gate flips only on a terminal state).
 - **`start()`'s resets are live now:** closing the drawer and stopping detection used to be no-ops on

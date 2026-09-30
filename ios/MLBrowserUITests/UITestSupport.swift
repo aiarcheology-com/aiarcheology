@@ -170,6 +170,7 @@ enum AID {
 
 	// Onboarding tour (AIA-0333)
 	static let tourBubble = "_AIA:View.TourBubble"
+	static let tourCutout = "_AIA:View.TourCutout"
 	static let tourSkip = "_AIA:Button.TourSkip"
 	static let tourNext = "_AIA:Button.TourNext"
 	static let cpTourStep = "_AIA:Checkpoint.TourStep"

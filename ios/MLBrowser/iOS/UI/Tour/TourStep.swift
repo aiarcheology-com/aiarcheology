@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// Stable identity for each element the tour can spotlight. Marked on a view with
-/// `.tourTarget(_:)` and read back through anchor preferences by `TourOverlay`.
+/// `.tourTarget(_:)` and read back through target preferences by `TourOverlay`.
 ///
 /// A plain enum (not a stringly typed identifier): the overlay matches the active step's
 /// `target` against these cases, so identity survives release builds / symbol stripping.
@@ -97,7 +97,7 @@ struct TourStep: Identifiable, Sendable {
 	/// How this step advances.
 	let advance: TourAdvance
 	/// Anchor to spotlight when `target`'s own anchor doesn't resolve. Needed because an
-	/// `anchorPreference` published from *inside* a `List` cell (e.g. a model row's toggle)
+	/// target preference published from *inside* a `List` cell (e.g. a model row's toggle)
 	/// does not propagate to the root overlay. The enable step keeps its own identity
 	/// (`.enableModelToggle`, for checkpoints) but spotlights `.demoModels`.
 	let spotlightFallback: TourAnchorID?

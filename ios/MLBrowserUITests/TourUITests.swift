@@ -9,6 +9,46 @@ import XCTest
 
 final class TourUITests: UITestCase {
 
+	/// Replay in one process: a fresh launch cannot expose stale toolbar geometry after Settings.
+	@MainActor
+	func testTour_repeatedReplay_alignsModelsCutoutWithToolbarButton() {
+		launch()
+		for replay in 1...3 {
+			openSettings()
+			XCTAssertTrue(scrollTo(AID.settingsReplayOnboarding))
+			element(AID.settingsReplayOnboarding).tap()
+			XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "addressBar"))
+			element(AID.tourNext).tap()
+			XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "modelsButton"))
+			let cutout = element(AID.tourCutout)
+			let button = app.buttons[AID.cpu]
+			XCTAssertTrue(cutout.waitForExistence(timeout: 10))
+			XCTAssertTrue(button.exists)
+			let aligned = NSPredicate { _, _ in
+				let target = button.frame
+				let region = cutout.frame
+				return target.width > 0 && region.width > 0
+					&& abs(target.midX - region.midX) < 2
+					&& abs(target.midY - region.midY) < 2
+			}
+			let ready = XCTNSPredicateExpectation(predicate: aligned, object: nil)
+			XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 10), .completed,
+				"Replay \(replay): button \(button.frame), cutout \(cutout.frame)")
+			attach("replay-\(replay)-models")
+			// Use the real button's coordinates, not an accessibility activation shortcut.
+			button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+			XCTAssertTrue(app.buttons[AID.drawerSettings].waitForExistence(timeout: 10))
+			tapNextWhenRevealed()
+			XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "demoModels"))
+			element(AID.tourSkip).tap()
+			XCTAssertTrue(waitForDisappearance(of: element(AID.tourBubble)))
+			// Skip deliberately leaves the user's drawer open. Close it through the scrim
+			// before using openSettings(), whose first action opens a closed drawer.
+			app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+			XCTAssertTrue(waitForDisappearance(of: app.buttons[AID.drawerSettings]))
+		}
+	}
+
 	/// The tour auto-starts under the `startOnboardingTour` flag and shows its first bubble
 	/// spotlighting the address bar.
 	@MainActor
