@@ -11,6 +11,36 @@ its own paragraph.
 
 ---
 
+## Every release: HeadlessKit footprint
+
+A standing item, and the one scripted check in this file: it inspects the very archive that will
+be submitted, which no earlier build or CI run has seen. Added with AIA-1006 (kit 0.2.0); it applies
+from the first release that carries HeadlessKit.
+
+- [ ] **The archive to submit carries nothing of HeadlessKit.** Since kit 0.2.0 the kit compiles to
+      nothing outside Debug; this proves it for the build that ships. Run it on the archive
+      (`scripts/deliver.sh` leaves it at `build/delivery/MLBrowser.xcarchive`; for an Xcode Cloud
+      build, download the archive from its build's artifacts). The check reads symbols from the archive's
+      dSYMs, since the app is stripped. The control is a development-backend Debug build, such as
+      the one `./scripts/unittest.sh` leaves in `.deriveddata/`:
+
+      ```sh
+      swift package --package-path Tools resolve   # checks out the pinned kit, with its script
+      Tools/.build/checkouts/HeadlessKit/scripts/check-footprint.sh build/delivery/MLBrowser.xcarchive \
+        --control ".deriveddata/Build/Products/Debug-iphonesimulator/ML Browser.app" \
+        --string Headless/endpoint.json
+      ```
+
+      It must end with `PASS`: 0 kit symbols, 0 imported `NWListener` symbols, 0 kit module-name
+      strings and 0 endpoint paths across every Mach-O, with every count above 0 in the control.
+      A `STRIPPED, no dSYM` failure means a binary's dSYM is missing from the archive; do not work
+      around it with `--allow-no-dsym` for the app or our own extensions, only for a third-party
+      binary that ships without one. (In a plain Release build directory Sentry's framework is
+      stripped with no dSYM beside it; whether the archive carries its dSYM is not yet verified.)
+      Record the archive's build number and the result here.
+
+---
+
 ## Cloud findings — gates for the first release that ships it
 
 Added 2026-08-26 with AIA-741. These are not 1.0.7 items; they gate whichever release first carries

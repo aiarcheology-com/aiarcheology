@@ -1,6 +1,7 @@
-// swift-tools-version:5.9
-// 5.9 is the floor for `.macOS(.v14)` below; deliberately not 6.0, which would switch the existing
-// targets to the Swift 6 language mode and is a change this ticket has no reason to make.
+// swift-tools-version:6.1
+// 6.1 is the floor for enabling a dependency's package trait (HeadlessKit's `HeadlessHost`, below;
+// Xcode 16.3 or later). `swiftLanguageModes: [.v5]` keeps every target in the Swift 5 language
+// mode it had under tools 5.9: moving them to Swift 6 is a separate change.
 import PackageDescription
 
 let package = Package(
@@ -26,7 +27,10 @@ let package = Package(
         // manifests or the three Package.resolved files (Tools, the workspace, the project)
         // disagree, so the tool and the app speak one wire protocol.
         // Resolving it needs GitHub credentials for git over HTTPS (`gh auth setup-git`).
-        .package(url: "https://github.com/aiarcheology-com/HeadlessKit.git", exact: "0.1.0")
+        // Since 0.2.0 the kit compiles only under `DEBUG || HeadlessHost`, so an app's Release build
+        // carries none of it (AIA-1006). ProjectTool is a host: the trait keeps the client and the
+        // runner in a `-c release` build. The app must never enable it.
+        .package(url: "https://github.com/aiarcheology-com/HeadlessKit.git", exact: "0.1.0", traits: ["HeadlessHost"])
     ],
     targets: [
         // Pure, testable logic. A test target cannot `@testable import` an executable target,
@@ -61,5 +65,6 @@ let package = Package(
                 .product(name: "HeadlessScenario", package: "HeadlessKit")
             ]
         )
-    ]
+    ],
+    swiftLanguageModes: [.v5]
 )

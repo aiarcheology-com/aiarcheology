@@ -51,7 +51,7 @@ and reads them only in headless mode (AIA-0991). Headless mode also forces the n
 `MLBrowser/iOS/UI/AppEntry.swift` — `@main enum AppEntry` launches `MLBrowser` (the SwiftUI app,
 `UI/MLBrowser.swift`) or, when launched with `-interface headless`, `MLBrowserHeadless`
 (`Headless/Entry/`), the same app without its views (see `specification/HEADLESS.md`). Its screen/action
-kit is the external HeadlessKit package (`aiarcheology-com/HeadlessKit`, pinned by exact version). Headless is
+kit is the external HeadlessKit package (`aiarcheology-com/HeadlessKit`, pinned by exact version), which compiles to nothing outside Debug (AIA-1006). Headless is
 a launch mode of the Debug app (AIA-0991; AIA-0970 made it a separate build):
 `AppEnvironment.isHeadlessMode` is read at launch, and the branch, the entry and its command server
 compile only under `DEBUG && AIA_BACKEND_ENV_development`, so Release and a Debug build against

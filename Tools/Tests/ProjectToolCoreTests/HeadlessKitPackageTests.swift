@@ -61,15 +61,33 @@ final class HeadlessKitPackageTests: XCTestCase {
 		}
 
 		// The manifests ask for exactly the version that is resolved, so a resolve cannot drift.
-		let manifest = try text("Tools/Package.swift")
-		let exactPin = try Regex(#"\.package\(\s*url:\s*"\#(NSRegularExpression.escapedPattern(for: Self.url))"\s*,\s*exact:\s*"([^"]+)"\s*\)"#)
-		let manifestVersions = manifest.matches(of: exactPin).map { String($0.output[1].substring ?? "") }
-		XCTAssertEqual(manifestVersions, [tool.version], "Tools/Package.swift must pin HeadlessKit once, with exact: \"\(tool.version)\"")
+		let dependencies = try toolsManifestDependencies(on: Self.url)
+		XCTAssertEqual(dependencies.count, 1, "Tools/Package.swift must depend on \(Self.url) exactly once")
+		let dependency = dependencies.first ?? ""
+		let exact = try Regex(#"exact:\s*"([^"]+)""#)
+		let manifestVersions = dependency.matches(of: exact).map { String($0.output[1].substring ?? "") }
+		XCTAssertEqual(manifestVersions, [tool.version], "Tools/Package.swift must pin HeadlessKit with exact: \"\(tool.version)\"")
+
+		// Since 0.2.0 the kit compiles only under `DEBUG || HeadlessHost` (AIA-1006). Without the trait
+		// a `-c release` ProjectTool loses the client and the runner, and nothing routine builds one.
+		let traits = try Regex(#"traits:\s*\[([^\]]*)\]"#)
+		let enabledTraits = dependency.matches(of: traits).map { String($0.output[1].substring ?? "") }
+		XCTAssertEqual(enabledTraits.count, 1, "Tools/Package.swift must enable HeadlessKit's traits once, with traits: [\"HeadlessHost\"]")
+		XCTAssertTrue(enabledTraits.first?.contains(#""HeadlessHost""#) == true, "Tools/Package.swift must enable HeadlessKit's HeadlessHost trait")
 
 		let requirements = try projectRequirements(for: Self.url)
 		XCTAssertEqual(requirements.count, 1, "The Xcode project must reference \(Self.url) exactly once")
 		XCTAssertEqual(requirements.first?["kind"] as? String, "exactVersion", "The Xcode project must pin HeadlessKit to an exact version")
 		XCTAssertEqual(requirements.first?["version"] as? String, tool.version, "The Xcode project pins another HeadlessKit version than Tools")
+	}
+
+	/// The argument list of every `.package(…)` call in Tools/Package.swift that names `url`, in any
+	/// argument order. The arguments hold brackets and strings but no parentheses.
+	private func toolsManifestDependencies(on url: String) throws -> [String] {
+		let manifest = try text("Tools/Package.swift")
+		XCTAssertTrue(manifest.contains(".package("), "Tools/Package.swift was not read.")
+		let call = try Regex(#"\.package\(([^()]*"\#(NSRegularExpression.escapedPattern(for: url))"[^()]*)\)"#)
+		return manifest.matches(of: call).map { String($0.output[1].substring ?? "") }
 	}
 
 	/// The `requirement` of every remote package reference to `url` in the Xcode project, read as the
