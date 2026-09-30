@@ -37,12 +37,11 @@ deferred (AIA-1006's PR).
       swift package --package-path Tools resolve   # checks out the pinned kit, with its script
       Tools/.build/checkouts/HeadlessKit/scripts/check-footprint.sh build/delivery/MLBrowser.xcarchive \
         --control ".deriveddata/Build/Products/Debug-iphonesimulator/ML Browser.app" \
-        --string Headless/endpoint.json \
         --allow-no-dsym Sentry
       ```
 
       It must end with `PASS`: 0 kit symbols (read from the archive's dSYMs, since the app is
-      stripped), 0 kit module-name strings and 0 endpoint paths across every Mach-O, with every count
+      stripped), 0 kit module-name strings and 0 endpoint paths (the script counts the kit's own path, since kit 0.3.0) across every Mach-O, with every count
       above 0 in the control. `--allow-no-dsym Sentry` is needed because Sentry ships as a prebuilt,
       stripped binary whose dSYM the archive does not carry; its strings and imports are still
       counted. Never allow the app or our own extensions: `STRIPPED, no dSYM` for them means the
