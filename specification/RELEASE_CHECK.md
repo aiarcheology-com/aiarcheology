@@ -31,8 +31,11 @@ from the first release that carries HeadlessKit.
         --string Headless/endpoint.json
       ```
 
-      It must end with `PASS`: 0 kit symbols, 0 imported `NWListener` symbols, 0 kit module-name
-      strings and 0 endpoint paths across every Mach-O, with every count above 0 in the control.
+      It must end with `PASS`: 0 kit symbols, 0 kit module-name strings and 0 endpoint paths
+      across every Mach-O, with every count above 0 in the control. The check also prints imported
+      `NWListener` symbols without judging them: the app imports 20 through
+      swift-nio-transport-services (AsyncHTTPClient's transport), a superset of what the kit would
+      bring, so that count is expected and cannot show the kit either way.
       A `STRIPPED, no dSYM` failure means a binary's dSYM is missing from the archive; do not work
       around it with `--allow-no-dsym` for the app or our own extensions, only for a third-party
       binary that ships without one. (In a plain Release build directory Sentry's framework is
