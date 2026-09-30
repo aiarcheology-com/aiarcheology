@@ -140,7 +140,7 @@ public struct StagedImage: Equatable {
 }
 
 /// What one launch needs: the app's launch arguments and the images to stage before it starts.
-public struct HeadlessLaunch: Equatable {
+public struct HeadlessLaunchPlan: Equatable {
 	/// The launch block's options, as the app's launch arguments.
 	public let arguments: [String]
 	public let stagedImages: [StagedImage]
@@ -188,7 +188,7 @@ public enum HeadlessLaunchArguments {
 	public static let freeAccessEndsInSeconds = 30...3600
 
 	/// - Parameter repositoryRoot: what `stage` paths are relative to, and must stay inside.
-	public static func make(from options: JSONValue, repositoryRoot: URL) throws -> HeadlessLaunch {
+	public static func make(from options: JSONValue, repositoryRoot: URL) throws -> HeadlessLaunchPlan {
 		guard let members = options.objectValue else {
 			throw Invalid(description: "launch options must be an object")
 		}
@@ -240,7 +240,7 @@ public enum HeadlessLaunchArguments {
 				arguments += ["-headlessStagedImage", image.name]
 			}
 		}
-		return HeadlessLaunch(arguments: arguments, stagedImages: stagedImages)
+		return HeadlessLaunchPlan(arguments: arguments, stagedImages: stagedImages)
 	}
 
 	/// Validates one `stage` entry: a relative path to an existing regular png/jpg/jpeg file inside

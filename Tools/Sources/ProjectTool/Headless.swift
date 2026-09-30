@@ -394,7 +394,7 @@ struct HeadlessSimulator {
 		// On every launch, relaunches included: a relaunch re-sends the same options, and the app is
 		// told the names again, so the files must match the repository's current copies.
 		try await stage(launch.stagedImages, udid: udid)
-		let pid = try await launchApp(udid: udid, arguments: launch.processArguments + HeadlessLaunch.appMovesArguments(appMoves))
+		let pid = try await launchApp(udid: udid, arguments: launch.processArguments + HeadlessLaunchPlan.appMovesArguments(appMoves))
 		let (client, hello) = try await connectWhenListening(udid: udid, pid: pid)
 		// The launcher's lock on production data; the build and the app hold the other two.
 		guard hello.metadata["backendEnvironment"] == "development" else {

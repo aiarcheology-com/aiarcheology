@@ -89,7 +89,7 @@ final class HeadlessLaunchArgumentsTests: XCTestCase {
 		try FileManager.default.removeItem(at: scratch)
 	}
 
-	private func make(_ options: JSONValue, root: URL? = nil) throws -> HeadlessLaunch {
+	private func make(_ options: JSONValue, root: URL? = nil) throws -> HeadlessLaunchPlan {
 		try HeadlessLaunchArguments.make(from: options, repositoryRoot: root ?? repository)
 	}
 
@@ -116,7 +116,7 @@ final class HeadlessLaunchArgumentsTests: XCTestCase {
 			"-headlessFlag", "isPaymentsEnabled=true"
 		])
 		XCTAssertEqual(launch.stagedImages, [])
-		XCTAssertEqual(try make([:]), HeadlessLaunch(arguments: [], stagedImages: []))
+		XCTAssertEqual(try make([:]), HeadlessLaunchPlan(arguments: [], stagedImages: []))
 	}
 
 	/// Every launch selects headless mode first (AIA-0991): without it the Debug app starts its UI and
@@ -130,8 +130,8 @@ final class HeadlessLaunchArgumentsTests: XCTestCase {
 
 	/// AIA-0994: the audit switch is a run option, added after the options; a scenario cannot set it.
 	func testTheAppMovesSwitchIsARunOptionOnly() throws {
-		XCTAssertEqual(HeadlessLaunch.appMovesArguments(.oneHop), [], "the app's default needs no argument")
-		XCTAssertEqual(HeadlessLaunch.appMovesArguments(.off), ["-headlessAppMoves", "off"])
+		XCTAssertEqual(HeadlessLaunchPlan.appMovesArguments(.oneHop), [], "the app's default needs no argument")
+		XCTAssertEqual(HeadlessLaunchPlan.appMovesArguments(.off), ["-headlessAppMoves", "off"])
 		XCTAssertNotNil(rejection(["appMoves": "off"]), "not a scenario launch key")
 	}
 
