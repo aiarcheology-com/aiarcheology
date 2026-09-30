@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10140010000000000000001 /* TourGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10140010000000000000002 /* TourGeometryTests.swift */; };
 		001369B340919454DB66C1A1 /* TourOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA98D77D0D8F44834E7D6D95 /* TourOverlay.swift */; };
 		02B1903E63D04C4784D17645 /* FindingFlashTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 347CED5074B64105979052CC /* FindingFlashTests.swift */; };
 		04F763C84B7120838746D17C /* AppAccountTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42AE5954921999DA282D1621 /* AppAccountTokenTests.swift */; };
@@ -439,6 +440,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A10140010000000000000002 /* TourGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourGeometryTests.swift; sourceTree = "<group>"; };
 		04CC35810A5A24A66927181A /* StoreKitSubscriptionProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StoreKitSubscriptionProvider.swift; sourceTree = "<group>"; };
 		0DC6368CADB5F8D0D0AA102A /* DetectionCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DetectionCoordinatorTests.swift; sourceTree = "<group>"; };
 		0FBD8D69B0BC1331A2E864BE /* TourState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourState.swift; sourceTree = "<group>"; };
@@ -1400,6 +1402,7 @@
 				94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */,
 				945C55812ED71234007DD8FB /* StringExtensionsTests.swift */,
 				D0AE619C61BACCB171E8FA2E /* TourStateTests.swift */,
+				A10140010000000000000002 /* TourGeometryTests.swift */,
 				945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */,
 				945C55872ED71234007DD8FB /* TestabilityTests.swift */,
 				94D79C932EE37DBF0027C9FA /* UIExtensionsTests.swift */,
@@ -2397,6 +2400,7 @@
 				945C55822ED71234007DD8FB /* StringExtensionsTests.swift in Sources */,
 				945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */,
 				63CDF1E9BC41E124832411D6 /* TourStateTests.swift in Sources */,
+				A10140010000000000000001 /* TourGeometryTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
 				94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */,
 				94AB0C2960296000000B0002 /* WebViewInteractionSettleTests.swift in Sources */,

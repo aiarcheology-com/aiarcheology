@@ -8,11 +8,11 @@
 import SwiftUI
 
 /// The single root overlay (attached once at `ContentView`). Reads the active step's target
-/// anchor via `overlayPreferenceValue`, then renders the dim+cutout and the coach-mark
+/// native marker via `overlayPreferenceValue`, then renders the dim+cutout and the coach-mark
 /// bubble positioned relative to the cutout.
 ///
 /// The **bubble always renders** so a step can never become a dead-end blank dim: when the
-/// target anchor hasn't settled yet (e.g. mid drawer-open animation) the cutout is withheld but
+/// target geometry hasn't settled yet (e.g. mid drawer-open animation) the cutout is withheld but
 /// the bubble is centered instead of pointing at a hole. A `dimsBackground == false` step (the
 /// map-capture step) renders only the bubble — no dim, no cutout — so the user's tap reaches the
 /// live app beneath.
@@ -25,19 +25,26 @@ private struct TourOverlayModifier: ViewModifier {
 	/// Measured height of the current bubble, read back via `TourBubbleHeightKey`. Used to
 	/// clamp the bubble on-screen so long / localized / Dynamic-Type copy can't push it off.
 	@State private var bubbleHeight: CGFloat = 0
+	@State private var coordinateReference = TourTargetReference()
 
 	func body(content: Content) -> some View {
 		content
-			.overlayPreferenceValue(TourAnchorPreferenceKey.self) { anchors in
+			.overlayPreferenceValue(TourTargetPreferenceKey.self) { targets in
 				// The sheet's `rendersInSheet` step is drawn only by the in-sheet overlay (the
 				// sheet is modal above the root); the root draws every other step.
 				if tour.isActive, let step = tour.currentStep, step.rendersInSheet == inSheet {
 					GeometryReader { proxy in
-						overlay(step: step, anchors: anchors, proxy: proxy)
+						// Native toolbar hosts can move without republishing a SwiftUI preference.
+						// Sample the live conversion only while this overlay is active. One shared
+						// timeline also picks up initial attachment and window resizing, without
+						// guessing how long Settings dismissal or drawer animations take.
+						TimelineView(.animation(minimumInterval: 1.0 / 30)) { _ in
+							overlay(step: step, targets: targets, proxy: proxy)
+						}
+						.background(TourGeometryMarker(reference: coordinateReference))
 					}
-					// Resolve anchors and draw in full-screen coordinates. Without this the
-					// GeometryReader sits in safe-area space while `TourSpotlight` draws with
-					// `.ignoresSafeArea()`, so every cutout was shifted up by the top inset.
+					// The native coordinate marker and every overlay layer fill the same area,
+					// including the toolbar; never subtract an assumed status/title-bar height.
 					.ignoresSafeArea()
 					.transition(.opacity)
 					// UI-test introspection: the active step's target id.
@@ -49,13 +56,13 @@ private struct TourOverlayModifier: ViewModifier {
 	@ViewBuilder
 	private func overlay(
 		step: TourStep,
-		anchors: [TourAnchorID: Anchor<CGRect>],
+		targets: [TourAnchorID: TourTargetReference],
 		proxy: GeometryProxy
 	) -> some View {
-		// Prefer the step's own target anchor; fall back to its `spotlightFallback` when that
-		// anchor can't resolve (e.g. a List-cell target — see `TourStep.spotlightFallback`).
-		let anchor = anchors[step.target] ?? step.spotlightFallback.flatMap { anchors[$0] }
-		let rect = anchor.map { proxy[$0] }
+		// A detached, cross-window or out-of-bounds target is unavailable, not a cutout at
+		// an invented location. Keep the bubble/Skip available until a live target resolves.
+		let rect = targets[step.target]?.rect(in: coordinateReference)
+			?? step.spotlightFallback.flatMap { targets[$0]?.rect(in: coordinateReference) }
 
 		ZStack(alignment: .topLeading) {
 			// A no-dim step (the map-capture step) renders ONLY the bubble — no dim, no hole-block —
@@ -85,9 +92,11 @@ private struct TourOverlayModifier: ViewModifier {
 				// boundary, so it cannot swallow the tap that performs the step's action.
 				if let rect, case .userAction = step.advance, pulsesCutout(for: step) {
 					let inset = TourSpotlight.defaultInset
+					let ring = rect.insetBy(dx: -inset, dy: -inset)
+						.intersection(CGRect(origin: .zero, size: proxy.size))
 					TourPulse()
-						.frame(width: rect.width + 2 * inset, height: rect.height + 2 * inset)
-						.offset(x: rect.minX - inset, y: rect.minY - inset)
+						.frame(width: ring.width, height: ring.height)
+						.offset(x: ring.minX, y: ring.minY)
 						.allowsHitTesting(false)
 				}
 
@@ -103,6 +112,7 @@ private struct TourOverlayModifier: ViewModifier {
 						.frame(width: rect.width, height: rect.height)
 						.offset(x: rect.minX, y: rect.minY)
 						.onTapGesture { cutoutTapTarget(for: step)?() }
+						.testability(Testability.View.tourCutout)
 				}
 			}
 
