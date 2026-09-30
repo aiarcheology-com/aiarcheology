@@ -71,9 +71,8 @@ final class HeadlessKitPackageTests: XCTestCase {
 		// Since 0.2.0 the kit compiles only under `DEBUG || HeadlessHost` (AIA-1006). Without the trait
 		// a `-c release` ProjectTool loses the client and the runner, and nothing routine builds one.
 		let traits = try Regex(#"traits:\s*\[([^\]]*)\]"#)
-		let enabledTraits = dependency.matches(of: traits).map { String($0.output[1].substring ?? "") }
-		XCTAssertEqual(enabledTraits.count, 1, "Tools/Package.swift must enable HeadlessKit's traits once, with traits: [\"HeadlessHost\"]")
-		XCTAssertTrue(enabledTraits.first?.contains(#""HeadlessHost""#) == true, "Tools/Package.swift must enable HeadlessKit's HeadlessHost trait")
+		let enabledTraits = dependency.matches(of: traits).map { String($0.output[1].substring ?? "").trimmingCharacters(in: .whitespaces) }
+		XCTAssertEqual(enabledTraits, [#""HeadlessHost""#], "Tools/Package.swift must enable exactly HeadlessKit's HeadlessHost trait: traits: [\"HeadlessHost\"]")
 
 		let requirements = try projectRequirements(for: Self.url)
 		XCTAssertEqual(requirements.count, 1, "The Xcode project must reference \(Self.url) exactly once")

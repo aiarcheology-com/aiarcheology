@@ -13,34 +13,44 @@ its own paragraph.
 
 ## Every release: HeadlessKit footprint
 
-A standing item, and the one scripted check in this file: it inspects the very archive that will
-be submitted, which no earlier build or CI run has seen. Added with AIA-1006 (kit 0.2.0); it applies
-from the first release that carries HeadlessKit.
+A standing item, and the one scripted check in this file: it inspects the archive itself, which no
+earlier build or CI run has seen. Added with AIA-1006 (kit 0.2.0); it applies from the first
+release that carries HeadlessKit. Wiring it into `deliver.sh` and `ci_post_xcodebuild.sh` is
+deferred (AIA-1006's PR).
 
-- [ ] **The archive to submit carries nothing of HeadlessKit.** Since kit 0.2.0 the kit compiles to
-      nothing outside Debug; this proves it for the build that ships. Run it on the archive
-      (`scripts/deliver.sh` leaves it at `build/delivery/MLBrowser.xcarchive`; for an Xcode Cloud
-      build, download the archive from its build's artifacts). The check reads symbols from the archive's
-      dSYMs, since the app is stripped. The control is a development-backend Debug build, such as
-      the one `./scripts/unittest.sh` leaves in `.deriveddata/`:
+- [ ] **The HeadlessKit pin is a release, not a pre-release.** `Tools/Package.swift`'s `exact:`
+      and the Xcode project's version name a plain tag such as `0.2.0`, never `0.2.0-rc.N`: an rc
+      tag sits on an unmerged kit PR ([HEADLESS.md](HEADLESS.md#where-ml-browser-pins-it)).
+
+- [ ] **The archive carries nothing of HeadlessKit.** Since kit 0.2.0 the kit compiles to nothing
+      outside Debug; this proves it for the build that ships. To check before anything reaches
+      TestFlight, archive without uploading (`./scripts/deliver.sh deliver --export-only`, which
+      leaves `build/delivery/MLBrowser.xcarchive`); `deliver` itself re-archives the same ref. For an
+      Xcode Cloud build, download its archive; that build has already been uploaded, so there the
+      check gates App Store submission only.
+
+      The control is a development-backend Debug build: `./scripts/unittest.sh` leaves one at the
+      path below (or under `$DERIVED_DATA_PATH` if you set it). If `Tools` is in
+      `swift package edit` mode, `unedit` first, so the script is the pinned kit's.
 
       ```sh
       swift package --package-path Tools resolve   # checks out the pinned kit, with its script
       Tools/.build/checkouts/HeadlessKit/scripts/check-footprint.sh build/delivery/MLBrowser.xcarchive \
         --control ".deriveddata/Build/Products/Debug-iphonesimulator/ML Browser.app" \
-        --string Headless/endpoint.json
+        --string Headless/endpoint.json \
+        --allow-no-dsym Sentry
       ```
 
-      It must end with `PASS`: 0 kit symbols, 0 kit module-name strings and 0 endpoint paths
-      across every Mach-O, with every count above 0 in the control. The check also prints imported
-      `NWListener` symbols without judging them: the app imports 20 through
-      swift-nio-transport-services (AsyncHTTPClient's transport), a superset of what the kit would
-      bring, so that count is expected and cannot show the kit either way.
-      A `STRIPPED, no dSYM` failure means a binary's dSYM is missing from the archive; do not work
-      around it with `--allow-no-dsym` for the app or our own extensions, only for a third-party
-      binary that ships without one. (In a plain Release build directory Sentry's framework is
-      stripped with no dSYM beside it; whether the archive carries its dSYM is not yet verified.)
-      Record the archive's build number and the result here.
+      It must end with `PASS`: 0 kit symbols (read from the archive's dSYMs, since the app is
+      stripped), 0 kit module-name strings and 0 endpoint paths across every Mach-O, with every count
+      above 0 in the control. `--allow-no-dsym Sentry` is needed because Sentry ships as a prebuilt,
+      stripped binary whose dSYM the archive does not carry; its strings and imports are still
+      counted. Never allow the app or our own extensions: `STRIPPED, no dSYM` for them means the
+      archive lost a dSYM. The check also prints imported `NWListener` symbols without judging them:
+      the app imports 20 through swift-nio-transport-services (AsyncHTTPClient's transport), a
+      superset of what the kit would bring, so that count is expected and cannot show the kit.
+      Verified on an unsigned local archive of AIA-1006's branch. Record the build number and the
+      result here.
 
 ---
 
