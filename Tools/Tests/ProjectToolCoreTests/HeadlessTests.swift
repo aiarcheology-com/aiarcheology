@@ -122,16 +122,20 @@ final class HeadlessLaunchArgumentsTests: XCTestCase {
 	/// Every launch selects headless mode first (AIA-0991): without it the Debug app starts its UI and
 	/// the launcher waits for an endpoint that never appears.
 	func testProcessArgumentsStartWithTheHeadlessInterface() throws {
-		XCTAssertEqual(try make([:]).processArguments, ["-interface", "headless"])
+		XCTAssertEqual(try make([:]).processArguments(), ["-interface", "headless"])
 		let launch = try make(["mockSubscription": "subscribed", "flags": ["isPaymentsEnabled": true]])
-		XCTAssertEqual(Array(launch.processArguments.prefix(2)), ["-interface", "headless"])
-		XCTAssertEqual(Array(launch.processArguments.dropFirst(2)), launch.arguments)
+		XCTAssertEqual(Array(launch.processArguments().prefix(2)), ["-interface", "headless"])
+		XCTAssertEqual(Array(launch.processArguments().dropFirst(2)), launch.arguments)
 	}
 
-	/// AIA-0994: the audit switch is a run option, added after the options; a scenario cannot set it.
+	/// AIA-0994: the audit switch is a run option, added by the launcher; a scenario cannot set it.
+	/// The app reads it back through the same kit type that wrote it (AIA-1007).
 	func testTheAppMovesSwitchIsARunOptionOnly() throws {
-		XCTAssertEqual(HeadlessLaunchPlan.appMovesArguments(.oneHop), [], "the app's default needs no argument")
-		XCTAssertEqual(HeadlessLaunchPlan.appMovesArguments(.off), ["-headlessAppMoves", "off"])
+		let launch = try make(["mockSubscription": "subscribed"])
+		XCTAssertEqual(launch.processArguments(appMoves: .oneHop), launch.processArguments(), "the app's default needs no argument")
+		let off = launch.processArguments(appMoves: .off)
+		XCTAssertEqual(Array(off.prefix(4)), ["-interface", "headless", "-headlessAppMoves", "off"])
+		XCTAssertEqual(try HeadlessLaunch(arguments: off, environment: [:]), HeadlessLaunch(isRequested: true, appMoves: .off))
 		XCTAssertNotNil(rejection(["appMoves": "off"]), "not a scenario launch key")
 	}
 

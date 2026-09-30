@@ -74,8 +74,6 @@ public enum HeadlessDevice {
 	public static let namePrefix = "aia-headless-"
 	/// The app's bundle identifier; headless mode shares it with the app.
 	public static let bundleIdentifier = "com.aiarcheology.ios"
-	/// Where the app publishes its endpoint, relative to its data container.
-	public static let endpointPath = "Library/Application Support/Headless/endpoint.json"
 	/// Where the launcher copies a launch's staged images, relative to the app's data container. The
 	/// app is told only each file's name (`-headlessStagedImage <name>`), never a host path, and reads
 	/// it from here: its own sandbox, reachable without any network download.
@@ -145,23 +143,12 @@ public struct HeadlessLaunchPlan: Equatable {
 	public let arguments: [String]
 	public let stagedImages: [StagedImage]
 
-	/// What selects headless mode in the Debug app (AIA-0991), ahead of every launch's options. A
-	/// key/value pair, as the app reads it.
-	public static let headlessInterface = ["-interface", "headless"]
-
-	/// Everything `simctl launch` passes to the app: headless mode, then the options.
-	public var processArguments: [String] {
-		Self.headlessInterface + arguments
-	}
-
-	/// What turns the app's own moves off for a map audit (AIA-0994): a run option, never a scenario's
-	/// launch key, so a committed scenario cannot weaken the transition check. Nothing for `oneHop`,
-	/// the app's default.
-	public static func appMovesArguments(_ appMoves: AppMoves) -> [String] {
-		switch appMoves {
-		case .oneHop: []
-		case .off: ["-headlessAppMoves", AppMoves.off.rawValue]
-		}
+	/// Everything `simctl launch` passes to the app: headless mode and the app-moves rule, as the
+	/// kit's `HeadlessLaunch` writes them (AIA-1007), then the options. `appMoves` is a run option
+	/// (AIA-0994), never a scenario's launch key, so a committed scenario cannot weaken the
+	/// transition check; `oneHop`, the app's default, adds nothing.
+	public func processArguments(appMoves: AppMoves = .oneHop) -> [String] {
+		HeadlessLaunch(isRequested: true, appMoves: appMoves).arguments + arguments
 	}
 }
 
