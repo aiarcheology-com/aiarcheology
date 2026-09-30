@@ -221,16 +221,12 @@ enum HeadlessNavigationMap {
 
 	/// A transition the app takes on its own.
 	private static func moves(to route: HeadlessRoute, _ condition: String) -> TransitionDeclaration {
-		TransitionDeclaration(action: nil, to: Route(route.rawValue), condition: condition)
+		TransitionDeclaration(action: nil, to: route, condition: condition)
 	}
 }
 
-private extension RouteDeclaration {
-	init(route: HeadlessRoute, summary: String, transitions: [TransitionDeclaration]) {
-		self.init(route: Route(route.rawValue), summary: summary, transitions: transitions)
-	}
-}
-
+/// Only for the leading-dot spelling (`to: .paywall`): the kit's `some RawRepresentable<String>`
+/// overloads take `HeadlessRoute` values directly, but a generic parameter cannot infer `.paywall`.
 private extension TransitionDeclaration {
 	init(action: String, to route: HeadlessRoute, condition: String) {
 		self.init(action: action, to: Route(route.rawValue), condition: condition)

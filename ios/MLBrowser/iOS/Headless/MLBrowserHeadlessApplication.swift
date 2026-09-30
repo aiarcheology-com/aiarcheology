@@ -113,7 +113,7 @@ final class MLBrowserHeadlessApplication: HeadlessApplication {
 	/// Where closing `sheet` lands, decided from the app's state at the moment a screen lists its
 	/// actions — the back-up question when one is pending, otherwise what the sheet covered.
 	private func closeTarget(for sheet: HeadlessRoute) -> Route {
-		Route(routeDecision().route(afterClosing: sheet).rawValue)
+		Route(routeDecision().route(afterClosing: sheet))
 	}
 
 	func context() -> JSONValue {
