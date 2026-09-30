@@ -516,7 +516,7 @@ final class ArchitectureTests: XCTestCase {
 
     /// Headless mode's command server must exist only in a Debug build against the development
     /// backend. Every file that imports the transport or HeadlessKitUI, starts a `HeadlessServer`
-    /// or a `HeadlessServerView` (or `.headless(…)`), or names an `NWListener` is wrapped whole in
+    /// or a `HeadlessServerView` (or `.headless`), or names an `NWListener` is wrapped whole in
     /// `#if DEBUG && AIA_BACKEND_ENV_development`, so neither a
     /// shipping build nor a Debug build against production can compile a listener into the app.
     /// Since AIA-0991 no build setting selects the mode; this wrap is the compile-time lock.
@@ -543,7 +543,7 @@ final class ArchitectureTests: XCTestCase {
                     line.hasSuffix(" \(module)") || line.contains(" \(module) ") || line.contains(" \(module).")
                 }
                 return importsServer || line.contains("NWListener") || line.contains("HeadlessServer(")
-                    || line.contains("HeadlessServerView(") || line.contains(".headless(")
+                    || line.contains("HeadlessServerView") || line.contains(".headless(") || line.contains(".headless {")
             }
             guard usesTransport else { continue }
             if Self.isWhollyGuarded(code, by: guardLine) {

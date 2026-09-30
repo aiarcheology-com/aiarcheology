@@ -193,6 +193,16 @@ final class AppInterfaceTests: XCTestCase {
         assertRefused(resolve(["-interface", "headless"], environment: ["UI_TESTING": "1"]))
     }
 
+    /// AIA-1007: the kit's `HeadlessLaunch` reads `-headlessAppMoves` in headless mode, so a malformed
+    /// one stops a headless launch at the same point as a malformed `-interface`; a UI launch never
+    /// reads it, and a production build reads neither.
+    func test_malformedAppMoves_stopsOnlyAHeadlessLaunch() {
+        assertRefused(resolve(["-interface", "headless", "-headlessAppMoves", "sometimes"]))
+        XCTAssertEqual(resolve(["-interface", "headless", "-headlessAppMoves", "off"]), .success(.headless))
+        XCTAssertEqual(resolve(["-headlessAppMoves", "sometimes"]), .success(.ui))
+        XCTAssertEqual(resolve(["-interface", "headless", "-headlessAppMoves", "sometimes"], backend: .production), .success(.ui))
+    }
+
     /// A Debug build against production has no headless mode: `-interface` is ignored unread, so
     /// even a value that a development build refuses cannot stop it.
     func test_nonDevelopmentBackend_ignoresInterfaceUnread() {
