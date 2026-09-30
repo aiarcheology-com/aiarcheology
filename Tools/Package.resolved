@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/aiarcheology-com/HeadlessKit.git",
       "state" : {
-        "revision" : "e2d75dee2404c7fc55a6f0ccbe132147e3bdfa90",
-        "version" : "0.1.0"
+        "revision" : "6a5e981d3977427d2eb8ba17430a9709906ac20d",
+        "version" : "0.2.0-rc.1"
       }
     },
     {

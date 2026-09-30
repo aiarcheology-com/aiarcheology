@@ -3055,7 +3055,7 @@
 			repositoryURL = "https://github.com/aiarcheology-com/HeadlessKit.git";
 			requirement = {
 				kind = exactVersion;
-				version = 0.1.0;
+				version = "0.2.0-rc.1";
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
