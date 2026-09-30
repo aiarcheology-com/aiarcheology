@@ -8,7 +8,9 @@
 #   scripts/headless.sh test [ios/HeadlessScenarios/<file>.json …]
 #   scripts/headless.sh test --lint [<file>.json …]       (routes against the checked-in map: no build, no simulator)
 #   scripts/headless.sh down|reset --state a
-# See specification/HEADLESS.md.
+#   scripts/headless.sh help                             (lists the commands and options)
+# The commands are HeadlessKit's `headless` tool run with ML Browser's project, MLBrowserHeadless
+# (Tools/Sources/ProjectToolCore/Headless.swift). See specification/HEADLESS.md.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 exec swift run --package-path Tools ProjectTool headless "$@"
