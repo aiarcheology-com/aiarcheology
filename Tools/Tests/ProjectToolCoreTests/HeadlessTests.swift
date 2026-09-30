@@ -8,29 +8,9 @@
 import Foundation
 import HeadlessKit
 import HeadlessScenario
+import HeadlessSimulatorLauncher
 import XCTest
 @testable import ProjectToolCore
-
-final class HeadlessDeviceTests: XCTestCase {
-
-	func testDeviceNamesCarryThePrefix() throws {
-		XCTAssertEqual(try HeadlessDevice.deviceName(for: "a"), "aia-headless-a")
-		XCTAssertEqual(try HeadlessDevice.deviceName(for: "user-b2"), "aia-headless-user-b2")
-	}
-
-	func testUnsafeInstallationNamesAreRefused() {
-		for name in ["", "-a", "A", "a b", "a/b", "../x", String(repeating: "a", count: 41)] {
-			XCTAssertThrowsError(try HeadlessDevice.deviceName(for: name), name)
-		}
-	}
-
-	func testOnlyPrefixedDevicesAreTheTools() {
-		XCTAssertTrue(HeadlessDevice.isToolDevice(named: "aia-headless-a"))
-		XCTAssertFalse(HeadlessDevice.isToolDevice(named: "aia-headless-"))
-		XCTAssertFalse(HeadlessDevice.isToolDevice(named: "iPhone 18 Pro"))
-		XCTAssertFalse(HeadlessDevice.isToolDevice(named: "ship-ticket-runner"))
-	}
-}
 
 final class HeadlessStagingDirectoryTests: XCTestCase {
 
@@ -119,24 +99,9 @@ final class HeadlessLaunchArgumentsTests: XCTestCase {
 		XCTAssertEqual(try make([:]), HeadlessLaunchPlan(arguments: [], stagedImages: []))
 	}
 
-	/// Every launch selects headless mode first (AIA-0991): without it the Debug app starts its UI and
-	/// the launcher waits for an endpoint that never appears.
-	func testProcessArgumentsStartWithTheHeadlessInterface() throws {
-		XCTAssertEqual(try make([:]).processArguments(), ["-interface", "headless"])
-		let launch = try make(["mockSubscription": "subscribed", "flags": ["isPaymentsEnabled": true]])
-		XCTAssertEqual(Array(launch.processArguments().prefix(2)), ["-interface", "headless"])
-		XCTAssertEqual(Array(launch.processArguments().dropFirst(2)), launch.arguments)
-	}
-
-	/// AIA-0994: the audit switch is a run option, added by the launcher; a scenario cannot set it.
-	/// The app reads it back through the same kit type that wrote it (AIA-1007).
+	/// AIA-0994: the audit switch is a run option, added by the kit's launcher; a scenario cannot set it.
 	func testTheAppMovesSwitchIsARunOptionOnly() throws {
-		let launch = try make(["mockSubscription": "subscribed"])
-		XCTAssertEqual(launch.processArguments(appMoves: .oneHop), launch.processArguments(), "the app's default needs no argument")
-		let off = launch.processArguments(appMoves: .off)
-		XCTAssertEqual(Array(off.prefix(4)), ["-interface", "headless", "-headlessAppMoves", "off"])
-		XCTAssertEqual(try HeadlessLaunch(arguments: off, environment: [:]), HeadlessLaunch(isRequested: true, appMoves: .off))
-		XCTAssertNotNil(rejection(["appMoves": "off"]), "not a scenario launch key")
+		XCTAssertEqual(rejection(["appMoves": "off"]), "unknown launch option(s): appMoves", "not a scenario launch key")
 	}
 
 	func testMistakesAreErrors() {
@@ -264,359 +229,6 @@ final class HeadlessLaunchArgumentsTests: XCTestCase {
 		try FileManager.default.createDirectory(at: sibling, withIntermediateDirectories: true)
 		try Data("image".utf8).write(to: sibling.appendingPathComponent("x.png"))
 		XCTAssertEqual(rejection(["stage": ["../repo-other/x.png"]]), "stage entry '../repo-other/x.png' resolves outside the repository")
-	}
-}
-
-final class HeadlessCommandLineTests: XCTestCase {
-
-	func testCommands() throws {
-		XCTAssertEqual(try HeadlessCommandLine.parse(["state"]), .state)
-		XCTAssertEqual(try HeadlessCommandLine.parse(["help"]), .help)
-		XCTAssertEqual(try HeadlessCommandLine.parse(["goto", "drawer"]), .goto("drawer"))
-		XCTAssertEqual(try HeadlessCommandLine.parse(["perform", "enable", "id=abc"]), .perform(action: "enable", arguments: ["id": "abc"]))
-		XCTAssertEqual(
-			try HeadlessCommandLine.parse(["wait", "model-loaded", "id=abc", "timeout=60"]),
-			.wait(condition: "model-loaded", arguments: ["id": "abc"], timeout: 60)
-		)
-		XCTAssertEqual(try HeadlessCommandLine.parse(["perform", "note", "text=a=b"]), .perform(action: "note", arguments: ["text": "a=b"]))
-	}
-
-	func testMistakesAreErrors() {
-		for words in [[], ["teleport"], ["goto"], ["goto", "a", "b"], ["state", "x"], ["perform"], ["perform", "a", "b"], ["wait", "c", "timeout=soon"], ["map", "x"]] {
-			XCTAssertThrowsError(try HeadlessCommandLine.parse(words), "\(words)")
-		}
-	}
-
-	private func rejection(_ words: [String]) -> String? {
-		do {
-			_ = try HeadlessCommandLine.parse(words)
-			return nil
-		} catch {
-			return "\(error)"
-		}
-	}
-
-	func testMapTakesNoArgumentsAndNamesTheOptionOrder() throws {
-		XCTAssertEqual(try HeadlessCommandLine.parse(["map"]), .map)
-		// `exec map --format dot`: exec passes the words after the command through verbatim.
-		XCTAssertEqual(rejection(["map", "--format", "dot"]), "'map' takes no arguments; options go before the command: exec --format dot map")
-		XCTAssertEqual(rejection([]), "expected a command: help, state, actions, map, goto, perform, wait")
-	}
-
-	func testDotRendersOnlyTheMap() throws {
-		XCTAssertNoThrow(try HeadlessExecFormat.dot.check(.map))
-		XCTAssertNoThrow(try HeadlessExecFormat.json.check(.state))
-		XCTAssertNoThrow(try HeadlessExecFormat.json.check(.map))
-		XCTAssertThrowsError(try HeadlessExecFormat.dot.check(.state)) { error in
-			XCTAssertEqual("\(error)", "--format dot renders only the map command: exec --format dot map")
-		}
-		XCTAssertEqual(HeadlessExecFormat(rawValue: "dot"), .dot)
-		XCTAssertNil(HeadlessExecFormat(rawValue: "svg"))
-	}
-}
-
-final class HeadlessMapDotTests: XCTestCase {
-
-	/// A small `map` result: home is current, with an open, an available, a plain and an
-	/// action-less edge, one undeclared live transition to a declared route and one to an unknown one.
-	private let result: JSONValue = [
-		"guarantee": "possible",
-		"current": "home",
-		"routes": [
-			["route": "launching", "summary": "Starting up.", "current": false, "transitions": [
-				["to": "home", "condition": "ready"]
-			]],
-			["route": "home", "summary": "The \"app\" proper\\main.", "current": true, "transitions": [
-				["action": "open-drawer", "to": "drawer", "condition": "always", "open": true],
-				["action": "continue", "to": "save-finding", "condition": "a detection\nis held", "available": true],
-				["action": "sign-out", "to": "launching", "condition": "signed in"]
-			]],
-			["route": "drawer", "summary": "The menu.", "current": false, "transitions": []],
-			["route": "save-finding", "summary": "Save.", "current": false, "transitions": []]
-		],
-		"undeclared": [
-			["action": "open-settings", "to": "drawer"],
-			["action": "teleport", "to": "no-such-route"]
-		]
-	]
-
-	func testTheGraphMarksCurrentOpenAvailableActionlessAndUndeclared() throws {
-		XCTAssertEqual(try HeadlessMapDot.render(result), #"""
-		digraph "navigation map" {
-			label="Possible transitions, not guaranteed; current: home";
-			labelloc=t;
-			rankdir=LR;
-			node [shape=box, style=rounded, fontname="Helvetica"];
-			edge [fontname="Helvetica", fontsize=10];
-			"launching" [tooltip="Starting up."];
-			"home" [tooltip="The \"app\" proper\\main.", style="rounded,filled,bold", fillcolor="gold"];
-			"drawer" [tooltip="The menu."];
-			"save-finding" [tooltip="Save."];
-			"no-such-route" [color="red", fontcolor="red", tooltip="not a declared route"];
-			"launching" -> "home" [label="on its own", style="dashed", fontname="Helvetica-Oblique", tooltip="ready"];
-			"home" -> "drawer" [label="open-drawer (open)", color="forestgreen", fontcolor="forestgreen", penwidth="2.5", tooltip="always"];
-			"home" -> "save-finding" [label="continue (available)", color="royalblue", fontcolor="royalblue", penwidth="2", tooltip="a detection\nis held"];
-			"home" -> "launching" [label="sign-out", tooltip="signed in"];
-			"home" -> "drawer" [label="open-settings (undeclared)", color="red", fontcolor="red", style="dashed"];
-			"home" -> "no-such-route" [label="teleport (undeclared)", color="red", fontcolor="red", style="dashed"];
-		}
-		"""#)
-	}
-
-	func testTheSameResultRendersTheSameText() throws {
-		XCTAssertEqual(try HeadlessMapDot.render(result), try HeadlessMapDot.render(result))
-	}
-
-	func testSomethingElseIsNotAMap() {
-		for value: JSONValue in [["route": "home"], "map", ["routes": [["summary": "no name"]]], ["routes": [], "undeclared": [["action": "x", "to": "y"]]]] {
-			XCTAssertThrowsError(try HeadlessMapDot.render(value), value.jsonString) { error in
-				XCTAssertTrue("\(error)".hasPrefix("not a map result"), "\(error)")
-			}
-		}
-	}
-}
-
-final class HeadlessRouteLintTests: XCTestCase {
-
-	private let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("HeadlessRouteLintTests-\(UUID().uuidString)")
-
-	/// The checkout this file lives in; a macOS package test runs from it.
-	private static let repository = URL(fileURLWithPath: #filePath)
-		.deletingLastPathComponent()
-		.appendingPathComponent("../../..")
-		.standardizedFileURL
-
-	override func tearDownWithError() throws {
-		try? FileManager.default.removeItem(at: scratch) // Some tests never create it.
-	}
-
-	private func write(_ text: String, to path: String) throws -> URL {
-		let file = scratch.appendingPathComponent(path)
-		try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-		try Data(text.utf8).write(to: file)
-		return file
-	}
-
-	func testATypoIsCaughtWithTheClosestRoute() throws {
-		let lint = try HeadlessRouteLint(repositoryRoot: Self.repository)
-		let file = try write(#"""
-		{
-		  "schemaVersion": 1, "name": "typo",
-		  "installations": { "a": {} },
-		  "steps": [ { "name": "wait for home", "wait": { "condition": "route", "arguments": { "route": "hme" } } } ],
-		  "teardown": []
-		}
-		"""#, to: "typo.json")
-		let outcomes = lint.check([file])
-		guard case .checked(_, let scenario, let failures) = try XCTUnwrap(outcomes.first) else {
-			return XCTFail("the scenario should load: \(outcomes)")
-		}
-		XCTAssertEqual(scenario.name, "typo")
-		XCTAssertEqual(failures.count, 1)
-		XCTAssertTrue(
-			failures.first?.hasPrefix(#"steps[0] "wait for home": wait route 'hme' is not a route of this app; did you mean 'home'? (known: "#) == true,
-			"\(failures)"
-		)
-		XCTAssertFalse(outcomes[0].passed)
-	}
-
-	func testAFileThatDoesNotLoadFails() throws {
-		let lint = HeadlessRouteLint(map: NavigationMap(routes: [RouteDeclaration(route: "home", summary: "Home.")]))
-		let file = try write(#"{"schemaVersion": 1, "name": "x", "installations": {"a": {}}, "stepz": []}"#, to: "bad.json")
-		let outcome = try XCTUnwrap(lint.check([file]).first)
-		guard case .unreadable(let failed, _) = outcome else { return XCTFail("\(outcome)") }
-		XCTAssertEqual(failed, file)
-		XCTAssertFalse(outcome.passed)
-	}
-
-	/// A scratch directory the root check takes for the repository root.
-	private func makeRepositoryRoot() throws {
-		try FileManager.default.createDirectory(
-			at: scratch.appendingPathComponent(HeadlessRepositoryRoot.marker),
-			withIntermediateDirectories: true
-		)
-	}
-
-	func testOutsideTheRepositoryRootItSaysSoBeforeLookingAtTheMap() throws {
-		// A usable map, but no workspace: the directory is still not the root.
-		_ = try write(#"{"routes": [{"route": "home", "summary": "Home.", "transitions": []}]}"#, to: HeadlessRouteLint.mapPath)
-		XCTAssertThrowsError(try HeadlessRouteLint(repositoryRoot: scratch)) { error in
-			XCTAssertTrue(error is HeadlessRepositoryRoot.NotTheRoot, "\(error)")
-			XCTAssertTrue("\(error)".contains("run from the repository root"), "\(error)")
-		}
-		// Not even a map: still the root error, not the map's.
-		try FileManager.default.removeItem(at: scratch)
-		try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
-		XCTAssertThrowsError(try HeadlessRouteLint(repositoryRoot: scratch)) { error in
-			XCTAssertTrue(error is HeadlessRepositoryRoot.NotTheRoot, "\(error)")
-		}
-		XCTAssertNoThrow(try HeadlessRepositoryRoot.require(Self.repository))
-	}
-
-	func testAMissingMapFailsAndSaysHowToRegenerateIt() throws {
-		try makeRepositoryRoot()
-		XCTAssertThrowsError(try HeadlessRouteLint(repositoryRoot: scratch)) { error in
-			let text = "\(error)"
-			XCTAssertTrue(error is HeadlessRouteLint.MapUnavailable, text)
-			XCTAssertTrue(text.contains("ios/HeadlessScenarios/Map/navigation-map.json"), text)
-			XCTAssertTrue(text.contains("HeadlessNavigationMapTests"), text)
-		}
-	}
-
-	func testAnUndecodableOrEmptyMapFails() throws {
-		try makeRepositoryRoot()
-		for content in [#"{"routes": "#, #"{"routes": []}"#] {
-			_ = try write(content, to: HeadlessRouteLint.mapPath)
-			XCTAssertThrowsError(try HeadlessRouteLint(repositoryRoot: scratch), content) { error in
-				XCTAssertTrue("\(error)".contains("HeadlessNavigationMapTests"), "\(error)")
-			}
-		}
-	}
-
-	/// A file that does not load and one that names an undeclared route are both rejected, and the
-	/// others still run, in order.
-	func testOneFailingFileDoesNotStopTheOthers() throws {
-		let lint = HeadlessRouteLint(map: NavigationMap(routes: [RouteDeclaration(route: "home", summary: "Home.")]))
-		func scenario(_ name: String, route: String) throws -> URL {
-			try write(#"""
-			{ "schemaVersion": 1, "name": "\#(name)", "installations": { "a": {} }, "steps": [ { "goto": "\#(route)" } ] }
-			"""#, to: "\(name).json")
-		}
-		let files = [
-			try scenario("first", route: "home"),
-			try write(#"{"schemaVersion": 1, "name": "x", "installations": {"a": {}}, "stepz": []}"#, to: "bad.json"),
-			try scenario("typo", route: "hme"),
-			try scenario("last", route: "home")
-		]
-		let plan = HeadlessTestPlan(lint.check(files))
-		XCTAssertEqual(plan.runnable.map(\.name), ["first", "last"])
-		XCTAssertEqual(plan.rejected.map(\.name), ["bad.json", "typo"])
-		XCTAssertEqual(plan.rejected.map(\.failures.count), [1, 1], "each rejection carries its lines")
-		XCTAssertTrue(plan.rejected[1].failures[0].contains("goto route 'hme' is not a route of this app"), "\(plan.rejected[1].failures)")
-
-		let nothingLeft = HeadlessTestPlan(lint.check([files[1], files[2]]))
-		XCTAssertTrue(nothingLeft.runnable.isEmpty, "nothing to build for")
-		XCTAssertEqual(nothingLeft.rejected.count, 2)
-	}
-
-	/// Every committed scenario names only routes the committed map declares.
-	func testEveryCommittedScenarioPassesAgainstTheCommittedMap() throws {
-		let lint = try HeadlessRouteLint(repositoryRoot: Self.repository)
-		let files = try FileManager.default.contentsOfDirectory(
-			at: Self.repository.appendingPathComponent("ios/HeadlessScenarios"),
-			includingPropertiesForKeys: nil
-		)
-		.filter { $0.pathExtension == "json" }
-		.sorted { $0.lastPathComponent < $1.lastPathComponent }
-		// Fail closed: an empty scan means the directory moved, not that the scenarios pass.
-		XCTAssertGreaterThanOrEqual(files.count, 15)
-		for outcome in lint.check(files) {
-			XCTAssertTrue(outcome.passed, "\(outcome)")
-		}
-	}
-}
-
-final class HeadlessReportTextTests: XCTestCase {
-
-	func testEachOutcomeHasItsOwnMarkAndASkipIsNeitherAPassNorAWarning() {
-		func step(failures: [String] = [], bestEffort: Bool = false, skipped: Bool = false) -> StepReport {
-			StepReport(phase: "teardown", index: 0, name: nil, installation: "a", command: "perform", route: "home",
-				failures: failures, bestEffort: bestEffort, skipped: skipped)
-		}
-		XCTAssertEqual(HeadlessReportText.mark(for: step()), "✓")
-		XCTAssertEqual(HeadlessReportText.mark(for: step(skipped: true)), "–")
-		XCTAssertEqual(HeadlessReportText.mark(for: step(bestEffort: true, skipped: true)), "–")
-		XCTAssertEqual(HeadlessReportText.mark(for: step(failures: ["x"], bestEffort: true)), "⚠︎")
-		XCTAssertEqual(HeadlessReportText.mark(for: step(failures: ["x"])), "✗")
-	}
-
-	func testEveryLineOfAMultiLineMessageIsIndented() {
-		XCTAssertEqual(
-			HeadlessReportText.indented(["setup: the scenario names routes the app does not declare:\nsteps[0]: a\nsteps[1]: b", "one line"], by: "   "),
-			[
-				"   setup: the scenario names routes the app does not declare:",
-				"     steps[0]: a",
-				"     steps[1]: b",
-				"   one line"
-			]
-		)
-	}
-}
-
-final class SimulatorSettlingTests: XCTestCase {
-
-	private struct Flake: Error, Equatable {
-		let attempt: Int
-	}
-
-	func testASucceedingStepRunsOnce() async throws {
-		var calls = 0
-		var retries: [Int] = []
-		let value = try await SimulatorSettling.retrying(attempts: 5, delay: .zero, onRetry: { attempt, _ in retries.append(attempt) }) {
-			calls += 1
-			return "ok"
-		}
-		XCTAssertEqual(value, "ok")
-		XCTAssertEqual(calls, 1)
-		XCTAssertEqual(retries, [])
-	}
-
-	func testAStepIsRetriedUntilItSucceedsAndEachFailureIsReported() async throws {
-		var calls = 0
-		var retries: [Int] = []
-		let value = try await SimulatorSettling.retrying(attempts: 5, delay: .zero, onRetry: { attempt, error in
-			XCTAssertEqual(error as? Flake, Flake(attempt: attempt))
-			retries.append(attempt)
-		}) {
-			calls += 1
-			if calls < 3 { throw Flake(attempt: calls) }
-			return calls
-		}
-		XCTAssertEqual(value, 3)
-		XCTAssertEqual(retries, [1, 2])
-	}
-
-	func testTheLastAttemptsErrorIsThrownAfterTheBound() async {
-		var calls = 0
-		var retries: [Int] = []
-		do {
-			_ = try await SimulatorSettling.retrying(attempts: 3, delay: .zero, onRetry: { attempt, _ in retries.append(attempt) }) { () async throws -> Int in
-				calls += 1
-				throw Flake(attempt: calls)
-			}
-			XCTFail("expected the step's error")
-		} catch {
-			XCTAssertEqual(error as? Flake, Flake(attempt: 3))
-		}
-		XCTAssertEqual(calls, 3)
-		XCTAssertEqual(retries, [1, 2], "the last failure is thrown, not reported as a retry")
-	}
-}
-
-final class HeadlessSimulatorChoiceTests: XCTestCase {
-
-	private let runtimes = Data(#"""
-	{ "runtimes": [
-	  { "identifier": "rt.iOS-28-0", "version": "28.0", "platform": "iOS", "isAvailable": true,
-	    "supportedDeviceTypes": [ { "identifier": "dt.iPhone-19", "productFamily": "iPhone", "minRuntimeVersion": 1835008 } ] },
-	  { "identifier": "rt.iOS-27-0", "version": "27.0", "platform": "iOS", "isAvailable": true,
-	    "supportedDeviceTypes": [
-	      { "identifier": "dt.iPhone-6s", "productFamily": "iPhone", "minRuntimeVersion": 589824 },
-	      { "identifier": "dt.iPhone-18-Pro", "productFamily": "iPhone", "minRuntimeVersion": 1769472 },
-	      { "identifier": "dt.iPad-Pro", "productFamily": "iPad", "minRuntimeVersion": 1900000 }
-	    ] },
-	  { "identifier": "rt.watchOS-12-0", "version": "12.0", "platform": "watchOS", "isAvailable": true, "supportedDeviceTypes": [] },
-	  { "identifier": "rt.iOS-26-0", "version": "26.0", "platform": "iOS", "isAvailable": false, "supportedDeviceTypes": [] }
-	] }
-	"""#.utf8)
-
-	func testTheNewestDrivableRuntimeAndItsNewestIPhone() throws {
-		let choice = try HeadlessSimulatorChoice.choose(runtimesJSON: runtimes, sdkVersion: "27.2")
-		XCTAssertEqual(choice, .init(runtimeIdentifier: "rt.iOS-27-0", deviceTypeIdentifier: "dt.iPhone-18-Pro"))
-	}
-
-	func testNoDrivableRuntimeIsAnError() {
-		XCTAssertThrowsError(try HeadlessSimulatorChoice.choose(runtimesJSON: runtimes, sdkVersion: "25.0"))
 	}
 }
 
@@ -773,5 +385,297 @@ final class HeadlessBuildTests: XCTestCase {
 		"""
 		XCTAssertEqual(HeadlessBuild.buildsUsing(derivedData: "/r/.deriveddata", psOutput: ps).count, 2)
 		XCTAssertEqual(HeadlessBuild.buildsUsing(derivedData: "/r/other", psOutput: ps), [])
+	}
+}
+
+/// ML Browser's `HeadlessProject` (AIA-1008): what the kit's commands know about the app.
+final class MLBrowserHeadlessTests: XCTestCase {
+
+	private let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("MLBrowserHeadlessTests-\(UUID().uuidString)")
+
+	/// The checkout this file lives in; a macOS package test runs from it.
+	private static let repository = URL(fileURLWithPath: #filePath)
+		.deletingLastPathComponent()
+		.appendingPathComponent("../../..")
+		.standardizedFileURL
+
+	override func tearDownWithError() throws {
+		try? FileManager.default.removeItem(at: scratch) // Some tests never create it.
+	}
+
+	private func project(
+		root: URL = MLBrowserHeadlessTests.repository,
+		environment: [String: String] = [:],
+		runTool: @escaping @Sendable (String, [String]) throws -> Int32 = { _, _ in 0 },
+		processList: @escaping @Sendable () throws -> String = { "" }
+	) -> MLBrowserHeadless {
+		MLBrowserHeadless(root: root, environment: environment, runTool: runTool, processList: processList)
+	}
+
+	// MARK: - Paths
+
+	func testTheAppIsUnittestShsDebugBuild() {
+		let root = URL(fileURLWithPath: "/repo")
+		XCTAssertEqual(project(root: root).app.path, "/repo/.deriveddata/Build/Products/Debug-iphonesimulator/ML Browser.app")
+		XCTAssertEqual(project(root: root, environment: ["DERIVED_DATA_PATH": ""]).app.path, "/repo/.deriveddata/Build/Products/Debug-iphonesimulator/ML Browser.app", "empty is unset")
+		XCTAssertEqual(project(root: root, environment: ["DERIVED_DATA_PATH": "/dd"]).app.path, "/dd/Build/Products/Debug-iphonesimulator/ML Browser.app")
+	}
+
+	func testTheProjectsFixedValues() throws {
+		let project = project(root: URL(fileURLWithPath: "/repo"))
+		XCTAssertEqual(project.bundleIdentifier, "com.aiarcheology.ios")
+		XCTAssertEqual(project.devicePrefix, "aia-headless-")
+		XCTAssertEqual(project.invocation, "scripts/headless.sh")
+		XCTAssertEqual(project.scenariosDirectory.path, "/repo/ios/HeadlessScenarios")
+		XCTAssertEqual(project.navigationMap?.path, "/repo/ios/HeadlessScenarios/Map/navigation-map.json")
+	}
+
+	// MARK: - Working directory and the map
+
+	func testOutsideTheRepositoryRootItSaysSoBeforeLookingAtTheMap() async throws {
+		// A usable map, but no workspace: the directory is still not the root.
+		let map = scratch.appendingPathComponent(MLBrowserHeadless.navigationMapPath)
+		try FileManager.default.createDirectory(at: map.deletingLastPathComponent(), withIntermediateDirectories: true)
+		try Data(#"{"routes": [{"route": "home", "summary": "Home.", "transitions": []}]}"#.utf8).write(to: map)
+		XCTAssertThrowsError(try project(root: scratch).validateWorkingDirectory()) { error in
+			XCTAssertTrue(error is HeadlessRepositoryRoot.NotTheRoot, "\(error)")
+			XCTAssertTrue("\(error)".contains("run from the repository root"), "\(error)")
+		}
+		// Not even a map: the kit's `test --lint` still reports the root, not the map.
+		try FileManager.default.removeItem(at: map)
+		do {
+			try await HeadlessTool.run(["test", "--lint"], project: project(root: scratch))
+			XCTFail("ran outside the repository root")
+		} catch {
+			XCTAssertTrue(error is HeadlessRepositoryRoot.NotTheRoot, "\(error)")
+			XCTAssertEqual(HeadlessTool.exitCode(for: error), 1)
+		}
+		XCTAssertNoThrow(try project().validateWorkingDirectory())
+	}
+
+	/// Every committed scenario names only routes the committed map declares.
+	func testEveryCommittedScenarioPassesAgainstTheCommittedMap() throws {
+		let project = project()
+		let lint = try HeadlessRouteLint(mapFile: try XCTUnwrap(project.navigationMap))
+		let files = try FileManager.default.contentsOfDirectory(at: project.scenariosDirectory, includingPropertiesForKeys: nil)
+			.filter { $0.pathExtension == "json" }
+			.sorted { $0.lastPathComponent < $1.lastPathComponent }
+		// Fail closed: an empty scan means the directory moved, not that the scenarios pass.
+		XCTAssertGreaterThanOrEqual(files.count, 15)
+		for outcome in lint.check(files) {
+			XCTAssertTrue(outcome.passed, "\(outcome)")
+		}
+	}
+
+	// MARK: - The handshake
+
+	private func metadata(backend: JSONValue? = "development", crashReporting: JSONValue? = false, appMoves: JSONValue? = "oneHop") -> [String: JSONValue] {
+		var metadata: [String: JSONValue] = [:]
+		metadata["backendEnvironment"] = backend
+		metadata["crashReporting"] = crashReporting
+		if let appMoves { metadata["launchOptions"] = ["appMoves": appMoves] }
+		return metadata
+	}
+
+	func testADevelopmentAppWithoutACrashReporterOnTheRunsRuleIsAccepted() throws {
+		XCTAssertNil(MLBrowserHeadless.refusal(of: metadata(), appMoves: .oneHop))
+		XCTAssertNil(MLBrowserHeadless.refusal(of: metadata(appMoves: "off"), appMoves: .off))
+		XCTAssertNoThrow(try project().accept(ServerHello(metadata: metadata()), appMoves: .oneHop))
+	}
+
+	func testEachRefusalInOrderWithItsMessage() {
+		XCTAssertEqual(
+			MLBrowserHeadless.refusal(of: metadata(backend: "production", crashReporting: true, appMoves: nil), appMoves: .oneHop),
+			#"the headless app reports backend "production"; refusing to drive anything but development"#
+		)
+		XCTAssertEqual(
+			MLBrowserHeadless.refusal(of: metadata(backend: nil), appMoves: .oneHop),
+			"the headless app reports backend none; refusing to drive anything but development"
+		)
+		XCTAssertEqual(
+			MLBrowserHeadless.refusal(of: metadata(crashReporting: true, appMoves: nil), appMoves: .oneHop),
+			"the headless app reports crashReporting true; headless mode must run without a crash reporter, so refusing to drive it"
+		)
+		XCTAssertEqual(
+			MLBrowserHeadless.refusal(of: metadata(crashReporting: nil), appMoves: .oneHop),
+			"the headless app reports crashReporting unknown; headless mode must run without a crash reporter, so refusing to drive it"
+		)
+		XCTAssertEqual(
+			MLBrowserHeadless.refusal(of: metadata(appMoves: "oneHop"), appMoves: .off),
+			#"the headless app reports appMoves "oneHop", not off; rebuild it (scripts/headless.sh build)"#
+		)
+		XCTAssertEqual(
+			MLBrowserHeadless.refusal(of: metadata(appMoves: nil), appMoves: .oneHop),
+			"the headless app reports appMoves none, not oneHop; rebuild it (scripts/headless.sh build)"
+		)
+	}
+
+	func testARefusalIsAUsageError() {
+		XCTAssertThrowsError(try project().accept(ServerHello(metadata: metadata(backend: "production")), appMoves: .oneHop)) { error in
+			XCTAssertTrue(error is HeadlessUsageError, "\(error)")
+			XCTAssertEqual(HeadlessTool.exitCode(for: error), 64)
+		}
+	}
+
+	// MARK: - `up` options
+
+	private func launch(_ values: [(option: String, value: String)]) throws -> [String: JSONValue] {
+		let options = project().upOptions
+		var launch: [String: JSONValue] = [:]
+		for (name, value) in values {
+			try XCTUnwrap(options.first { $0.name == name }, name).apply(&launch, value)
+		}
+		return launch
+	}
+
+	func testUpOptionsFillTheLaunchBlockAScenarioHolds() throws {
+		XCTAssertEqual(project().upOptions.map(\.name), ["mock-subscription", "flag", "free-access-ends-in", "image"])
+		XCTAssertEqual(project().upOptions.map(\.isRepeatable), [false, true, false, true])
+		let block = try launch([
+			("mock-subscription", "subscribed"),
+			("flag", "isPaymentsEnabled=true"),
+			("flag", "isFreeAccessPeriodEnabled=false"),
+			("free-access-ends-in", "90"),
+			("image", "ios/a.png"),
+			("image", "ios/b.jpg")
+		])
+		XCTAssertEqual(JSONValue.object(block), [
+			"mockSubscription": "subscribed",
+			"flags": ["isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": false],
+			"freeAccessEndsIn": 90,
+			"stage": ["ios/a.png", "ios/b.jpg"]
+		])
+		XCTAssertEqual(try launch([]), [:], "no option, no key")
+	}
+
+	func testUnusableUpValuesAreUsageErrors() {
+		let cases: [(option: String, value: String, message: String)] = [
+			("flag", "isPaymentsEnabled", "--flag expects key=true|false, got 'isPaymentsEnabled'"),
+			("flag", "isPaymentsEnabled=yes", "--flag expects key=true|false, got 'isPaymentsEnabled=yes'"),
+			("free-access-ends-in", "1.5", "--free-access-ends-in expects whole seconds, got '1.5'"),
+			("free-access-ends-in", "soon", "--free-access-ends-in expects whole seconds, got 'soon'")
+		]
+		for (option, value, message) in cases {
+			XCTAssertThrowsError(try launch([(option, value)]), value) { error in
+				XCTAssertTrue(error is HeadlessUsageError, "\(error)")
+				XCTAssertEqual("\(error)", message)
+			}
+		}
+	}
+
+	// MARK: - Launch preparation
+
+	func testPrepareLaunchStagesOnlyWhenTheBlockListsImages() throws {
+		let plain = try project().prepareLaunch(["mockSubscription": "subscribed"])
+		XCTAssertEqual(plain.arguments, ["-mockSubscription", "subscribed"])
+		XCTAssertNil(plain.stage, "nothing to stage: the container is not looked up")
+		XCTAssertThrowsError(try project().prepareLaunch(["appMoves": "off"]))
+
+		let repository = scratch.appendingPathComponent("repo")
+		try FileManager.default.createDirectory(at: repository.appendingPathComponent("images"), withIntermediateDirectories: true)
+		try Data("new".utf8).write(to: repository.appendingPathComponent("images/site.png"))
+		let container = scratch.appendingPathComponent("container")
+		let staged = container.appendingPathComponent(HeadlessDevice.stagedImagesPath).appendingPathComponent("site.png")
+		try FileManager.default.createDirectory(at: staged.deletingLastPathComponent(), withIntermediateDirectories: true)
+		try Data("old".utf8).write(to: staged)
+
+		let preparation = try project(root: repository).prepareLaunch(["stage": ["images/site.png"]])
+		XCTAssertEqual(preparation.arguments, ["-headlessStagedImage", "site.png"])
+		try XCTUnwrap(preparation.stage)(container)
+		XCTAssertEqual(try Data(contentsOf: staged), Data("new".utf8), "a staged file of the same name is replaced")
+	}
+
+	// MARK: - Build
+
+	/// The fixture fetch, then the destination (only after the preflight), then xcodebuild.
+	func testTheBuildRunsInUnittestShsOrder() async throws {
+		let calls = Calls()
+		let project = project(environment: ["DERIVED_DATA_PATH": "/dd", "SPM_CACHE_PATH": "/spm"], runTool: { command, arguments in
+			calls.append(([command] + arguments).joined(separator: " "))
+			return 0
+		})
+		try await project.build(destination: {
+			calls.append("destination")
+			return "UDID"
+		})
+		XCTAssertEqual(calls.all, [
+			"scripts/fetch_apple_test_models.sh",
+			"destination",
+			(["xcodebuild"] + HeadlessBuild.xcodebuildArguments(destinationUDID: "UDID", derivedData: "/dd", packageCache: "/spm")).joined(separator: " ")
+		])
+	}
+
+	func testAFailedBuildStepSaysWhichAndStops() async throws {
+		let calls = Calls()
+		let project = project(runTool: { command, _ in
+			calls.append(command)
+			return command == "xcodebuild" ? 65 : 0
+		})
+		do {
+			try await project.build(destination: { "UDID" })
+			XCTFail("the build passed")
+		} catch {
+			XCTAssertEqual("\(error)", "xcodebuild failed with exit code 65")
+		}
+		let fetchFails = self.project(runTool: { _, _ in 3 })
+		do {
+			try await fetchFails.build(destination: { XCTFail("no destination after a failed fetch"); return "" })
+			XCTFail("the build passed")
+		} catch {
+			XCTAssertEqual("\(error)", "scripts/fetch_apple_test_models.sh failed with exit code 3")
+		}
+	}
+
+	func testABuildOnTheSharedDerivedDataRefusesBuildAndInstall() async throws {
+		let project = project(
+			environment: ["DERIVED_DATA_PATH": "/dd"],
+			runTool: { _, _ in XCTFail("nothing may run"); return 0 },
+			processList: { "/usr/bin/xcodebuild test -derivedDataPath /dd\n" }
+		)
+		let message = "another xcodebuild is using /dd; wait for it to finish (headless mode shares unittest.sh's DerivedData)"
+		do {
+			try await project.build(destination: { XCTFail("no destination"); return "" })
+			XCTFail("the build ran")
+		} catch {
+			XCTAssertTrue(error is HeadlessUsageError, "\(error)")
+			XCTAssertEqual("\(error)", message)
+		}
+		XCTAssertThrowsError(try project.willInstall()) { error in
+			XCTAssertTrue(error is HeadlessUsageError, "\(error)")
+			XCTAssertEqual("\(error)", message)
+		}
+	}
+
+	func testOnlyADevelopmentProductIsInstalled() throws {
+		let app = scratch.appendingPathComponent("dd/Build/Products/Debug-iphonesimulator/ML Browser.app")
+		try FileManager.default.createDirectory(at: app, withIntermediateDirectories: true)
+		let project = project(root: scratch, environment: ["DERIVED_DATA_PATH": scratch.appendingPathComponent("dd").path])
+		for (backend, accepted) in [("development", true), ("production", false)] {
+			let plist = try PropertyListSerialization.data(fromPropertyList: ["BackendEnvironment": backend], format: .xml, options: 0)
+			try plist.write(to: app.appendingPathComponent("Info.plist"))
+			if accepted {
+				XCTAssertNoThrow(try project.willInstall())
+			} else {
+				XCTAssertThrowsError(try project.willInstall()) { error in
+					XCTAssertTrue(error is HeadlessUsageError, "\(error)")
+					XCTAssertEqual("\(error)", "the Debug build at \(app.path) is for the production backend; headless mode exists only in a development build")
+				}
+			}
+		}
+	}
+}
+
+/// What a fake tool was asked to run, in order.
+private final class Calls: @unchecked Sendable {
+	// @unchecked: the build calls its tools one at a time, on one task.
+	private let lock = NSLock()
+	private var calls: [String] = []
+
+	func append(_ call: String) {
+		lock.withLock { calls.append(call) }
+	}
+
+	var all: [String] {
+		lock.withLock { calls }
 	}
 }

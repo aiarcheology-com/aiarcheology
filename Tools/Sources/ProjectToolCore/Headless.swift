@@ -2,12 +2,13 @@
 //  Headless.swift
 //  ProjectToolCore
 //
-//  AIA-0970: the testable half of `ProjectTool headless`.
+//  AIA-0970: the testable half of `ProjectTool headless`. Since AIA-1008 the commands are the
+//  kit's (`HeadlessTool`); `MLBrowserHeadless` is what they need to know about ML Browser.
 //
 
 import Foundation
 import HeadlessKit
-import HeadlessScenario
+import HeadlessSimulatorLauncher
 
 /// The Debug app's build that headless mode runs from (AIA-0991): `scripts/unittest.sh`'s build,
 /// argument for argument, so the two share one product and neither recompiles or relinks the other's.
@@ -64,11 +65,10 @@ public enum HeadlessBuild {
 	}
 }
 
-/// The simulator devices the headless tooling may touch — only its own.
+/// ML Browser's headless devices and container layout.
 ///
-/// Agents share this machine's simulators. Every device the tool creates, boots, erases or shuts
-/// down is named with `namePrefix`, and it resolves devices by that name alone: there is no way to
-/// hand it someone else's device.
+/// Agents share this machine's simulators. The kit's tooling creates, boots, erases or shuts down
+/// only devices named with `namePrefix`, and resolves devices by that name alone.
 public enum HeadlessDevice {
 
 	public static let namePrefix = "aia-headless-"
@@ -105,32 +105,10 @@ public enum HeadlessDevice {
 		}
 		return directory
 	}
-
-	public struct InvalidName: Error, CustomStringConvertible {
-		public let name: String
-		public var description: String {
-			"'\(name)' is not a usable installation name: use 1-40 lowercase letters, digits or '-', starting with a letter or digit"
-		}
-	}
-
-	/// The device name for an installation, e.g. `a` → `aia-headless-a`.
-	public static func deviceName(for installation: String) throws -> String {
-		let allowed = Set("abcdefghijklmnopqrstuvwxyz0123456789-")
-		guard (1...40).contains(installation.count),
-			  installation.allSatisfy(allowed.contains),
-			  installation.first != "-" else {
-			throw InvalidName(name: installation)
-		}
-		return namePrefix + installation
-	}
-
-	public static func isToolDevice(named name: String) -> Bool {
-		name.hasPrefix(namePrefix) && name.count > namePrefix.count
-	}
 }
 
 /// An image the launcher copies from the repository into the app's data container before a launch.
-public struct StagedImage: Equatable {
+public struct StagedImage: Equatable, Sendable {
 	/// The file in the repository, symlinks resolved.
 	public let source: URL
 	/// The file's name in `HeadlessDevice.stagedImagesPath`, and the only thing the app is told.
@@ -142,14 +120,6 @@ public struct HeadlessLaunchPlan: Equatable {
 	/// The launch block's options, as the app's launch arguments.
 	public let arguments: [String]
 	public let stagedImages: [StagedImage]
-
-	/// Everything `simctl launch` passes to the app: headless mode and the app-moves rule, as the
-	/// kit's `HeadlessLaunch` writes them (AIA-1007), then the options. `appMoves` is a run option
-	/// (AIA-0994), never a scenario's launch key, so a committed scenario cannot weaken the
-	/// transition check; `oneHop`, the app's default, adds nothing.
-	public func processArguments(appMoves: AppMoves = .oneHop) -> [String] {
-		HeadlessLaunch(isRequested: true, appMoves: appMoves).arguments + arguments
-	}
 }
 
 /// Turns a scenario installation's `launch` block into the app's launch arguments and the images to
@@ -274,375 +244,6 @@ public enum HeadlessLaunchArguments {
 	}
 }
 
-/// Reads `exec` arguments as a command: `state`, `goto drawer`, `perform enable id=…`,
-/// `wait model-loaded id=… timeout=60`.
-public enum HeadlessCommandLine {
-
-	public struct Invalid: Error, CustomStringConvertible {
-		public let description: String
-	}
-
-	public static func parse(_ words: [String]) throws -> Command {
-		guard let verb = words.first else {
-			throw Invalid(description: "expected a command: help, state, actions, map, goto, perform, wait")
-		}
-		let rest = Array(words.dropFirst())
-		switch verb {
-		case "help", "state", "actions":
-			guard rest.isEmpty else { throw Invalid(description: "'\(verb)' takes no arguments") }
-			return verb == "help" ? .help : verb == "state" ? .state : .actions
-		case "map":
-			// `exec` passes everything after the command through verbatim, so `exec map --format dot`
-			// arrives here with the option as a word.
-			guard rest.isEmpty else {
-				throw Invalid(description: "'map' takes no arguments; options go before the command: exec --format dot map")
-			}
-			return .map
-		case "goto":
-			guard rest.count == 1 else { throw Invalid(description: "usage: goto <route>") }
-			return .goto(Route(rest[0]))
-		case "perform":
-			guard let action = rest.first else { throw Invalid(description: "usage: perform <action> [name=value …]") }
-			return .perform(action: action, arguments: try pairs(Array(rest.dropFirst())))
-		case "wait":
-			guard let condition = rest.first else { throw Invalid(description: "usage: wait <condition> [name=value …] [timeout=<seconds>]") }
-			var arguments = try pairs(Array(rest.dropFirst()))
-			var timeout: Double?
-			if let raw = arguments.removeValue(forKey: "timeout") {
-				guard let text = raw.stringValue, let seconds = Double(text) else {
-					throw Invalid(description: "timeout must be a number of seconds")
-				}
-				timeout = seconds
-			}
-			return .wait(condition: condition, arguments: arguments, timeout: timeout)
-		default:
-			throw Invalid(description: "unknown command '\(verb)'")
-		}
-	}
-
-	/// `command` with its `name=value` text converted to the types the app declares (AIA-0992).
-	///
-	/// The protocol takes native JSON types only, so the command line asks first: `perform` reads the
-	/// current screen's `actions`, `wait` reads `help`'s conditions (the built-in `route` included).
-	/// Text becomes the declared kind and is never guessed from its look: `title=2024` stays a string
-	/// for a string parameter. A command without arguments needs no conversion and costs no extra
-	/// request. An action or parameter the app does not declare is left as text, so the app's own
-	/// answer (`unknownAction`, `invalidArgument`) says what is wrong.
-	public static func typed(_ command: Command, via driver: any HeadlessDriving) async throws -> Command {
-		switch command {
-		case .perform(let action, let arguments) where arguments.isEmpty == false:
-			let offered = try await driver.send(.actions).actions
-			guard let spec = offered.first(where: { $0.name == action }) else { return command }
-			return .perform(action: action, arguments: try typed(arguments, against: spec.parameters, subject: "'\(action)'"))
-		case .wait(let condition, let arguments, let timeout) where arguments.isEmpty == false:
-			let help = try await driver.send(.help)
-			guard let spec = try conditions(in: help).first(where: { $0.name == condition }) else { return command }
-			return .wait(
-				condition: condition,
-				arguments: try typed(arguments, against: spec.parameters, subject: "condition '\(condition)'"),
-				timeout: timeout
-			)
-		case .help, .state, .actions, .map, .perform, .goto, .wait:
-			return command
-		}
-	}
-
-	/// The largest integer a JSON number (a `Double`) holds exactly: beyond it, `Int` → `Double`
-	/// rounds, and the app would receive a different number than the one typed.
-	static let largestExactInteger = 9_007_199_254_740_991
-
-	/// Converts each textual argument `parameters` declares to its kind; others stay text.
-	static func typed(
-		_ arguments: [String: JSONValue],
-		against parameters: [ParameterSpec],
-		subject: String
-	) throws -> [String: JSONValue] {
-		var result = arguments
-		for parameter in parameters {
-			guard case .string(let text) = arguments[parameter.name] else { continue }
-			result[parameter.name] = try convert(text, to: parameter.kind, name: parameter.name, subject: subject)
-		}
-		return result
-	}
-
-	private static func convert(_ text: String, to kind: ParameterSpec.Kind, name: String, subject: String) throws -> JSONValue {
-		func invalid(_ expected: String) -> Invalid {
-			Invalid(description: "\(subject): '\(name)' must be \(expected), got '\(text)'")
-		}
-		switch kind {
-		case .string:
-			return .string(text)
-		case .integer:
-			// A range, not `abs`: `abs(Int.min)` traps.
-			guard let integer = Int(text), (-largestExactInteger...largestExactInteger).contains(integer) else {
-				throw invalid("an integer within ±\(largestExactInteger)")
-			}
-			return .number(Double(integer))
-		case .number:
-			guard let number = Double(text), number.isFinite else { throw invalid("a finite number") }
-			return .number(number)
-		case .boolean:
-			switch text.lowercased() {
-			case "true": return .bool(true)
-			case "false": return .bool(false)
-			default: throw invalid("true or false")
-			}
-		}
-	}
-
-	/// `help`'s wait conditions. Unreadable ones are an error here: sending the text unconverted
-	/// would make the app report a type error for a value the user typed correctly.
-	private static func conditions(in help: Response) throws -> [WaitConditionSpec] {
-		guard let value = help.result?.value(at: "/conditions") else {
-			throw Invalid(description: "the app's help lists no wait conditions, so the arguments cannot be typed: \(help.error?.description ?? "no result")")
-		}
-		do {
-			let data = try HeadlessCoding.makeEncoder().encode(value)
-			return try HeadlessCoding.makeDecoder().decode([WaitConditionSpec].self, from: data)
-		} catch {
-			throw Invalid(description: "the app's wait conditions could not be read, so the arguments cannot be typed: \(error)")
-		}
-	}
-
-	/// `name=value` words as text; ``typed(_:via:)`` converts them to the declared types.
-	private static func pairs(_ words: [String]) throws -> [String: JSONValue] {
-		var result: [String: JSONValue] = [:]
-		for word in words {
-			let parts = word.split(separator: "=", maxSplits: 1).map(String.init)
-			guard parts.count == 2, parts[0].isEmpty == false else {
-				throw Invalid(description: "expected name=value, got '\(word)'")
-			}
-			result[parts[0]] = .string(parts[1])
-		}
-		return result
-	}
-}
-
-/// How `exec` prints a response (AIA-0982).
-public enum HeadlessExecFormat: String, CaseIterable, Sendable {
-	/// The whole response document.
-	case json
-	/// The `map` result as a Graphviz digraph (`HeadlessMapDot`).
-	case dot
-
-	public struct Invalid: Error, CustomStringConvertible {
-		public let description: String
-	}
-
-	/// Refuses a format that cannot print `command`'s response: `dot` renders only `map`.
-	public func check(_ command: Command) throws {
-		guard self == .dot else { return }
-		guard command == .map else {
-			throw Invalid(description: "--format dot renders only the map command: exec --format dot map")
-		}
-	}
-}
-
-/// Renders a `map` result as a Graphviz digraph (AIA-0982): one node per declared route and one edge
-/// per declared transition, in declaration order, so the same map always renders the same text.
-///
-/// - The current route is filled.
-/// - An edge is labelled with its action; one the app takes on its own is dashed and italic.
-/// - Open edges (offered now, leading there) are green and bold; available ones (offered now, the
-///   destination decided when the action runs) are blue.
-/// - Undeclared live transitions are red, dashed and labelled undeclared.
-///
-/// Every edge's tooltip is its condition: the graph shows what is **possible**, not guaranteed.
-public enum HeadlessMapDot {
-
-	public struct Invalid: Error, CustomStringConvertible {
-		public let description: String
-	}
-
-	public static func render(_ result: JSONValue) throws -> String {
-		guard let members = result.objectValue, let routes = members["routes"]?.arrayValue else {
-			throw Invalid(description: "not a map result: expected an object with 'routes'")
-		}
-		let current = members["current"]?.stringValue
-		var lines = [
-			"digraph \"navigation map\" {",
-			"\tlabel=\(quote("Possible transitions, not guaranteed" + (current.map { "; current: \($0)" } ?? "")));",
-			"\tlabelloc=t;",
-			"\trankdir=LR;",
-			"\tnode [shape=box, style=rounded, fontname=\"Helvetica\"];",
-			"\tedge [fontname=\"Helvetica\", fontsize=10];"
-		]
-		var declared: Set<String> = []
-		var edges: [String] = []
-		for (index, entry) in routes.enumerated() {
-			guard let route = entry.objectValue, let name = route["route"]?.stringValue else {
-				throw Invalid(description: "not a map result: routes[\(index)] has no 'route'")
-			}
-			declared.insert(name)
-			var node: [(String, String)] = [("tooltip", route["summary"]?.stringValue ?? "")]
-			if name == current {
-				node += [("style", "rounded,filled,bold"), ("fillcolor", "gold")]
-			}
-			lines.append("\t\(quote(name)) \(attributes(node));")
-			for (position, transitionValue) in (route["transitions"]?.arrayValue ?? []).enumerated() {
-				guard let transition = transitionValue.objectValue, let target = transition["to"]?.stringValue else {
-					throw Invalid(description: "not a map result: routes[\(index)].transitions[\(position)] has no 'to'")
-				}
-				var edge: [(String, String)]
-				if let action = transition["action"]?.stringValue {
-					if transition["open"]?.boolValue == true {
-						edge = [("label", "\(action) (open)"), ("color", "forestgreen"), ("fontcolor", "forestgreen"), ("penwidth", "2.5")]
-					} else if transition["available"]?.boolValue == true {
-						edge = [("label", "\(action) (available)"), ("color", "royalblue"), ("fontcolor", "royalblue"), ("penwidth", "2")]
-					} else {
-						edge = [("label", action)]
-					}
-				} else {
-					edge = [("label", "on its own"), ("style", "dashed"), ("fontname", "Helvetica-Oblique")]
-				}
-				edge.append(("tooltip", transition["condition"]?.stringValue ?? ""))
-				edges.append("\t\(quote(name)) -> \(quote(target)) \(attributes(edge));")
-			}
-		}
-		for (index, entry) in (members["undeclared"]?.arrayValue ?? []).enumerated() {
-			guard let transition = entry.objectValue,
-				  let action = transition["action"]?.stringValue,
-				  let target = transition["to"]?.stringValue,
-				  let current else {
-				throw Invalid(description: "not a map result: undeclared[\(index)] needs 'action', 'to' and a current route")
-			}
-			// A live target the map does not declare at all: drawn red rather than as a plain node.
-			if declared.insert(target).inserted {
-				lines.append("\t\(quote(target)) \(attributes([("color", "red"), ("fontcolor", "red"), ("tooltip", "not a declared route")]));")
-			}
-			edges.append("\t\(quote(current)) -> \(quote(target)) \(attributes([("label", "\(action) (undeclared)"), ("color", "red"), ("fontcolor", "red"), ("style", "dashed")]));")
-		}
-		return (lines + edges + ["}"]).joined(separator: "\n")
-	}
-
-	/// `[label="close", color="red"]`, in the given order.
-	private static func attributes(_ pairs: [(String, String)]) -> String {
-		"[" + pairs.map { "\($0.0)=\(quote($0.1))" }.joined(separator: ", ") + "]"
-	}
-
-	/// A DOT quoted string: backslashes and quotes escaped, line breaks as `\n`.
-	static func quote(_ text: String) -> String {
-		var quoted = "\""
-		for character in text {
-			switch character {
-			case "\\": quoted += "\\\\"
-			case "\"": quoted += "\\\""
-			case "\n", "\r", "\r\n": quoted += "\\n"
-			default: quoted.append(character)
-			}
-		}
-		return quoted + "\""
-	}
-}
-
-/// The static route check shared by `headless test --lint` and the check `headless test` runs
-/// before it builds (AIA-0983): every route a scenario names, against the checked-in navigation map.
-///
-/// It is an early filter only. The running app's handshake is authoritative: the runner checks the
-/// routes again after each launch, against what that build declares.
-public struct HeadlessRouteLint {
-
-	/// The checked-in copy of the app's declaration, relative to the repository root.
-	public static let mapPath = "ios/HeadlessScenarios/Map/navigation-map.json"
-
-	/// The map cannot be used. Never a skip: without it nothing would be checked.
-	public struct MapUnavailable: Error, CustomStringConvertible {
-		public let description: String
-	}
-
-	/// One scenario file's result.
-	public enum Outcome: Equatable {
-		/// The file loaded; `failures` is empty when every route it names is declared.
-		case checked(file: URL, scenario: Scenario, failures: [String])
-		/// The file does not load as a scenario.
-		case unreadable(file: URL, error: String)
-
-		public var passed: Bool {
-			if case .checked(_, _, let failures) = self { return failures.isEmpty }
-			return false
-		}
-
-		/// The scenario's name, or the file's when it does not load.
-		public var name: String {
-			switch self {
-			case .checked(_, let scenario, _): scenario.name
-			case .unreadable(let file, _): file.lastPathComponent
-			}
-		}
-
-		/// Why it failed, one message per line: the route check's, or why the file does not load.
-		public var failures: [String] {
-			switch self {
-			case .checked(_, _, let failures): failures
-			case .unreadable(_, let error): [error]
-			}
-		}
-	}
-
-	public let map: NavigationMap
-
-	public init(map: NavigationMap) {
-		self.map = map
-	}
-
-	/// Loads `mapPath` under `repositoryRoot`. A directory that is not the repository root throws
-	/// `HeadlessRepositoryRoot.NotTheRoot` first, so running from the wrong place says so rather than
-	/// that the map is missing. A missing, unreadable, undecodable or empty map throws.
-	public init(repositoryRoot: URL) throws {
-		try HeadlessRepositoryRoot.require(repositoryRoot)
-		let file = repositoryRoot.appendingPathComponent(Self.mapPath)
-		let regenerate = "It is regenerated by the failing HeadlessNavigationMapTests equality test "
-			+ "(test_theCheckedInMap_isTheDeclaration, in the unit test plan), which prints the new content."
-		let decoded: NavigationMap
-		do {
-			decoded = try HeadlessCoding.makeDecoder().decode(NavigationMap.self, from: Data(contentsOf: file))
-		} catch {
-			throw MapUnavailable(description: "cannot read the navigation map \(Self.mapPath): \(error). \(regenerate)")
-		}
-		// An empty map declares no routes, and the check would then pass every scenario unchecked.
-		guard decoded.isEmpty == false else {
-			throw MapUnavailable(description: "the navigation map \(Self.mapPath) declares no routes. \(regenerate)")
-		}
-		self.init(map: decoded)
-	}
-
-	/// One line per route `scenario` names that the map does not declare.
-	public func failures(in scenario: Scenario) -> [String] {
-		RouteCheck.failures(in: scenario, known: map.routeNames)
-	}
-
-	/// Loads and checks each file, in order; a file that does not load is an outcome, not a throw.
-	public func check(_ files: [URL]) -> [Outcome] {
-		files.map { file in
-			do {
-				let scenario = try Scenario.load(contentsOf: file)
-				return .checked(file: file, scenario: scenario, failures: failures(in: scenario))
-			} catch {
-				return .unreadable(file: file, error: "\(error)")
-			}
-		}
-	}
-}
-
-/// What `headless test` runs after the static route check (AIA-0983). A scenario that does not load
-/// or names an undeclared route is reported and counted as failed, and does not run; one such file
-/// must not stop the others. Only when none remains is nothing built.
-public struct HeadlessTestPlan: Equatable {
-
-	/// The scenarios that passed the check, in the order given: built for and run.
-	public let runnable: [Scenario]
-	/// The outcomes that failed the check, in the order given: reported, never run.
-	public let rejected: [HeadlessRouteLint.Outcome]
-
-	public init(_ outcomes: [HeadlessRouteLint.Outcome]) {
-		runnable = outcomes.compactMap { outcome in
-			guard case .checked(_, let scenario, let failures) = outcome, failures.isEmpty else { return nil }
-			return scenario
-		}
-		rejected = outcomes.filter { $0.passed == false }
-	}
-}
-
 /// The check that the tool runs from the repository root, which every path it uses is relative to.
 public enum HeadlessRepositoryRoot {
 
@@ -660,110 +261,189 @@ public enum HeadlessRepositoryRoot {
 	}
 }
 
-/// How `headless test` prints report messages.
-public enum HeadlessReportText {
-
-	/// How `test` marks a step: `✓` passed, `–` skipped because its `unless` held (not a warning), `⚠︎`
-	/// a best-effort failure (a warning), `✗` a failure. Skipped is decided first: a skipped step
-	/// has no failures, so it would otherwise print as passed.
-	public static func mark(for step: StepReport) -> String {
-		if step.skipped { return "–" }
-		if step.passed { return "✓" }
-		return step.bestEffort ? "⚠︎" : "✗"
-	}
-
-	/// Every line of every message, indented: the first by `indent`, a message's continuation lines
-	/// two spaces deeper, so a multi-line failure still reads as one.
-	public static func indented(_ messages: [String], by indent: String) -> [String] {
-		messages.flatMap { message in
-			message.split(separator: "\n", omittingEmptySubsequences: false).enumerated().map { index, line in
-				(index == 0 ? indent : indent + "  ") + line
-			}
-		}
-	}
-}
-
-/// A `simctl` step retried a bounded number of times while a freshly erased device settles.
+/// What the kit's `headless` commands need to know about ML Browser (AIA-1008): its Debug build,
+/// how to build it, its launch options and the handshake it must give.
 ///
-/// On a device just erased and booted, `simctl install` and `simctl launch` sometimes fail for a
-/// few seconds after `bootstatus -b` reports the device booted, and then succeed unchanged (seen on
-/// Xcode 27.2 beta). There is no finer readiness signal to wait on, so the step itself is retried.
-public enum SimulatorSettling {
+/// The build is `scripts/unittest.sh`'s, in the same DerivedData, so one product serves the unit
+/// tests, the UI tests and headless mode, and a build right after `unittest.sh` compiles no Swift.
+public struct MLBrowserHeadless: HeadlessProject {
 
-	/// Runs `step` up to `attempts` times, `delay` apart, reporting each failure before a retry; the
-	/// last attempt's error is thrown.
-	public static func retrying<T>(
-		attempts: Int,
-		delay: Duration,
-		onRetry: (_ attempt: Int, _ error: any Error) -> Void,
-		_ step: () async throws -> T
-	) async throws -> T {
-		precondition(attempts >= 1, "at least one attempt")
-		for attempt in 1..<attempts {
-			do {
-				return try await step()
-			} catch {
-				onRetry(attempt, error)
-				try await Task.sleep(for: delay)
-			}
-		}
-		return try await step()
-	}
-}
+	/// The checked-in navigation map, relative to the repository root.
+	public static let navigationMapPath = "ios/HeadlessScenarios/Map/navigation-map.json"
 
-/// Picks the runtime and device type for a new headless device from `simctl list runtimes -j`.
-public enum HeadlessSimulatorChoice {
+	/// The working directory: the repository root, which every path is relative to.
+	public let root: URL
+	let environment: [String: String]
+	/// Runs a tool in the foreground, its output going straight to the terminal; returns its status.
+	let runTool: @Sendable (_ command: String, _ arguments: [String]) throws -> Int32
+	/// `ps -axo command=`'s output.
+	let processList: @Sendable () throws -> String
 
-	public struct Choice: Equatable {
-		public let runtimeIdentifier: String
-		public let deviceTypeIdentifier: String
+	public init(
+		root: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath),
+		environment: [String: String] = ProcessInfo.processInfo.environment,
+		runTool: @escaping @Sendable (_ command: String, _ arguments: [String]) throws -> Int32,
+		processList: @escaping @Sendable () throws -> String
+	) {
+		self.root = root
+		self.environment = environment
+		self.runTool = runTool
+		self.processList = processList
 	}
 
-	public struct Unavailable: Error, CustomStringConvertible {
+	/// A step of the build that failed; it has already printed why.
+	public struct BuildFailure: Error, CustomStringConvertible {
 		public let description: String
 	}
 
-	private struct RuntimeList: Decodable {
-		let runtimes: [Runtime]
-	}
-
-	private struct Runtime: Decodable {
-		let identifier: String
-		let version: String
-		let platform: String?
-		let isAvailable: Bool
-		let supportedDeviceTypes: [DeviceType]?
-	}
-
-	private struct DeviceType: Decodable {
-		let identifier: String
-		let productFamily: String?
-		let minRuntimeVersion: Int?
-	}
-
-	/// The newest available iOS runtime the active SDK can drive, and its newest iPhone — "newest"
-	/// by `minRuntimeVersion`, because neither list is sorted by recency.
-	public static func choose(runtimesJSON: Data, sdkVersion: String) throws -> Choice {
-		let list = try JSONDecoder().decode(RuntimeList.self, from: runtimesJSON)
-		let cap = version(sdkVersion)
-		let candidates = list.runtimes
-			.filter { runtime in
-				let runtimeVersion = version(runtime.version)
-				let isDrivable = runtimeVersion == cap || runtimeVersion.lexicographicallyPrecedes(cap)
-				return runtime.isAvailable && (runtime.platform ?? "iOS") == "iOS" && isDrivable
-			}
-			.sorted { version($1.version).lexicographicallyPrecedes(version($0.version)) }
-		for runtime in candidates {
-			let phones = (runtime.supportedDeviceTypes ?? []).filter { $0.productFamily == "iPhone" }
-			if let newest = phones.max(by: { ($0.minRuntimeVersion ?? 0, $0.identifier) < ($1.minRuntimeVersion ?? 0, $1.identifier) }) {
-				return Choice(runtimeIdentifier: runtime.identifier, deviceTypeIdentifier: newest.identifier)
-			}
+	/// `unittest.sh`'s: `DERIVED_DATA_PATH` when set, else `.deriveddata`.
+	public var derivedData: URL {
+		if let path = environment["DERIVED_DATA_PATH"], path.isEmpty == false {
+			return URL(fileURLWithPath: path)
 		}
-		throw Unavailable(description: "no available iOS runtime at or below SDK \(sdkVersion) with an iPhone device type")
+		return root.appendingPathComponent(HeadlessBuild.defaultDerivedData)
 	}
 
-	/// `"27.0"` → `[27, 0]`, compared lexicographically.
-	static func version(_ text: String) -> [Int] {
-		text.split(separator: ".").compactMap { Int($0) }
+	public var app: URL {
+		derivedData.appendingPathComponent("Build/Products/Debug-iphonesimulator/ML Browser.app")
+	}
+
+	public var bundleIdentifier: String { HeadlessDevice.bundleIdentifier }
+
+	public var devicePrefix: String { HeadlessDevice.namePrefix }
+
+	public var invocation: String { "scripts/headless.sh" }
+
+	public var scenariosDirectory: URL { root.appendingPathComponent("ios/HeadlessScenarios", isDirectory: true) }
+
+	public var navigationMap: URL? { root.appendingPathComponent(Self.navigationMapPath) }
+
+	public var upOptions: [HeadlessUpOption] {
+		[
+			HeadlessUpOption("mock-subscription", help: "subscribed or notSubscribed (StoreKit is inert under simctl).") { launch, value in
+				launch["mockSubscription"] = .string(value)
+			},
+			HeadlessUpOption("flag", help: "Pin a feature flag, key=true|false", repeatable: true) { launch, value in
+				let parts = value.split(separator: "=", maxSplits: 1).map(String.init)
+				guard parts.count == 2, let pin = Bool(parts[1]) else {
+					throw HeadlessUsageError("--flag expects key=true|false, got '\(value)'")
+				}
+				var flags = launch["flags"]?.objectValue ?? [:]
+				flags[parts[0]] = .bool(pin)
+				launch["flags"] = .object(flags)
+			},
+			HeadlessUpOption("free-access-ends-in", help: "On a fresh install, end free access this many seconds (30...3600) after launch.") { launch, value in
+				guard let seconds = Int(value) else {
+					throw HeadlessUsageError("--free-access-ends-in expects whole seconds, got '\(value)'")
+				}
+				launch["freeAccessEndsIn"] = .number(Double(seconds))
+			},
+			// As a scenario's `stage`, so it gets the same validation and staging.
+			HeadlessUpOption("image", help: "Stage a .png/.jpg/.jpeg from the repository, path relative to its root, in the app's container", repeatable: true) { launch, value in
+				launch["stage"] = .array((launch["stage"]?.arrayValue ?? []) + [.string(value)])
+			}
+		]
+	}
+
+	public func validateWorkingDirectory() throws {
+		try HeadlessRepositoryRoot.require(root)
+	}
+
+	/// `unittest.sh`'s build (`HeadlessBuild.xcodebuildArguments`) into its DerivedData and package
+	/// cache. The destination is installation `a`'s simulator rather than the unit tests' iPhone; that
+	/// changes only asset thinning, never a compile or a link.
+	///
+	/// No crash-reporting override: headless mode runs the no-op reporter whatever the build carries
+	/// (`DependencyContainer`), and `accept` checks the handshake says so.
+	public func build(destination: () async throws -> String) async throws {
+		try HeadlessRepositoryRoot.require(root)
+		try requireNoBuildInProgress()
+		// The fixture the build embeds (`embed_apple_test_models.sh`) must be on disk first, as in
+		// unittest.sh; without it the build fails.
+		let fetch = "scripts/fetch_apple_test_models.sh"
+		let fetched = try runTool(fetch, [])
+		guard fetched == 0 else { throw BuildFailure(description: "\(fetch) failed with exit code \(fetched)") }
+		let udid = try await destination()
+		let status = try runTool("xcodebuild", HeadlessBuild.xcodebuildArguments(
+			destinationUDID: udid,
+			derivedData: derivedData.path,
+			packageCache: environment["SPM_CACHE_PATH"]
+		))
+		guard status == 0 else { throw BuildFailure(description: "xcodebuild failed with exit code \(status)") }
+	}
+
+	public func willInstall() throws {
+		try requireNoBuildInProgress()
+		try requireDevelopmentProduct()
+	}
+
+	public func prepareLaunch(_ options: JSONValue) throws -> HeadlessLaunchPreparation {
+		let plan = try HeadlessLaunchArguments.make(from: options, repositoryRoot: root)
+		let images = plan.stagedImages
+		guard images.isEmpty == false else { return HeadlessLaunchPreparation(arguments: plan.arguments) }
+		return HeadlessLaunchPreparation(arguments: plan.arguments) { container in
+			try Self.stage(images, in: container)
+		}
+	}
+
+	public func accept(_ hello: ServerHello, appMoves: AppMoves) throws {
+		if let refusal = Self.refusal(of: hello.metadata, appMoves: appMoves) {
+			throw HeadlessUsageError(refusal)
+		}
+	}
+
+	/// Why the launched app must not be driven, or nil. In order: the backend (the launcher's lock
+	/// on production data; the build and the app hold the other two), the crash reporter (one that
+	/// runs would send the failures scenarios provoke to Sentry and on to GitHub), and the run's
+	/// transition rule (AIA-0994: a map audit that silently ran with the hop on would pass for the
+	/// wrong reason).
+	public static func refusal(of metadata: [String: JSONValue], appMoves: AppMoves) -> String? {
+		guard metadata["backendEnvironment"] == "development" else {
+			return "the headless app reports backend \(metadata["backendEnvironment"]?.jsonString ?? "none"); refusing to drive anything but development"
+		}
+		guard metadata["crashReporting"] == false else {
+			return "the headless app reports crashReporting \(metadata["crashReporting"]?.jsonString ?? "unknown"); headless mode must run without a crash reporter, so refusing to drive it"
+		}
+		let reported = metadata["launchOptions"]?.value(at: "/appMoves")
+		guard reported == .string(appMoves.rawValue) else {
+			return "the headless app reports appMoves \(reported?.jsonString ?? "none"), not \(appMoves.rawValue); rebuild it (scripts/headless.sh build)"
+		}
+		return nil
+	}
+
+	/// Copies each image into the data container's `HeadlessDevice.stagedImagesPath`, replacing a
+	/// file of the same name.
+	static func stage(_ images: [StagedImage], in container: URL) throws {
+		let directory = try HeadlessDevice.stagingDirectory(in: container)
+		for image in images {
+			let destination = directory.appendingPathComponent(image.name)
+			do {
+				try FileManager.default.removeItem(at: destination)
+			} catch let error as CocoaError where error.code == .fileNoSuchFile {
+				// Nothing staged under this name yet.
+			}
+			try FileManager.default.copyItem(at: image.source, to: destination)
+			print("  staged \(image.name)")
+		}
+	}
+
+	/// Refuses while another `xcodebuild` uses the shared DerivedData — `unittest.sh`, a UI test run,
+	/// another `headless.sh build`: two builds into one DerivedData fail or corrupt it, and an install
+	/// during a build can copy a half-written app.
+	func requireNoBuildInProgress() throws {
+		guard HeadlessBuild.buildsUsing(derivedData: derivedData.path, psOutput: try processList()).isEmpty else {
+			throw HeadlessUsageError("another xcodebuild is using \(derivedData.path); wait for it to finish (headless mode shares unittest.sh's DerivedData)")
+		}
+	}
+
+	/// Refuses a product that cannot run headless mode before installing it: only a build for the
+	/// development backend has one. (An older product without the mode is caught at connect time.)
+	func requireDevelopmentProduct() throws {
+		let data = try Data(contentsOf: app.appendingPathComponent("Info.plist"))
+		let info = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+		let backend = info?["BackendEnvironment"] as? String
+		guard backend == "development" else {
+			throw HeadlessUsageError("the Debug build at \(app.path) is for the \(backend ?? "unknown") backend; headless mode exists only in a development build")
+		}
 	}
 }
