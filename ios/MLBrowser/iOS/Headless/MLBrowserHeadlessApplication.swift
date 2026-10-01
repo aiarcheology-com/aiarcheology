@@ -337,13 +337,21 @@ struct HeadlessPaywallScreen: HeadlessScreen {
 
 /// A Welcome screen the root gate has raised over the app. `continue` is the screen's button.
 ///
-/// `continue` declares no destination: after it the app shows the tour when one is owed, and the
-/// consent question or the app proper when it is not, which `route` in the response reports.
+/// After `continue` the app shows the tour when one is owed, and the consent question or the app
+/// proper when it is not, which `route` in the response reports.
 @MainActor
 struct HeadlessWelcomeScreen: HeadlessScreen {
 	let gate: SubscriptionGateCoordinator
 
 	var route: Route { "welcome" }
+
+	nonisolated static let catalog: [ActionSpec] = [
+		ActionSpec("continue", summary: "Continue past the Welcome screen.", outcomes: [
+			.route(.tour, when: "the tour is armed"),
+			.route(.consent, when: "no tour, and the analytics question is unanswered"),
+			.route(.home, when: "nothing else is owed")
+		])
+	]
 
 	func state() -> JSONValue {
 		switch gate.presentedPrompt {
@@ -356,7 +364,7 @@ struct HeadlessWelcomeScreen: HeadlessScreen {
 	func actions() -> [HeadlessAction] {
 		guard let presented = gate.presentedPrompt else { return [] }
 		return [
-			HeadlessAction("continue", summary: "Continue past the Welcome screen.") { [gate] _ in
+			HeadlessAction("continue") { [gate] _ in
 				// The button's own call. Lowering the screen releases the claim and starts an armed
 				// tour in the same call, as it does in the app.
 				gate.continueWelcome(presented)
@@ -372,13 +380,20 @@ struct HeadlessTourScreen: HeadlessScreen {
 
 	var route: Route { "tour" }
 
+	nonisolated static let catalog: [ActionSpec] = [
+		ActionSpec("skip", summary: "Skip the tour.", outcomes: [
+			.route(.consent, when: "the analytics question is unanswered"),
+			.route(.home, when: "the analytics question is answered")
+		])
+	]
+
 	func state() -> JSONValue {
 		["active": .bool(tour.isActive), "step": .number(Double(tour.currentIndex))]
 	}
 
 	func actions() -> [HeadlessAction] {
 		[
-			HeadlessAction("skip", summary: "Skip the tour.") { [tour] _ in
+			HeadlessAction("skip") { [tour] _ in
 				// The root gate's coordinator has already started it, as the view's does.
 				tour.skip()
 				return nil
@@ -393,6 +408,18 @@ struct HeadlessConsentScreen: HeadlessScreen {
 
 	var route: Route { "consent" }
 
+	nonisolated static let catalog: [ActionSpec] = {
+		let answered: [ActionOutcome] = [
+			.route(.home, when: "the menu is closed"),
+			.route(.drawer, when: "asked over the open menu, after a sign-in"),
+			.route(.backupConsent, when: "a back-up question is pending")
+		]
+		return [
+			ActionSpec("allow", summary: "Allow anonymous analytics.", outcomes: answered),
+			ActionSpec("deny", summary: "Do not allow analytics.", outcomes: answered)
+		]
+	}()
+
 	/// `.pending` holds the question until the analytics scope resolves; nothing is answerable then.
 	private var isPending: Bool { analytics.consentPresentation == .pending }
 
@@ -403,11 +430,11 @@ struct HeadlessConsentScreen: HeadlessScreen {
 	func actions() -> [HeadlessAction] {
 		guard isPending == false else { return [] }
 		return [
-			HeadlessAction("allow", summary: "Allow anonymous analytics.") { [analytics] _ in
+			HeadlessAction("allow") { [analytics] _ in
 				analytics.chooseAnalytics(enabled: true)
 				return nil
 			},
-			HeadlessAction("deny", summary: "Do not allow analytics.") { [analytics] _ in
+			HeadlessAction("deny") { [analytics] _ in
 				analytics.chooseAnalytics(enabled: false)
 				return nil
 			}
@@ -422,10 +449,25 @@ struct HeadlessHomeScreen: HeadlessScreen {
 
 	var route: Route { "home" }
 
+	nonisolated static let catalog: [ActionSpec] = [
+		ActionSpec("open-drawer", summary: "Open the menu.", outcomes: [.route(.drawer, when: "always")]),
+		ActionSpec(
+			"detect-image",
+			summary: "Run detection with the enabled models on a staged image.",
+			parameters: [ParameterSpec("image", .string, summary: "A staged image name, from launchOptions.stagedImages.")]
+		),
+		ActionSpec(
+			"pick",
+			summary: "Pick a detection and open the save sheet.",
+			parameters: [ParameterSpec("detection", .integer, summary: "The index from detect-image's result.")],
+			outcomes: [.route(.saveFinding, when: "a detect-image result is held")]
+		)
+	]
+
 	func actions() -> [HeadlessAction] {
 		let capture = capture
 		var actions = [
-			HeadlessAction("open-drawer", summary: "Open the menu.", navigatesTo: "drawer") { [chromeState] _ in
+			HeadlessAction("open-drawer") { [chromeState] _ in
 				// The toolbar's menu button.
 				chromeState.togglingSideMenu()
 				return nil
@@ -434,24 +476,13 @@ struct HeadlessHomeScreen: HeadlessScreen {
 		// Staged images stand in for the page snapshot the web screen detects on; with none staged
 		// there is nothing to detect on.
 		if capture.hasStagedImages {
-			let image = ParameterSpec("image", .string, summary: "A staged image name, from launchOptions.stagedImages.")
-			actions.append(HeadlessAction(
-				"detect-image",
-				summary: "Run detection with the enabled models on a staged image.",
-				parameters: [image]
-			) { arguments in
+			actions.append(HeadlessAction("detect-image") { arguments in
 				try await Self.detect(arguments: arguments, capture: capture)
 			})
 		}
 		// Tapping a displayed box: only while a detection pass is held.
 		if capture.frame != nil {
-			let detection = ParameterSpec("detection", .integer, summary: "The index from detect-image's result.")
-			actions.append(HeadlessAction(
-				"pick",
-				summary: "Pick a detection and open the save sheet.",
-				parameters: [detection],
-				navigatesTo: "save-finding"
-			) { arguments in
+			actions.append(HeadlessAction("pick") { arguments in
 				do {
 					try capture.pick(index: arguments.integer("detection"))
 				} catch StagedImageCapture.Failure.detectionOutOfRange {
@@ -494,6 +525,25 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 	/// How long `enable` waits for the model to load before giving up.
 	static let loadTimeout: Duration = .seconds(120)
 
+	nonisolated static let catalog: [ActionSpec] = {
+		let id = ParameterSpec("id", .string, summary: "The model id, from state.models.")
+		return [
+			ActionSpec("close", summary: "Close the menu.", outcomes: [.route(.home, when: "always")]),
+			ActionSpec("enable", summary: "Switch a model on and wait until it has loaded.", parameters: [id]),
+			ActionSpec("disable", summary: "Switch a model off.", parameters: [id]),
+			ActionSpec(
+				"open-findings",
+				summary: "Open the findings list, and wait for the sync its opening starts.",
+				outcomes: [.route(.findings, when: "always")]
+			),
+			ActionSpec(
+				"open-account",
+				summary: "Open the account screen: sign in, or the signed-in account.",
+				outcomes: [.route(.account, when: "auth is anonymous or validated")]
+			)
+		]
+	}()
+
 	func state() -> JSONValue {
 		let deep = parts.deep
 		let models: [JSONValue] = Self.listedModels(in: parts).map { configuration in
@@ -514,25 +564,20 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 		let parts = parts
 		// The drawer's sheets: the model the drawer view binds to.
 		let presentation = parts.chromeState.drawerPresentation
-		let id = ParameterSpec("id", .string, summary: "The model id, from state.models.")
 		var actions = [
-			HeadlessAction("close", summary: "Close the menu.", navigatesTo: "home") { _ in
+			HeadlessAction("close") { _ in
 				parts.chromeState.togglingSideMenu()
 				return nil
 			},
-			HeadlessAction("enable", summary: "Switch a model on and wait until it has loaded.", parameters: [id]) { arguments in
+			HeadlessAction("enable") { arguments in
 				try await Self.setEnabled(true, arguments: arguments, parts: parts)
 			},
-			HeadlessAction("disable", summary: "Switch a model off.", parameters: [id]) { arguments in
+			HeadlessAction("disable") { arguments in
 				try await Self.setEnabled(false, arguments: arguments, parts: parts)
 			}
 		]
 		// The Findings row, always in the menu; the tour disables it, but the tour has its own route.
-		actions.append(HeadlessAction(
-			"open-findings",
-			summary: "Open the findings list, and wait for the sync its opening starts.",
-			navigatesTo: "findings"
-		) { _ in
+		actions.append(HeadlessAction("open-findings") { _ in
 			presentation.isFindingsPresented = true
 			// What the list does as it appears, in the screenshot directory these parts name.
 			await parts.findingsSync.activateFindings(directory: parts.findingsDirectory)?.value
@@ -540,11 +585,7 @@ struct HeadlessDrawerScreen: HeadlessScreen {
 		})
 		// The footer's own rule: offered while its row is tappable.
 		if let offer = DrawerPresentation.accountOffer(for: parts.authState.effectiveContext), offer != .offline {
-			actions.append(HeadlessAction(
-				"open-account",
-				summary: "Open the account screen: sign in, or the signed-in account.",
-				navigatesTo: "account"
-			) { _ in
+			actions.append(HeadlessAction("open-account") { _ in
 				presentation.presentAccount(offer, usesRealAuth: parts.usesRealAuth)
 				return nil
 			})

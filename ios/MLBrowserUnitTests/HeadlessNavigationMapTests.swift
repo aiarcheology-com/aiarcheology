@@ -131,6 +131,14 @@ final class HeadlessNavigationMapTests: XCTestCase {
 		XCTAssertEqual(map.routeNames.map(\.rawValue), HeadlessRoute.allCases.map(\.rawValue))
 	}
 
+	/// The kit's own check of the declaration: no route or action declared twice, the catalog on every
+	/// route, no outcome or app move to an undeclared route, no `.stays` among app moves, and parameters
+	/// whose constraints can apply. The session refuses every `perform` and `goto` while this is not empty.
+	func test_theDeclarationHasNoProblems() {
+		XCTAssertEqual(map.problems, [])
+		XCTAssertTrue(map.hasCatalog, "the map is the catalog: every route lists its actions")
+	}
+
 	func test_everyTransition_leadsToAnotherRoute() {
 		for declaration in map.routes {
 			for transition in declaration.transitions {
@@ -138,8 +146,8 @@ final class HeadlessNavigationMapTests: XCTestCase {
 					HeadlessRoute(rawValue: transition.to.rawValue),
 					"\(declaration.route) declares a transition to '\(transition.to)', which is not a route"
 				)
-				// An action that stays on its route is not a transition; declaring it would make `map`
-				// report an edge that goes nowhere.
+				// An action that stays on its route declares `.stays`, which is no edge; `.route` to its own
+				// route would make `map` report an edge that goes nowhere.
 				XCTAssertNotEqual(
 					transition.to,
 					declaration.route,
@@ -155,14 +163,14 @@ final class HeadlessNavigationMapTests: XCTestCase {
 	/// and before it performs one the app may move on its own, possibly more than once; if the screen
 	/// it then shows offered an action of the same name, the client would run that one instead of
 	/// failing with `unknownAction`. So no route may share an action name with any route the app can
-	/// reach from it through its own moves (action-less edges) — which includes every pair joined by
-	/// one such edge, in either direction.
+	/// reach from it through its own moves (`appMoves`) — which includes every pair joined by one such
+	/// move, in either direction.
 	///
 	/// Returns one line per shared name, e.g. `consent <-> drawer share 'close'`; empty when none.
 	static func actionNamesSharedAcrossAppMoves(offered: [Route: Set<String>], in map: NavigationMap) -> [String] {
 		var moves: [Route: Set<Route>] = [:]
 		for declaration in map.routes {
-			moves[declaration.route] = Set(declaration.transitions.filter { $0.action == nil }.map(\.to))
+			moves[declaration.route] = Set(declaration.appMoves.compactMap(\.route))
 		}
 		var pairs: Set<[Route]> = []
 		for start in map.routeNames {
@@ -183,14 +191,25 @@ final class HeadlessNavigationMapTests: XCTestCase {
 		}
 	}
 
-	/// Every route's action names, as far as the map declares them: the actions that leave the route.
-	/// `HeadlessWalkTests` adds the ones that stay (`enable`, `detect-image`, `refresh`, …).
+	/// Every route's action names, as the catalog declares them, staying ones included. `HeadlessWalkTests`
+	/// adds the names each walked screen offers live, which must be among them.
 	static func declaredActionNames(in map: NavigationMap) -> [Route: Set<String>] {
 		var names: [Route: Set<String>] = [:]
 		for declaration in map.routes {
-			names[declaration.route] = Set(declaration.transitions.compactMap(\.action))
+			names[declaration.route] = Set(declaration.actions?.map(\.name) ?? [])
 		}
 		return names
+	}
+
+	/// Where `outcomes` land for an action on `origin`: each outcome's route, or `origin` for `.stays`.
+	static func targets(of outcomes: [ActionOutcome], from origin: Route) -> Set<String> {
+		Set(outcomes.map { ($0.route ?? origin).rawValue })
+	}
+
+	/// Where the catalog says `action` on `route` can land; `nil` when the catalog has no such entry.
+	static func catalogTargets(of action: String, on route: Route, in map: NavigationMap) -> Set<String>? {
+		guard let entry = map.declaration(for: route)?.actions?.first(where: { $0.name == action }) else { return nil }
+		return targets(of: entry.outcomes ?? [], from: route)
 	}
 
 	func test_routesJoinedByAMoveOnTheAppsOwn_shareNoActionName() {
@@ -272,18 +291,15 @@ final class HeadlessNavigationMapTests: XCTestCase {
 			guard actions.isEmpty == false else { continue }
 			let landing = decision.route(afterClosing: sheet)
 			produced[sheet, default: []].insert(landing.rawValue)
-			for action in actions where map.declares(action: action, from: Route(sheet.rawValue), to: Route(landing.rawValue)) == false {
+			for action in actions
+			where Self.catalogTargets(of: action, on: Route(sheet.rawValue), in: map)?.contains(landing.rawValue) != true {
 				undeclared.insert("\(sheet.rawValue) --\(action)--> \(landing.rawValue) (e.g. \(decision))")
 			}
 		}
 		XCTAssertTrue(undeclared.isEmpty, "Closing a sheet can land where the map does not say:\n\(undeclared.sorted().joined(separator: "\n"))")
 
 		for (sheet, action, extra) in exits {
-			let declared = Set(
-				map.declaration(for: Route(sheet.rawValue))?.transitions
-					.filter { $0.action == action }
-					.map(\.to.rawValue) ?? []
-			)
+			let declared = Self.catalogTargets(of: action, on: Route(sheet.rawValue), in: map) ?? []
 			XCTAssertEqual(
 				declared,
 				(produced[sheet] ?? []).union(extra),
@@ -295,7 +311,7 @@ final class HeadlessNavigationMapTests: XCTestCase {
 	// MARK: - Moves on the app's own (Tier 1)
 
 	/// Declared moves on the app's own that no modelled input change produces, each with the reason.
-	/// Every other action-less edge must be produced by `automaticMoves`.
+	/// Every other app move must be produced by `automaticMoves`.
 	private static let unmodelledMoves: [String: String] = [
 		"gate --> welcome": "the gate raises the owed Welcome screen in the same reconcile that lifts the hold: "
 			+ "a second input change in one decision. HeadlessWalkTests' fresh install walks it.",
@@ -353,8 +369,8 @@ final class HeadlessNavigationMapTests: XCTestCase {
 		return moves
 	}
 
-	/// Whenever the app moves from one route to another on its own, the map declares that action-less
-	/// edge; and every declared action-less edge is produced by some modelled change or explained in
+	/// Whenever the app moves from one route to another on its own, the map declares that app move; and
+	/// every declared app move is produced by some modelled change or explained in
 	/// `unmodelledMoves`.
 	func test_movesOnTheAppsOwn_areExactlyTheDeclaredActionlessEdges() {
 		var produced: [String: String] = [:]
@@ -367,7 +383,7 @@ final class HeadlessNavigationMapTests: XCTestCase {
 			}
 		}
 		let declared = Set(map.routes.flatMap { declaration in
-			declaration.transitions.filter { $0.action == nil }.map { "\(declaration.route.rawValue) --> \($0.to.rawValue)" }
+			declaration.appMoves.compactMap(\.route).map { "\(declaration.route.rawValue) --> \($0.rawValue)" }
 		})
 
 		let undeclared = produced.filter { declared.contains($0.key) == false }

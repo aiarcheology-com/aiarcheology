@@ -22,6 +22,17 @@ struct HeadlessFindingsScreen: HeadlessScreen {
 
 	var route: Route { "findings" }
 
+	nonisolated static let catalog: [ActionSpec] = [
+		ActionSpec("close", summary: "Close the findings list.", outcomes: HeadlessNavigationMap.sheetExits(over: .drawer)),
+		ActionSpec("refresh", summary: "Pull to refresh: run a sync cycle and wait for it."),
+		ActionSpec("synchronize", summary: "Press Synchronize and wait for the outcome line."),
+		ActionSpec(
+			"delete",
+			summary: "Delete a finding, then wait for the sync that sends its deletion.",
+			parameters: [ParameterSpec("id", .string, summary: "The finding id, from state.findings.")]
+		)
+	]
+
 	func state() -> JSONValue {
 		let findingsSync = parts.findingsSync
 		let findings: [JSONValue] = Self.listedFindings(in: parts).map { finding in
@@ -49,14 +60,14 @@ struct HeadlessFindingsScreen: HeadlessScreen {
 		let presentation = parts.chromeState.drawerPresentation
 		let findingsSync = parts.findingsSync
 		var actions = [
-			HeadlessAction("close", summary: "Close the findings list.", navigatesTo: closeTarget()) { _ in
+			HeadlessAction("close", narrowedTo: [.route(closeTarget())]) { _ in
 				presentation.isFindingsPresented = false
 				return nil
 			}
 		]
 		// Pull-to-refresh, which the list gates on a configured Worker.
 		if findingsSync.isCloudConfigured {
-			actions.append(HeadlessAction("refresh", summary: "Pull to refresh: run a sync cycle and wait for it.") { _ in
+			actions.append(HeadlessAction("refresh") { _ in
 				await findingsSync.syncNow()?.value
 				return nil
 			})
@@ -66,19 +77,11 @@ struct HeadlessFindingsScreen: HeadlessScreen {
 		if HeadlessAccountScreen.isSignedIn(parts.authState),
 		   findingsSync.isCloudConfigured,
 		   let account = parts.authState.accountIdentifier {
-			actions.append(HeadlessAction(
-				"synchronize",
-				summary: "Press Synchronize and wait for the outcome line."
-			) { _ in
+			actions.append(HeadlessAction("synchronize") { _ in
 				try await Self.synchronize(account: account, findingsSync: findingsSync)
 			})
 		}
-		let id = ParameterSpec("id", .string, summary: "The finding id, from state.findings.")
-		actions.append(HeadlessAction(
-			"delete",
-			summary: "Delete a finding, then wait for the sync that sends its deletion.",
-			parameters: [id]
-		) { arguments in
+		actions.append(HeadlessAction("delete") { arguments in
 			try await Self.delete(arguments: arguments, parts: parts)
 		})
 		return actions
@@ -164,17 +167,32 @@ struct HeadlessBackupConsentScreen: HeadlessScreen {
 
 	var route: Route { "backup-consent" }
 
+	/// The next screen is whatever the card covered.
+	nonisolated static let catalog: [ActionSpec] = {
+		let answered: [ActionOutcome] = [
+			.route(.home, when: "the question covered the app, menu closed"),
+			.route(.drawer, when: "the question covered the open menu"),
+			.route(.paywall, when: "the question covered the paywall"),
+			.route(.gate, when: "the question covered the root gate's hold"),
+			.route(.welcome, when: "the question covered a Welcome screen"),
+			.route(.tour, when: "the question covered the tour")
+		]
+		return [
+			ActionSpec("accept", summary: "Back these findings up, and wait for the upload it starts.", outcomes: answered),
+			ActionSpec("decline", summary: "Keep these findings on this device.", outcomes: answered)
+		]
+	}()
+
 	func state() -> JSONValue {
 		["count": .number(Double(findingsSync.backupConsentRequest?.count ?? 0))]
 	}
 
 	func actions() -> [HeadlessAction] {
-		// No `navigatesTo`: the next screen is whatever the card covered.
 		[
-			HeadlessAction("accept", summary: "Back these findings up, and wait for the upload it starts.") { [findingsSync] _ in
+			HeadlessAction("accept") { [findingsSync] _ in
 				try await Self.answer(accepted: true, findingsSync: findingsSync)
 			},
-			HeadlessAction("decline", summary: "Keep these findings on this device.") { [findingsSync] _ in
+			HeadlessAction("decline") { [findingsSync] _ in
 				try await Self.answer(accepted: false, findingsSync: findingsSync)
 			}
 		]

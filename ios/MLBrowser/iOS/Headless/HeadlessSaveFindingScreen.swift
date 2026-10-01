@@ -22,6 +22,21 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 
 	var route: Route { "save-finding" }
 
+	nonisolated static let catalog: [ActionSpec] = [
+		// The save closes the sheet like `cancel`, can raise the sign-in offer, and the sync it awaits the
+		// back-up question, so where it lands is known only afterwards. The response carries the route.
+		ActionSpec(
+			"save",
+			summary: "Save the picked detection as a finding, then wait for the sync it triggers.",
+			parameters: [
+				ParameterSpec("title", .string, summary: "The finding's name; required, as the sheet requires it."),
+				ParameterSpec("label", .string, required: false, summary: "The finding's label; empty by default.")
+			],
+			outcomes: HeadlessNavigationMap.sheetExits(over: .home) + [.route(.account, when: "the first signed-out save offers sign-in")]
+		),
+		ActionSpec("cancel", summary: "Close the sheet without saving.", outcomes: HeadlessNavigationMap.sheetExits(over: .home))
+	]
+
 	/// A confidence as headless mode reports it: two decimals are enough to assert on, and a
 	/// full `Float`-to-`Double` expansion would make scenarios compare noise.
 	static func rounded(_ confidence: Double) -> Double {
@@ -39,20 +54,11 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 	func actions() -> [HeadlessAction] {
 		let parts = parts
 		let capture = capture
-		let title = ParameterSpec("title", .string, summary: "The finding's name; required, as the sheet requires it.")
-		let label = ParameterSpec("label", .string, required: false, summary: "The finding's label; empty by default.")
 		return [
-			// No `navigatesTo`: the save can raise the sign-in offer, and the sync it awaits the
-			// back-up question, so where the dismissal lands is known only afterwards. The response
-			// carries the route.
-			HeadlessAction(
-				"save",
-				summary: "Save the picked detection as a finding, then wait for the sync it triggers.",
-				parameters: [title, label]
-			) { arguments in
+			HeadlessAction("save") { arguments in
 				try await Self.save(arguments: arguments, parts: parts, capture: capture)
 			},
-			HeadlessAction("cancel", summary: "Close the sheet without saving.", navigatesTo: closeTarget()) { _ in
+			HeadlessAction("cancel", narrowedTo: [.route(closeTarget())]) { _ in
 				capture.cancel()
 				return nil
 			}

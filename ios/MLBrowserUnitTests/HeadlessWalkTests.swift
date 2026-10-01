@@ -12,14 +12,16 @@ import XCTest
 
 /// The navigation map against the adapters: a real `MLBrowserHeadlessApplication`, built from
 /// isolated parts and driven in-process only through headless commands, walks the states the
-/// scenarios reach. At every state the live actions' transitions must be in the map (`map`'s
-/// `undeclared`), and every move — by an action or on the app's own — must be a declared edge.
+/// scenarios reach. At every state every live action must resolve to its catalog entry (no `problem`,
+/// and its effective outcomes within the entry's), nothing may lead off the map (`map`'s `undeclared`
+/// and `problems`), every action must land on one of its effective outcomes, staying included, and
+/// every move on the app's own must be a declared app move.
 ///
 /// Isolation: in-memory Core Data, mock auth, the mock subscription and the ephemeral free-access
 /// anchor, a stub detector on a staged PNG, a stubbed Worker, and scratch directories for staged
 /// images, the findings sweep and the sync ledger. The walk never performs `save`: the screenshot
 /// store writes to the app's real Documents directory, which the parts do not redirect. `sign-in`
-/// is not walkable either: mock auth refuses the handler, so its edges are verified only by the
+/// is not walkable either: mock auth refuses the handler, so its outcomes are verified only by the
 /// sign-in scenario.
 @MainActor
 final class HeadlessWalkTests: XCTestCase {
@@ -335,7 +337,7 @@ final class HeadlessWalkTests: XCTestCase {
 		XCTAssertNotEqual(parts.findingsDirectory, FindingScreenshotStore.directory, "[walk \(name)]")
 
 		let application = MLBrowserHeadlessApplication(parts: parts, launchOptions: .object([:]), crashReporting: false)
-		backupConsentActionNames.formUnion(HeadlessBackupConsentScreen(findingsSync: parts.findingsSync).actions().map(\.spec.name))
+		backupConsentActionNames.formUnion(HeadlessBackupConsentScreen(findingsSync: parts.findingsSync).actions().map(\.name))
 		let walker = Walker(name: name, application: application, world: world, ready: ready)
 		walkers.append(walker)
 		return walker
@@ -386,6 +388,8 @@ private final class Walker {
 	private(set) var offered: [Route: Set<String>] = [:]
 	/// The route of the last observed state.
 	private var current: HeadlessRoute?
+	/// The effective specs the last observed state offered, by name.
+	private var currentActions: [String: ActionSpec] = [:]
 
 	/// Upper bound for the app to move on its own; the moves are immediate once their input changes.
 	private static let settleTimeout = 10.0
@@ -399,7 +403,7 @@ private final class Walker {
 	}
 
 	/// Looks at the current state: it must be `expected`, satisfy the reachable-state predicate once
-	/// the app is ready, and offer no transition the map lacks.
+	/// the app is ready, and offer only actions that resolve to their catalog entries.
 	@discardableResult
 	func observe(
 		expecting expected: HeadlessRoute,
@@ -418,8 +422,9 @@ private final class Walker {
 		visited.insert(route)
 		current = route
 		offered[response.route, default: []].formUnion(response.actions.map(\.name))
+		currentActions = Dictionary(response.actions.map { ($0.name, $0) }) { first, _ in first }
 
-		// The drift check: every offered action that declares a destination is a declared edge.
+		// The drift check: no offered action leads off the map, and every one resolves.
 		XCTAssertEqual(
 			response.result?.value(at: "/undeclared"),
 			.array([]),
@@ -427,6 +432,26 @@ private final class Walker {
 			file: file,
 			line: line
 		)
+		XCTAssertEqual(
+			response.result?.value(at: "/problems"),
+			.array([]),
+			"[walk \(name)] the map or an action of '\(route.rawValue)' has problems",
+			file: file,
+			line: line
+		)
+		for action in response.actions {
+			XCTAssertNil(action.problem, "[walk \(name)] '\(action.name)' on '\(route.rawValue)' does not resolve", file: file, line: line)
+			let catalog = HeadlessNavigationMapTests.catalogTargets(of: action.name, on: response.route, in: map)
+			let effective = try XCTUnwrap(action.outcomes, "[walk \(name)] '\(action.name)' declares no outcomes", file: file, line: line)
+			let targets = HeadlessNavigationMapTests.targets(of: effective, from: response.route)
+			XCTAssertFalse(targets.isEmpty, "[walk \(name)] '\(action.name)' on '\(route.rawValue)' has no outcomes", file: file, line: line)
+			XCTAssertTrue(
+				catalog.map(targets.isSubset(of:)) ?? false,
+				"[walk \(name)] '\(action.name)' on '\(route.rawValue)' offers \(targets.sorted()), outside its catalog entry \(catalog?.sorted() ?? [])",
+				file: file,
+				line: line
+			)
+		}
 
 		let decision = application.currentDecision()
 		XCTAssertEqual(decision.route, route, "[walk \(name)]", file: file, line: line)
@@ -436,9 +461,9 @@ private final class Walker {
 		return response
 	}
 
-	/// Performs `action`; it must succeed and arrive at `expected`, and a move to another route must
-	/// be a declared (from, action, to) edge. An action that stays on its route is a self-loop, which
-	/// the map does not declare.
+	/// Performs `action`; it must succeed and arrive at `expected`, which must be one of the targets the
+	/// action's effective outcomes named when it was offered (`.stays` for its own route), and so one its
+	/// catalog entry declares. One move on the app's own is not accepted here: the walk provokes none.
 	@discardableResult
 	func perform(
 		_ action: String,
@@ -448,23 +473,29 @@ private final class Walker {
 		line: UInt = #line
 	) async throws -> Response {
 		let from = try XCTUnwrap(current, "[walk \(name)] observe before performing", file: file, line: line)
+		let spec = try XCTUnwrap(currentActions[action], "[walk \(name)] '\(from.rawValue)' does not offer '\(action)'", file: file, line: line)
 		let response = try await driver.send(.perform(action: action, arguments: arguments))
 		XCTAssertTrue(response.ok, "[walk \(name)] '\(action)' failed: \(String(describing: response.error))", file: file, line: line)
 		XCTAssertEqual(response.route.rawValue, expected.rawValue, "[walk \(name)] '\(action)' on '\(from.rawValue)'", file: file, line: line)
-		if expected != from {
-			XCTAssertTrue(
-				map.declares(action: action, from: Route(from.rawValue), to: Route(expected.rawValue)),
-				"[walk \(name)] undeclared edge: \(from.rawValue) --\(action)--> \(expected.rawValue)",
-				file: file,
-				line: line
-			)
-		}
+		let effective = HeadlessNavigationMapTests.targets(of: spec.outcomes ?? [], from: Route(from.rawValue))
+		XCTAssertTrue(
+			effective.contains(expected.rawValue),
+			"[walk \(name)] '\(action)' on '\(from.rawValue)' landed on '\(expected.rawValue)', not one of its outcomes \(effective.sorted())",
+			file: file,
+			line: line
+		)
+		XCTAssertTrue(
+			HeadlessNavigationMapTests.catalogTargets(of: action, on: Route(from.rawValue), in: map)?.contains(expected.rawValue) ?? false,
+			"[walk \(name)] undeclared outcome: \(from.rawValue) --\(action)--> \(expected.rawValue)",
+			file: file,
+			line: line
+		)
 		try await observe(expecting: expected, file: file, line: line)
 		return response
 	}
 
 	/// Waits, as a client does, for the app to move to `expected` on its own; the move must be a
-	/// declared action-less edge.
+	/// declared app move.
 	@discardableResult
 	func settle(at expected: HeadlessRoute, file: StaticString = #filePath, line: UInt = #line) async throws -> Response {
 		let from = try XCTUnwrap(current, "[walk \(name)] observe before settling", file: file, line: line)
@@ -475,8 +506,8 @@ private final class Walker {
 		))
 		XCTAssertTrue(response.ok, "[walk \(name)] the app did not move to '\(expected.rawValue)': \(String(describing: response.error))", file: file, line: line)
 		if expected != from {
-			let declared = map.declaration(for: Route(from.rawValue))?.transitions
-				.contains { $0.action == nil && $0.to.rawValue == expected.rawValue } ?? false
+			let declared = map.declaration(for: Route(from.rawValue))?.appMoves
+				.contains { $0.route?.rawValue == expected.rawValue } ?? false
 			XCTAssertTrue(declared, "[walk \(name)] undeclared move on its own: \(from.rawValue) --> \(expected.rawValue)", file: file, line: line)
 		}
 		return try await observe(expecting: expected, file: file, line: line)

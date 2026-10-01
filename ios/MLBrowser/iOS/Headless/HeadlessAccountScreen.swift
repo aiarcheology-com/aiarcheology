@@ -25,6 +25,42 @@ struct HeadlessAccountScreen: HeadlessScreen {
 
 	var route: Route { "account" }
 
+	nonisolated static let catalog: [ActionSpec] = [
+		ActionSpec(
+			"close",
+			summary: "Close the account screen.",
+			outcomes: HeadlessNavigationMap.sheetExits(over: .drawer) + [.route(.home, when: "the sign-in offer, menu closed")]
+		),
+		// Once signed in, the new account's consent question or the back-up question may take the screen.
+		ActionSpec(
+			"sign-in",
+			summary: "Sign in to a Clerk test account with its email code, creating it if new.",
+			parameters: [
+				ParameterSpec("email", .string, summary: "A Clerk test address: <name>+clerk_test@example.com."),
+				ParameterSpec("code", .string, summary: "The email verification code.")
+			],
+			outcomes: [
+				.route(.drawer, when: "signed in with the question answered (verified only by the sign-in scenario)"),
+				.route(.consent, when: "the new account has not answered the analytics question (verified only by the sign-in scenario)"),
+				.route(.backupConsent, when: "findings saved before sign-in await the back-up question (verified only by the sign-in scenario)"),
+				.route(.home, when: "signed in from the sign-in offer with the question answered (not exercised by a scenario)"),
+				.route(.paywall, when: "access ran out while the account screen was up: signing in closes it onto the wall (verified only by the sign-in scenario)")
+			]
+		),
+		// Signing out is async and can change whether a back-up question is pending, so the response
+		// reports where the app landed.
+		ActionSpec("sign-out", summary: "Sign out of the account.", outcomes: [
+			.route(.drawer, when: "access remains"),
+			.route(.paywall, when: "access ran out while the sheet was up")
+		]),
+		ActionSpec(
+			"set-backup",
+			summary: "Switch backing up on or off, and wait for the sync it starts.",
+			parameters: [ParameterSpec("enabled", .boolean, summary: "Whether the account backs findings up.")]
+		),
+		ActionSpec("remove-all-findings", summary: "Permanently delete every finding on this device and its screenshot.")
+	]
+
 	/// Upper bound for the gate to reach a signed-in state after Clerk completes the sign-in. The
 	/// refresh that follows waits for a pass of its own (AIA-0987), but that pass can still land
 	/// `.offline` and be retried, so the action waits for the outcome.
@@ -58,7 +94,7 @@ struct HeadlessAccountScreen: HeadlessScreen {
 		// The web screen's sign-in offer, the other way this screen is up: the model the web screen binds to.
 		let offer = parts.chromeState.saveFindingPresentation
 		var actions = [
-			HeadlessAction("close", summary: "Close the account screen.", navigatesTo: closeTarget()) { _ in
+			HeadlessAction("close", narrowedTo: [.route(closeTarget())]) { _ in
 				presentation.dismissAccount()
 				// The offer's `SignInSheet` Cancel.
 				offer.dismissSignInOffer()
@@ -67,24 +103,11 @@ struct HeadlessAccountScreen: HeadlessScreen {
 		]
 		switch parts.authState.effectiveContext {
 		case .anonymous:
-			let email = ParameterSpec(
-				"email",
-				.string,
-				summary: "A Clerk test address: <name>+clerk_test@example.com."
-			)
-			let code = ParameterSpec("code", .string, summary: "The email verification code.")
-			// No `navigatesTo`: once signed in, the new account's consent question may take the screen.
-			actions.append(HeadlessAction(
-				"sign-in",
-				summary: "Sign in to a Clerk test account with its email code, creating it if new.",
-				parameters: [email, code]
-			) { arguments in
+			actions.append(HeadlessAction("sign-in") { arguments in
 				try await Self.signIn(arguments: arguments, parts: parts, presentation: presentation, offer: offer)
 			})
 		case .validated:
-			// No `navigatesTo`: signing out is async and can change whether a back-up question is
-			// pending, so the response reports where the app landed.
-			actions.append(HeadlessAction("sign-out", summary: "Sign out of the account.") { _ in
+			actions.append(HeadlessAction("sign-out") { _ in
 				let authState = parts.authState
 				// The call the account screen's and the paywall's Sign Out make.
 				await authState.signOut()
@@ -115,12 +138,7 @@ struct HeadlessAccountScreen: HeadlessScreen {
 		let findingRepository = parts.findingRepository
 		var actions: [HeadlessAction] = []
 		if let account = backUpToggleAccount {
-			let enabledParameter = ParameterSpec("enabled", .boolean, summary: "Whether the account backs findings up.")
-			actions.append(HeadlessAction(
-				"set-backup",
-				summary: "Switch backing up on or off, and wait for the sync it starts.",
-				parameters: [enabledParameter]
-			) { arguments in
+			actions.append(HeadlessAction("set-backup") { arguments in
 				let enabled = try arguments.boolean("enabled")
 				// The switch's own call. Nil means no cycle followed: either the coordinator refused the
 				// change (the signed-in account moved on) or it applied it while the account's cloud data
@@ -134,10 +152,7 @@ struct HeadlessAccountScreen: HeadlessScreen {
 			})
 		}
 		// Returns once the local removal is done, as Settings does: neither starts a sync here.
-		actions.append(HeadlessAction(
-			"remove-all-findings",
-			summary: "Permanently delete every finding on this device and its screenshot."
-		) { _ in
+		actions.append(HeadlessAction("remove-all-findings") { _ in
 			do {
 				try await findingRepository.removeAllFindings()
 			} catch {
