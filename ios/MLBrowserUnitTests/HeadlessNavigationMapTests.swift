@@ -372,7 +372,7 @@ final class HeadlessNavigationMapTests: XCTestCase {
 	/// Whenever the app moves from one route to another on its own, the map declares that app move; and
 	/// every declared app move is produced by some modelled change or explained in
 	/// `unmodelledMoves`.
-	func test_movesOnTheAppsOwn_areExactlyTheDeclaredActionlessEdges() {
+	func test_movesOnTheAppsOwn_areExactlyTheDeclaredAppMoves() {
 		var produced: [String: String] = [:]
 		for move in Self.automaticMoves() {
 			let from = move.from.route, to = move.to.route

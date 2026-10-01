@@ -16,7 +16,9 @@ import HeadlessKit
 /// declaration. The map is the catalog (HeadlessKit's docs/moves.md): each route lists every action its
 /// screen can offer, staying ones included, from the screen's own `catalog`, with every way each can end
 /// (`.stays`, or `.route` under its condition). `appMoves` are the moves the app makes there on its own.
-/// A live action references its entry by name, so the declaration lives here and only here.
+/// Each screen authors its entries in its own `catalog`, next to its handlers; this file assembles them
+/// per route. A live action references its entry by name, so each action is declared exactly once, in
+/// its screen's `catalog`, and the session reads it only through this map.
 ///
 /// Enforced: after every action the session accepts only the action's outcomes, plus one move on the
 /// app's own (`HeadlessSession`, AIA-0994), so an outcome set the app does not keep fails the action with
@@ -164,8 +166,9 @@ enum HeadlessNavigationMap {
 	}
 }
 
-/// Only for the leading-dot spelling (`.route(.paywall)`): the kit's `some RawRepresentable<String>`
-/// overload takes `HeadlessRoute` values directly, but a generic parameter cannot infer `.paywall`.
+/// Only for the leading-dot spelling (`.route(.paywall)`) in this map and the screens' catalogs: the
+/// kit's `some RawRepresentable<String>` overload takes `HeadlessRoute` values directly, but a generic
+/// parameter cannot infer `.paywall`.
 extension ActionOutcome {
 	static func route(_ route: HeadlessRoute, when condition: String = "") -> ActionOutcome {
 		.route(Route(route.rawValue), when: condition)

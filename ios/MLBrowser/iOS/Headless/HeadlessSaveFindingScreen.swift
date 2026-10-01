@@ -24,7 +24,7 @@ struct HeadlessSaveFindingScreen: HeadlessScreen {
 
 	nonisolated static let catalog: [ActionSpec] = [
 		// The save closes the sheet like `cancel`, can raise the sign-in offer, and the sync it awaits the
-		// back-up question, so where it lands is known only afterwards. The response carries the route.
+		// back-up question: every such landing is declared below, and the response reports which one it was.
 		ActionSpec(
 			"save",
 			summary: "Save the picked detection as a finding, then wait for the sync it triggers.",

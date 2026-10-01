@@ -47,8 +47,8 @@ struct HeadlessAccountScreen: HeadlessScreen {
 				.route(.paywall, when: "access ran out while the account screen was up: signing in closes it onto the wall (verified only by the sign-in scenario)")
 			]
 		),
-		// Signing out is async and can change whether a back-up question is pending, so the response
-		// reports where the app landed.
+		// Signing out is async and can change whether access remains while the sheet is up: either
+		// landing is declared, and the response reports which one it was.
 		ActionSpec("sign-out", summary: "Sign out of the account.", outcomes: [
 			.route(.drawer, when: "access remains"),
 			.route(.paywall, when: "access ran out while the sheet was up")

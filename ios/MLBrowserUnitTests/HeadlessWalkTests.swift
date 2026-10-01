@@ -95,6 +95,13 @@ final class HeadlessWalkTests: XCTestCase {
 		// back-up question's — never collide across a move on the app's own.
 		let map = HeadlessNavigationMap.declaration
 		var offered = HeadlessNavigationMapTests.declaredActionNames(in: map)
+		// The walk never reaches the back-up question, so its live actions are checked against the
+		// catalog here: a live name without an entry would only fail in a simulator run.
+		let backupConsentCatalog = offered[Route(HeadlessRoute.backupConsent.rawValue)] ?? []
+		XCTAssertTrue(
+			backupConsentActionNames.isSubset(of: backupConsentCatalog),
+			"backup-consent offers actions its catalog lacks: \(backupConsentActionNames.subtracting(backupConsentCatalog).sorted())"
+		)
 		for walker in walkers {
 			offered.merge(walker.offered) { $0.union($1) }
 		}
