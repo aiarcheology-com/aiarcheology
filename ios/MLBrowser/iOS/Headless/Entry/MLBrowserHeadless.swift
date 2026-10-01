@@ -22,8 +22,10 @@ struct MLBrowserHeadless: App {
 	private let runtime: AppRuntime
 
 	init() {
-		// The seed writes this install's free-access anchor. Only a development backend's install is
-		// ever seeded, the same lock the server applies below before it serves anything.
+		// The seed writes this install's free-access anchor: only a development backend's install is
+		// seeded. This file compiles only for the development backend, so today the check always
+		// holds; it keeps the seed tied to the backend if that ever changes, like the server's lock
+		// below. `bootstrap` still runs for any backend.
 		if BackendEnvironment.current == .development {
 			HeadlessLaunchOptions.current.seedFreeAccessExpiry(container: DependencyContainer.shared)
 		}
