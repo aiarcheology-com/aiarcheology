@@ -22,7 +22,11 @@ struct MLBrowserHeadless: App {
 	private let runtime: AppRuntime
 
 	init() {
-		HeadlessLaunchOptions.current.seedFreeAccessExpiry(container: DependencyContainer.shared)
+		// The seed writes this install's free-access anchor. Only a development backend's install is
+		// ever seeded, the same lock the server applies below before it serves anything.
+		if BackendEnvironment.current == .development {
+			HeadlessLaunchOptions.current.seedFreeAccessExpiry(container: DependencyContainer.shared)
+		}
 		let appState = AppRuntime.bootstrap(container: DependencyContainer.shared)
 		_appState = StateObject(wrappedValue: appState)
 		runtime = AppRuntime(appState: appState)
@@ -31,12 +35,13 @@ struct MLBrowserHeadless: App {
 	var body: some Scene {
 		WindowGroup {
 			HeadlessServerView(onStatus: Self.log) { [appState, runtime] in
-				runtime.start()
 				// A lock on production data, besides the compile-time exclusion and the launching
-				// tool's: a headless process never serves commands against any other backend.
+				// tool's: a headless process never starts the runtime, or serves commands, against any
+				// other backend.
 				guard BackendEnvironment.current == .development else {
 					throw HeadlessRefusal("backend is \(BackendEnvironment.current.rawValue)")
 				}
+				runtime.start()
 				return MLBrowserHeadlessApplication(appState: appState)
 			}
 		}
