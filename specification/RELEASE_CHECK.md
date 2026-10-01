@@ -21,6 +21,7 @@ deferred (AIA-1006's PR).
 - [ ] **The HeadlessKit pin is a release, not a pre-release.** `Tools/Package.swift`'s `exact:`
       and the Xcode project's version name a plain tag such as `0.2.0`, never `0.2.0-rc.N`: an rc
       tag sits on an unmerged kit PR ([HEADLESS.md](HEADLESS.md#where-ml-browser-pins-it)).
+      Since AIA-1004 both pins name `1.0.0`, so this item passes until a bump names an rc again.
 
 - [ ] **The archive carries nothing of HeadlessKit.** Since kit 0.2.0 the kit compiles to nothing
       outside Debug; this proves it for the build that ships. To check before anything reaches
