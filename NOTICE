@@ -212,12 +212,17 @@ bundle. A fresh fetch verified that main, develop and both release tags retain
 none of the 22 photo blobs or paths. Their tips and all rulesets were unchanged
 by the backup-branch deletion.
 
-This is not yet repository-wide removal: historical pull-request references
-retain copies. Remaining GitHub copies and references still need to be addressed
-before publication. Private recovery bundles, including the original tags and
-deleted branch tips, are retained outside the tracked tree and must not be published.
-Issue #906, A2 tracks the remaining cleanup. No rights to the Apple photographs
-are granted by their previous inclusion or by this removal.
+GitHub Support confirmed removal of the affected historical pull-request
+references. On 2026-09-28, an independent GitHub API check found none of the
+368 affected refs and returned 404 for all 22 photo blobs. Pull-request bodies,
+reviews and comments remain; the affected Commits and Files changed views may
+error because their tracking references were removed.
+
+Cached views and source archives were not independently verified. Issue #906,
+A2 tracks the remaining publication checks. Private recovery bundles, including
+the original tags and deleted branch tips, are retained outside the tracked
+tree and must not be published. No rights to the Apple photographs are granted
+by their previous inclusion or by this removal.
 
 ================================================================================
 6. Cloudflare Worker dependencies

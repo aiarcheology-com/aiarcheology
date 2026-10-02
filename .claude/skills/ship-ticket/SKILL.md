@@ -34,7 +34,7 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
 ## Project conventions (baked in — do not re-derive)
 - **Xcode toolchain:** validate `DEVELOPER_DIR` by discovery, never assume:
   `xcode-select -p`, else probe `/Applications/Xcode*.app/Contents/Developer` (prefer the
-  versioned `Xcode-26.6.0.app`). Export it for **every** `xcodebuild`/`xcrun`/git-with-hooks call —
+  newest versioned `Xcode-*.app`). Export it for **every** `xcodebuild`/`xcrun`/git-with-hooks call —
   background shells lose the selection and fall back to CommandLineTools. Fail loudly if none.
 - **Build/test dir:** always `cd` to `ios/` (the workspace lives there, not the repo root).
 - **Sims (discover by name — never hardcode UDIDs; they are machine-specific):** tests run on a
@@ -44,8 +44,8 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
   runtime; if absent, create it (`xcrun simctl create <name> <newest iPhone devicetype>
   <newest iOS runtime>`). **"Newest iPhone devicetype" = the supported iPhone with the highest
   `minRuntimeVersion`** — neither `simctl list devicetypes` order nor a runtime's
-  `supportedDeviceTypes` order is recency-sorted (learned on AIA-0374: naive "last item"
-  picks iPhone 6s Plus / iPhone 11). Durable state (the ticket comment) records only the sim **name +
+  `supportedDeviceTypes` order is recency-sorted (a naive "last item" pick lands on an iPhone
+  6s Plus or iPhone 11). Durable state (the ticket comment) records only the sim **name +
   runtime** — never a UDID (machine-specific; goes stale on resume). Re-resolve the UDID
   fresh at runtime on every run/resume.
   **Never launch on any other `Booted` sim** — a booted sim you didn't create is the user's.
@@ -56,10 +56,10 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
   auth/paywall) — it also wipes the Caches Core Data store, so it is a *different* path than
   production; only use it when a flow is otherwise unreachable, and label it in evidence.
 - **Commits:** subject prefixed `[AIA-XXXX]` (or `[AIA-XXXX, AIA-YYYY]`), imperative summary,
-  short why-body — ios/AGENTS.md §13; no co-author footnote. If 1Password is locked (signing/SSH fail), fall back to
+  short why-body — root AGENTS.md § Issues and Git; no co-author footnote. If 1Password is locked (signing/SSH fail), fall back to
   `git -c commit.gpgsign=false commit …` and push via the `gh`-credentialed HTTPS remote.
 - **Branch/issue:** `<type>/AIA-XXXX/<slug>` with `<type>` ∈ `feature|fix|doc|test` chosen by
-  change type (ios/AGENTS.md §13), base `develop`. Title issues `AIA-0XXX: …`.
+  change type (root AGENTS.md § Issues and Git), base `develop`. Title issues `AIA-0XXX: …`.
   Add to project board #1 (owner `aiarcheology-com`); Status field `PVTSSF_lADODw8uZM4BMCyNzg7cGQI`,
   options: In Review `ce9bc762`, Done `98236657`.
 - **Pre-PR gate:** `build-for-testing` + `./scripts/swiftlint.sh` + `./scripts/harmonize.sh` (both
@@ -68,8 +68,8 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
 - **Tool resolution:** before concluding a tool is missing from a bare `which <bin>`, check how the
   repo's wrapper resolves it. `scripts/swiftgen.sh` in particular probes **bundled** locations
   (SwiftGen at `~/.local/lib/swiftgen/bin`, also `/tmp/swiftgen/bin`, `/opt/homebrew/bin`, then PATH)
-  and supports `--verify` — so `which swiftgen` returns nothing yet it's installed (a false blocker
-  on the first run). (`swiftlint.sh` / `harmonize.sh` expect their tool on PATH via `command -v`.)
+  and supports `--verify` — so `which swiftgen` can return nothing while it is installed.
+  (`swiftlint.sh` expects `swiftlint` on PATH via `command -v`; `harmonize.sh` drives `xcodebuild`.)
 - **Localization:** adding/changing L10n strings has a strict recipe and a file-reformat trap —
   see `references/localization.md`. Do **not** hand-edit `L10n.swift`; regenerate it.
 
@@ -83,8 +83,7 @@ PR, or comment. Update the existing comment (match the marker); never spam new o
 **The scratchpad is session-scoped — never a durable home.** A fresh session gets a *different*
 scratchpad dir and cannot read another session's files. So anything needed for resume — the state
 JSON **and the full plan** (see P1) — lives in **ticket comments**, not scratchpad. A
-`scratchpad/<ticket>-ship-state.json` mirror is a local cache only. (On the first run the plan was
-written only to scratchpad and nearly lost on hand-off — post it to the ticket.)
+`scratchpad/<ticket>-ship-state.json` mirror is a local cache only.
 
 **Checkpoint discipline (not just crash-resume):** refresh the `<!-- ship-ticket:state -->` comment
 **after every committed slice** — new `last_verified` SHA, what's done, what remains. Then *any*
@@ -175,8 +174,9 @@ are *not* executors and follow their own phase contracts:
      relevant sections; this skill's "Project conventions" block) and require the executor to
      Read them. Never hand-copy them: opus input tokens are cheap, orchestrator output tokens
      are not;
-  5. output rules: "final response < 2000 chars; outcomes not process; list files touched,
-     verify result, anything surprising".
+  5. output rules: "your final response is read by the orchestrator: outcomes not process;
+     list files touched, the verify command and its result (failing lines, not whole logs),
+     anything surprising".
 - Executors **edit, build, and run the step's scoped unit tests** (`-only-testing:…`) — never the
   UI suite, never any sim other than the one in the preamble; never commit, push, edit the state
   comment, or spawn sub-subagents.
@@ -294,11 +294,12 @@ Deterministic pass/fail, with `DEVELOPER_DIR` set: `build-for-testing` (from `io
   auto-fix; architecture / product / API / scope-expanding → **surface for human approval**.
 - Then re-run the full P3a **only if P4 changed HEAD** — an unchanged HEAD keeps its green
   (never repeat a sweep for a no-op review).
-- Finally, write the tester-facing `ios/TestFlight/WhatToTest.en-US.txt` stanza — **mandatory**
-  (ios/AGENTS.md §13: "no PR without it"); scoped to this change, concrete steps, no dev jargon —
-  and **commit it as the final slice**. HEAD is now final: P3b evidence and the G2 OK both bind
-  to it (a WhatToTest commit *after* P3b would invalidate the evidence it just minted).
-  Conflicts in this small shared file resolve normally at rebase; never exempt it.
+- Finally, if the change is tester-visible or meaningfully affects testing, write the tester-facing
+  `ios/TestFlight/WhatToTest.en-US.txt` stanza (root AGENTS.md § Review and delivery; tooling,
+  docs, or test-only work with no tester action gets none) — scoped to this change, concrete steps,
+  no dev jargon — and **commit it as the final slice**. HEAD is now final: P3b evidence and the G2
+  OK both bind to it (a WhatToTest commit *after* P3b would invalidate the evidence it just minted).
+  Conflicts in this small shared file resolve normally at rebase.
 
 ### P3b — Agentic feature check  (ADVISORY — never gates; runs here, after P4, right before P5)
 Spawn a **code-frozen** verifier sub-agent (`model: opus` — advisory work doesn't need the session
@@ -313,7 +314,7 @@ why P3b sits *after* P4 and its conditional P3a rerun, immediately before P5: ev
 at the PR HEAD. In P6, re-runs stay bounded to one per push round.
 
 ### P5 — Open PR  ← **GATE G2 (every push = one paid Xcode Cloud build)**
-- HEAD is already final here: the WhatToTest slice was committed at the end of P4 and P3b
+- HEAD is already final here: the WhatToTest slice (if any) was committed at the end of P4 and P3b
   evidence is minted on it. **Stop for explicit OK** before the first push/PR. The prompt states "this triggers one
   paid Xcode Cloud build". Record the OK as `g2_ok: {sha, ts}` in the state comment — an approval
   binds to that exact HEAD SHA; any new commit voids it and requires a fresh OK (G2 re-asks
@@ -374,6 +375,11 @@ at the PR HEAD. In P6, re-runs stay bounded to one per push round.
 - **G2** every push / PR — **always** (paid CI).
 - **G3** merge — **always** (never autonomous); offered only with local (incl. UI suite) and PR
   checks all green on the PR HEAD.
+
+Between gates, keep going: a step you have decided on is something to run, not to announce. Don't
+end a turn on "Next, I'll …" or ask permission for reversible local work the ticket already covers;
+stop only where this skill says to: a gate, a halt/trip, a banned-diff match, or a finding marked
+for human approval.
 
 ## Guardrails recap
 - Never weaken ATS; never commit secrets; surgical diffs only.

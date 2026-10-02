@@ -1,4 +1,4 @@
-Build: A new first-run Welcome screen, ready for making the app free
+Build: 1.0.9 — Welcome, safer model storage and map findings
 
 Test Focus: The app can now run with no subscription at all. In this build that free mode is used for the very first launch after a fresh install; payments stay on from the second launch, exactly as before. Please test on a device where you can delete and reinstall the app.
 
@@ -22,11 +22,9 @@ Test Focus: The app can now run with no subscription at all. In this build that 
 
 - Reopened map pages: turn on Settings > Reopen Last Page. On atlas.bayern.de, pan somewhere, close the app completely, reopen it, and store a finding WITHOUT panning. Its Page must be exactly the address the map showed, not a different place.
 
-- Leaving and returning: what runs at launch and in the background was reorganised. With detection on, go Home and back: it pauses and resumes. A model download keeps going. Sign-in state is right after returning.
+- Model replacement: import a model, then replace it with another model of the same name. It must still load and detect. Cancel or fail a replacement and confirm the original still works. A rejected import must leave its source file intact.
 
-- Menu > Sign In, then finish signing in. The sign-in screen must close by itself; report it if it stays open.
-
-STILL WORTH RETESTING FROM THE PREVIOUS BUILD
+- Leaving and returning with detection on: it must pause and resume. Menu > Sign In: the sign-in screen must close by itself when you finish.
 
 - Large model import: Menu > Models > Import a ~500 MB .tar detector checkpoint. It should either import, or show a clear "not enough memory" message, never make the app vanish. Please send the numbers from the message and the conversion log (Models > failed import > log icon > Share), with your device named. A model that imported fine before but now reports low memory is a bug.
 
