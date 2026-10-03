@@ -8,9 +8,9 @@
 import Combine
 import Foundation
 
-/// Recomputes the ConfigCat targeting user on every auth-gate transition *and* every
-/// subscription-entitlement change (they move independently), then forces the two updates the
-/// SDK does not deliver by itself:
+/// Recomputes the ConfigCat targeting user on every auth-gate transition, every change of the
+/// published account, *and* every subscription-entitlement change (they move independently), then
+/// forces the two updates the SDK does not deliver by itself:
 ///
 /// 1. `FeatureFlagsState.refresh()` — `setDefaultUser` fires no change hook, and the state
 ///    republishes only on an actual value change, so targeted config is re-fetched explicitly.
@@ -21,6 +21,14 @@ import Foundation
 /// The last-set context is persisted so a background refresh (Phase A notifications) can
 /// restore targeting without a signed-in UI session; sign-out clears it (fail closed: no
 /// persisted context ⇒ background syncs evaluate untargeted defaults only).
+///
+/// The account is observed separately from the gate (AIA-0522): ``AuthState`` suppresses equal
+/// gate values, so an in-place account switch (A signs out and B signs in without the gate leaving
+/// `.ready`) publishes nothing on the gate and would leave targeting on A. The same reason
+/// ``AuthState/accountIdentifier`` exists for analytics (AIA-0437).
+///
+/// `@Published` emits on `willSet`, so the sinks below must never re-read ``AuthState``: `identity`
+/// reads the auth backend directly, which already holds the incoming value.
 ///
 /// Deliberately not an `ObservableObject` — nothing renders from it; it is container-owned
 /// plumbing, like ``MessageReplyCoordinator``.
@@ -48,10 +56,28 @@ final class TargetingCoordinator {
 	private var observations: Set<AnyCancellable> = []
 	private var refreshTask: Task<Void, Never>?
 
+	/// Which account may be targeted. The backend's user is targeted only when it matches.
+	///
+	/// The backend (`identity`) runs ahead of ``AuthState``: before validation it already reports
+	/// an incoming account, and after a revocation it may still hold the cached user. So once
+	/// AuthState has published an account (or landed `.signedOut`), that verdict decides. Before it
+	/// has said anything, the backend's persisted session is the best answer — a relaunch targets
+	/// immediately, even offline — but only the first user seen: a different one appearing before
+	/// AuthState speaks is a switch nobody validated.
+	private enum Vouched: Equatable {
+		/// AuthState has not spoken; the first signed-in user the backend reported, if any.
+		case backend(firstSeen: String?)
+		/// AuthState's published account; `nil` when it vouches for nobody.
+		case authState(String?)
+	}
+
+	private var vouched: Vouched = .backend(firstSeen: nil)
+
 	init(
 		identity: @escaping @MainActor () -> (userID: String?, isSignedIn: Bool),
 		isSubscribed: @escaping @MainActor () -> Bool,
 		authGateChanges: AnyPublisher<AuthGate, Never>,
+		accountChanges: AnyPublisher<String?, Never>,
 		subscriptionChanges: AnyPublisher<Bool, Never>,
 		provider: FeatureFlagProviding,
 		featureFlags: FeatureFlagsState,
@@ -69,12 +95,30 @@ final class TargetingCoordinator {
 		self.appVersion = appVersion
 		self.localeIdentifier = localeIdentifier
 
-		// Both publishers are `@Published` projections, which emit on willSet from the main
+		// All three publishers are `@Published` projections, which emit on willSet from the main
 		// actor; `assumeIsolated` mirrors MessageCenterState's foreground observer (AGENTS §4).
+		// The sinks use only the emitted value (see ``Vouched``), never a re-read.
 		authGateChanges
 			.removeDuplicates()
 			.dropFirst()
-			.sink { [weak self] _ in MainActor.assumeIsolated { self?.recompute() } }
+			.sink { [weak self] gate in
+				MainActor.assumeIsolated {
+					guard let self else { return }
+					if gate == .signedOut { self.vouched = .authState(nil) }
+					self.recompute()
+				}
+			}
+			.store(in: &observations)
+		accountChanges
+			.removeDuplicates()
+			.dropFirst()
+			.sink { [weak self] account in
+				MainActor.assumeIsolated {
+					guard let self else { return }
+					self.vouched = .authState(account)
+					self.recompute()
+				}
+			}
 			.store(in: &observations)
 		subscriptionChanges
 			.removeDuplicates()
@@ -87,9 +131,23 @@ final class TargetingCoordinator {
 		recompute()
 	}
 
-	private func recompute() {
+	/// The backend's user if it may be targeted (see ``Vouched``), else `nil`.
+	private func targetableUser() -> String? {
 		let (userID, isSignedIn) = identity()
-		if isSignedIn, let userID {
+		guard isSignedIn, let userID else { return nil }
+		switch vouched {
+		case .backend(firstSeen: nil):
+			vouched = .backend(firstSeen: userID)
+			return userID
+		case let .backend(firstSeen: firstSeen?):
+			return userID == firstSeen ? userID : nil
+		case let .authState(account):
+			return userID == account ? userID : nil
+		}
+	}
+
+	private func recompute() {
+		if let userID = targetableUser() {
 			let context = Context(id: userID, custom: [
 				"appVersion": appVersion,
 				"platform": "iOS",
@@ -108,7 +166,7 @@ final class TargetingCoordinator {
 		} else {
 			provider.clearUser()
 			defaults.removeObject(forKey: Self.contextDefaultsKey)
-			LoggingPolicy.debug("App messages: targeting cleared (signed out)", logger: .state)
+			LoggingPolicy.debug("App messages: targeting cleared (no account)", logger: .state)
 		}
 
 		// Identity gates visibility synchronously (interactive ⇢ signed-in), independent of
