@@ -405,6 +405,56 @@ final class FreeAccessUITests: UITestCase {
 		assertExists(AID.welcomeHeadline, true)
 	}
 
+	/// The 1.0.8 upgrade (AIA-1036): the priced Welcome was shown — 1.0.8 recorded that only as the
+	/// window's `day0Shown`, which is the default seed — and the tour never reached its end, so it is
+	/// armed again. Every UI-test launch wipes the tour's suite, so there is no introduction receipt:
+	/// exactly the state 1.0.8 left behind. With payments off the tour resumes, with no second Welcome.
+	func testPaymentsOff_tourArmedAfterThePricedWelcome_resumesTheTourWithoutAnotherWelcome() {
+		launch(
+			LaunchConfig(
+				startOnboardingTour: true,
+				featureFlagOverrides: ["isPaymentsEnabled": false, "isFreeAccessPeriodEnabled": true],
+				freeAccessAnchorAgeDays: 3
+			),
+			mockAuthGate: "ready",
+			mockSubscription: "notSubscribed"
+		)
+
+		// The tour only starts once no Welcome is owed or on screen, so its arrival is the proof the
+		// gate has settled; asserting the absence first could pass before the gate ever decided.
+		XCTAssertTrue(
+			element(AID.tourBubble).waitForExistence(timeout: 20),
+			"The tour did not resume: a second Welcome is holding it back"
+		)
+		assertExists(AID.welcomeContent, false)
+		assertExists(AID.welcomeIntroBody, false)
+	}
+
+	/// The twin: a window granted under payments on whose priced screen never reached the display.
+	/// That user met no Welcome, so with payments off they are still introduced — by the neutral
+	/// screen, never the priced one — and Continue hands the screen to the tour.
+	func testPaymentsOff_tourArmedWithAnUnshownDay0Window_stillGetsTheNeutralIntroduction() {
+		launch(
+			LaunchConfig(
+				startOnboardingTour: true,
+				featureFlagOverrides: ["isPaymentsEnabled": false, "isFreeAccessPeriodEnabled": true],
+				freeAccessAnchorAgeDays: 3,
+				freeAccessDay0Unshown: true
+			),
+			mockAuthGate: "ready",
+			mockSubscription: "notSubscribed"
+		)
+
+		XCTAssertTrue(element(AID.welcomeIntroBody).waitForExistence(timeout: 15), "No payments-off Welcome screen")
+		assertExists(AID.welcomeHeadline, false)
+		assertExists(AID.welcomePriceNote, false)
+
+		let continueButton = app.buttons[AID.welcomeContinue]
+		XCTAssertTrue(continueButton.waitForExistence(timeout: 15), "Welcome offered no way past")
+		continueButton.tap()
+		XCTAssertTrue(element(AID.tourBubble).waitForExistence(timeout: 15), "Continue did not hand the screen to the tour")
+	}
+
 	/// A returning install with a window that ran out under payments on: with payments off there is
 	/// no wall and no Welcome screen, just the app.
 	func testPaymentsOff_expiredWindow_neitherWallsNorWelcomes() {

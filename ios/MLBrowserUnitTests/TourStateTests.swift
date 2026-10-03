@@ -356,6 +356,40 @@ final class TourStateTests: XCTestCase {
 		XCTAssertFalse(returning.isIntroductionOwed, "A seen tour owes no introduction")
 	}
 
+	// MARK: - Priced Welcome recorded before the receipt existed (AIA-1036)
+
+	func testAdoptEarlierWelcomeReceipt_pricedWelcomeMetUnder108_isNotIntroducedAgain() {
+		// The 1.0.8 upgrade: the priced Welcome was shown (only `day0Shown` recorded), the tour never
+		// reached its end, so this launch re-arms with no introduction receipt.
+		let upgraded = TourState(steps: scriptedSteps(count: 2), defaults: defaults)
+		XCTAssertTrue(upgraded.migrateAndArmIfNeeded(), "precondition: the unfinished tour is owed again")
+		XCTAssertTrue(upgraded.isIntroductionOwed, "precondition: no receipt from 1.0.8")
+
+		upgraded.adoptEarlierWelcomeReceipt(dayZeroWelcomeShown: true)
+		XCTAssertFalse(upgraded.isIntroductionOwed, "A user who met the priced Welcome was introduced again")
+
+		let relaunched = TourState(steps: scriptedSteps(count: 2), defaults: defaults)
+		relaunched.migrateAndArmIfNeeded()
+		XCTAssertFalse(relaunched.isIntroductionOwed, "The carried-over receipt must be durable")
+	}
+
+	func testAdoptEarlierWelcomeReceipt_noWelcomeEverShown_stillOwesTheIntroduction() {
+		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
+		tour.migrateAndArmIfNeeded()
+		tour.adoptEarlierWelcomeReceipt(dayZeroWelcomeShown: false)
+		XCTAssertTrue(tour.isIntroductionOwed, "A user who never saw a Welcome must still be introduced")
+		XCTAssertNil(defaults.object(forKey: TourState.introductionShownKey))
+	}
+
+	func testAdoptEarlierWelcomeReceipt_withNoArmedTour_writesNothing() {
+		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
+		tour.adoptEarlierWelcomeReceipt(dayZeroWelcomeShown: true)
+		XCTAssertNil(
+			defaults.object(forKey: TourState.introductionShownKey),
+			"A returning install's defaults must be left untouched"
+		)
+	}
+
 	func testReplay_doesNotOweTheIntroduction_andClearsAnOutstandingOne() {
 		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
 		tour.start()
