@@ -1,10 +1,14 @@
 Build: 1.0.10 — Sign-in fix
 
-Test Focus: a small bug-fix release. Signing in should finish on its own, without you having to close the sign-in screen.
+Test Focus: a small bug-fix release. Signing in should finish on its own, without you having to close the sign-in screen. VoiceOver users can no longer reach the app hidden behind the Welcome or subscription screen, and the problem-report screen no longer sends you to the wrong Settings.
 
 - Sign in. Start signed out (Settings > Account > Manage account > Sign out if needed). Open Menu > Sign In and finish signing in with your account. The sign-in screen must close by itself within a few seconds, and Settings > Account must then show you as signed in. Please report it if the screen stays open, or if you have to close it yourself and only then find you are signed in.
 
 - Sign in again a few times. Sign out and sign back in at least three times, including once right after bringing the app back from the Home screen. The screen must close by itself every time.
+
+- VoiceOver: the Welcome screen and the subscription screen must hide the app behind them. Turn on VoiceOver (Settings > Accessibility > VoiceOver). Whenever either screen covers the app (for example the Welcome screen on a device that has never run the app), swipe right through everything on it: VoiceOver must read only that screen, never the browser's toolbar or address bar behind it. Tap Continue: the browser must be readable again. Any sheet opened from the subscription screen, such as Privacy Policy or Sign In, must stay readable.
+
+- Report a problem without Mail. On a device or Mac where Apple's Mail app has no email account, open Settings > About the app > Report a problem and tap Send email. The "Couldn't open Mail" message must no longer offer Open Settings. It must offer Copy report and OK, and say where to add an account: Settings > Apps > Mail > Mail Accounts on iPhone and iPad (Settings > Mail > Accounts on iOS 17), or Mail > Add Account on a Mac.
 
 - Mac: replay onboarding three times. The Models highlight must surround the CPU button; click it to open Models. Repeat after resizing the window.
 
