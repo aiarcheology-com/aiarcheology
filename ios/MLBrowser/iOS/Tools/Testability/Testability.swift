@@ -533,6 +533,8 @@ extension TestabilityIdentification {
 		case findingAlignmentCrosshair
 		// Onboarding tour coach-mark bubble.
 		case tourBubble
+		/// Actual overlay action region, used to verify toolbar/spotlight alignment.
+		case tourCutout
 		// App Messages banner container (AIA-0115)
 		case appMessageBanner
 	}
