@@ -501,6 +501,7 @@ class DependencyContainer {
 				subscriptionState.isSubscribed
 			},
 			authGateChanges: account.authState.$gate.eraseToAnyPublisher(),
+			accountChanges: account.authState.$accountIdentifier.eraseToAnyPublisher(),
 			subscriptionChanges: account.subscriptionState.$isSubscribed.eraseToAnyPublisher(),
 			provider: featureFlagProvider,
 			featureFlags: featureFlagsState,

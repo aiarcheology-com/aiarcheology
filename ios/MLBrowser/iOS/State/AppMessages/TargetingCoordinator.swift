@@ -8,9 +8,9 @@
 import Combine
 import Foundation
 
-/// Recomputes the ConfigCat targeting user on every auth-gate transition *and* every
-/// subscription-entitlement change (they move independently), then forces the two updates the
-/// SDK does not deliver by itself:
+/// Recomputes the ConfigCat targeting user on every auth-gate transition, every change of the
+/// signed-in account, *and* every subscription-entitlement change (they move independently), then
+/// forces the two updates the SDK does not deliver by itself:
 ///
 /// 1. `FeatureFlagsState.refresh()` — `setDefaultUser` fires no change hook, and the state
 ///    republishes only on an actual value change, so targeted config is re-fetched explicitly.
@@ -21,6 +21,14 @@ import Foundation
 /// The last-set context is persisted so a background refresh (Phase A notifications) can
 /// restore targeting without a signed-in UI session; sign-out clears it (fail closed: no
 /// persisted context ⇒ background syncs evaluate untargeted defaults only).
+///
+/// The account is observed separately from the gate (AIA-0522): ``AuthState`` suppresses equal
+/// gate values, so an in-place account switch (A signs out and B signs in without the gate leaving
+/// `.ready`) publishes nothing on the gate and would leave targeting on A. The same reason
+/// ``AuthState/accountIdentifier`` exists for analytics (AIA-0437).
+///
+/// `@Published` emits on `willSet`, so the sinks below must never re-read ``AuthState``: `identity`
+/// reads the auth backend directly, which already holds the incoming value.
 ///
 /// Deliberately not an `ObservableObject` — nothing renders from it; it is container-owned
 /// plumbing, like ``MessageReplyCoordinator``.
@@ -52,6 +60,7 @@ final class TargetingCoordinator {
 		identity: @escaping @MainActor () -> (userID: String?, isSignedIn: Bool),
 		isSubscribed: @escaping @MainActor () -> Bool,
 		authGateChanges: AnyPublisher<AuthGate, Never>,
+		accountChanges: AnyPublisher<String?, Never>,
 		subscriptionChanges: AnyPublisher<Bool, Never>,
 		provider: FeatureFlagProviding,
 		featureFlags: FeatureFlagsState,
@@ -69,9 +78,14 @@ final class TargetingCoordinator {
 		self.appVersion = appVersion
 		self.localeIdentifier = localeIdentifier
 
-		// Both publishers are `@Published` projections, which emit on willSet from the main
+		// All three publishers are `@Published` projections, which emit on willSet from the main
 		// actor; `assumeIsolated` mirrors MessageCenterState's foreground observer (AGENTS §4).
 		authGateChanges
+			.removeDuplicates()
+			.dropFirst()
+			.sink { [weak self] _ in MainActor.assumeIsolated { self?.recompute() } }
+			.store(in: &observations)
+		accountChanges
 			.removeDuplicates()
 			.dropFirst()
 			.sink { [weak self] _ in MainActor.assumeIsolated { self?.recompute() } }

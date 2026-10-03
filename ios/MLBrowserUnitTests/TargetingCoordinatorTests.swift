@@ -2,7 +2,7 @@
 //  TargetingCoordinatorTests.swift
 //  AI ArcheologyTests
 //
-//  Identity-driven ConfigCat targeting (AIA-0115).
+//  Identity-driven ConfigCat targeting (AIA-0115, AIA-0522).
 //
 
 import Combine
@@ -15,6 +15,7 @@ final class TargetingCoordinatorTests: XCTestCase {
 	private var suiteName: String!
 	private var defaults: UserDefaults!
 	private var gateSubject: CurrentValueSubject<AuthGate, Never>!
+	private var accountSubject: CurrentValueSubject<String?, Never>!
 	private var subscribedSubject: CurrentValueSubject<Bool, Never>!
 	private var userID: String?
 	private var isSignedIn = false
@@ -25,6 +26,7 @@ final class TargetingCoordinatorTests: XCTestCase {
 		suiteName = "TargetingCoordinatorTests.\(UUID().uuidString)"
 		defaults = UserDefaults(suiteName: suiteName)
 		gateSubject = CurrentValueSubject(.checkingSession)
+		accountSubject = CurrentValueSubject(nil)
 		subscribedSubject = CurrentValueSubject(false)
 		userID = nil
 		isSignedIn = false
@@ -78,6 +80,7 @@ final class TargetingCoordinatorTests: XCTestCase {
 			identity: { [weak self] in (self?.userID, self?.isSignedIn ?? false) },
 			isSubscribed: { [weak self] in self?.subscribed ?? false },
 			authGateChanges: gateSubject.eraseToAnyPublisher(),
+			accountChanges: accountSubject.eraseToAnyPublisher(),
 			subscriptionChanges: subscribedSubject.eraseToAnyPublisher(),
 			provider: provider,
 			featureFlags: flags,
@@ -178,6 +181,7 @@ final class TargetingCoordinatorTests: XCTestCase {
 			identity: { [weak self] in (self?.userID, self?.isSignedIn ?? false) },
 			isSubscribed: { false },
 			authGateChanges: gateSubject.eraseToAnyPublisher(),
+			accountChanges: accountSubject.eraseToAnyPublisher(),
 			subscriptionChanges: subscribedSubject.eraseToAnyPublisher(),
 			provider: provider,
 			featureFlags: flags,
@@ -199,5 +203,66 @@ final class TargetingCoordinatorTests: XCTestCase {
 		isSignedIn = false
 		gateSubject.send(.signedOut)
 		XCTAssertNil(center.nextMessage(for: .inApp), "sign-out hides interactive again")
+	}
+
+	/// AIA-0522: an in-place account switch (A to B while the gate stays `.ready`) publishes nothing
+	/// on the gate, so targeting must follow the account. Driven through a real ``AuthState`` so the
+	/// test proves the account publisher actually fires on that switch, not just that the
+	/// coordinator reacts to a subject the test pushes by hand.
+	///
+	/// `identity` reads the provider, never `authState`: `@Published` emits on willSet, so the
+	/// property still holds the outgoing value when the sink runs (production reads Clerk directly
+	/// for the same reason).
+	func test_inPlaceAccountSwitch_whileReady_retargetsToNewAccount() async {
+		let accountA = "user_A"
+		let accountB = "user_B"
+		let auth = MockAuthProvider(outcome: .ready, accountID: accountA)
+		let authState = AuthState(provider: auth)
+		let provider = RecordingFlagProvider()
+		let flags = FeatureFlagsState(provider: provider)
+		let center = MessageCenterState(
+			featureFlags: flags,
+			userContext: { (auth.accountIdentifier, auth.isSignedIn) },
+			serverRepliedIDs: { [] },
+			defaults: defaults,
+			foregroundNotification: Notification.Name("TargetingCoordinatorTests.foreground")
+		)
+		let coordinator = TargetingCoordinator(
+			identity: { (auth.accountIdentifier, auth.isSignedIn) },
+			isSubscribed: { false },
+			authGateChanges: authState.$gate.eraseToAnyPublisher(),
+			accountChanges: authState.$accountIdentifier.eraseToAnyPublisher(),
+			subscriptionChanges: subscribedSubject.eraseToAnyPublisher(),
+			provider: provider,
+			featureFlags: flags,
+			messageCenter: center,
+			defaults: defaults
+		)
+		_ = coordinator
+
+		await authState.start()
+		XCTAssertEqual(authState.gate, .ready)
+		guard case let .set(firstID, _)? = provider.calls.last else {
+			return XCTFail("expected targeting on A, got \(provider.calls)")
+		}
+		XCTAssertEqual(firstID, accountA)
+
+		var gateEmissions: [AuthGate] = []
+		let gateObservation = authState.$gate.dropFirst().sink { gateEmissions.append($0) }
+		defer { gateObservation.cancel() }
+
+		auth.setAccountIDForTesting(accountB)
+		await authState.refresh()
+
+		XCTAssertEqual(authState.gate, .ready)
+		XCTAssertEqual(gateEmissions, [], "the switch must stay in place: nothing published on the gate")
+		XCTAssertEqual(authState.accountIdentifier, accountB)
+		guard case let .set(lastID, _)? = provider.calls.last else {
+			return XCTFail("expected targeting on B, got \(provider.calls)")
+		}
+		XCTAssertEqual(lastID, accountB, "targeting must follow the account, not stay on A")
+		let data = defaults.data(forKey: TargetingCoordinator.contextDefaultsKey)
+		let context = data.flatMap { try? JSONDecoder().decode(TargetingCoordinator.Context.self, from: $0) }
+		XCTAssertEqual(context?.id, accountB, "the persisted background context must follow too")
 	}
 }
