@@ -1,0 +1,261 @@
+AI Archeology — ML Browser
+Copyright 2023-2026 AI Archeology
+
+This product includes software developed at AI Archeology.
+
+The source code of this repository is licensed under the Apache License,
+Version 2.0. See the LICENSE file.
+
+This NOTICE is a descriptive attribution record. Per Apache-2.0 section 4(d) a
+NOTICE file does not modify the licence, so it does not — and cannot — carve
+anything out of the grant. The operative statement of what the Apache-2.0 grant
+does and does not cover is the "Licence" section of README.md, together with the
+per-directory licence files it names.
+
+================================================================================
+1. Machine-learning model weights (first-party)
+================================================================================
+
+    ios/MLBrowser/iOS/Drivers/Demo Models/AIArcheology.mlpackage
+    ios/MLBrowser/iOS/Drivers/Demo Models/HroudaDetector15.mlpackage
+
+These are first-party trained weights and they ARE licensed under Apache-2.0
+along with the source code.
+
+Both halves of their provenance are accounted for, which is what a grant over
+trained weights actually rests on:
+
+  * Training data — the project's own.
+  * Base model — none. They were trained from scratch, not fine-tuned from the
+    CC-BY-SA-4.0 ADAF checkpoints excerpted in
+    Tests/NativeModelConverterTests/Fixtures/ADAF/, so that licence's ShareAlike
+    term does not reach them or anything built on them.
+
+Recorded explicitly because it is the one question a downstream user cannot
+answer for themselves by reading this repository.
+
+See ios/MLBrowser/iOS/Drivers/Demo Models/LICENSE.md
+
+================================================================================
+2. FastViT-T8 — Apple Core ML model gallery
+================================================================================
+
+    .apple-test-fixtures/FastViTT8F16.mlpackage (downloaded, not committed)
+
+This asset is Apple's, not AI Archeology's, and is NOT licensed under
+Apache-2.0. It is a test fixture, not an app demo. Unit tests load it directly;
+UI tests seed it only when explicitly requested through their launch configuration.
+Normal app launches (including normal Debug runs) do not seed it. The Xcode
+build embeds it only with AIA_INCLUDE_TEST_FIXTURES=YES in Debug; Release
+builds reject fixture opt-in. It is not part of the shipped application. The
+previous committed copy under Drivers/Demo Models/ remains in Git history.
+
+Provenance for the downloaded fixture and its historical committed copy:
+the fetcher requires byte-for-byte agreement with Apple's published download:
+
+    Source:  https://ml-assets.apple.com/coreml/models/Image/
+             ImageClassification/FastViT/FastViTT8F16.mlpackage.zip
+    Archive: 7,467,627 bytes
+             sha256 156df7e15dd384af30727f1eee4982602924b7e8ae37a65cefa1cfb325261508
+
+    Manifest.json
+             sha256 079d99b20fb992f0ef42a9fdc65546a5352c0a86af79cd0bfc766f622a30687d
+    Data/com.apple.CoreML/model.mlmodel
+             sha256 e6ae04eaff201eb75fc4af13001a1077b2dd371c87082fea81b0688a7b825bd7
+    Data/com.apple.CoreML/weights/weight.bin
+             sha256 a6aaba06b9664717edeeaa30cc0f72bdf90a481cea9eb573e217b8d3b2c99410
+
+    Fetch or verify with: scripts/fetch_apple_test_models.sh
+    Upstream research code:  https://github.com/apple/ml-fastvit
+
+The model's embedded licence metadata links directly to Apple's custom licence:
+    https://github.com/apple/ml-fastvit/blob/8af5928238cab99c45f64fc3e4e7b1516b8224ba/LICENSE
+
+Verified on 2026-09-14: the current Apple archive matches the recorded SHA-256,
+and all three then-committed model files matched its contents byte-for-byte. The
+licence permits redistribution and has no research-only restriction. Retain
+Apple's copyright notice, licence text and disclaimers when redistributing
+the complete, unmodified model. Apple's terms, not Apache-2.0, cover this asset.
+
+Unmodified upstream licence and referenced acknowledgements are included at:
+    ios/TestFixtures/FastViT/FastViT-LICENSE.txt
+    ios/TestFixtures/FastViT/FastViT-ACKNOWLEDGEMENTS.txt
+
+Keep these texts with distributions containing the model, including historical
+copies. See that directory's LICENSE.md and issue #906, A1.
+
+================================================================================
+3. ADAF checkpoint test fixtures — CC-BY-SA-4.0
+================================================================================
+
+    Tests/NativeModelConverterTests/Fixtures/ADAF/*
+
+Byte ranges excerpted from checkpoints published by the ADAF project under the
+Creative Commons Attribution-ShareAlike 4.0 International licence. These files
+are NOT covered by the Apache-2.0 grant; ShareAlike applies to them and to
+adaptations of them.
+
+Full attribution, the exact source files, the byte ranges taken and their
+digests are recorded in:
+
+    Tests/NativeModelConverterTests/Fixtures/ADAF/NOTICE.md
+
+================================================================================
+4. Vendored JavaScript test fixtures
+================================================================================
+
+Both files below are test fixtures for the offline map harness. Neither is part
+of the shipped application. Both are minified; the OpenLayers copy lost its
+licence header to the minifier, and BSD-2-Clause requires that notice be
+retained — reproducing it here restores it.
+
+--------------------------------------------------------------------------------
+Leaflet 1.9.4 — ios/MLBrowserUnitTests/Fixtures/MapHarness/leaflet-1.9.4.js
+https://leafletjs.com
+--------------------------------------------------------------------------------
+
+BSD 2-Clause License
+
+Copyright (c) 2010-2023, Volodymyr Agafonkin
+Copyright (c) 2010-2011, CloudMade
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+--------------------------------------------------------------------------------
+OpenLayers 10.3.1 — ios/MLBrowserUnitTests/Fixtures/MapHarness/ol-10.3.1.js
+https://openlayers.org
+--------------------------------------------------------------------------------
+
+BSD 2-Clause License
+
+Copyright 2005-present, OpenLayers Contributors
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+================================================================================
+5. Photographic assets — owner-confirmed images and gallery history
+================================================================================
+
+    ios/MLBrowser/iOS/Assets/Assets.xcassets/WelcomeBackground.imageset/WelcomeBackground.jpg
+    ExampleScreenshot.jpg
+
+On 2026-09-14, the repository owner confirmed ownership of both images in
+issue #906, A2. WelcomeBackground is an app asset; ExampleScreenshot.jpg is a
+repository screenshot, not established as an asset shipped in the application.
+This confirmation resolves their ownership provenance. It does not grant a new
+asset licence: both remain excluded from the source-code Apache-2.0 grant in
+README.md. The imageset's Contents.json is configuration, not excluded artwork.
+The limited permission to retain these images in a source-code fork is in
+specification/BRAND_POLICY.md; this NOTICE grants no app-distribution rights.
+
+The 22 photographs formerly under ios/MLBrowser/iOS/Gallery/Images/ were
+identified as copies of Apple's Image Gallery sample photographs; all 22 matched
+the sample archive byte-for-byte. The owner chose removal rather than pursuing
+redistribution rights. The sample is available at:
+    https://developer.apple.com/tutorials/sample-apps/imagegallery
+
+On 2026-09-14, the main and develop histories were rewritten to remove those
+photographs, preserving the branches' divergence. Verification found none of
+the 22 photo blobs or their paths reachable from either corrected branch.
+Obsolete Xcode resource references were also removed from main.
+
+On 2026-09-17, release tags 1.0.7 and 1.0.8 were repointed to the corresponding
+release commits in the cleaned history. Each release tree differs only by the
+22 removed photos and their 88 Xcode project entries; tag annotations, taggers,
+and timestamps were preserved. A fresh fetch verified that neither tag retains
+the photo blobs or paths. The temporary main-public and develop-public branches
+were deleted after their recovery bundle was independently restored and checked.
+
+The main-old and develop-old backup branches were also deleted on 2026-09-17,
+after their exact tips were independently restored from the private recovery
+bundle. A fresh fetch verified that main, develop and both release tags retain
+none of the 22 photo blobs or paths. Their tips and all rulesets were unchanged
+by the backup-branch deletion.
+
+GitHub Support confirmed removal of the affected historical pull-request
+references. On 2026-09-28, an independent GitHub API check found none of the
+368 affected refs and returned 404 for all 22 photo blobs. Pull-request bodies,
+reviews and comments remain; the affected Commits and Files changed views may
+error because their tracking references were removed.
+
+Cached views and source archives were not independently verified. Issue #906,
+A2 tracks the remaining publication checks. Private recovery bundles, including
+the original tags and deleted branch tips, are retained outside the tracked
+tree and must not be published. No rights to the Apple photographs are granted
+by their previous inclusion or by this removal.
+
+================================================================================
+6. Cloudflare Worker dependencies
+================================================================================
+
+cloudflare/findings-worker/ resolves an npm dependency graph with mixed
+licences, including MPL-2.0 and an optional LGPL-3.0-or-later development
+dependency. Those packages are not vendored in this repository and are not
+covered by this NOTICE. The resolved set is in that directory's package.json
+and lockfile.
+
+================================================================================
+7. Swift package dependencies
+================================================================================
+
+Resolved by Swift Package Manager at build time and not vendored in this
+repository. Their licences ship with their own distributions.
+
+================================================================================
+8. Trademarks
+================================================================================
+
+The brand policy at specification/BRAND_POLICY.md describes use of the
+AI Archeology and ML Browser names, the app logo and icon, and the official
+App Store identity. Apache-2.0 section 6 preserves customary references to
+the work's origin and reproduction of NOTICE; it does not grant general
+brand-use permission. This statement does not assert trademark registration.
+
+The app icon images under
+    ios/MLBrowser/iOS/Assets/Assets.xcassets/AppIcon.appiconset/*.png
+and the logo at
+    ios/MLBrowser/iOS/Assets/Assets.xcassets/AppLogo.imageset/AppLogo.png
+are excluded artwork in README.md's operative licence scope. The limited
+source-fork retention permission is in specification/BRAND_POLICY.md; this
+NOTICE grants no app-distribution rights. Section 5 names the excluded
+photographs. This NOTICE records the policy; it does not modify LICENSE.

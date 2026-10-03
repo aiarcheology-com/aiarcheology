@@ -136,170 +136,183 @@ struct SettingsForm: View {
 
 	var body: some View {
 		NavigationStack(path: $accountPath) {
-			Form {
-				// Remotely-delivered informational messages targeted at the Settings surface, pinned
-				// above the regular sections — only when the server actually delivered some.
-				if !messageCenter.settingsMessages.isEmpty {
-					messagesSection
+			settingsForm
+				.navigationDestination(for: AccountRoute.self) { route in
+					accountDestination(for: route)
 				}
-				annotationSection
-				webContentSection
-				mlBrowserSection
-				accountSection
-				backUpToggle
-				debugSection
-			}
-			.navigationDestination(for: AccountRoute.self) { route in
-				switch route {
-				case .profile:
-					// Embedded on the Settings stack (shares `accountPath`), so the profile's
-					// own Manage-account / Security sub-screens resolve correctly.
-					//
-					// The injected Delete account row answers App Review 5.1.1(v) (AIA-0891).
-					// Clerk's own delete affordance is buried in Security, four levels from
-					// Settings, and 1.5.1 exposes no way to move, hide or relabel it — so this
-					// adds a shallower second path to the same outcome instead of relocating the
-					// first. `.after(.signOut)` is a supported placement, and because a custom
-					// row pushes its `route` onto *this* stack, `AccountRoute.deleteAccount`
-					// resolves in the same switch rather than needing `.userProfileDestination`.
-					//
-					// The row renders in Clerk's theme foreground, not destructive red:
-					// `UserProfileRowView` hardcodes the label colour. Only the icon and title
-					// are ours.
-					//
-					// The title is an already-resolved `L10n` string, which Clerk wraps in a
-					// `LocalizedStringKey` and draws with `Text(_:bundle: nil)`. That is a main-
-					// bundle lookup of the *translated* text as a key; it misses, and SwiftUI
-					// falls back to rendering the key — the translation itself. Safe only because
-					// this catalog's keys are dotted identifiers, so no locale's copy can collide
-					// with one and get translated a second time.
-					UserProfileView(isDismissible: false, navigationPath: $accountPath)
-						.userProfileRows([
-							UserProfileCustomRow(
-								route: AccountRoute.deleteAccount,
-								title: L10n.Auth.Account.Delete.action,
-								icon: .system(name: "trash.fill"),
-								placement: .after(.signOut)
-							)
-						])
-						.environment(Clerk.shared)
-						.environment(\.clerkTheme, .app)
-				case .subscription:
-					SubscriptionStatusView(subscriptionState: subscriptionState)
-				case .deleteAccount:
-					DeleteAccountView(authState: authState)
-				}
-			}
-			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
-			.toolbar {
-				ToolbarItem(placement: .topBarTrailing) {
-					Button(action: {
-						do {
-							try settings.validate()
-							dismiss()
-						} catch ValidationError.invalidData(let message) {
-							self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
-													 message: Text(message),
-													 dismissButton: .default(Text(L10n.Common.ok)))
-						} catch {
-							self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
-													  message: Text(L10n.Alert.Error.unexpected),
-													  dismissButton: .default(Text(L10n.Common.ok)))
-						}
-					}) {
-						Text(L10n.Common.dismiss)
-							.bold()
-							.foregroundColor(.blue)
+				.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
+				.toolbar { settingsToolbar }
+				// Keyed on the loaded product, so this runs again if the products arrive from anywhere
+				// else — the paywall sheet presented from this same screen loads them too. A one-shot
+				// task that ran while the list was still empty would leave eligibility unresolved for
+				// the life of the sheet, leaving the date-only footer standing next to a paywall that
+				// is offering the trial.
+				.task(id: subscriptionState.products.first?.id) {
+					// Resolve what the account footer may promise (AIA-0562/0576): the product's trial
+					// offer and this Apple Account's eligibility for it — the same off-the-launch-path
+					// fetch the paywall runs. Gated to exactly the state that renders the free-access
+					// footnote, so every other Settings visit skips the StoreKit round trip.
+					guard subscriptionState.isPaymentsSurfaceEnabled,
+						  !subscriptionState.isSubscribed,
+						  freeAccessEndsOn != nil else { return }
+					if subscriptionState.products.isEmpty {
+						await subscriptionState.loadProducts()
 					}
-					.testability(Testability.Button.settingsDismiss)
-				}
-				
-				ToolbarItemGroup(placement: .keyboard) {
-					if isHistoryLimitFocused {
-						Spacer()
-						Button(L10n.Common.done) {
-							isHistoryLimitFocused = false
-						}
-						.testability(Testability.Button.settingsKeyboardDone)
+					if let subscription = subscriptionState.products.first?.subscription {
+						introOfferEligibility = await subscription.isEligibleForIntroOffer
 					}
 				}
-			}
-			// Keyed on the loaded product, so this runs again if the products arrive from anywhere
-			// else — the paywall sheet presented from this same screen loads them too. A one-shot
-			// task that ran while the list was still empty would leave eligibility unresolved for
-			// the life of the sheet, leaving the date-only footer standing next to a paywall that
-			// is offering the trial.
-			.task(id: subscriptionState.products.first?.id) {
-				// Resolve what the account footer may promise (AIA-0562/0576): the product's trial
-				// offer and this Apple Account's eligibility for it — the same off-the-launch-path
-				// fetch the paywall runs. Gated to exactly the state that renders the free-access
-				// footnote, so every other Settings visit skips the StoreKit round trip.
-				guard subscriptionState.isPaymentsSurfaceEnabled,
-					  !subscriptionState.isSubscribed,
-					  freeAccessEndsOn != nil else { return }
-				if subscriptionState.products.isEmpty {
-					await subscriptionState.loadProducts()
-				}
-				if let subscription = subscriptionState.products.first?.subscription {
-					introOfferEligibility = await subscription.isEligibleForIntroOffer
-				}
-			}
 
-			.onChange(of: mergedObservable) {
-				resetButtonColor = .red
+				.onChange(of: mergedObservable) {
+					resetButtonColor = .red
+				}
+				.alert(item: $alertItem) { item in
+					Self.createAlert(from: item)
+				}
+				// The findings-export share sheet stays at the root NavigationStack: its presenter
+				// (a `.background` UIViewControllerRepresentable) must outlive the user popping the
+				// pushed Reset screen mid-export, since the ZIP builds after a delay (AIA-0402/0448).
+				.activityShareSheet($findingsSharePayload)
+				.sheet(isPresented: $showSignIn) {
+					SignInSheet(authState: authState)
+						// Settings is itself a sheet, so this is a *second* boundary and needs its own
+						// re-injection (AGENTS.md §3). Without it the value falls back to `false` on Mac
+						// and the sign-in button silently does nothing — the mock path has no configured
+						// Clerk instance, so `SignInSheet` refuses to present rather than trapping.
+						.environment(\.usesRealAuth, usesRealAuth)
+				}
+				// Subscribing from the Subscription row (AIA-0556). `isRootGate: false`, because this is
+				// not a gate: dismissal is the sheet's own, so there are no account controls and no
+				// findings escape hatch — both exist only where the paywall is a dead end. No
+				// `authState` either: sign-out and account deletion live in the Clerk profile one row
+				// below.
+				//
+				// `statesExpiredFreeAccess` defaults false, which is what this presentation wants:
+				// someone opening this voluntarily has lost nothing, so the screen offers the
+				// subscription rather than announcing an ending. Note that it is otherwise the *same*
+				// screen as the wall now, benefit bullets and 3.1.2 copy included — AIA-0567 retired
+				// acceptance criterion 8, so this sheet is no longer develop's paywall and the
+				// free-access flag no longer makes it so.
+				//
+				// This is the one presentation that can be reached *during* an open window, so it is the
+				// one that must hand the paywall the day count: subscribing here is what forfeits the
+				// rest of the window (AIA-0623). The accessor, not a value — see the property.
+				.sheet(isPresented: $showPaywall) {
+					PaywallView(
+						subscriptionState: subscriptionState,
+						analytics: analytics,
+						freeAccessDaysRemaining: freeAccessDaysRemaining
+					)
+						// A second sheet boundary, like the sign-in sheet above: custom environment
+						// values do not reliably cross one on Mac (AGENTS.md §3), and the paywall reads
+						// this to decide whether its own sign-in sheet may build Clerk's view.
+						.environment(\.usesRealAuth, usesRealAuth)
+				}
+				// Signing out from inside Clerk's embedded profile dismisses the whole Settings sheet
+				// (AIA-0536): sign-out means "I am done with account things", and popping back to the
+				// Settings root would leave the user standing in a menu they did not ask for. Dismissal
+				// lands them back in the app — which is what sign-out now means everywhere. Gated on a
+				// non-empty path so an out-of-band session revocation while someone merely browses
+				// Settings does not yank the sheet from under them; before the cut-over none of this
+				// could happen, because sign-out tore the whole tree down.
+				.onChange(of: authState.effectiveContext) { _, context in
+					guard case .anonymous = context, !accountPath.isEmpty else { return }
+					dismiss()
+				}
+		}
+	}
+
+	@ViewBuilder
+	private var settingsForm: some View {
+		Form {
+			// Remotely-delivered informational messages targeted at the Settings surface, pinned
+			// above the regular sections — only when the server actually delivered some.
+			if !messageCenter.settingsMessages.isEmpty {
+				messagesSection
 			}
-			.alert(item: $alertItem) { item in
-				Self.createAlert(from: item)
-			}
-			// The findings-export share sheet stays at the root NavigationStack: its presenter
-			// (a `.background` UIViewControllerRepresentable) must outlive the user popping the
-			// pushed Reset screen mid-export, since the ZIP builds after a delay (AIA-0402/0448).
-			.activityShareSheet($findingsSharePayload)
-			.sheet(isPresented: $showSignIn) {
-				SignInSheet(authState: authState)
-					// Settings is itself a sheet, so this is a *second* boundary and needs its own
-					// re-injection (AGENTS.md §3). Without it the value falls back to `false` on Mac
-					// and the sign-in button silently does nothing — the mock path has no configured
-					// Clerk instance, so `SignInSheet` refuses to present rather than trapping.
-					.environment(\.usesRealAuth, usesRealAuth)
-			}
-			// Subscribing from the Subscription row (AIA-0556). `isRootGate: false`, because this is
-			// not a gate: dismissal is the sheet's own, so there are no account controls and no
-			// findings escape hatch — both exist only where the paywall is a dead end. No
-			// `authState` either: sign-out and account deletion live in the Clerk profile one row
-			// below.
+			annotationSection
+			webContentSection
+			mlBrowserSection
+			accountSection
+			backUpToggle
+			debugSection
+		}
+	}
+
+	@ViewBuilder
+	private func accountDestination(for route: AccountRoute) -> some View {
+		switch route {
+		case .profile:
+			// Embedded on the Settings stack (shares `accountPath`), so the profile's
+			// own Manage-account / Security sub-screens resolve correctly.
 			//
-			// `statesExpiredFreeAccess` defaults false, which is what this presentation wants:
-			// someone opening this voluntarily has lost nothing, so the screen offers the
-			// subscription rather than announcing an ending. Note that it is otherwise the *same*
-			// screen as the wall now, benefit bullets and 3.1.2 copy included — AIA-0567 retired
-			// acceptance criterion 8, so this sheet is no longer develop's paywall and the
-			// free-access flag no longer makes it so.
+			// The injected Delete account row answers App Review 5.1.1(v) (AIA-0891).
+			// Clerk's own delete affordance is buried in Security, four levels from
+			// Settings, and 1.5.1 exposes no way to move, hide or relabel it — so this
+			// adds a shallower second path to the same outcome instead of relocating the
+			// first. `.after(.signOut)` is a supported placement, and because a custom
+			// row pushes its `route` onto *this* stack, `AccountRoute.deleteAccount`
+			// resolves in the same switch rather than needing `.userProfileDestination`.
 			//
-			// This is the one presentation that can be reached *during* an open window, so it is the
-			// one that must hand the paywall the day count: subscribing here is what forfeits the
-			// rest of the window (AIA-0623). The accessor, not a value — see the property.
-			.sheet(isPresented: $showPaywall) {
-				PaywallView(
-					subscriptionState: subscriptionState,
-					analytics: analytics,
-					freeAccessDaysRemaining: freeAccessDaysRemaining
-				)
-					// A second sheet boundary, like the sign-in sheet above: custom environment
-					// values do not reliably cross one on Mac (AGENTS.md §3), and the paywall reads
-					// this to decide whether its own sign-in sheet may build Clerk's view.
-					.environment(\.usesRealAuth, usesRealAuth)
+			// The row renders in Clerk's theme foreground, not destructive red:
+			// `UserProfileRowView` hardcodes the label colour. Only the icon and title
+			// are ours.
+			//
+			// The title is an already-resolved `L10n` string, which Clerk wraps in a
+			// `LocalizedStringKey` and draws with `Text(_:bundle: nil)`. That is a main-
+			// bundle lookup of the *translated* text as a key; it misses, and SwiftUI
+			// falls back to rendering the key — the translation itself. Safe only because
+			// this catalog's keys are dotted identifiers, so no locale's copy can collide
+			// with one and get translated a second time.
+			UserProfileView(isDismissible: false, navigationPath: $accountPath)
+				.userProfileRows([
+					UserProfileCustomRow(
+						route: AccountRoute.deleteAccount,
+						title: L10n.Auth.Account.Delete.action,
+						icon: .system(name: "trash.fill"),
+						placement: .after(.signOut)
+					)
+				])
+				.environment(Clerk.shared)
+				.environment(\.clerkTheme, .app)
+		case .subscription:
+			SubscriptionStatusView(subscriptionState: subscriptionState)
+		case .deleteAccount:
+			DeleteAccountView(authState: authState, isPaymentsSurfaceEnabled: subscriptionState.isPaymentsSurfaceEnabled)
+		}
+	}
+
+	@ToolbarContentBuilder
+	private var settingsToolbar: some ToolbarContent {
+		ToolbarItem(placement: .topBarTrailing) {
+			Button(action: {
+				do {
+					try settings.validate()
+					dismiss()
+				} catch ValidationError.invalidData(let message) {
+					self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
+											 message: Text(message),
+											 dismissButton: .default(Text(L10n.Common.ok)))
+				} catch {
+					self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
+											  message: Text(L10n.Alert.Error.unexpected),
+											  dismissButton: .default(Text(L10n.Common.ok)))
+				}
+			}) {
+				Text(L10n.Common.dismiss)
+					.bold()
+					.foregroundColor(.blue)
 			}
-			// Signing out from inside Clerk's embedded profile dismisses the whole Settings sheet
-			// (AIA-0536): sign-out means "I am done with account things", and popping back to the
-			// Settings root would leave the user standing in a menu they did not ask for. Dismissal
-			// lands them back in the app — which is what sign-out now means everywhere. Gated on a
-			// non-empty path so an out-of-band session revocation while someone merely browses
-			// Settings does not yank the sheet from under them; before the cut-over none of this
-			// could happen, because sign-out tore the whole tree down.
-			.onChange(of: authState.effectiveContext) { _, context in
-				guard case .anonymous = context, !accountPath.isEmpty else { return }
-				dismiss()
+			.testability(Testability.Button.settingsDismiss)
+		}
+
+		ToolbarItemGroup(placement: .keyboard) {
+			if isHistoryLimitFocused {
+				Spacer()
+				Button(L10n.Common.done) {
+					isHistoryLimitFocused = false
+				}
+				.testability(Testability.Button.settingsKeyboardDone)
 			}
 		}
 	}
@@ -360,23 +373,7 @@ struct SettingsForm: View {
 	@ViewBuilder
 	private var webContentSection: some View {
 		Section(header: Text(L10n.Settings.Section.webContent)) {
-			HStack {
-				Text(L10n.Settings.defaultPage)
-				Spacer()
-				TextField(defaultWebPlaceholder, text: Binding(
-					get: { settings.defaultPage?.absoluteString ?? "" },
-					set: { newValue in
-						settings.defaultPage = newValue.isEmpty ? nil : URL(string: newValue)
-					}
-				)) { changed in
-					if changed {
-						defaultWebPlaceholder = ""
-					}
-				}
-				.testability(Testability.TextField.settingsDefaultPage)
-				.multilineTextAlignment(.trailing)
-				.foregroundColor(.gray)
-			}
+			defaultPageRow
 			Toggle(L10n.Settings.reopenLastPage, isOn: $settings.reopenLastPage)
 				.testability(Testability.Toggle.settingsReopenLastPage)
 			historyLimitRow
@@ -398,6 +395,26 @@ struct SettingsForm: View {
 		}
 	}
 
+	private var defaultPageRow: some View {
+		HStack {
+			Text(L10n.Settings.defaultPage)
+			Spacer()
+			TextField(defaultWebPlaceholder, text: Binding(
+				get: { settings.defaultPage?.absoluteString ?? "" },
+				set: { newValue in
+					settings.defaultPage = newValue.isEmpty ? nil : URL(string: newValue)
+				}
+			)) { changed in
+				if changed {
+					defaultWebPlaceholder = ""
+				}
+			}
+			.testability(Testability.TextField.settingsDefaultPage)
+			.multilineTextAlignment(.trailing)
+			.foregroundColor(.gray)
+		}
+	}
+
 	private var historyLimitRow: some View {
 		HStack {
 			Text(L10n.Settings.historyLimit)
@@ -416,9 +433,18 @@ struct SettingsForm: View {
 		HStack {
 			Text(L10n.Settings.deleteCache)
 			Spacer()
+			// Confirmed first (AIA-0331): `clean()` wipes every cookie and all website data, not
+			// just the cache, and cannot be undone. Same item-based alert as Restore Defaults.
 			Button(action: {
-				WebCacheCleaner.clean()
-				cleanCacheButtonColor = .blue
+				alertItem = AlertItem(
+					title: Text(L10n.Alert.DeleteCache.title),
+					message: Text(L10n.Alert.DeleteCache.message),
+					primaryButton: .destructive(Text(L10n.Common.delete)) {
+						WebCacheCleaner.clean()
+						cleanCacheButtonColor = .blue
+					},
+					secondaryButton: .cancel()
+				)
 			}) {
 				Text(L10n.Common.delete)
 					.bold()
@@ -471,67 +497,72 @@ struct SettingsForm: View {
 			.testability(Testability.NavigationLink.settingsReset)
 		}
 
-		Section(footer: subscriptionFootnote.map { Text($0) }) {
-			subscriptionRow
+		// No Subscription section at all with payments off (AIA-0955): the app sells nothing, so a
+		// row naming a plan — "Free Beta" until then — is subscription UI with nothing behind it.
+		if subscriptionState.isPaymentsSurfaceEnabled {
+			Section(footer: subscriptionFootnote.map { Text($0) }) {
+				subscriptionRow
+			}
 		}
 	}
 
 	/// Subscription status and its entry points (AIA-0343), rendered in the ML Browser section.
 	///
-	/// Three states, unchanged by the move: subscribed pushes the status submenu (status, renewal,
-	/// manage/cancel via Apple, restore); payments on with nothing owned opens the paywall — before
-	/// AIA-0556 this was inert, which only became a problem once the free-access window let an
-	/// unentitled user reach Settings at all; payments off shows the "Free Beta" row, where there is
-	/// no gate to pass and no product to buy, so tapping could only lead nowhere.
+	/// Two states, rendered only with payments on: subscribed pushes the status submenu (status,
+	/// renewal, manage/cancel via Apple, restore); nothing owned opens the paywall — before AIA-0556
+	/// this was inert, which only became a problem once the free-access window let an unentitled
+	/// user reach Settings at all. Payments off used to show a "Free Beta" row here; since AIA-0955
+	/// the whole section is withheld instead.
 	@ViewBuilder
 	private var subscriptionRow: some View {
-		if subscriptionState.isPaymentsSurfaceEnabled && subscriptionState.isSubscribed {
-			NavigationLink(value: AccountRoute.subscription) {
-				HStack {
-					Text(L10n.Auth.Account.subscription)
-					Spacer()
-					Text(subscriptionState.isInTrial ? L10n.Subscription.trial : L10n.Paywall.active)
-						.foregroundColor(.secondary)
-				}
-			}
-			.testability(Testability.NavigationLink.settingsSubscription)
-		} else if subscriptionState.isPaymentsSurfaceEnabled {
-			// A plain tappable row rather than a `Button`, for the reason `replayOnboardingRow`
-			// records below (AIA-0333): inside a `List`, the button style renders the *label* gray
-			// and overrides `.foregroundStyle`, so this row alone read as disabled while every other
-			// row in Settings — including the two other branches of this very property — drew its
-			// label in the primary colour. `.buttonStyle(.plain)` fixes the colour but shrinks the
-			// tap target to the text, so the fix is the same one already proven in this file: a full
-			// -width `.contentShape` plus `.onTapGesture` (AIA-0623).
-			//
-			// `.accessibilityElement(children: .combine)` is the one thing `replayOnboardingRow` does
-			// not need and this row does: that row holds a single `Text`, this one holds two, and
-			// without combining them there is no single element for the identifier and the button
-			// trait to land on — the row would surface as two labelled leaves and the UI tests would
-			// lose it. The trait is what keeps it announced as a control now that it is not a
-			// `Button`.
-			HStack {
-				Text(L10n.Auth.Account.subscription)
-				Spacer()
-				// "Not subscribed" also covers a lapse/refund before the gate refreshes.
-				Text(L10n.Subscription.notSubscribed)
-					.foregroundColor(.secondary)
-			}
-			.contentShape(Rectangle())
-			.onTapGesture {
-				showPaywall = true
-			}
-			.accessibilityElement(children: .combine)
-			.accessibilityAddTraits(.isButton)
-			.testability(Testability.Button.settingsUpgrade)
+		if subscriptionState.isSubscribed {
+			subscribedStatusRow
 		} else {
+			upgradeSubscriptionRow
+		}
+	}
+
+	private var subscribedStatusRow: some View {
+		NavigationLink(value: AccountRoute.subscription) {
 			HStack {
 				Text(L10n.Auth.Account.subscription)
 				Spacer()
-				Text(L10n.Auth.Account.freeBeta)
+				Text(subscriptionState.isInTrial ? L10n.Subscription.trial : L10n.Paywall.active)
 					.foregroundColor(.secondary)
 			}
 		}
+		.testability(Testability.NavigationLink.settingsSubscription)
+	}
+
+	/// A plain tappable row rather than a `Button`, for the reason `replayOnboardingRow`
+	/// records below (AIA-0333): inside a `List`, the button style renders the *label* gray
+	/// and overrides `.foregroundStyle`, so this row alone read as disabled while every other
+	/// row in Settings — including the two other branches of this very property — drew its
+	/// label in the primary colour. `.buttonStyle(.plain)` fixes the colour but shrinks the
+	/// tap target to the text, so the fix is the same one already proven in this file: a full
+	/// -width `.contentShape` plus `.onTapGesture` (AIA-0623).
+	///
+	/// `.accessibilityElement(children: .combine)` is the one thing `replayOnboardingRow` does
+	/// not need and this row does: that row holds a single `Text`, this one holds two, and
+	/// without combining them there is no single element for the identifier and the button
+	/// trait to land on — the row would surface as two labelled leaves and the UI tests would
+	/// lose it. The trait is what keeps it announced as a control now that it is not a
+	/// `Button`.
+	private var upgradeSubscriptionRow: some View {
+		HStack {
+			Text(L10n.Auth.Account.subscription)
+			Spacer()
+			// "Not subscribed" also covers a lapse/refund before the gate refreshes.
+			Text(L10n.Subscription.notSubscribed)
+				.foregroundColor(.secondary)
+		}
+		.contentShape(Rectangle())
+		.onTapGesture {
+			showPaywall = true
+		}
+		.accessibilityElement(children: .combine)
+		.accessibilityAddTraits(.isButton)
+		.testability(Testability.Button.settingsUpgrade)
 	}
 
 	/// The Reset actions, reached via the "Reset" entry in the ML Browser section. "Remove Findings"
@@ -771,83 +802,8 @@ struct SettingsForm: View {
 	private var accountSection: some View {
 		Section(header: Text(L10n.Auth.Account.title)) {
 			Group {
-				// Signed out is a first-class state now (AIA-0536): the app is usable without an
-				// account, so Settings offers sign-in instead of assuming it already happened.
-				if case .anonymous = authState.effectiveContext {
-					Button {
-						showSignIn = true
-					} label: {
-						HStack {
-							Text(L10n.Auth.SignIn.button)
-							Spacer()
-						}
-					}
-					.testability(Testability.Button.settingsSignIn)
-				} else if case .suspended = authState.effectiveContext {
-					// Signed in but unverifiable: the account must stay visible — vanishing reads as
-					// broken (AIA-0536). Inert: Clerk cannot render the profile without a connection,
-					// and offline its cache does not even yield the email, hence the generic label.
-					HStack {
-						Text(L10n.Auth.Account.title)
-						Spacer()
-						Text(L10n.Auth.Offline.title)
-							.foregroundColor(.secondary)
-							// On the leaf Text, not the HStack: a container's identifier surfaces
-							// unreliably in the accessibility tree; a Text always does.
-							.testability(Testability.Label.settingsAccountOffline)
-					}
-				} else if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
-					HStack {
-						Text(email)
-							.foregroundColor(.secondary)
-							.lineLimit(1)
-							.truncationMode(.middle)
-						Spacer()
-					}
-				}
-
-				// Requires a *validated* account, not merely the real-auth path: Clerk's profile has
-				// nothing to show for a signed-out user, and after the cut-over that is reachable here.
-				if usesRealAuth, case .validated = authState.effectiveContext {
-					// Push Clerk's profile onto the Settings stack (not a sheet): Settings is
-					// itself a sheet, and a sheet-over-a-sheet presents-then-auto-dismisses.
-					// Value-based push so UserProfileView and its own sub-screens (Manage
-					// account / Security) all navigate on the SAME path — see the matching
-					// `.navigationDestination` on the Form. (A closure NavigationLink would
-					// push the profile off-path, and its sub-rows would fail to resolve.)
-					NavigationLink(value: AccountRoute.profile) {
-						Text(L10n.Auth.Account.manage)
-					}
-					.testability(Testability.NavigationLink.settingsManageAccount)
-
-					// Deleting the account does not stop Apple billing (AIA-0528). This is the only
-					// delete path a *subscribed* user can walk, since the paywall's own account
-					// controls are unreachable once entitled.
-					//
-					// It used to be the only place the app could say so at all, because Clerk owned
-					// the sole delete confirmation and its copy is not ours to amend. AIA-0891 added
-					// one we do own — `DeleteAccountView`, reached from the row this section pushes
-					// to — and its confirmation carries the same warning. This note is kept rather
-					// than retired: Clerk's own delete under Security is still reachable, still
-					// unamendable, and a subscriber who walks that path would otherwise be told
-					// nothing about billing at all.
-					//
-					// Placed directly under the row it warns about rather than in the section footer:
-					// that footer already carries the free-access/trial line, sits two pushes from
-					// Clerk's delete button, and composing the two would mean a second variant for the
-					// in-trial case. One key, adjacent to the control, says it once.
-					//
-					// Rendered only when subscribed — telling a non-subscriber their subscription
-					// continues would be its own untruth — and `.secondary` is restated on the leaf
-					// because the rows' `.foregroundColor(.primary)` below would otherwise make a note
-					// read as a statement.
-					if subscriptionState.isSubscribed {
-						Text(L10n.Auth.Account.deleteBillingNote)
-							.font(.footnote)
-							.foregroundStyle(.secondary)
-							.testability(Testability.Label.settingsDeleteBillingNote)
-					}
-				}
+				accountIdentityRows
+				manageAccountRows
 			}
 			// On the **rows**, not on the `Section`. The rows need it: the signed-out row is a
 			// `Button`, and inside a `List` SwiftUI draws a button's label in the tint colour, which
@@ -861,6 +817,90 @@ struct SettingsForm: View {
 			// restating a grey on the header: a literal would be a second opinion about a colour the
 			// system owns, and would drift from the other five headers the first time it changed.
 			.foregroundColor(.primary)
+		}
+	}
+
+	@ViewBuilder
+	private var accountIdentityRows: some View {
+		// Signed out is a first-class state now (AIA-0536): the app is usable without an
+		// account, so Settings offers sign-in instead of assuming it already happened.
+		if case .anonymous = authState.effectiveContext {
+			Button {
+				showSignIn = true
+			} label: {
+				HStack {
+					Text(L10n.Auth.SignIn.button)
+					Spacer()
+				}
+			}
+			.testability(Testability.Button.settingsSignIn)
+		} else if case .suspended = authState.effectiveContext {
+			// Signed in but unverifiable: the account must stay visible — vanishing reads as
+			// broken (AIA-0536). Inert: Clerk cannot render the profile without a connection,
+			// and offline its cache does not even yield the email, hence the generic label.
+			HStack {
+				Text(L10n.Auth.Account.title)
+				Spacer()
+				Text(L10n.Auth.Offline.title)
+					.foregroundColor(.secondary)
+					// On the leaf Text, not the HStack: a container's identifier surfaces
+					// unreliably in the accessibility tree; a Text always does.
+					.testability(Testability.Label.settingsAccountOffline)
+			}
+		} else if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
+			HStack {
+				Text(email)
+					.foregroundColor(.secondary)
+					.lineLimit(1)
+					.truncationMode(.middle)
+				Spacer()
+			}
+		}
+	}
+
+	@ViewBuilder
+	private var manageAccountRows: some View {
+		// Requires a *validated* account, not merely the real-auth path: Clerk's profile has
+		// nothing to show for a signed-out user, and after the cut-over that is reachable here.
+		if usesRealAuth, case .validated = authState.effectiveContext {
+			// Push Clerk's profile onto the Settings stack (not a sheet): Settings is
+			// itself a sheet, and a sheet-over-a-sheet presents-then-auto-dismisses.
+			// Value-based push so UserProfileView and its own sub-screens (Manage
+			// account / Security) all navigate on the SAME path — see the matching
+			// `.navigationDestination` on the Form. (A closure NavigationLink would
+			// push the profile off-path, and its sub-rows would fail to resolve.)
+			NavigationLink(value: AccountRoute.profile) {
+				Text(L10n.Auth.Account.manage)
+			}
+			.testability(Testability.NavigationLink.settingsManageAccount)
+
+			// Deleting the account does not stop Apple billing (AIA-0528). This is the only
+			// delete path a *subscribed* user can walk, since the paywall's own account
+			// controls are unreachable once entitled.
+			//
+			// It used to be the only place the app could say so at all, because Clerk owned
+			// the sole delete confirmation and its copy is not ours to amend. AIA-0891 added
+			// one we do own — `DeleteAccountView`, reached from the row this section pushes
+			// to — and its confirmation carries the same warning. This note is kept rather
+			// than retired: Clerk's own delete under Security is still reachable, still
+			// unamendable, and a subscriber who walks that path would otherwise be told
+			// nothing about billing at all.
+			//
+			// Placed directly under the row it warns about rather than in the section footer:
+			// that footer already carries the free-access/trial line, sits two pushes from
+			// Clerk's delete button, and composing the two would mean a second variant for the
+			// in-trial case. One key, adjacent to the control, says it once.
+			//
+			// Rendered only when subscribed — telling a non-subscriber their subscription
+			// continues would be its own untruth — and `.secondary` is restated on the leaf
+			// because the rows' `.foregroundColor(.primary)` below would otherwise make a note
+			// read as a statement.
+			if subscriptionState.isSubscribed {
+				Text(L10n.Auth.Account.deleteBillingNote)
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.testability(Testability.Label.settingsDeleteBillingNote)
+			}
 		}
 	}
 

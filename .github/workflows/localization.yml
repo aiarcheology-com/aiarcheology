@@ -3,12 +3,15 @@ name: Localization
 # Guards the String Catalog against the drift that took coverage to 26% (AIA-0572): keys land in
 # English, nothing complains, and the gap compounds one pull request at a time.
 #
-# Deliberately NOT part of Harmonize. That job needs macOS and a full Xcode build (~3 min) and is
-# skipped for many paths; this check is pure Python, runs on Ubuntu in seconds, and fires on every
+# Deliberately NOT part of Harmonize. That job needs macOS and a full Xcode build (~3 min);
+# this check is pure Python, runs on Ubuntu in seconds, and fires on every
 # change that can introduce an untranslated string — including a .swift change, since a new
 # `Text("…")` literal is exactly how an untranslated string gets in.
 on:
-  # Deliberately NOT path-filtered, because this check is REQUIRED to merge into develop.
+  # Deliberately NOT path-filtered, so this check can be required for PRs into develop and main.
+  # As of 2026-09-14, ruleset 20571733 ("Localization must pass") is disabled. AIA-0900 tracks
+  # enabling it after the repository becomes public and the other Actions checks are ready.
+  # Keep the job name "Every string translated in every locale" stable: the ruleset references it.
   #
   # A required check that is path-filtered deadlocks: GitHub waits for a status that a skipped
   # workflow never reports, so any pull request not touching the filtered paths sits at
@@ -17,7 +20,7 @@ on:
   #
   # A run on an unrelated pull request re-verifies an unchanged catalog and is therefore a no-op,
   # but it costs about nine seconds of Ubuntu — no Xcode, no simulator, no network beyond checkout
-  # — and buys real enforcement. That trade is why the filter is gone.
+  # — and ensures a result is available when enforcement is enabled. That trade is why the filter is gone.
   pull_request:
     branches-ignore:
       - "copilot/**"
@@ -32,9 +35,9 @@ jobs:
     name: Every string translated in every locale
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 

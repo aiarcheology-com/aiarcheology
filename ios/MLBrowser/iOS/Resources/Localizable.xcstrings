@@ -1750,6 +1750,438 @@
         }
       }
     },
+    "alert.deleteCache.message" : {
+      "comment" : "Confirmation message before deleting all website data from Settings",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "سيؤدي هذا إلى حذف جميع ملفات تعريف الارتباط والتخزين المحلي والبيانات المخزنة مؤقتًا لكل مواقع الويب. سيتم تسجيل خروجك من مواقع الويب. لا يمكن التراجع عن هذا الإجراء."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এটি প্রতিটি ওয়েবসাইটের সমস্ত কুকি, লোকাল স্টোরেজ এবং ক্যাশ করা ডেটা মুছে ফেলবে। আপনি ওয়েবসাইটগুলি থেকে সাইন আউট হয়ে যাবেন। এটি পূর্বাবস্থায় ফেরানো যাবে না।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smažou se všechny cookies, místní úložiště a data v mezipaměti všech webových stránek. Budete z webových stránek odhlášeni. Tuto akci nelze vrátit zpět."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dadurch werden alle Cookies, der lokale Speicher und zwischengespeicherte Daten aller Websites gelöscht. Sie werden von Websites abgemeldet. Dies kann nicht rückgängig gemacht werden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This deletes all cookies, local storage and cached data for every website. You will be signed out of websites. This cannot be undone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se eliminarán todas las cookies, el almacenamiento local y los datos en caché de todos los sitios web. Se cerrará tu sesión en los sitios web. Esta acción no se puede deshacer."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "با این کار همه کوکی‌ها، فضای ذخیره‌سازی محلی و داده‌های موجود در حافظه پنهان همه وب‌سایت‌ها حذف می‌شود. از وب‌سایت‌ها خارج خواهید شد. این کار قابل بازگشت نیست."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous les cookies, le stockage local et les données en cache de tous les sites web seront supprimés. Vous serez déconnecté des sites web. Cette action est irréversible."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פעולה זו מוחקת את כל קובצי ה-Cookie, האחסון המקומי והנתונים השמורים במטמון של כל האתרים. החיבור שלך לאתרים ינותק. לא ניתן לבטל פעולה זו."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इससे सभी वेबसाइटों की सभी कुकीज़, लोकल स्टोरेज और कैश किया गया डेटा हट जाएगा। आप वेबसाइटों से साइन आउट हो जाएँगे। इसे पूर्ववत नहीं किया जा सकता।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ez törli az összes webhely összes sütijét, helyi tárolóját és gyorsítótárazott adatát. A webhelyek kijelentkeztetik Önt. Ez nem vonható vissza."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spowoduje to usunięcie wszystkich plików cookie, pamięci lokalnej i danych z pamięci podręcznej wszystkich witryn. Nastąpi wylogowanie z witryn. Tej operacji nie można cofnąć."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Будут удалены все файлы cookie, локальное хранилище и кэшированные данные всех веб-сайтов. Вы выйдете из учётных записей на веб-сайтах. Это действие нельзя отменить."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Буде видалено всі файли cookie, локальне сховище та кешовані дані всіх вебсайтів. Ви вийдете з облікових записів на вебсайтах. Цю дію не можна скасувати."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这将删除所有网站的全部 Cookie、本地存储和缓存数据。您将从各网站退出登录。此操作无法撤销。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這將刪除所有網站的全部 Cookie、本機儲存空間和快取資料。您將從各網站登出。此操作無法復原。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這將刪除所有網站的全部 Cookie、本機儲存空間和快取資料。您將會從各網站登出。此操作無法還原。"
+          }
+        }
+      }
+    },
+    "alert.deleteCache.title" : {
+      "comment" : "Confirmation title before deleting all website data from Settings",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حذف بيانات مواقع الويب؟"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ওয়েবসাইটের ডেটা মুছবেন?"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smazat data webových stránek?"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Websitedaten löschen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete website data?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Eliminar los datos de sitios web?"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "داده‌های وب‌سایت‌ها حذف شود؟"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer les données des sites web ?"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "למחוק את נתוני האתרים?"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "वेबसाइट डेटा हटाएँ?"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Törli a webhelyadatokat?"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usunąć dane witryn?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить данные веб-сайтов?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Видалити дані вебсайтів?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除网站数据？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除網站資料？"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除網站資料？"
+          }
+        }
+      }
+    },
+    "alert.deleteModel.message" : {
+      "comment" : "Confirmation message before deleting a model from the drawer. %@ is the model's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ستتم إزالة «%@» وإعداداته من ML Browser. لا يمكن التراجع عن هذا الإجراء."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” এবং এর সেটিংস ML Browser থেকে সরিয়ে দেওয়া হবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model „%@“ a jeho nastavení budou z ML Browseru odstraněny. Tuto akci nelze vrátit zpět."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ und seine Einstellungen werden aus ML Browser entfernt. Dies kann nicht rückgängig gemacht werden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” and its settings will be removed from ML Browser. This cannot be undone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» y su configuración se eliminarán de ML Browser. Esta acción no se puede deshacer."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» و تنظیمات آن از ML Browser حذف می‌شود. این کار قابل بازگشت نیست."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "« %@ » et ses réglages seront supprimés de ML Browser. Cette action est irréversible."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "המודל “%@” וההגדרות שלו יוסרו מ-ML Browser. לא ניתן לבטל פעולה זו."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” और उसकी सेटिंग्स ML Browser से हटा दी जाएँगी। इसे पूर्ववत नहीं किया जा सकता।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A(z) „%@” modell és a beállításai törlődnek az ML Browserből. Ez nem vonható vissza."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model „%@” i jego ustawienia zostaną usunięte z ML Browser. Tej operacji nie można cofnąć."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Модель «%@» и её настройки будут удалены из ML Browser. Это действие нельзя отменить."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Модель «%@» та її налаштування буде видалено з ML Browser. Цю дію не можна скасувати."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”及其设置将从 ML Browser 中移除。此操作无法撤销。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」及其設定將從 ML Browser 中移除。此操作無法復原。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」及其設定將會從 ML Browser 中移除。此操作無法還原。"
+          }
+        }
+      }
+    },
+    "alert.deleteModel.title" : {
+      "comment" : "Confirmation title before deleting a model from the drawer",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حذف النموذج؟"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "মডেলটি মুছবেন?"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smazat model?"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modell löschen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete model?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Eliminar el modelo?"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مدل حذف شود؟"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer le modèle ?"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "למחוק את המודל?"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "मॉडल हटाएँ?"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Törli a modellt?"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usunąć model?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить модель?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Видалити модель?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除模型？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除模型？"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除模型？"
+          }
+        }
+      }
+    },
     "alert.error.title" : {
       "comment" : "Generic error alert title",
       "extractionState" : "manual",
@@ -4120,113 +4552,6 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "刪除帳戶不會取消訂閱。請在 App Store 取消。"
-          }
-        }
-      }
-    },
-    "auth.account.freeBeta" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "نسخة تجريبية مجانية"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "ফ্রি বিটা"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Bezplatná beta"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Kostenlose Beta"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Free Beta"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Beta gratuita"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "بتای رایگان"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Bêta gratuite"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "בטא חינם"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "मुफ़्त बीटा"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Ingyenes béta"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Bezpłatna beta"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Бесплатная бета"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Безкоштовна бета"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "免费测试版"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "免費 Beta 版"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "免費測試版"
           }
         }
       }
@@ -58334,114 +58659,6 @@
         }
       }
     },
-    "tab.examples" : {
-      "comment" : "Tab label for examples/gallery screen",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "أمثلة"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "উদাহরণ"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Příklady"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beispiele"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Examples"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ejemplos"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "نمونه‌ها"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exemples"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "דוגמאות"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "उदाहरण"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Példák"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Przykłady"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Примеры"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Приклади"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "示例"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "範例"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "範例"
-          }
-        }
-      }
-    },
     "tab.web" : {
       "comment" : "Tab label for web browser screen",
       "extractionState" : "manual",
@@ -60775,6 +60992,114 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "welcome.introBody" : {
+      "comment" : "Welcome screen when payments are off (AIA-0955): what the app does. Must not mention prices, trials, subscriptions or how long anything is free.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تصفّح أي صفحة ويب ودع نماذج الاكتشاف على جهازك تشير إلى ما تجده. ستُريك جولة قصيرة كيف يتم ذلك."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "যেকোনো ওয়েব পেজ ব্রাউজ করুন এবং ডিভাইসে চলা শনাক্তকরণ মডেলগুলোকে যা পায় তা দেখিয়ে দিতে দিন। একটি ছোট ট্যুর আপনাকে দেখাবে কীভাবে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Procházejte libovolnou webovou stránku a nechte detekční modely v zařízení ukázat, co najdou. Krátká prohlídka vám ukáže jak."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Öffne eine beliebige Webseite und lass Erkennungsmodelle direkt auf deinem Gerät zeigen, was sie finden. Eine kurze Tour zeigt dir, wie es geht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse any web page and let on-device detection models point out what they find. A short tour shows you how."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Navega por cualquier página web y deja que los modelos de detección de tu dispositivo señalen lo que encuentran. Un breve recorrido te muestra cómo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "هر صفحهٔ وبی را مرور کنید و بگذارید مدل‌های تشخیص روی دستگاهتان آنچه را پیدا می‌کنند نشان دهند. یک گشت کوتاه روش کار را نشانتان می‌دهد."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Parcourez n’importe quelle page web et laissez les modèles de détection de votre appareil signaler ce qu’ils trouvent. Une courte visite vous montre comment."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "גלשו בכל דף אינטרנט ותנו למודלי הזיהוי שבמכשיר להצביע על מה שהם מוצאים. סיור קצר יראה לכם איך."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "कोई भी वेब पेज ब्राउज़ करें और डिवाइस पर चलने वाले पहचान मॉडल को जो मिले वह दिखाने दें। एक छोटा टूर आपको तरीका दिखाएगा।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Böngéssz bármilyen weboldalt, és hagyd, hogy az eszközödön futó felismerő modellek megmutassák, mit találnak. Egy rövid bemutató megmutatja, hogyan."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Przeglądaj dowolną stronę internetową i pozwól modelom wykrywania działającym na urządzeniu wskazać, co znajdą. Krótka prezentacja pokaże Ci, jak to zrobić."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Открывайте любую веб-страницу, и модели распознавания на устройстве укажут, что они нашли. Короткий тур покажет, как это работает."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Відкривайте будь-яку вебсторінку, і моделі розпізнавання на пристрої вкажуть, що вони знайшли. Короткий тур покаже, як це працює."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "浏览任意网页，让设备上的检测模型标出它们发现的内容。简短的导览会告诉你怎么做。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "瀏覽任何網頁，讓裝置上的偵測模型標示出它們找到的內容。簡短的導覽會告訴你如何操作。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "瀏覽任何網頁，讓裝置上的偵測模型標示出它們找到的內容。簡短的導覽會教你如何操作。"
           }
         }
       }

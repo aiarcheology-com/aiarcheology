@@ -359,10 +359,17 @@ final class BrowserStateTests: XCTestCase {
 
     func testConsumePendingSessionState_IsOneShot() async throws {
         try await loadTestPage()
+        try XCTUnwrap(webView.interactionState, "The loaded page must provide a restorable session")
+        navigationWaiter.onFinish = nil
+
+        // Only the rebuild rung captures a session. Advance through reload to rebuild,
+        // matching the recovery path that invalidates the outgoing web view.
+        sut.retryRequested()
+        sut.retryRequested()
+        try XCTUnwrap(sut.rebuildRequest, "Precondition: recovery requested a rebuild")
         sut.webViewInvalidated()
 
-        let first = sut.consumePendingSessionState()
-        try XCTSkipIf(first == nil, "WKWebView reported no interactionState — nothing to consume.")
+        try XCTUnwrap(sut.consumePendingSessionState(), "The rebuild must capture the loaded session")
 
         // `makeUIView` runs on any SwiftUI identity change (a tab or mode switch, not only a
         // recovery rebuild), so a session left sitting here would eventually be restored over a

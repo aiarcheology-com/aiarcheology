@@ -138,7 +138,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 	@discardableResult
 	private func applyFrame(_ coordinator: DetectionCoordinator, results: [DetectionResult]) async -> UIImage {
 		let snapshot = UIImage()
-		coordinator.ingest(snapshot: snapshot)
+		coordinator.ingest(snapshot: snapshot, provenance: .unknown)
 		await awaitDetectSuspended()
 		resumeDetect(with: results)
 		await settle(
@@ -184,7 +184,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 			hasDetectors: { [weak self] in self?.detectorsRegistered ?? true }
 		)
 
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await settle(
 			until: { coordinator.appliedFrame?.results.first?.params.entityId == partial.params.entityId },
 			"the incremental result was not applied before detection completed"
@@ -213,7 +213,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		)
 		coordinator.bindGuards(isInteracting: { false }, isCapturing: { false })
 
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await settle(until: { self.appliedResultEvents.count == 1 }, "partial result did not apply")
 		resumeDetect(with: [final])
 		await settle(until: { self.appliedResultEvents.count == 2 }, "final result did not apply")
@@ -226,7 +226,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 
 	func testLiveInteractionGuard_discards() async {
 		let coordinator = makeCoordinator()
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await awaitDetectSuspended()
 		// Flip the LIVE guard var only — do NOT call setInteracting — so the apply-time read alone
 		// must discard the result.
@@ -239,7 +239,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 
 	func testLiveCaptureGuard_discards() async {
 		let coordinator = makeCoordinator()
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await awaitDetectSuspended()
 		capturing = true
 		resumeDetect(with: [cannedResult()])
@@ -250,7 +250,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 
 	func testStaleGeneration_discards() async {
 		let coordinator = makeCoordinator()
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await awaitDetectSuspended()
 		// Geometry changed after the pass began: its generation is now stale, result must not apply.
 		coordinator.geometryChanged()
@@ -296,7 +296,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 
 		// The swap begins: the old driver is unregistered and the new one is still loading.
 		detectorsRegistered = false
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await awaitDetectSuspended()
 		resumeDetect(with: [])
 		await settleForDiscard()
@@ -326,7 +326,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		XCTAssertNil(coordinator.appliedFrame, "arrange: nothing is displayed yet")
 
 		let first = UIImage()
-		coordinator.ingest(snapshot: first)
+		coordinator.ingest(snapshot: first, provenance: .unknown)
 		await awaitDetectSuspended()
 		resumeDetect(with: [])
 		// `settle(until:)`, never `settleForDiscard()`: this waits for something to HAPPEN, and the
@@ -338,7 +338,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		XCTAssertEqual(coordinator.appliedFrame?.results.count, 0, "a classifier has no boxes to show")
 
 		let second = UIImage()
-		coordinator.ingest(snapshot: second)
+		coordinator.ingest(snapshot: second, provenance: .unknown)
 		await awaitDetectSuspended()
 		resumeDetect(with: [])
 		await settle(
@@ -360,7 +360,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		await applyFrame(coordinator, results: [cannedResult()])
 		XCTAssertEqual(coordinator.appliedFrame?.results.count, 1)
 
-		coordinator.ingest(snapshot: UIImage())
+		coordinator.ingest(snapshot: UIImage(), provenance: .unknown)
 		await awaitDetectSuspended()
 		resumeDetect(with: [])
 		await settle(
@@ -379,7 +379,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		detectorsRegistered = false
 
 		let snapshot = UIImage()
-		coordinator.ingest(snapshot: snapshot)
+		coordinator.ingest(snapshot: snapshot, provenance: .unknown)
 		await awaitDetectSuspended()
 		resumeDetect(with: [cannedResult()])
 		await settle(
@@ -657,5 +657,129 @@ final class AnnotationSoundCategoryTests: XCTestCase {
 			.ambient,
 			"L10n.Configuration.soundOutputNote promises detection sounds follow Silent mode; only .ambient honours that"
 		)
+	}
+}
+
+// MARK: - AIA-0846: a detection frame keeps the provenance of its own snapshot
+
+@MainActor
+final class DetectionFrameProvenanceTests: XCTestCase {
+
+	private var pending: [(
+		image: UIImage,
+		partial: @MainActor @Sendable ([DetectionResult]) -> Void,
+		finish: CheckedContinuation<[DetectionResult], Never>
+	)] = []
+	private var frames: [AppliedDetectionFrame] = []
+
+	private func provenance(_ revision: UInt64) -> SnapshotProvenance {
+		let url = URL(string: "https://example.org/page-\(revision)")
+		return SnapshotProvenance(
+			context: CaptureContext(documentRevision: revision, sourceURL: url, liveURL: url, urlRevision: 0),
+			isCoherent: true
+		)
+	}
+
+	private func result() -> DetectionResult {
+		(observations: [DetectedObject(
+			uuid: UUID(),
+			labels: [DetectedObject.Label(identifier: "artifact", confidence: 0.9)],
+			confidence: 0.9,
+			boundingBox: CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2),
+			regionIndex: 0
+		)], params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
+	}
+
+	private func untilPassStarted(count: Int) async {
+		let deadline = Date().addingTimeInterval(2)
+		while pending.count < count, Date() < deadline { await Task.yield() }
+		XCTAssertEqual(pending.count, count, "detection pass did not start")
+	}
+
+	private func untilFrames(_ count: Int) async {
+		let deadline = Date().addingTimeInterval(2)
+		while frames.count < count, Date() < deadline { await Task.yield() }
+		XCTAssertEqual(frames.count, count, "frame was not applied")
+	}
+
+	/// Pass A is in flight while B and then C arrive; C replaces B in the one-slot queue. The queue
+	/// re-runs the SAME pass closure for C, so a provenance captured from `ingest`'s arguments instead
+	/// of from the queued item would label C's image with A's page.
+	func testCoalescedSnapshots_EachFrameCarriesItsOwnImageAndProvenance() async {
+		let coordinator = DetectionCoordinator(
+			detect: { [weak self] image, _, partial in
+				await withCheckedContinuation { finish in
+					self?.pending.append((image, partial, finish))
+				}
+			},
+			onFrameChanged: { [weak self] frame in
+				if let frame { self?.frames.append(frame) }
+			}
+		)
+		let imageA = UIImage()
+		let imageB = UIImage()
+		let imageC = UIImage()
+
+		coordinator.ingest(snapshot: imageA, provenance: provenance(1))
+		await untilPassStarted(count: 1)
+		coordinator.ingest(snapshot: imageB, provenance: provenance(2))
+		coordinator.ingest(snapshot: imageC, provenance: provenance(3))
+
+		pending[0].partial([result()])
+		await untilFrames(1)
+		pending[0].finish.resume(returning: [result()])
+		await untilFrames(2)
+		await untilPassStarted(count: 2)
+		XCTAssertTrue(pending[1].image === imageC, "the newest snapshot won the coalesce")
+		pending[1].partial([result()])
+		await untilFrames(3)
+		pending[1].finish.resume(returning: [result()])
+		await untilFrames(4)
+
+		XCTAssertEqual(frames.map(\.provenance), [provenance(1), provenance(1), provenance(3), provenance(3)])
+		XCTAssertTrue(frames[0].image === imageA && frames[1].image === imageA)
+		XCTAssertTrue(frames[2].image === imageC && frames[3].image === imageC)
+	}
+
+	/// The screen reads the confidence-filtered copy of the frame, so the filter must not drop it.
+	func testFilteredFrame_PreservesProvenance() {
+		let frame = AppliedDetectionFrame(image: UIImage(), results: [result()], provenance: provenance(7))
+		XCTAssertEqual(DetectionPresentation.filteredFrame(frame)?.provenance, provenance(7))
+	}
+
+	/// A frame built outside the snapshot pipeline has no established source.
+	func testFrameDefault_IsUnknownProvenance() {
+		XCTAssertEqual(AppliedDetectionFrame(image: UIImage(), results: []).provenance, .unknown)
+	}
+
+	// MARK: The detected-pick reacquire bound (WebScreen's alignment session)
+
+	func testReacquirePolicy_FirstDriftReacquires_SecondRecordsTheFramesOwnURL() {
+		var policy = RetainedFrameReacquirePolicy()
+		let context = provenance(1).context
+
+		XCTAssertEqual(policy.frameIsUnsettled(context: context), .reacquire)
+		XCTAssertEqual(
+			policy.frameIsUnsettled(context: context),
+			.recordURLOnly(URL(string: "https://example.org/page-1")),
+			"a page that keeps moving must not send the user round the same loop forever"
+		)
+	}
+
+	func testReacquirePolicy_ResetStartsANewAlignmentSession() {
+		var policy = RetainedFrameReacquirePolicy()
+		_ = policy.frameIsUnsettled(context: provenance(1).context)
+
+		policy.reset()
+
+		XCTAssertEqual(policy.frameIsUnsettled(context: provenance(1).context), .reacquire)
+	}
+
+	/// With no known document there is no URL to fall back to, so it always reacquires — never the
+	/// live page's URL. Each attempt needs a new tap, so this cannot loop by itself.
+	func testReacquirePolicy_UnknownDocument_AlwaysReacquires() {
+		var policy = RetainedFrameReacquirePolicy()
+		XCTAssertEqual(policy.frameIsUnsettled(context: nil), .reacquire)
+		XCTAssertEqual(policy.frameIsUnsettled(context: nil), .reacquire)
 	}
 }

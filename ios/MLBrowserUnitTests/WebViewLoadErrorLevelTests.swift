@@ -10,6 +10,7 @@
 
 import XCTest
 import UIKit
+import SwiftUI
 import WebKit
 @testable import ML_Browser
 
@@ -312,5 +313,159 @@ final class PageContextTests: XCTestCase {
 		let context = LoggingPolicy.pageContext(URL(string: "about:blank"))
 		XCTAssertNil(context["page_host"])
 		XCTAssertNil(context["page_url"])
+	}
+}
+
+final class InitialWebPageDecisionTests: XCTestCase {
+	private func decide(
+		hasSharedLink: Bool = false,
+		launchFixtureURL: URL? = nil,
+		onboardingPage: String? = nil,
+		reopenLastPage: Bool = false,
+		lastPage: String? = nil,
+		defaultPage: String? = nil,
+		currentInput: String = "https://www.google.com",
+		currentFileURL: URL? = nil
+	) -> InitialWebPageDecision {
+		InitialWebPageDecision.decide(InitialWebPageContext(
+			hasSharedLink: hasSharedLink,
+			launchFixtureURL: launchFixtureURL,
+			onboardingPage: onboardingPage,
+			reopenLastPage: reopenLastPage,
+			lastPage: lastPage,
+			defaultPage: defaultPage,
+			currentInput: currentInput,
+			currentFileURL: currentFileURL
+		))
+	}
+
+	func testSharedLinkBeatsEveryLaterDefault() {
+		let fixture = URL(fileURLWithPath: "/tmp/fixture.html")
+		let decision = decide(
+			hasSharedLink: true,
+			launchFixtureURL: fixture,
+			onboardingPage: "https://example.com/tour",
+			reopenLastPage: true,
+			lastPage: "https://example.com/last",
+			defaultPage: "https://example.com/home"
+		)
+		XCTAssertEqual(decision.kind, .sharedLink)
+		XCTAssertEqual(decision.load, .unchanged)
+		XCTAssertNil(decision.historyPage)
+		XCTAssertFalse(decision.clearsOnboardingPage)
+	}
+
+	func testFixtureLoadsWithoutHistoryAndDoesNotReloadTheSameFile() {
+		let fixture = URL(fileURLWithPath: "/tmp/fixture.html")
+		let fresh = decide(launchFixtureURL: fixture)
+		XCTAssertEqual(fresh.kind, .localFixture)
+		XCTAssertEqual(fresh.load, .file(fixture))
+		XCTAssertNil(fresh.historyPage)
+
+		let alreadyThere = decide(launchFixtureURL: fixture, currentFileURL: fixture)
+		XCTAssertEqual(alreadyThere.load, .unchanged)
+	}
+
+	func testOnboardingRecordsHistoryAndClearsTheOneShotPage() {
+		let page = "https://example.com/tour"
+		let decision = decide(onboardingPage: page, currentInput: page)
+		XCTAssertEqual(decision.kind, .onboarding)
+		XCTAssertEqual(decision.load, .unchanged, "the same URL must not bump the load generation")
+		XCTAssertEqual(decision.historyPage, page)
+		XCTAssertTrue(decision.clearsOnboardingPage)
+
+		let different = decide(onboardingPage: page)
+		XCTAssertEqual(different.load, .page(page))
+	}
+
+	func testLastPageIsUsedOnlyWhenReopenIsOn() {
+		let last = "https://example.com/last"
+		let home = "https://example.com/home"
+		let reopened = decide(reopenLastPage: true, lastPage: last, defaultPage: home)
+		XCTAssertEqual(reopened.kind, .last)
+		XCTAssertEqual(reopened.load, .page(last))
+		XCTAssertNil(reopened.historyPage)
+
+		let leftOff = decide(reopenLastPage: false, lastPage: last, defaultPage: home)
+		XCTAssertEqual(leftOff.kind, .home)
+		XCTAssertEqual(leftOff.historyPage, home)
+	}
+
+	/// AIA-0875: the restore is announced to `BrowserState` only for a load this decision issues, so
+	/// the commit that load produces is the one taken as the app's own saved address.
+	func testOnlyAnIssuedLastPageLoadIsARestore() {
+		let last = "https://example.com/last?c=4471000,5334000"
+		XCTAssertTrue(decide(reopenLastPage: true, lastPage: last).restoresLastPage)
+		XCTAssertFalse(
+			decide(reopenLastPage: true, lastPage: last, currentInput: last).restoresLastPage,
+			"no load is issued, so there is no navigation to attribute the restore to"
+		)
+		XCTAssertFalse(decide(reopenLastPage: false, lastPage: last, defaultPage: last).restoresLastPage,
+		               "the home page is not a saved address, even at the same URL")
+		XCTAssertFalse(decide(hasSharedLink: true, reopenLastPage: true, lastPage: last).restoresLastPage)
+		XCTAssertFalse(decide(onboardingPage: last, reopenLastPage: true, lastPage: last).restoresLastPage)
+	}
+
+	func testMissingLastPageFallsThroughToHome() {
+		let decision = decide(reopenLastPage: true, defaultPage: "https://example.com/home")
+		XCTAssertEqual(decision.kind, .home)
+	}
+
+	func testAboutBlankAndAMissingHomeStayBlank() {
+		XCTAssertEqual(decide(defaultPage: "About:Blank").kind, .blank)
+		XCTAssertEqual(decide().kind, .blank)
+		XCTAssertEqual(decide().load, .unchanged)
+	}
+}
+
+final class ObservationLayoutTests: XCTestCase {
+	func testVisionTopEdgeMapsToTheTopOfTheView() {
+		let box = CGRect(x: 0, y: 0.5, width: 1, height: 0.5)
+		let size = CGSize(width: 200, height: 100)
+		let center = DetectionViewport.center(ofNormalized: box, in: size)
+		XCTAssertEqual(center.x, 100, accuracy: 0.001)
+		XCTAssertEqual(center.y, 25, accuracy: 0.001)
+		let boxSize = DetectionViewport.size(ofNormalized: box, in: size)
+		XCTAssertEqual(boxSize.width, 200, accuracy: 0.001)
+		XCTAssertEqual(boxSize.height, 50, accuracy: 0.001)
+	}
+
+	func testLabelSitsInsideABoxThatHasNoRoomAbove() {
+		let tight = ObservationLabelPlacement.decide(
+			center: CGPoint(x: 40, y: 10),
+			boxSize: CGSize(width: 20, height: 20),
+			viewWidth: 100,
+			labelClearance: 24
+		)
+		XCTAssertFalse(tight.hasRoomAbove)
+		XCTAssertFalse(tight.anchorsTrailing)
+
+		let clear = ObservationLabelPlacement.decide(
+			center: CGPoint(x: 40, y: 80),
+			boxSize: CGSize(width: 20, height: 20),
+			viewWidth: 100,
+			labelClearance: 24
+		)
+		XCTAssertTrue(clear.hasRoomAbove)
+	}
+
+	func testLabelGrowsInwardFromTheRightEdge() {
+		let inward = ObservationLabelPlacement.decide(
+			center: CGPoint(x: 80, y: 50),
+			boxSize: CGSize(width: 20, height: 10),
+			viewWidth: 100,
+			labelClearance: 24
+		)
+		XCTAssertTrue(inward.anchorsTrailing)
+		XCTAssertEqual(inward.anchor, .topTrailing)
+
+		let onTheBoundary = ObservationLabelPlacement.decide(
+			center: CGPoint(x: 60, y: 50),
+			boxSize: CGSize(width: 0, height: 0),
+			viewWidth: 100,
+			labelClearance: 24
+		)
+		XCTAssertFalse(onTheBoundary.anchorsTrailing)
+		XCTAssertEqual(onTheBoundary.anchor, .topLeading)
 	}
 }

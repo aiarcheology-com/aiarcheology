@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 14
+	var version = 15
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -48,6 +48,8 @@ struct LaunchConfig: Encodable {
 	/// i.e. a genuine first install. Every UI-test launch wipes its own storage, so this is the
 	/// only way to reach the expired wall.
 	var freeAccessAnchorAgeDays: Int?
+	/// Seed that anchor with its day-0 screen not yet shown (AIA-0955). `nil` = shown.
+	var freeAccessDay0Unshown: Bool?
 	/// A shared-finding link delivered at launch, as if tapped (AIA-0835).
 	var sharedLinkURL: String?
 
@@ -117,6 +119,8 @@ enum AID {
 	static let findingsDismiss = "_AIA:Button.FindingsDismiss"
 	static let configEnabledToggle = "_AIA:Toggle.SideMenuCellEnabled"
 	static let configDelete = "_AIA:Button.SideMenuDeleteConfiguration"
+	static let configDeleteMenu = "_AIA:Button.SideMenuDeleteConfigurationMenu"
+	static let configDeleteConfirm = "_AIA:Button.SideMenuDeleteConfigurationConfirm"
 	static let configModelTypePicker = "_AIA:Picker.ConfigurationFormModelType"
 	static let configFormDismiss = "_AIA:Button.ConfigurationFormDismiss"
 	static let configDetectionConfidence = "_AIA:Slider.ConfigurationFormDetectionConfidence"
@@ -146,6 +150,7 @@ enum AID {
 	static let settingsHistoryLimit = "_AIA:TextField.SettingsHistoryLimit"
 	static let settingsHistory = "_AIA:NavigationLink.SettingsHistory"
 	static let settingsAbout = "_AIA:NavigationLink.SettingsAbout"
+	static let settingsSubscription = "_AIA:NavigationLink.SettingsSubscription"
 	static let settingsReset = "_AIA:NavigationLink.SettingsReset"
 	static let settingsReplayOnboarding = "_AIA:Button.SettingsReplayOnboarding"
 	static let settingsDeleteCache = "_AIA:Button.SettingsDeleteCache"
@@ -208,6 +213,9 @@ enum AID {
 	static let welcomeContent = "_AIA:View.WelcomeContent"
 	static let welcomeContinue = "_AIA:Button.WelcomeContinue"
 	static let welcomeHeadline = "_AIA:Label.WelcomeHeadline"
+	static let welcomePriceNote = "_AIA:Label.WelcomePriceNote"
+	static let welcomeTerms = "_AIA:Label.WelcomeTerms"
+	static let welcomeIntroBody = "_AIA:Label.WelcomeIntroBody"
 
 	// App Messages (AIA-0115). The banner container, its title, and the informational dismiss carry
 	// bare identifiers; the reply buttons and About rows carry a `label:` (the button id / message

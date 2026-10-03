@@ -76,6 +76,9 @@ extension TestabilityIdentification {
 		case sideMenuClose
 		case sideMenuConfigurationCell
 		case sideMenuDeleteConfiguration
+		// AIA-0330: the row's context-menu Delete, and the delete-model confirmation's action
+		case sideMenuDeleteConfigurationMenu
+		case sideMenuDeleteConfigurationConfirm
 		// Configuration Form
 		case configurationFormConversionLog
 		case configurationFormExport
@@ -303,8 +306,6 @@ extension TestabilityIdentification {
 		// Onboarding Tour
 		case tourSkip
 		case tourNext
-		// Grid View
-		case gridViewRemoveItem
 		// Dismiss
 		case appDescriptionDismiss
 	}
@@ -407,8 +408,6 @@ extension TestabilityIdentification {
 		case appDescriptionReportProblem
 		// Downloader
 		case downloaderListItem
-		// Grid View
-		case gridViewDetailItem
 	}
 	
 	enum Label: String, TestabilityIdentification {
@@ -441,6 +440,14 @@ extension TestabilityIdentification {
 		/// days". Identified so a test can read back the granted length the screen actually rendered,
 		/// which is remote-configurable, without matching localized copy.
 		case welcomeHeadline
+		/// The welcome screen's price sentence (AIA-0955). Identified so the payments-off
+		/// introduction can be shown to carry none, and the free-access offer shown to still carry it.
+		case welcomePriceNote
+		/// Each of the welcome screen's "no payment today" reassurances (AIA-0955), for the same
+		/// presence/absence pair as ``welcomePriceNote``.
+		case welcomeTerms
+		/// The payments-off introduction's body (AIA-0955), proof the neutral variant is on screen.
+		case welcomeIntroBody
 		/// The annotation sound screen's standing note that playback follows Silent mode
 		/// (AIA-0720). Always present; iOS exposes no API for the Silent switch, so this note is
 		/// the only coverage that case can have.
@@ -475,10 +482,6 @@ extension TestabilityIdentification {
 		case findingDetailPage
 	}
 	
-	enum Stepper: String, TestabilityIdentification {
-		case gridViewColumnStepper
-	}
-	
 	enum ProgressView: String, TestabilityIdentification {
 		case downloadDetailProgress
 		case listItemProgress
@@ -488,7 +491,6 @@ extension TestabilityIdentification {
 		case sideMenuConfigurationList
 		case downloaderList
 		case browsingHistoryList
-		case gridViewList
 		case catalogResults
 	}
 	

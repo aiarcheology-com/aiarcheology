@@ -139,3 +139,6 @@ scripts/m3a_parity_spike/results/figures/
 .wrangler/
 /ios/MLBrowser.xcodeproj/xcshareddata/xcodecloud
 .adaf-conversion-benchmark-assets/
+
+# On-demand Apple test models (scripts/fetch_apple_test_models.sh)
+.apple-test-fixtures/

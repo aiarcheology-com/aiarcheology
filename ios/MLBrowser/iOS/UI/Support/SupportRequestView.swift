@@ -100,86 +100,26 @@ struct SupportRequestView: View {
 
 	private let recipient = SupportRequest.supportEmailAddress
 
-	init(initialCategory: SupportCategory? = nil, contextURL: String? = nil) {
+	/// The picker's choices — without the purchase category while payments are off (AIA-0955).
+	private let categories: [SupportCategory]
+
+	/// `isPaymentsSurfaceEnabled` is required rather than defaulted: every presenter has the
+	/// launch-captured value, and a default would quietly offer the purchase category in a
+	/// payments-off session from whichever presenter forgot to pass it.
+	init(initialCategory: SupportCategory? = nil, contextURL: String? = nil, isPaymentsSurfaceEnabled: Bool) {
 		self.initialCategory = initialCategory
 		self.contextURL = contextURL
+		self.categories = SupportCategory.offered(isPaymentsSurfaceEnabled: isPaymentsSurfaceEnabled)
 		_category = State(initialValue: initialCategory ?? .bug)
 	}
 
 	var body: some View {
 		NavigationStack {
 			Form {
-				Section(L10n.Support.categoryPrompt) {
-					Picker(L10n.Support.categoryPrompt, selection: $category) {
-						ForEach(SupportCategory.allCases) { option in
-							Text(option.displayName).tag(option)
-						}
-					}
-					.labelsHidden()
-					.pickerStyle(.inline)
-				}
-
-				// Conditional on a usable key, and withdrawn rather than downgraded without one:
-				// the only alternative to sealing is exporting the log in the clear, which is the
-				// thing AIA-0643 exists to stop. A build with no configured key therefore offers no
-				// log at all, and does it quietly — no alert, no error row, nothing for the user to
-				// act on, because there is nothing they could do about it. See ``SupportLogSealer``.
-				if Self.sealer != nil {
-					Section {
-						Toggle(L10n.Support.includeApplicationLog, isOn: $includeApplicationLog)
-							.testability(Testability.Toggle.supportRequestIncludeApplicationLog)
-						Text(L10n.Support.ApplicationLog.explanation)
-							.foregroundStyle(.blue)
-							.fixedSize(horizontal: false, vertical: true)
-						Toggle(L10n.Support.sendUnredactedData, isOn: $sendUnredactedApplicationLog)
-							.disabled(!includeApplicationLog)
-							.testability(Testability.Toggle.supportRequestSendUnredactedData)
-						Text(L10n.Support.sendUnredactedDataExplanation)
-							.foregroundStyle(.secondary)
-							.fixedSize(horizontal: false, vertical: true)
-						if includeApplicationLog {
-							applicationLogShareRow
-						}
-					}
-				}
-
-				Section {
-					// `PhotosPicker` runs out-of-process, so it needs no photo-library permission
-					// and no NSPhotoLibraryUsageDescription: the app only ever receives the single
-					// image the user hands it. Notably NOT `Gallery/PhotoPicker.swift`, which is a
-					// gallery importer — it copies the pick into Documents and appends it to the
-					// user's gallery, which filing a bug report must not do.
-					// Read once here, on the main actor, and capture the result. `attachment` is
-					// `@State` and therefore main-actor isolated, while `PhotosPicker`'s label
-					// closure is `@Sendable` — reading it inside warns today and is an error under
-					// Swift 6 language mode. A captured `Bool` crosses that boundary safely and the
-					// rendered label is identical (AIA-0634).
-					let hasAttachment = attachment != nil
-					PhotosPicker(selection: $pickedPhoto, matching: .images, photoLibrary: .shared()) {
-						Label(
-							hasAttachment ? L10n.Support.attachedScreenshot : L10n.Support.attachScreenshot,
-							systemImage: hasAttachment ? "checkmark.circle.fill" : "photo.badge.plus"
-						)
-					}
-				}
-
-				Section {
-					// Disabled while composing: gathering the log is no longer instant (it reads up
-					// to five MiB from disk and redacts it), and a second tap would build a second
-					// request and try to present a second composer over the first.
-					Button(L10n.Support.compose) {
-						Task { await compose() }
-					}
-					.buttonStyle(.borderedProminent)
-					.tint(.green)
-					.frame(maxWidth: .infinity, alignment: .center)
-					.disabled(isComposing)
-				} footer: {
-					Text(L10n.Support.privacyNote)
-						.font(.body)
-						.foregroundStyle(.primary)
-						.fixedSize(horizontal: false, vertical: true)
-				}
+				categorySection
+				applicationLogSection
+				screenshotSection
+				composeSection
 			}
 			.navigationTitle(L10n.Support.title)
 			.navigationBarTitleDisplayMode(.inline)
@@ -208,32 +148,96 @@ struct SupportRequestView: View {
 			// (`openSettingsURLString` only opens THIS app's page, and `App-Prefs:root=MAIL` is
 			// undocumented and an App Review risk). So offer the two things that do work: the
 			// Settings app, and a clipboard copy so the report survives either way.
-			.alert(L10n.Support.MailUnavailable.title, isPresented: $showMailUnavailableNotice) {
-				Button(L10n.Support.openSettings) { openAppSettings() }
-				Button(L10n.Support.copyReport) { copyReport() }
-				Button(L10n.Common.ok, role: .cancel) { dismiss() }
-			} message: {
-				Text(
-					mailtoOpened
-						? L10n.Support.MailUnavailable.message(recipient)
-						: L10n.Support.MailUnavailable.messageNoMailApp(recipient)
+			.modifier(SupportRequestNotices(
+				recipient: recipient,
+				mailtoOpened: mailtoOpened,
+				showMailUnavailableNotice: $showMailUnavailableNotice,
+				showCopiedConfirmation: $showCopiedConfirmation,
+				showScreenshotTooSmallNotice: $showScreenshotTooSmallNotice,
+				showScreenshotUnreadableNotice: $showScreenshotUnreadableNotice,
+				openSettings: { openAppSettings() },
+				copyReport: { copyReport() },
+				dismiss: { dismiss() }
+			))
+		}
+	}
+
+	private var categorySection: some View {
+		Section(L10n.Support.categoryPrompt) {
+			Picker(L10n.Support.categoryPrompt, selection: $category) {
+				ForEach(categories) { option in
+					Text(option.displayName).tag(option)
+				}
+			}
+			.labelsHidden()
+			.pickerStyle(.inline)
+		}
+	}
+
+	/// Conditional on a usable key, and withdrawn rather than downgraded without one:
+	/// the only alternative to sealing is exporting the log in the clear, which is the
+	/// thing AIA-0643 exists to stop. A build with no configured key therefore offers no
+	/// log at all, and does it quietly — no alert, no error row, nothing for the user to
+	/// act on, because there is nothing they could do about it. See ``SupportLogSealer``.
+	@ViewBuilder
+	private var applicationLogSection: some View {
+		if Self.sealer != nil {
+			Section {
+				Toggle(L10n.Support.includeApplicationLog, isOn: $includeApplicationLog)
+					.testability(Testability.Toggle.supportRequestIncludeApplicationLog)
+				Text(L10n.Support.ApplicationLog.explanation)
+					.foregroundStyle(.blue)
+					.fixedSize(horizontal: false, vertical: true)
+				Toggle(L10n.Support.sendUnredactedData, isOn: $sendUnredactedApplicationLog)
+					.disabled(!includeApplicationLog)
+					.testability(Testability.Toggle.supportRequestSendUnredactedData)
+				Text(L10n.Support.sendUnredactedDataExplanation)
+					.foregroundStyle(.secondary)
+					.fixedSize(horizontal: false, vertical: true)
+				if includeApplicationLog {
+					applicationLogShareRow
+				}
+			}
+		}
+	}
+
+	private var screenshotSection: some View {
+		Section {
+			// `PhotosPicker` runs out-of-process, so it needs no photo-library permission
+			// and no NSPhotoLibraryUsageDescription: the app only ever receives the single
+			// image the user hands it. The attachment is used only for this support request.
+			// Read once here, on the main actor, and capture the result. `attachment` is
+			// `@State` and therefore main-actor isolated, while `PhotosPicker`'s label
+			// closure is `@Sendable` — reading it inside warns today and is an error under
+			// Swift 6 language mode. A captured `Bool` crosses that boundary safely and the
+			// rendered label is identical (AIA-0634).
+			let hasAttachment = attachment != nil
+			PhotosPicker(selection: $pickedPhoto, matching: .images, photoLibrary: .shared()) {
+				Label(
+					hasAttachment ? L10n.Support.attachedScreenshot : L10n.Support.attachScreenshot,
+					systemImage: hasAttachment ? "checkmark.circle.fill" : "photo.badge.plus"
 				)
 			}
-			.alert(L10n.Support.title, isPresented: $showCopiedConfirmation) {
-				Button(L10n.Common.ok, role: .cancel) { dismiss() }
-			} message: {
-				Text(L10n.Support.reportCopied(recipient))
+		}
+	}
+
+	private var composeSection: some View {
+		Section {
+			// Disabled while composing: gathering the log is no longer instant (it reads up
+			// to five MiB from disk and redacts it), and a second tap would build a second
+			// request and try to present a second composer over the first.
+			Button(L10n.Support.compose) {
+				Task { await compose() }
 			}
-			.alert(L10n.Support.ScreenshotTooSmall.title, isPresented: $showScreenshotTooSmallNotice) {
-				Button(L10n.Common.ok, role: .cancel) {}
-			} message: {
-				Text(L10n.Support.ScreenshotTooSmall.message(ScreenshotAttachmentValidator.minimumShortestSidePixels))
-			}
-			.alert(L10n.Support.ScreenshotUnreadable.title, isPresented: $showScreenshotUnreadableNotice) {
-				Button(L10n.Common.ok, role: .cancel) {}
-			} message: {
-				Text(L10n.Support.ScreenshotUnreadable.message)
-			}
+			.buttonStyle(.borderedProminent)
+			.tint(.green)
+			.frame(maxWidth: .infinity, alignment: .center)
+			.disabled(isComposing)
+		} footer: {
+			Text(L10n.Support.privacyNote)
+				.font(.body)
+				.foregroundStyle(.primary)
+				.fixedSize(horizontal: false, vertical: true)
 		}
 	}
 
@@ -363,51 +367,61 @@ struct SupportRequestView: View {
 		isComposing = true
 		defer { isComposing = false }
 
-		let request = SupportRequest(
+		let request = await makeComposedRequest()
+		composedRequest = request
+		var attachments = [attachment].compactMap { $0 }
+		if let applicationLogAttachment = await includedApplicationLogAttachment() {
+			attachments.append(applicationLogAttachment)
+		}
+		await deliver(request, attachments: attachments)
+	}
+
+	/// The fields support needs to reproduce what the user saw. Account id is omitted on the mock
+	/// path, where there is no Clerk user. App language is the bundle's resolved localization, not
+	/// `Locale.current`: iOS lets a user set a per-app language that differs from the device locale.
+	private func makeComposedRequest() async -> SupportRequest {
+		SupportRequest(
 			category: category,
 			contextURL: contextURL,
 			accountID: usesRealAuth ? Clerk.shared.user?.id : nil,
-			// The bundle's resolved localization, not `Locale.current`: the field is labelled
-			// "App language", and iOS lets a user set a per-app language that differs from the
-			// device locale. This reports the language the UI is actually rendering in — the
-			// thing support needs to reproduce what the user saw.
 			appLanguage: Bundle.main.preferredLocalizations.first ?? "unknown",
 			appVersion: AppEnvironment.shortVersion ?? "unknown",
 			deviceInformation: await DeviceInfo.information()
 		)
-		composedRequest = request
-		var attachments = [attachment].compactMap { $0 }
-		if includeApplicationLog, let sealer = Self.sealer {
-			// Off the main actor: the log is read from disk and, unless the user opted into raw
-			// data, every line is run through `LogRedactor` — on the order of a second for a full
-			// five MiB. Sealing happens here too: compressing and encrypting five MiB is not
-			// main-thread work either. This view is `@MainActor`, so doing any of it inline would
-			// freeze the sheet.
-			let sendUnredacted = sendUnredactedApplicationLog
-			let applicationLogAttachment = await Task.detached(priority: .userInitiated) {
-				let logData = LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredacted)
-				return Self.applicationLogAttachment(
-					data: logData,
-					sendUnredactedData: sendUnredacted,
-					sealer: sealer
-				)
-			}.value
-			LoggingPolicy.info(
-				sendUnredactedApplicationLog
-					? "User chose to include unredacted application data with a support report."
-					: "User chose to include the redacted application log with a support report.",
-				logger: .ui
-			)
-			if let applicationLogAttachment {
-				attachments.append(applicationLogAttachment)
-			}
-		}
+	}
 
+	/// The sealed log, when the user asked for one and this build can seal it. `nil` otherwise —
+	/// including a seal that failed, which must not fall back to plain text (AIA-0643).
+	private func includedApplicationLogAttachment() async -> EmailController.Attachment? {
+		guard includeApplicationLog, let sealer = Self.sealer else { return nil }
+		// Off the main actor: the log is read from disk and, unless the user opted into raw data,
+		// every line is run through `LogRedactor` — on the order of a second for a full five MiB.
+		// Sealing happens here too. This view is `@MainActor`, so doing any of it inline would
+		// freeze the sheet.
+		let sendUnredacted = sendUnredactedApplicationLog
+		let applicationLogAttachment = await Task.detached(priority: .userInitiated) {
+			let logData = LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredacted)
+			return Self.applicationLogAttachment(
+				data: logData,
+				sendUnredactedData: sendUnredacted,
+				sealer: sealer
+			)
+		}.value
+		LoggingPolicy.info(
+			sendUnredactedApplicationLog
+				? "User chose to include unredacted application data with a support report."
+				: "User chose to include the redacted application log with a support report.",
+			logger: .ui
+		)
+		return applicationLogAttachment
+	}
+
+	/// Presents Mail when it can carry the report. Otherwise opens `mailto:` — which cannot carry
+	/// attachments (RFC 6068) — and says so, rather than dropping a screenshot or an opted-in log
+	/// silently. The sheet stays up while the composer is on top; it closes only after Mail accepts
+	/// the message, so a cancel returns here with the category and attachment intact.
+	private func deliver(_ request: SupportRequest, attachments: [EmailController.Attachment]) async {
 		do {
-			// The sheet must NOT be dismissed here: the composer presents on top of it, so
-			// dismissing now would tear the composer down mid-flight. Close only once the
-			// composer reports the message was handed to Mail; on cancel the user lands back
-			// here with their category and attachment intact, free to retry or leave.
 			try EmailController.shared.sendEmail(
 				subject: request.subject,
 				body: request.body,
@@ -418,9 +432,6 @@ struct SupportRequestView: View {
 				}
 			)
 		} catch {
-			// No mail account, or nothing to present from. Fall back to the user's default mail app
-			// — which cannot carry attachments (RFC 6068), so say so rather than dropping the
-			// screenshot or an opted-in application log silently.
 			LoggingPolicy.warning("Mail composer unavailable (\(error)) — falling back to mailto:", logger: .ui)
 			mailtoOpened = await EmailController.shared.openMailto(
 				subject: request.subject,
@@ -642,5 +653,55 @@ struct SupportRequestView: View {
 		guard let request = composedRequest else { return }
 		UIPasteboard.general.string = "\(request.subject)\n\n\(request.body)"
 		showCopiedConfirmation = true
+	}
+}
+
+/// Which sentence the mail-unavailable alert shows. `mailto:` opened means the device has a mail
+/// app and the user can finish there; otherwise they have to leave the app entirely.
+enum SupportMailUnavailableCopy {
+	static func message(mailtoOpened: Bool, recipient: String) -> String {
+		mailtoOpened
+			? L10n.Support.MailUnavailable.message(recipient)
+			: L10n.Support.MailUnavailable.messageNoMailApp(recipient)
+	}
+}
+
+/// The failure notices on the support form: no mail account, a copied report, and a screenshot
+/// the app refused. Kept off `body` so the form itself stays the category, log, and compose rows.
+private struct SupportRequestNotices: ViewModifier {
+	let recipient: String
+	let mailtoOpened: Bool
+	@Binding var showMailUnavailableNotice: Bool
+	@Binding var showCopiedConfirmation: Bool
+	@Binding var showScreenshotTooSmallNotice: Bool
+	@Binding var showScreenshotUnreadableNotice: Bool
+	let openSettings: () -> Void
+	let copyReport: () -> Void
+	let dismiss: () -> Void
+
+	func body(content: Content) -> some View {
+		content
+			.alert(L10n.Support.MailUnavailable.title, isPresented: $showMailUnavailableNotice) {
+				Button(L10n.Support.openSettings) { openSettings() }
+				Button(L10n.Support.copyReport) { copyReport() }
+				Button(L10n.Common.ok, role: .cancel) { dismiss() }
+			} message: {
+				Text(SupportMailUnavailableCopy.message(mailtoOpened: mailtoOpened, recipient: recipient))
+			}
+			.alert(L10n.Support.title, isPresented: $showCopiedConfirmation) {
+				Button(L10n.Common.ok, role: .cancel) { dismiss() }
+			} message: {
+				Text(L10n.Support.reportCopied(recipient))
+			}
+			.alert(L10n.Support.ScreenshotTooSmall.title, isPresented: $showScreenshotTooSmallNotice) {
+				Button(L10n.Common.ok, role: .cancel) {}
+			} message: {
+				Text(L10n.Support.ScreenshotTooSmall.message(ScreenshotAttachmentValidator.minimumShortestSidePixels))
+			}
+			.alert(L10n.Support.ScreenshotUnreadable.title, isPresented: $showScreenshotUnreadableNotice) {
+				Button(L10n.Common.ok, role: .cancel) {}
+			} message: {
+				Text(L10n.Support.ScreenshotUnreadable.message)
+			}
 	}
 }

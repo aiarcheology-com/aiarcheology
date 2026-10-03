@@ -13,7 +13,7 @@ drawing detections over the content. Inference stays on-device and transient pag
 are not uploaded. Saved finding images can leave through authorized sharing or account-backed
 sync, subject to ownership, per-finding consent, and backup preferences. Imagery does not belong
 in telemetry or diagnostics. See the [repository privacy boundary](../AGENTS.md#data-and-privacy)
-and [findings sync rules](../USER_DATA_PERSISTENCE.md).
+and [findings sync rules](../specification/USER_DATA_PERSISTENCE.md).
 
 ## Layering
 

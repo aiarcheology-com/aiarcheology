@@ -33,6 +33,13 @@ enum FeatureFlagKey: String, CaseIterable {
 
 	/// Gates the in-app subscription/paywall surface (AIA-0343): the Settings
 	/// "Upgrade" entry point and any feature gated on entitlement.
+	///
+	/// **Defaults closed** since AIA-0955, the second deliberate exception to "defaults fail open".
+	/// The flag is launch-captured, and a genuine first launch has no mirrored dashboard value yet
+	/// (``LaunchCapturedFlags``), so that launch runs on this default. Once production switches
+	/// payments off, an open default would still show a brand-new install the priced Welcome
+	/// screen and grant it a free-access window on its first launch. Closed, the worst case while
+	/// payments are still on is one free first session, after which the mirrored value applies.
 	case isPaymentsEnabled = "isPaymentsEnabled"
 
 	/// Master switch for optional TelemetryDeck analytics. The user-level setting remains off by
@@ -143,7 +150,8 @@ enum FeatureFlagKey: String, CaseIterable {
 	var defaultValue: Bool {
 		switch self {
 		case .isModelCatalogEnabled: return true
-		case .isPaymentsEnabled: return true
+		// Closed on purpose (AIA-0955) — see the case's documentation.
+		case .isPaymentsEnabled: return false
 		case .isAnalyticsEnabled: return true
 		case .isSupportReportingEnabled: return true
 		case .isRatingPromptEnabled: return true

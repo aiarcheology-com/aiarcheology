@@ -281,56 +281,6 @@ final class NumberFormatterExtensionsTests: XCTestCase {
     }
 }
 
-// MARK: - URL.isImage Extension Tests
-
-final class URLIsImageExtensionsTests: XCTestCase {
-    
-    func testIsImage_JpgReturnsTrue() {
-        let url = URL(fileURLWithPath: "/path/to/image.jpg")
-        XCTAssertTrue(url.isImage)
-    }
-    
-    func testIsImage_JpegReturnsTrue() {
-        let url = URL(fileURLWithPath: "/path/to/image.jpeg")
-        XCTAssertTrue(url.isImage)
-    }
-    
-    func testIsImage_PngReturnsTrue() {
-        let url = URL(fileURLWithPath: "/path/to/image.png")
-        XCTAssertTrue(url.isImage)
-    }
-    
-    func testIsImage_GifReturnsTrue() {
-        let url = URL(fileURLWithPath: "/path/to/image.gif")
-        XCTAssertTrue(url.isImage)
-    }
-    
-    func testIsImage_HeicReturnsTrue() {
-        let url = URL(fileURLWithPath: "/path/to/image.heic")
-        XCTAssertTrue(url.isImage)
-    }
-    
-    func testIsImage_TxtReturnsFalse() {
-        let url = URL(fileURLWithPath: "/path/to/file.txt")
-        XCTAssertFalse(url.isImage)
-    }
-    
-    func testIsImage_PdfReturnsFalse() {
-        let url = URL(fileURLWithPath: "/path/to/document.pdf")
-        XCTAssertFalse(url.isImage)
-    }
-    
-    func testIsImage_NoExtensionReturnsFalse() {
-        let url = URL(fileURLWithPath: "/path/to/file")
-        XCTAssertFalse(url.isImage)
-    }
-    
-    func testIsImage_UppercaseExtensionReturnsFalse() {
-        let url = URL(fileURLWithPath: "/path/to/image.JPG")
-        XCTAssertTrue(url.isImage)
-    }
-}
-
 // MARK: - URL Extensions Tests
 
 final class URLExtensionsTests: XCTestCase {
@@ -376,6 +326,61 @@ final class URLExtensionsTests: XCTestCase {
         XCTAssertThrowsError(try url.relativePath(from: .documentDirectory)) { error in
             XCTAssertTrue(error is CocoaError)
         }
+    }
+
+    // AIA-0606: `…/DocumentsBackup` shares a string prefix with `…/Documents` but is a sibling.
+    // A bare `hasPrefix` accepted it and returned "Backup/model.mlmodel"; it must throw.
+    func testRelativePath_ThrowsForSiblingDirectorySharingNamePrefix() throws {
+        let documents = try FileManager.default.url(
+            for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        )
+        let sibling = documents
+            .deletingLastPathComponent()
+            .appendingPathComponent(documents.lastPathComponent + "Backup", isDirectory: true)
+            .appendingPathComponent("model.mlmodel")
+
+        XCTAssertThrowsError(try sibling.relativePath(from: .documentDirectory)) { error in
+            XCTAssertTrue(error is CocoaError)
+        }
+    }
+
+    func testRelativePath_ThrowsForDotDotComponentClimbingOut() throws {
+        let documents = try FileManager.default.url(
+            for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        )
+        let escaping = documents.appendingPathComponent("Configurations/../../Library/model.mlmodel")
+
+        XCTAssertThrowsError(try escaping.relativePath(from: .documentDirectory)) { error in
+            XCTAssertTrue(error is CocoaError)
+        }
+    }
+
+    func testRelativePath_ThrowsForTheDirectoryItself() throws {
+        let documents = try FileManager.default.url(
+            for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        )
+
+        XCTAssertThrowsError(try documents.relativePath(from: .documentDirectory)) { error in
+            XCTAssertTrue(error is CocoaError)
+        }
+    }
+
+    func testRelativePath_ReturnsComponentsBelowTheDirectory() throws {
+        let documents = try FileManager.default.url(
+            for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        )
+
+        XCTAssertEqual(
+            try documents.appendingPathComponent("model.mlmodelc").relativePath(from: .documentDirectory).relativeString,
+            "model.mlmodelc"
+        )
+        XCTAssertEqual(
+            try documents
+                .appendingPathComponent("Configurations/ABC-123/model.mlmodelc")
+                .relativePath(from: .documentDirectory)
+                .relativeString,
+            "Configurations/ABC-123/model.mlmodelc"
+        )
     }
 
     func testRelativePath_CompletePath_RoundTripsSpecialCharacters() throws {

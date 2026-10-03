@@ -34,6 +34,32 @@ extension URL {
 		return baseDirectoryURL.appendingPathComponent(self.path, isDirectory: isDirectory)
 	}
 
+	/// Whether this URL lies strictly inside `directory`, decided on whole path components.
+	///
+	/// A bare string prefix also matches a sibling such as `…/DocumentsBackup` (AIA-0606, AIA-0963).
+	/// The URL must lie strictly inside the directory: the directory itself is not a file within it,
+	/// and a `.`/`..` component below it could climb back out.
+	///
+	/// **Lexical by design.** This neither standardizes nor resolves symlinks or a `/private` prefix.
+	/// `standardizedFileURL` strips `/private` only when the path exists, so it is not a pure
+	/// function of its input (AIA-0603). Every caller that uses this check and the URL it returns
+	/// must therefore agree with the others lexically: ``relativePath(from:)`` and
+	/// `FileManager.storeModelInDocuments` both use this helper for that reason.
+	///
+	/// `ImportedContainerRouting.restoredURL(of:namedBy:)` and
+	/// `CatalogPackageDownloader.destinationURL(for:in:)` deliberately keep their own checks. Both
+	/// validate the appended components first, then compare *standardized* values as defence in
+	/// depth. The first never returns its standardized values. The second standardizes its root once
+	/// and derives the destination it returns from that root. Neither is the lexical contract here,
+	/// so they are not routed through this helper.
+	func isStrictlyContained(in directory: URL) -> Bool {
+		let directoryComponents = directory.pathComponents
+		let components = pathComponents
+		return components.count > directoryComponents.count
+			&& components.starts(with: directoryComponents)
+			&& components.dropFirst(directoryComponents.count).allSatisfy { $0 != "." && $0 != ".." }
+	}
+
 	func relativePath(from directory: FileManager.SearchPathDirectory) throws -> URL {
 		let fileManager = FileManager.default
 
@@ -41,17 +67,12 @@ extension URL {
 			throw CocoaError(.fileNoSuchFile)
 		}
 
-		let directoryPath = directoryURL.path
-
-		guard
-			self.path.hasPrefix(directoryPath) else {
+		// Containment is decided on whole path components (AIA-0606); see `isStrictlyContained(in:)`.
+		guard isStrictlyContained(in: directoryURL) else {
 			throw CocoaError(.fileNoSuchFile)
 		}
 
-		var relativePath = String(self.path.dropFirst(directoryPath.count))
-		if relativePath.hasPrefix("/") {
-			relativePath.removeFirst()
-		}
+		let relativePath = pathComponents.dropFirst(directoryURL.pathComponents.count).joined(separator: "/")
 
 		// .urlPathAllowed keeps "/" and "." intact; .alphanumerics encoded them
 		// ("model.mlmodelc" → "model%2Emlmodelc") and only round-tripped by accident.

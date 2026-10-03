@@ -18,6 +18,8 @@
 import XCTest
 import UIKit
 import Vision
+import CoreML
+import NativeModelConverter
 @testable import ML_Browser
 
 @MainActor
@@ -100,6 +102,74 @@ final class DetectionEngineTests: XCTestCase {
             )
         }
     }
+
+    /// ``DetectionEngine.detect`` must invoke the partial-result callback when an incremental
+    /// detector publishes tiles (AIA-0944).
+    func testDetectionEngine_Detect_InvokesPartialResultCallback() async {
+        let stub = StubIncrementalDetecting(
+            params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"),
+            objects: [DetectedObject(
+                uuid: UUID(),
+                labels: [DetectedObject.Label(identifier: "stub-object", confidence: 0.9)],
+                confidence: 0.9,
+                boundingBox: CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2),
+                regionIndex: 0
+            )]
+        )
+        let recorder = IncrementalUpdateRecorder()
+        let results = await DetectionEngine().detect(
+            on: UIImage(),
+            in: [stub],
+            tiling: [],
+            onPartialResults: { _ in recorder.count += 1 }
+        )
+        XCTAssertEqual(results.count, 1)
+        XCTAssertGreaterThan(recorder.count, 0, "DetectionEngine.detect must publish partial results")
+    }
+
+    /// ``Detector.detectPreSized`` is called directly with a contract matching the demo model's
+    /// canvas. A missing model fails the test rather than skipping (AIA-0944).
+    func testDetectPreSized_InvokesPartialCallback() async throws {
+        let modelURL = try XCTUnwrap(
+            Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc"),
+            "Demo model AIArcheology.mlmodelc is missing from the app bundle — fetch fixtures / build with AIA_INCLUDE_TEST_FIXTURES=YES"
+        )
+        let loadedModel = try await Detector.loadModel(from: modelURL)
+        let mlModel = try XCTUnwrap(
+            loadedModel,
+            "Demo model AIArcheology.mlmodelc failed to load"
+        )
+        let imageConstraint = try XCTUnwrap(
+            mlModel.modelDescription.inputDescriptionsByName.values.compactMap(\.imageConstraint).first,
+            "Demo detector must declare an image input"
+        )
+        let canvas = NativeModelImageSize(
+            width: imageConstraint.pixelsWide,
+            height: imageConstraint.pixelsHigh
+        )
+        let maxEdge = min(canvas.width, canvas.height)
+        let contract = NativeModelImageSizingContract(
+            minSize: maxEdge,
+            maxSize: maxEdge,
+            canvas: canvas
+        )
+        let detector = Detector(params: DeepDriverParams(
+            entityId: UUID(), modelName: "Pre-sized path", file: modelURL
+        ))
+        let image = try fixture("terrain_iphone")
+        let recorder = IncrementalUpdateRecorder()
+        _ = try await detector.detectPreSized(
+            image: image,
+            regions: [TileLayout.fullFrame],
+            contract: contract,
+            modelURL: modelURL,
+            onPartialResult: { _ in recorder.count += 1 }
+        )
+        XCTAssertGreaterThan(
+            recorder.count, 0,
+            "detectPreSized must publish a partial result for the full-frame region"
+        )
+    }
 }
 
 // MARK: - Detecting stub (AIA-0387)
@@ -128,6 +198,40 @@ private actor StubDetecting: Detecting {
         receivedRegionCount = regions.count
         return objects
     }
+    func metadata() -> [MLModelMetadataKey: Any]? { nil }
+    func updateConfiguration(_ params: DeepDriverParams) async { self.params = params }
+    func process(image: UIImage) async {}
+    func loadFile() async throws {}
+    func run() async {}
+    func unload() async {}
+}
+
+/// Incremental counterpart so ``DetectionEngine.detect`` exercises its partial-result branch.
+private actor StubIncrementalDetecting: IncrementalDetecting {
+    let id: UUID
+    var params: DeepDriverParams
+    var observations: [VNObservation] = []
+    private let objects: [DetectedObject]
+
+    init(params: DeepDriverParams, objects: [DetectedObject]) {
+        self.id = params.entityId
+        self.params = params
+        self.objects = objects
+    }
+
+    func detect(image: UIImage, regions: [CGRect]) async -> [DetectedObject] {
+        await detect(image: image, regions: regions, onPartialResult: { _ in })
+    }
+
+    func detect(
+        image: UIImage,
+        regions: [CGRect],
+        onPartialResult: @escaping @MainActor @Sendable ([DetectedObject]) -> Void
+    ) async -> [DetectedObject] {
+        await onPartialResult(objects)
+        return objects
+    }
+
     func metadata() -> [MLModelMetadataKey: Any]? { nil }
     func updateConfiguration(_ params: DeepDriverParams) async { self.params = params }
     func process(image: UIImage) async {}

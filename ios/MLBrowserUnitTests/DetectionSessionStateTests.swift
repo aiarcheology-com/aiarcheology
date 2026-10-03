@@ -857,12 +857,12 @@ final class AppChromeStateTests: XCTestCase {
 
     // MARK: - Mode Tests
 
-    func testMode_CanBeChanged() {
+    /// `AppMode` has a single case since AIA-0898 removed the unreachable gallery, so there is no
+    /// second value to change to. Asserting the default is what remains genuinely testable --
+    /// keeping a "can be changed" test that assigns `.web` to `.web` would look like coverage
+    /// while proving nothing.
+    func testMode_DefaultsToWeb() {
         XCTAssertEqual(sut.mode, .web)
-
-        sut.mode = .gallery
-
-        XCTAssertEqual(sut.mode, .gallery)
     }
 
     // MARK: - Configuration Selection Tests

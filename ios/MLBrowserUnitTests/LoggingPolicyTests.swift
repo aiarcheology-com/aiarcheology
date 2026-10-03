@@ -439,6 +439,28 @@ final class ApplicationLogFileStoreTests: XCTestCase {
 		}
 	}
 
+	func testAppend_FinishesQueuedWritesAfterTheOwnerReleasesTheStore() throws {
+		let queue = DispatchQueue(label: "ApplicationLogFileStoreTests.lifetime")
+		weak var pendingStore: ApplicationLogFileStore?
+		// Enqueue behind this block so owner release happens before either write can start.
+		queue.sync {
+			var store: ApplicationLogFileStore? = ApplicationLogFileStore(
+				directoryURL: directoryURL,
+				queue: queue
+			)
+			pendingStore = store
+			store?.append("first entry")
+			store?.append("second entry")
+			store = nil
+			XCTAssertNotNil(pendingStore, "Accepted writes must keep the store alive")
+		}
+		queue.sync {}
+
+		XCTAssertNil(pendingStore, "Finishing the writes must release the store")
+		let data = try Data(contentsOf: directoryURL.appendingPathComponent("application-current.log"))
+		XCTAssertEqual(data, Data("first entry\nsecond entry\n".utf8))
+	}
+
 	/// The headline invariant, at the real budget: far more than the cap goes in, never more than
 	/// the cap is on disk. Rotation is checked *before* each write, so this holds by construction
 	/// rather than by a counter that could drift.

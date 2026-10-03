@@ -248,9 +248,14 @@ class DependencyContainer {
         // *on*, so without this every test that launches `-mockSubscription notSubscribed` to reach
         // the paywall would be handed a 14-day window and land in the app instead — the paywall
         // suites would pass while asserting nothing. Free-access scenarios override it explicitly.
+        //
+        // `isPaymentsEnabled` is baselined *on* for the mirror-image reason (AIA-0955). It now
+        // defaults closed, and every paywall and subscription test in the suite was written against
+        // the payments surface being live. Free-mode scenarios override it to `false` explicitly.
         var overrides: [FeatureFlagKey: Bool] = [
             .isCrossDeviceAnalyticsIdentityEnabled: false,
-            .isFreeAccessPeriodEnabled: false
+            .isFreeAccessPeriodEnabled: false,
+            .isPaymentsEnabled: true
         ]
         guard let raw = UITestLaunchConfiguration.fromEnvironment?.featureFlagOverrides else { return overrides }
         for (key, value) in raw {
@@ -436,17 +441,21 @@ class DependencyContainer {
 	/// injected into `AppState` (which no longer constructs them). Each session receives the
 	/// same shared singletons, so instances are identical across the graph.
 	func makeAppState() -> AppState {
-		let detection = DetectionSession(
-			snap: snapState,
-			settings: settings,
-			analytics: analyticsState
-		)
 		let browser = BrowserSession(
 			settings: settings,
 			dataController: dataController,
 			// AIA-0509: retry a failed page load when the app becomes active — `didBecomeActive`
 			// rather than `willEnterForeground`, which fires before the app is actually active.
 			activeNotification: UIApplication.didBecomeActiveNotification
+		)
+		let detection = DetectionSession(
+			snap: snapState,
+			settings: settings,
+			analytics: analyticsState,
+			// AIA-0846: every detection snapshot records which document it came from, so a finding
+			// made from it can be held to that document. Read only when a snapshot runs, by which
+			// time the web view (and so `browserState`) exists; nothing is forced here.
+			captureContext: { [weak browser] in browser?.browserState.captureContext }
 		)
 		// The payments flag is resolved once here, at the session boundary, and handed to
 		// the account session as a plain value (AIA-0350) — the app root must not swap

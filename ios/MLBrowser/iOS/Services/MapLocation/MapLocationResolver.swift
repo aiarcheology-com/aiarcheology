@@ -34,13 +34,13 @@ enum MapLocationResolver {
 
 	/// Resolves without touching the web view. Used by tests, by the live harness, and whenever a
 	/// probe is not available.
-	/// - Parameter pageMaintainsItsURL: whether this page has been *seen* rewriting its own address.
-	///   Defaults to `false`, which is the observation's own initial state: nothing has been seen
-	///   yet. It defaults that way deliberately. `true` now skips the whole viewport refresh
+	/// - Parameter pageMaintainsItsURL: whether this page's URL is known to be its own — seen
+	///   rewritten, or opened at an address the app wrote (AIA-0875). Defaults to `false`, the state
+	///   before anything is known. It defaults that way deliberately. `true` now skips the whole viewport refresh
 	///   (AIA-0871), so a default of `true` would silently disable AIA-0817 for every caller that
 	///   forgot the argument — including `MapLocationLiveSiteHarness`, whose entire job is to show
 	///   what a frozen-URL site records. Production never relies on this: `BrowserState`
-	///   passes `hasObservedSameDocumentURLChange` explicitly.
+	///   passes its `pageMaintainsItsURL` explicitly.
 	static func resolve(
 		url: URL?,
 		probe: MapLocationProbe.Result = .empty,
@@ -90,10 +90,13 @@ enum MapLocationResolver {
 		// bar, whose URL stays frozen at the view the user arrived with, so that every finding on
 		// the site records the same place. Only there is our reading better than what is in hand.
 		//
-		// KNOWN GAP: `pageMaintainsItsURL` is an observation, not a property — it is false until the
-		// app is *seen* rewriting its address. A page restored from `lastPage` already carries the
-		// app's own viewport, and a capture taken before the user pans still reaches the refresh.
-		// Closing that needs a guard inside the refresh itself; see AIA-0871's follow-up.
+		// AIA-0875: `pageMaintainsItsURL` is more than "seen rewriting its address", which is false
+		// before the first pan. `BrowserState.pageMaintainsItsURL` also counts a page reopened by
+		// Reopen Last Page at its saved address, a reload of a page that kept its URL, and an address
+		// change made while the document was still loading. Still not covered, and still refreshed
+		// before the first pan: a pasted share link, Back/Forward, and a reload onto a rebuilt web
+		// view. A guard inside the refresh itself would close those too, but cannot tell a same-CRS
+		// frozen page (the AIA-0817 case) from a mismatched one without knowing the URL's CRS.
 		//
 		// Consequence worth stating: `refreshedFragment` required `pageMaintainsItsURL`, which is
 		// now exactly the case that skips the refresh, so that path is unreachable from here. The

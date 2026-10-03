@@ -27,7 +27,7 @@ func runShellCommand(_ command: String, arguments: [String]) throws -> Int32 {
 // --- Main Tool Definition ---
 
 @main
-struct ProjectTool: ParsableCommand {
+struct ProjectTool: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "A Swift-based CLI for project setup and maintenance tasks.",
         subcommands: [GitSetup.self, Cleanup.self, Secrets.self, ASC.self, SupportLog.self]

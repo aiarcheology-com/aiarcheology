@@ -10,14 +10,14 @@ resources, Xcode configuration, and iOS tests. Load references only when relevan
 | Work | Read |
 |-|-|
 | App wiring and state | [ios/ARCHITECTURE.md](ios/ARCHITECTURE.md) |
-| Tests, lint, fixtures, and verification | [TESTING.md](TESTING.md) |
+| Tests, lint, fixtures, and verification | [TESTING.md](specification/TESTING.md) |
 | Setup, tools, secrets, and build caches | [ios/MLBrowser/README.md](ios/MLBrowser/README.md) |
-| Converter or root SwiftPM package | [NATIVE_MODEL_CONVERSION.md](NATIVE_MODEL_CONVERSION.md) |
-| Map URL/location capture | [MAP_LOCATION.md](MAP_LOCATION.md) |
-| Findings ownership, backup, deletion, formats | [USER_DATA_PERSISTENCE.md](USER_DATA_PERSISTENCE.md) |
+| Converter or root SwiftPM package | [NATIVE_MODEL_CONVERSION.md](specification/NATIVE_MODEL_CONVERSION.md) |
+| Map URL/location capture | [MAP_LOCATION.md](specification/MAP_LOCATION.md) |
+| Findings ownership, backup, deletion, formats | [USER_DATA_PERSISTENCE.md](specification/USER_DATA_PERSISTENCE.md) |
 | Findings backend | [Worker README](cloudflare/findings-worker/README.md) and its provisioning rules |
-| Logging, auth, flags, or messages | [LOGGING_GUIDE.md](LOGGING_GUIDE.md), [AUTH-SUBSCRIPTION.md](AUTH-SUBSCRIPTION.md), [FEATUREFLAGS.md](FEATUREFLAGS.md), or [USERMESSAGING.md](USERMESSAGING.md), as applicable |
-| Release | [README release baseline](README.md#release-baseline) and [RELEASE_CHECK.md](RELEASE_CHECK.md) |
+| Logging, auth, flags, or messages | [LOGGING_GUIDE.md](specification/LOGGING_GUIDE.md), [AUTH-SUBSCRIPTION.md](specification/AUTH-SUBSCRIPTION.md), [FEATUREFLAGS.md](specification/FEATUREFLAGS.md), or [USERMESSAGING.md](specification/USERMESSAGING.md), as applicable |
+| Release | [README release baseline](README.md#release-baseline) and [RELEASE_CHECK.md](specification/RELEASE_CHECK.md) |
 
 ## Scope and decisions
 
@@ -37,7 +37,7 @@ resources, Xcode configuration, and iOS tests. Load references only when relevan
   may leave the device through authorized sharing or account-backed sync, subject to ownership,
   per-finding consent, and backup preferences. Never attach imagery to telemetry or diagnostic logs.
 - Sign-in does not authorize another person's local findings. Preserve account and finding
-  ownership checks across async work; see [USER_DATA_PERSISTENCE.md](USER_DATA_PERSISTENCE.md).
+  ownership checks across async work; see [USER_DATA_PERSISTENCE.md](specification/USER_DATA_PERSISTENCE.md).
 - Never expose or commit secrets or private environment values. Validate external input and API
   responses. Keep generated credentials out of version control; use the project's setup tools.
 - Do not select behavior by unstable runtime symbol names or reflected strings. Use explicit
@@ -48,7 +48,7 @@ resources, Xcode configuration, and iOS tests. Load references only when relevan
 - For each updated revision, run checks for changed behavior and affected consumers, including
   fixtures, resources, configuration, and dependencies. Use broader coverage when impact is
   uncertain. Repeat checks when changed inputs invalidate the evidence.
-- [TESTING.md](TESTING.md) records current commands and selection limits. The selector in #850
+- [TESTING.md](specification/TESTING.md) records current commands and selection limits. The selector in #850
   is planned, not available. Preserve existing required CI and release gates.
 - Check successful builds, actual test execution, and fixture/platform requirements. Missing
   fixtures, zero-test selections, unexpected skips, or stale products do not establish a pass.
@@ -63,13 +63,22 @@ resources, Xcode configuration, and iOS tests. Load references only when relevan
 - Read the entire issue thread, including comments, before implementation.
 - Every issue belongs to [AI Archeology, project #1](https://github.com/orgs/aiarcheology-com/projects/1).
   New issues start at **Todo**. Verify project status after changing it.
+- Work a batch of issues serially unless told otherwise: finish one (merged, issue closed, board
+  **Done**) before starting the next. Agents share the simulator, DerivedData, and `develop`.
 - Use `AIA-XXXX: <summary>` issue titles. Branches are `<type>/AIA-XXXX/description`, with
   `feature`, `fix`, `doc`, or `test`. Commit summaries are imperative and prefixed `[AIA-XXXX]`
   (or multiple relevant keys). Explain material tradeoffs in the body.
 - Never commit or push directly to `develop` or `main`. Never push without explicit user consent;
   consent already given in the session remains valid. Never force-push unless explicitly requested.
   Do not amend commits without asking or add co-author footers.
-- Pull requests target `develop`. Closing keywords do not auto-close issues merged into this
+- Branch normal work from `develop` and target `develop` with its pull requests. Promote reviewed
+  work to `main` through a disposable `release/*` branch cut from `develop`, with a PR into `main`.
+  Never use `develop` as a PR source (head): automatic head-branch deletion can remove it when
+  an administrator bypasses its deletion protection. Keep automatic branch deletion enabled.
+  Pushing `release/*` triggers paid Xcode Cloud work; follow the release guidance below.
+- Merge without passing CI only with the user's approval, following
+  [merging without CI](specification/TESTING.md#merging-without-ci); never leave a ruleset disabled.
+- Closing keywords do not auto-close issues merged into `develop`, the
   non-default branch. Close the issue and move its project status to **Done** after verified
   completion within the user's requested delivery scope; record any unmerged or local-only work.
 
@@ -84,7 +93,7 @@ resources, Xcode configuration, and iOS tests. Load references only when relevan
   meaningful testing impact. Documentation/tooling/test-only work with no tester action needs no
   invented notes. Describe one build with concrete steps, retain a `Build:` line, and stay within
   the existing 4,000-character gate.
-- For releases, use [RELEASE_CHECK.md](RELEASE_CHECK.md) and delivery instructions in [README.md](README.md).
+- For releases, use [RELEASE_CHECK.md](specification/RELEASE_CHECK.md) and delivery instructions in [README.md](README.md).
   A pushed `release/*` branch triggers paid Xcode Cloud work. `deliver.sh` requires a release branch
   or an explicit ref matching HEAD; preserve this guard.
 - Update the README's app/database release baseline when a version ships. Do not tick manual or

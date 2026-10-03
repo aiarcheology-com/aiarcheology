@@ -117,62 +117,7 @@ struct FindingsListView: View {
 		// `dataMenu(isExportDisabled:)`, which takes a Bool rather than the findings for that reason.
 		let items = Self.ordered(filteredFindings, by: sortOrder, reversed: isReversed)
 		return NavigationStack {
-			VStack(spacing: 0) {
-				syncStatus
-				tabPicker
-				if distinctLabels.isEmpty.not {
-					filterChips
-				}
-				List {
-					if items.isEmpty {
-						emptyStateView
-					}
-					ForEach(items, id: \.objectID) { finding in
-						row(finding)
-					}
-				}
-				.listStyle(.plain)
-				// Pull down to ask again, with progress the automatic fetch cannot show. Gated on a
-				// configured Worker for the same reason the bar below is: a spinner that resolves
-				// instantly having talked to nothing is a worse answer than no gesture at all.
-				.refreshable {
-					guard findingsSync.isCloudConfigured else { return }
-					// `refreshable`'s action is declared `@_inheritActorContext`, so this closure
-					// inherits the MainActor of `body` and can call the coordinator directly.
-					await findingsSync.syncNow()?.value
-				}
-			}
-			.safeAreaInset(edge: .bottom) {
-				// Hidden outright when this build has no Worker to talk to: `backUpNow` returns
-				// without doing anything there, and a green button that does nothing is worse than
-				// no button.
-				if findingsSync.isCloudConfigured { backUpBar }
-			}
-			.navigationTitle(L10n.Findings.title)
-			.navigationBarTitleDisplayMode(.inline)
-			.toolbar {
-				ToolbarItemGroup(placement: .navigationBarLeading) {
-					// Gated on what the user can SEE. Export writes the whole store, but offering it
-					// on an empty Received tab -- and having it silently write the other tab's rows
-					// -- is a worse surprise than a control that greys out with the list it sits above.
-					dataMenu(isExportDisabled: items.isEmpty)
-					sortMenu
-				}
-				ToolbarItem(placement: .navigationBarTrailing) {
-					Button(action: { dismiss() }) {
-						Text(L10n.Common.dismiss)
-					}
-					.tint(.blue)
-					.testability(Testability.Button.findingsDismiss)
-				}
-			}
-			.navigationDestination(for: Finding.self) { finding in
-				FindingDetailView(
-					finding: finding,
-					findingRepository: findingRepository,
-					onOpenPage: onOpenPage
-				)
-			}
+			findingsListChrome(items: items)
 		}
 		.onChange(of: tab) { _, _ in dropFilterIfUnavailable() }
 		// A decoded archive waiting on the duplicates question is staged on disk. Leaving the
@@ -296,6 +241,65 @@ struct FindingsListView: View {
 		} message: {
 			let summary = importSummary ?? .init()
 			Text(L10n.Findings.Import.Result.message(summary.restored, summary.skipped, summary.failed))
+		}
+	}
+
+	private func findingsListChrome(items: [Finding]) -> some View {
+		VStack(spacing: 0) {
+			syncStatus
+			tabPicker
+			if distinctLabels.isEmpty.not {
+				filterChips
+			}
+			List {
+				if items.isEmpty {
+					emptyStateView
+				}
+				ForEach(items, id: \.objectID) { finding in
+					row(finding)
+				}
+			}
+			.listStyle(.plain)
+			// Pull down to ask again, with progress the automatic fetch cannot show. Gated on a
+			// configured Worker for the same reason the bar below is: a spinner that resolves
+			// instantly having talked to nothing is a worse answer than no gesture at all.
+			.refreshable {
+				guard findingsSync.isCloudConfigured else { return }
+				// `refreshable`'s action is declared `@_inheritActorContext`, so this closure
+				// inherits the MainActor of `body` and can call the coordinator directly.
+				await findingsSync.syncNow()?.value
+			}
+		}
+		.safeAreaInset(edge: .bottom) {
+			// Hidden outright when this build has no Worker to talk to: `backUpNow` returns
+			// without doing anything there, and a green button that does nothing is worse than
+			// no button.
+			if findingsSync.isCloudConfigured { backUpBar }
+		}
+		.navigationTitle(L10n.Findings.title)
+		.navigationBarTitleDisplayMode(.inline)
+		.toolbar {
+			ToolbarItemGroup(placement: .navigationBarLeading) {
+				// Gated on what the user can SEE. Export writes the whole store, but offering it
+				// on an empty Received tab -- and having it silently write the other tab's rows
+				// -- is a worse surprise than a control that greys out with the list it sits above.
+				dataMenu(isExportDisabled: items.isEmpty)
+				sortMenu
+			}
+			ToolbarItem(placement: .navigationBarTrailing) {
+				Button(action: { dismiss() }) {
+					Text(L10n.Common.dismiss)
+				}
+				.tint(.blue)
+				.testability(Testability.Button.findingsDismiss)
+			}
+		}
+		.navigationDestination(for: Finding.self) { finding in
+			FindingDetailView(
+				finding: finding,
+				findingRepository: findingRepository,
+				onOpenPage: onOpenPage
+			)
 		}
 	}
 
@@ -676,30 +680,7 @@ struct FindingsListView: View {
 
 	private func row(_ finding: Finding) -> some View {
 		NavigationLink(value: finding) {
-			HStack(spacing: 12) {
-				thumbnail(finding)
-				VStack(alignment: .leading, spacing: 2) {
-					Text(finding.displayTitle)
-						.foregroundStyle(.primary)
-					if let page = finding.page, let host = page.host {
-						Text(host)
-							.font(.caption)
-							.foregroundStyle(.secondary)
-					}
-					if let date = finding.creationDate_ {
-						// A received finding's date is the sender's DAY, stored as UTC midnight, so
-						// rendering it locally with a time shows the previous day west of UTC and an
-						// invented "02:00" east of it. Day only, in UTC, for those (AIA-0835).
-						Text(date, format: finding.source == .received
-							? Date.FormatStyle(date: .abbreviated, time: .omitted, timeZone: .gmt)
-							: Date.FormatStyle(date: .abbreviated, time: .shortened))
-							.font(.caption)
-							.foregroundStyle(.secondary)
-					}
-				}
-				Spacer(minLength: 8)
-				backupBadge(for: finding)
-			}
+			rowLabel(finding)
 		}
 		.testability(Testability.Button.findingsItem)
 		.swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -735,6 +716,33 @@ struct FindingsListView: View {
 				Label(L10n.Common.delete, systemImage: "trash")
 			}
 			.testability(Testability.Button.findingsDeleteEntry)
+		}
+	}
+
+	private func rowLabel(_ finding: Finding) -> some View {
+		HStack(spacing: 12) {
+			thumbnail(finding)
+			VStack(alignment: .leading, spacing: 2) {
+				Text(finding.displayTitle)
+					.foregroundStyle(.primary)
+				if let page = finding.page, let host = page.host {
+					Text(host)
+						.font(.caption)
+						.foregroundStyle(.secondary)
+				}
+				if let date = finding.creationDate_ {
+					// A received finding's date is the sender's DAY, stored as UTC midnight, so
+					// rendering it locally with a time shows the previous day west of UTC and an
+					// invented "02:00" east of it. Day only, in UTC, for those (AIA-0835).
+					Text(date, format: finding.source == .received
+						? Date.FormatStyle(date: .abbreviated, time: .omitted, timeZone: .gmt)
+						: Date.FormatStyle(date: .abbreviated, time: .shortened))
+						.font(.caption)
+						.foregroundStyle(.secondary)
+				}
+			}
+			Spacer(minLength: 8)
+			backupBadge(for: finding)
 		}
 	}
 
@@ -781,68 +789,8 @@ struct FindingsListView: View {
 	/// wants this, and a row would have scrolled out of reach by then.
 	private var backUpBar: some View {
 		VStack(spacing: 8) {
-			// Exactly one outcome is ever set: starting either action clears the other, so this
-			// cannot show a stale back-up line under a fresh synchronize.
-			if let outcome = findingsSync.lastSynchronize ?? findingsSync.lastManualBackup {
-				let isSynchronize = findingsSync.lastSynchronize != nil
-				label(
-					isSynchronize ? synchronizeMessage(for: outcome) : backUpMessage(for: outcome),
-					icon: backUpIcon(for: outcome),
-					tint: backUpTint(for: outcome)
-				)
-			}
-			HStack(spacing: 12) {
-				Button {
-					if let account = resolvedAccount {
-						// The account the user is looking at travels with the request; the
-						// coordinator refuses it if the provider has moved on. The fallback inside
-						// `resolvedAccount` covers the cold offline launch, where `AuthState` has
-						// not caught up: offering a sign-in that cannot complete offline, for an
-						// account already signed in, was the wrong answer -- asking for the sync
-						// gets the honest "you are offline" instead.
-						findingsSync.synchronizeNow(expectedAccount: account)
-					} else {
-						// Signing in is what makes syncing possible, so the button opens that door
-						// rather than doing nothing. Nothing moves unless the sign-in succeeds.
-						signInWasForBackUp = true
-						showSignIn = true
-					}
-				} label: {
-					HStack(spacing: 8) {
-						if findingsSync.isBackingUp {
-							ProgressView().controlSize(.small).tint(.white)
-						}
-						Text(findingsSync.isBackingUp
-							? L10n.Findings.Sync.Synchronize.busy
-							: L10n.Findings.Sync.Synchronize.button)
-					}
-					// Sized to its label rather than edge to edge: full-bleed made it read as a
-					// modal's primary action rather than one control on a list of findings.
-					.padding(.horizontal, 12)
-				}
-				.buttonStyle(.borderedProminent)
-				.controlSize(.regular)
-				// Green means "this will work". A full account is the one state where it will not, so
-				// the button stops claiming otherwise -- but stays ENABLED, because deleting a finding
-				// frees room and the retry has to be available the moment it does.
-				.tint(findingsSync.isQuotaBlocked ? .gray : .green)
-				.disabled(findingsSync.isBackingUp)
-				// Identifier deliberately unchanged. Nothing in the UI suite references it, and
-				// renaming it in the same commit as a behaviour change is what AGENTS.md §13 asks
-				// us not to do.
-				.testability(Testability.Button.findingsBackUp)
-
-				// The neutral label is honest but it is not self-explanatory, and what it does NOT
-				// do is what surprised the tester who filed AIA-0758. Same treatment as the
-				// downloader's help control.
-				Button { showSyncHelp = true } label: {
-					Image(systemName: "questionmark.circle")
-						.foregroundColor(.blue)
-						.font(.title3)
-				}
-				.accessibilityLabel(L10n.Findings.Sync.Synchronize.Help.accessibility)
-				.testability(Testability.Button.findingsSyncHelp)
-			}
+			manualBackupOutcomeBanner
+			synchronizeControls
 		}
 		.padding(.horizontal)
 		.padding(.vertical, 14)
@@ -850,6 +798,75 @@ struct FindingsListView: View {
 		// VStack hugs the button and `.bar` paints a floating box around it.
 		.frame(maxWidth: .infinity)
 		.background(.bar)
+	}
+
+	/// Exactly one outcome is ever set: starting either action clears the other, so this
+	/// cannot show a stale back-up line under a fresh synchronize.
+	@ViewBuilder
+	private var manualBackupOutcomeBanner: some View {
+		if let outcome = findingsSync.lastSynchronize ?? findingsSync.lastManualBackup {
+			let isSynchronize = findingsSync.lastSynchronize != nil
+			label(
+				isSynchronize ? synchronizeMessage(for: outcome) : backUpMessage(for: outcome),
+				icon: backUpIcon(for: outcome),
+				tint: backUpTint(for: outcome)
+			)
+		}
+	}
+
+	private var synchronizeControls: some View {
+		HStack(spacing: 12) {
+			Button {
+				if let account = resolvedAccount {
+					// The account the user is looking at travels with the request; the
+					// coordinator refuses it if the provider has moved on. The fallback inside
+					// `resolvedAccount` covers the cold offline launch, where `AuthState` has
+					// not caught up: offering a sign-in that cannot complete offline, for an
+					// account already signed in, was the wrong answer -- asking for the sync
+					// gets the honest "you are offline" instead.
+					findingsSync.synchronizeNow(expectedAccount: account)
+				} else {
+					// Signing in is what makes syncing possible, so the button opens that door
+					// rather than doing nothing. Nothing moves unless the sign-in succeeds.
+					signInWasForBackUp = true
+					showSignIn = true
+				}
+			} label: {
+				HStack(spacing: 8) {
+					if findingsSync.isBackingUp {
+						ProgressView().controlSize(.small).tint(.white)
+					}
+					Text(findingsSync.isBackingUp
+						? L10n.Findings.Sync.Synchronize.busy
+						: L10n.Findings.Sync.Synchronize.button)
+				}
+				// Sized to its label rather than edge to edge: full-bleed made it read as a
+				// modal's primary action rather than one control on a list of findings.
+				.padding(.horizontal, 12)
+			}
+			.buttonStyle(.borderedProminent)
+			.controlSize(.regular)
+			// Green means "this will work". A full account is the one state where it will not, so
+			// the button stops claiming otherwise -- but stays ENABLED, because deleting a finding
+			// frees room and the retry has to be available the moment it does.
+			.tint(findingsSync.isQuotaBlocked ? .gray : .green)
+			.disabled(findingsSync.isBackingUp)
+			// Identifier deliberately unchanged. Nothing in the UI suite references it, and
+			// renaming it in the same commit as a behaviour change is what AGENTS.md §13 asks
+			// us not to do.
+			.testability(Testability.Button.findingsBackUp)
+
+			// The neutral label is honest but it is not self-explanatory, and what it does NOT
+			// do is what surprised the tester who filed AIA-0758. Same treatment as the
+			// downloader's help control.
+			Button { showSyncHelp = true } label: {
+				Image(systemName: "questionmark.circle")
+					.foregroundColor(.blue)
+					.font(.title3)
+			}
+			.accessibilityLabel(L10n.Findings.Sync.Synchronize.Help.accessibility)
+			.testability(Testability.Button.findingsSyncHelp)
+		}
 	}
 
 	/// What Synchronize does, what it does not, and the one place the old "back up everything"
@@ -861,42 +878,8 @@ struct FindingsListView: View {
 	private var syncHelpSheet: some View {
 		NavigationStack {
 			ScrollView {
-				VStack(alignment: .leading, spacing: 16) {
-					Text(L10n.Findings.Sync.Synchronize.Help.body)
-						.font(.body)
-						.frame(maxWidth: .infinity, alignment: .leading)
-
-					// Hidden when there is no account to act on, rather than raising a sign-in
-					// sheet on top of this one.
-					if let account = resolvedAccount {
-						Divider()
-						Button {
-							// Same fence as every other path: checked against the provider rather
-							// than trusted, so a press made while an account switch is in flight
-							// cannot file one person's findings into another's (AIA-740).
-							//
-							// The sheet closes only if the request was actually accepted. Closing
-							// regardless would read as "done" for a press the coordinator refused,
-							// which is the one case where the user most needs to still be here.
-							if findingsSync.backUpNow(expectedAccount: account) != nil {
-								showSyncHelp = false
-							}
-						} label: {
-							Text(L10n.Findings.Sync.Backup.button)
-								.frame(maxWidth: .infinity)
-						}
-						.buttonStyle(.bordered)
-						// Tinted. `.bordered` with no tint renders grey, and a grey button reads as
-						// disabled -- which this one is not. Getting that wrong here costs more than
-						// it looks: this is the only route back for somebody who chose "Keep on This
-						// Device" and changed their mind, and a door nobody believes is open is the
-						// one-way door AIA-740 removed.
-						.tint(.blue)
-						.disabled(findingsSync.isBackingUp)
-						.testability(Testability.Button.findingsBackUpEverything)
-					}
-				}
-				.padding()
+				syncHelpBody
+					.padding()
 			}
 			.navigationTitle(L10n.Findings.Sync.Synchronize.Help.title)
 			.navigationBarTitleDisplayMode(.inline)
@@ -905,6 +888,44 @@ struct FindingsListView: View {
 					Button(L10n.Common.dismiss) { showSyncHelp = false }
 						.tint(.blue)
 				}
+			}
+		}
+	}
+
+	private var syncHelpBody: some View {
+		VStack(alignment: .leading, spacing: 16) {
+			Text(L10n.Findings.Sync.Synchronize.Help.body)
+				.font(.body)
+				.frame(maxWidth: .infinity, alignment: .leading)
+
+			// Hidden when there is no account to act on, rather than raising a sign-in
+			// sheet on top of this one.
+			if let account = resolvedAccount {
+				Divider()
+				Button {
+					// Same fence as every other path: checked against the provider rather
+					// than trusted, so a press made while an account switch is in flight
+					// cannot file one person's findings into another's (AIA-740).
+					//
+					// The sheet closes only if the request was actually accepted. Closing
+					// regardless would read as "done" for a press the coordinator refused,
+					// which is the one case where the user most needs to still be here.
+					if findingsSync.backUpNow(expectedAccount: account) != nil {
+						showSyncHelp = false
+					}
+				} label: {
+					Text(L10n.Findings.Sync.Backup.button)
+						.frame(maxWidth: .infinity)
+				}
+				.buttonStyle(.bordered)
+				// Tinted. `.bordered` with no tint renders grey, and a grey button reads as
+				// disabled -- which this one is not. Getting that wrong here costs more than
+				// it looks: this is the only route back for somebody who chose "Keep on This
+				// Device" and changed their mind, and a door nobody believes is open is the
+				// one-way door AIA-740 removed.
+				.tint(.blue)
+				.disabled(findingsSync.isBackingUp)
+				.testability(Testability.Button.findingsBackUpEverything)
 			}
 		}
 	}
@@ -964,23 +985,9 @@ struct FindingsListView: View {
 		let statusFont = Font.subheadline
 		let band = Self.storageBand(fraction: fraction, isQuotaBlocked: findingsSync.isQuotaBlocked)
 		VStack(alignment: .leading, spacing: 4) {
-			if findingsSync.pendingUploadCount > 0 {
-				label(L10n.Findings.Sync.pending(findingsSync.pendingUploadCount), icon: "arrow.up.circle", tint: .secondary, font: statusFont)
-			}
-			if findingsSync.parkedCount > 0 {
-				label(L10n.Findings.Sync.parked(findingsSync.parkedCount), icon: "exclamationmark.circle", tint: .orange, font: statusFont)
-			}
-			switch band {
-			case .full:
-				// Says what to do, not merely that something is wrong. Exporting keeps working at
-				// 100% on purpose — it is both a data-portability right and the only way out of a
-				// full account.
-				label(L10n.Findings.Sync.Storage.full, icon: "externaldrive.fill.badge.xmark", tint: .red, font: statusFont)
-			case let .warning(percent):
-				label(L10n.Findings.Sync.Storage.warning(percent), icon: "externaldrive.fill", tint: .orange, font: statusFont)
-			case .none:
-				EmptyView()
-			}
+			syncPendingLine(font: statusFont)
+			syncParkedLine(font: statusFont)
+			syncStorageBandLine(band, font: statusFont)
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
 		.padding(.horizontal)
@@ -990,6 +997,35 @@ struct FindingsListView: View {
 			.vertical,
 			findingsSync.pendingUploadCount > 0 || findingsSync.parkedCount > 0 || band != .none ? 8 : 0
 		)
+	}
+
+	@ViewBuilder
+	private func syncPendingLine(font: Font) -> some View {
+		if findingsSync.pendingUploadCount > 0 {
+			label(L10n.Findings.Sync.pending(findingsSync.pendingUploadCount), icon: "arrow.up.circle", tint: .secondary, font: font)
+		}
+	}
+
+	@ViewBuilder
+	private func syncParkedLine(font: Font) -> some View {
+		if findingsSync.parkedCount > 0 {
+			label(L10n.Findings.Sync.parked(findingsSync.parkedCount), icon: "exclamationmark.circle", tint: .orange, font: font)
+		}
+	}
+
+	@ViewBuilder
+	private func syncStorageBandLine(_ band: StorageBand, font: Font) -> some View {
+		switch band {
+		case .full:
+			// Says what to do, not merely that something is wrong. Exporting keeps working at
+			// 100% on purpose — it is both a data-portability right and the only way out of a
+			// full account.
+			label(L10n.Findings.Sync.Storage.full, icon: "externaldrive.fill.badge.xmark", tint: .red, font: font)
+		case let .warning(percent):
+			label(L10n.Findings.Sync.Storage.warning(percent), icon: "externaldrive.fill", tint: .orange, font: font)
+		case .none:
+			EmptyView()
+		}
 	}
 
 	/// Shared by the aggregate sync lines above the list **and** the manual back-up outcome in the

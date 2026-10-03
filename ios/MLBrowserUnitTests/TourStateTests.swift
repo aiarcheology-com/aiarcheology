@@ -321,6 +321,53 @@ final class TourStateTests: XCTestCase {
 		XCTAssertFalse(tour.isPendingOrRunning)
 	}
 
+	// MARK: - Payments-off introduction receipt (AIA-0955)
+
+	func testArm_owesTheIntroduction_untilItIsShown() {
+		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
+		XCTAssertFalse(tour.isIntroductionOwed, "Nothing armed, nothing to introduce")
+		tour.migrateAndArmIfNeeded()
+		XCTAssertTrue(tour.isIntroductionOwed)
+		tour.markIntroductionShown()
+		XCTAssertFalse(tour.isIntroductionOwed)
+	}
+
+	func testIntroductionReceipt_survivesAForceQuitMidTour() {
+		// Welcome shown, tour started, app killed before the tour's terminal state: the next launch
+		// re-arms the tour (its gate is written only at the end) but must not re-introduce it.
+		let first = TourState(steps: scriptedSteps(count: 2), defaults: defaults)
+		first.migrateAndArmIfNeeded()
+		first.markIntroductionShown()
+		first.startIfArmed()
+
+		let relaunched = TourState(steps: scriptedSteps(count: 2), defaults: defaults)
+		XCTAssertTrue(relaunched.migrateAndArmIfNeeded(), "precondition: the unfinished tour is owed again")
+		XCTAssertFalse(relaunched.isIntroductionOwed, "The introduction was already presented")
+	}
+
+	func testIntroduction_isNotOwedWhenTheTourIsNot() {
+		defaults.set(false, forKey: TourState.legacySlideshowKey)
+		let legacyOptOut = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
+		legacyOptOut.migrateAndArmIfNeeded()
+		XCTAssertFalse(legacyOptOut.isIntroductionOwed, "A user never re-onboarded is never re-introduced")
+
+		let returning = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
+		returning.migrateAndArmIfNeeded()
+		XCTAssertFalse(returning.isIntroductionOwed, "A seen tour owes no introduction")
+	}
+
+	func testReplay_doesNotOweTheIntroduction_andClearsAnOutstandingOne() {
+		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
+		tour.start()
+		XCTAssertFalse(tour.isIntroductionOwed, "Replay starts directly and never introduces")
+
+		let armedThenReplayed = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
+		armedThenReplayed.arm()
+		armedThenReplayed.start()
+		armedThenReplayed.finish()
+		XCTAssertFalse(armedThenReplayed.isIntroductionOwed, "Nothing is introduced after the tour it precedes")
+	}
+
 	func testGate_distinguishesAbsentFromFalse() {
 		// `object(forKey:) != nil` must treat an explicit `false` as "seen", which a plain
 		// `bool(forKey:)` could not.

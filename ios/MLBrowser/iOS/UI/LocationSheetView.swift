@@ -160,86 +160,8 @@ struct LocationSheetView: View {
 	private func historyRow(_ entry: WebHistoryEntry) -> some View {
 		if let page = entry.page {
 			HStack(spacing: 10) {
-				Button {
-					open(page.absoluteString)
-				} label: {
-					HStack(alignment: .top, spacing: 10) {
-						// Leading column: favicon, with the home indicator beneath it
-						// (same green house as the Browsing History screen).
-						VStack(spacing: 8) {
-							favicon(for: page)
-							if page == settings.defaultPage {
-								Image(systemName: "house")
-									.foregroundColor(.green)
-							}
-						}
-						VStack(alignment: .leading, spacing: 2) {
-							Text(page.absoluteString)
-								.lineLimit(fullURLs ? nil : 1)
-								.truncationMode(.middle)
-								// Explicit: inside a button label, wrapped lines
-								// center-align by default.
-								.multilineTextAlignment(.leading)
-								.foregroundColor(.primary)
-							HStack {
-								if let date = entry.creationDate_ {
-									Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
-								}
-								Spacer()
-								Text(L10n.Browser.Location.visitCount(Int(entry.visitCount)))
-							}
-							.font(.caption)
-							.foregroundStyle(.secondary)
-						}
-					}
-					.frame(maxWidth: .infinity, alignment: .leading)
-					.contentShape(Rectangle())
-				}
-				.buttonStyle(.borderless)
-				.testability(Testability.Button.locationSheetHistoryItem)
-				// Context menu doubles every action for iPad-on-Mac, where swipe
-				// actions are not reachable with a mouse (right-click opens it).
-				.contextMenu {
-					Button {
-						UIPasteboard.general.string = page.absoluteString
-					} label: {
-						Label(L10n.Common.copy, systemImage: "doc.on.doc")
-					}
-					.testability(Testability.Button.locationSheetCopyUrl)
-					Button {
-						settings.defaultPage = page
-					} label: {
-						Label(L10n.Browser.Location.setHomePage, systemImage: "house")
-					}
-					.testability(Testability.Button.locationSheetSetHomePage)
-					Button(role: .destructive) {
-						deleteEntry(entry)
-					} label: {
-						Label(L10n.Common.delete, systemImage: "trash")
-					}
-					.testability(Testability.Button.locationSheetDeleteEntry)
-				}
-
-				// Detail-disclosure into the recorded trail of this site — every URL
-				// the page settled on (map pans included), to replay the movement.
-				// Borderless buttons keep the two tap targets independent in the row.
-				if let host = page.host {
-					Button {
-						// Resign the input session before the push — transferring it
-						// mid-transition makes UIKit log keyboard-placeholder
-						// constraint breaks (system-internal, but noisy).
-						searchFocused = false
-						trailHost = host
-					} label: {
-						Image(systemName: "info.circle")
-							.foregroundStyle(.secondary)
-							.frame(minWidth: 32, minHeight: 32)
-							.contentShape(Rectangle())
-					}
-					.buttonStyle(.borderless)
-					.accessibilityLabel(L10n.Browser.Location.trail)
-					.testability(Testability.Button.locationSheetVisitTrail)
-				}
+				historyOpenButton(entry: entry, page: page)
+				historyTrailButton(for: page)
 			}
 			.swipeActions(edge: .trailing, allowsFullSwipe: true) {
 				Button(role: .destructive) {
@@ -256,6 +178,92 @@ struct LocationSheetView: View {
 				.tint(.green)
 				.testability(Testability.Button.locationSheetSetHomePage)
 			}
+		}
+	}
+
+	private func historyOpenButton(entry: WebHistoryEntry, page: URL) -> some View {
+		Button {
+			open(page.absoluteString)
+		} label: {
+			HStack(alignment: .top, spacing: 10) {
+				// Leading column: favicon, with the home indicator beneath it
+				// (same green house as the Browsing History screen).
+				VStack(spacing: 8) {
+					favicon(for: page)
+					if page == settings.defaultPage {
+						Image(systemName: "house")
+							.foregroundColor(.green)
+					}
+				}
+				VStack(alignment: .leading, spacing: 2) {
+					Text(page.absoluteString)
+						.lineLimit(fullURLs ? nil : 1)
+						.truncationMode(.middle)
+						// Explicit: inside a button label, wrapped lines
+						// center-align by default.
+						.multilineTextAlignment(.leading)
+						.foregroundColor(.primary)
+					HStack {
+						if let date = entry.creationDate_ {
+							Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
+						}
+						Spacer()
+						Text(L10n.Browser.Location.visitCount(Int(entry.visitCount)))
+					}
+					.font(.caption)
+					.foregroundStyle(.secondary)
+				}
+			}
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.contentShape(Rectangle())
+		}
+		.buttonStyle(.borderless)
+		.testability(Testability.Button.locationSheetHistoryItem)
+		// Context menu doubles every action for iPad-on-Mac, where swipe
+		// actions are not reachable with a mouse (right-click opens it).
+		.contextMenu {
+			Button {
+				UIPasteboard.general.string = page.absoluteString
+			} label: {
+				Label(L10n.Common.copy, systemImage: "doc.on.doc")
+			}
+			.testability(Testability.Button.locationSheetCopyUrl)
+			Button {
+				settings.defaultPage = page
+			} label: {
+				Label(L10n.Browser.Location.setHomePage, systemImage: "house")
+			}
+			.testability(Testability.Button.locationSheetSetHomePage)
+			Button(role: .destructive) {
+				deleteEntry(entry)
+			} label: {
+				Label(L10n.Common.delete, systemImage: "trash")
+			}
+			.testability(Testability.Button.locationSheetDeleteEntry)
+		}
+	}
+
+	@ViewBuilder
+	private func historyTrailButton(for page: URL) -> some View {
+		// Detail-disclosure into the recorded trail of this site — every URL
+		// the page settled on (map pans included), to replay the movement.
+		// Borderless buttons keep the two tap targets independent in the row.
+		if let host = page.host {
+			Button {
+				// Resign the input session before the push — transferring it
+				// mid-transition makes UIKit log keyboard-placeholder
+				// constraint breaks (system-internal, but noisy).
+				searchFocused = false
+				trailHost = host
+			} label: {
+				Image(systemName: "info.circle")
+					.foregroundStyle(.secondary)
+					.frame(minWidth: 32, minHeight: 32)
+					.contentShape(Rectangle())
+			}
+			.buttonStyle(.borderless)
+			.accessibilityLabel(L10n.Browser.Location.trail)
+			.testability(Testability.Button.locationSheetVisitTrail)
 		}
 	}
 
@@ -391,80 +399,11 @@ private struct VisitTrailView: View {
 	}
 
 	var body: some View {
-		List {
-			if visits.isEmpty {
-				Text(L10n.Browser.Location.Trail.empty)
-					.foregroundStyle(.secondary)
-					.frame(maxWidth: .infinity, alignment: .center)
-					.padding(.vertical, 32)
-			}
-			ForEach(visits, id: \.objectID) { visit in
-				if let page = visit.page {
-					Button {
-						onOpen(page.absoluteString)
-					} label: {
-						VStack(alignment: .leading, spacing: 2) {
-							Text(page.absoluteString)
-								.multilineTextAlignment(.leading)
-								.foregroundColor(.primary)
-							if let date = visit.creationDate_ {
-								Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
-									.font(.caption)
-									.foregroundStyle(.secondary)
-							}
-						}
-					}
-					.testability(Testability.Button.visitTrailItem)
-					.contextMenu {
-						Button {
-							UIPasteboard.general.string = page.absoluteString
-						} label: {
-							Label(L10n.Common.copy, systemImage: "doc.on.doc")
-						}
-						.testability(Testability.Button.visitTrailCopyUrl)
-						Button(role: .destructive) {
-							deleteVisit(visit)
-						} label: {
-							Label(L10n.Common.delete, systemImage: "trash")
-						}
-						.testability(Testability.Button.visitTrailDeleteEntry)
-					}
-					.swipeActions(edge: .trailing, allowsFullSwipe: true) {
-						Button(role: .destructive) {
-							deleteVisit(visit)
-						} label: {
-							Label(L10n.Common.delete, systemImage: "trash")
-						}
-						.testability(Testability.Button.visitTrailDeleteEntry)
-					}
-				}
-			}
-		}
+		visitList
 		.listStyle(.plain)
 		.navigationTitle(domain)
 		.navigationBarTitleDisplayMode(.inline)
-		.toolbar {
-			ToolbarItem(placement: .navigationBarTrailing) {
-				Button(L10n.Browser.Location.data) {
-					presentDataSheet = true
-				}
-				.testability(Testability.Button.visitTrailData)
-			}
-			// Separate glass capsules: without the spacer the system coalesces
-			// adjacent trailing items into one shared pill.
-			if #available(iOS 26.0, *) {
-				ToolbarSpacer(.fixed, placement: .navigationBarTrailing)
-			}
-			ToolbarItem(placement: .navigationBarTrailing) {
-				Button(role: .destructive) {
-					confirmDeleteSite = true
-				} label: {
-					Text(L10n.Common.delete)
-						.foregroundColor(.red)
-				}
-				.testability(Testability.Button.visitTrailDeleteSite)
-			}
-		}
+		.toolbar { trailToolbar }
 		.confirmationDialog(
 			L10n.Browser.Location.DeleteHistory.confirm,
 			isPresented: $confirmDeleteSite,
@@ -476,6 +415,86 @@ private struct VisitTrailView: View {
 		}
 		.navigationDestination(isPresented: $presentDataSheet) {
 			WebsiteDataView(domain: domain)
+		}
+	}
+
+	private var visitList: some View {
+		List {
+			if visits.isEmpty {
+				Text(L10n.Browser.Location.Trail.empty)
+					.foregroundStyle(.secondary)
+					.frame(maxWidth: .infinity, alignment: .center)
+					.padding(.vertical, 32)
+			}
+			ForEach(visits, id: \.objectID) { visit in
+				if let page = visit.page {
+					visitRow(visit: visit, page: page)
+				}
+			}
+		}
+	}
+
+	private func visitRow(visit: WebVisit, page: URL) -> some View {
+		Button {
+			onOpen(page.absoluteString)
+		} label: {
+			VStack(alignment: .leading, spacing: 2) {
+				Text(page.absoluteString)
+					.multilineTextAlignment(.leading)
+					.foregroundColor(.primary)
+				if let date = visit.creationDate_ {
+					Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
+						.font(.caption)
+						.foregroundStyle(.secondary)
+				}
+			}
+		}
+		.testability(Testability.Button.visitTrailItem)
+		.contextMenu {
+			Button {
+				UIPasteboard.general.string = page.absoluteString
+			} label: {
+				Label(L10n.Common.copy, systemImage: "doc.on.doc")
+			}
+			.testability(Testability.Button.visitTrailCopyUrl)
+			Button(role: .destructive) {
+				deleteVisit(visit)
+			} label: {
+				Label(L10n.Common.delete, systemImage: "trash")
+			}
+			.testability(Testability.Button.visitTrailDeleteEntry)
+		}
+		.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+			Button(role: .destructive) {
+				deleteVisit(visit)
+			} label: {
+				Label(L10n.Common.delete, systemImage: "trash")
+			}
+			.testability(Testability.Button.visitTrailDeleteEntry)
+		}
+	}
+
+	@ToolbarContentBuilder
+	private var trailToolbar: some ToolbarContent {
+		ToolbarItem(placement: .navigationBarTrailing) {
+			Button(L10n.Browser.Location.data) {
+				presentDataSheet = true
+			}
+			.testability(Testability.Button.visitTrailData)
+		}
+		// Separate glass capsules: without the spacer the system coalesces
+		// adjacent trailing items into one shared pill.
+		if #available(iOS 26.0, *) {
+			ToolbarSpacer(.fixed, placement: .navigationBarTrailing)
+		}
+		ToolbarItem(placement: .navigationBarTrailing) {
+			Button(role: .destructive) {
+				confirmDeleteSite = true
+			} label: {
+				Text(L10n.Common.delete)
+					.foregroundColor(.red)
+			}
+			.testability(Testability.Button.visitTrailDeleteSite)
 		}
 	}
 

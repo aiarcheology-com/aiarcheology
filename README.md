@@ -54,7 +54,7 @@ neural network cannot express suppression, whose output row count depends on the
 ### Conversion parity evidence
 
 Each model below converts on-device and reproduces the predictions of an independent
-**onnxruntime** oracle; see [NATIVE_MODEL_CONVERSION.md](NATIVE_MODEL_CONVERSION.md) and
+**onnxruntime** oracle; see [NATIVE_MODEL_CONVERSION.md](specification/NATIVE_MODEL_CONVERSION.md) and
 `Tests/NativeModelConverterTests/Fixtures/ONNXConversionModels.json`.
 
 | Model | Task | Asserted against the oracle |
@@ -126,13 +126,15 @@ first.
 
 The API guide is available in Xcode's documentation browser as **Native Model Converter**. The
 format, supported operators, validation policy, test harness, and current parity evidence are
-maintained in [NATIVE_MODEL_CONVERSION.md](NATIVE_MODEL_CONVERSION.md).
+maintained in [NATIVE_MODEL_CONVERSION.md](specification/NATIVE_MODEL_CONVERSION.md).
 
 ## Prerequisites
 
 - **macOS with Xcode** (the team currently builds with Xcode 26.x; an iPhone simulator runtime is required for tests)
 - **Swift toolchain** (ships with Xcode) — needed to run `ProjectTool`
-- **1Password CLI** (`op`), signed in — local secrets are generated from 1Password
+- *Maintainers only:* **1Password CLI** (`op`), signed in — the project vault holds the service
+  keys. **Contributors do not need it**: see
+  [Building without the project vault](#building-without-the-project-vault).
 - *Optional:* **Homebrew** — only if you opt into [direnv command aliases](ios/MLBrowser/README.md#directory-aliases-via-direnv) during setup
 
 ## Getting started
@@ -144,14 +146,117 @@ cd aiarcheology
 # 1. Install pinned tools, configure git hooks (one-time)
 swift run --package-path Tools ProjectTool setup
 
-# 2. Generate local secrets from 1Password (one-time)
+# 2. Provide ios/Secrets.xcconfig — the build will not start without it. Pick ONE:
+#    (a) maintainers, with the project vault:
 swift run --package-path Tools ProjectTool secrets generate
+#    (b) everyone else: see "Building without the project vault" below.
 
 # 3. Open the workspace and run the MLBrowser scheme
 open ios/MLBrowser.xcworkspace
 ```
 
+`ProjectTool setup` installs the pinned tools to `/usr/local/bin` **if that is writable**, and
+otherwise creates and uses `~/.local/bin` — it does not fail on permissions. If it takes the second
+path it prints a note, and you need `~/.local/bin` on your `PATH` or the later `./scripts/*.sh`
+wrappers will not find `swiftlint`/`swiftgen`. **Do not run `ProjectTool` under `sudo`** to force
+the system directory: it leaves root-owned build artefacts in `Tools/.build` that break every
+later `swift run`.
+
 The full setup reference — every `ProjectTool` command, pinned tooling, secrets lifecycle, and the optional shell aliases — lives in **[ios/MLBrowser/README.md](ios/MLBrowser/README.md)**.
+
+## Building without the project vault
+
+The app builds, runs, and passes its unit suite on the simulator with **no 1Password vault, no
+accounts, and no production services**. This is the supported path for contributors, and the rest
+of this section is the whole of it.
+
+### 1. Create `ios/Secrets.xcconfig`
+
+This file is not optional. It is the `baseConfigurationReference` for **both** the Debug and
+Release configurations, so the build cannot start without it. It is gitignored, so your copy stays
+yours.
+
+Create it with every key present and empty:
+
+```bash
+cat > ios/Secrets.xcconfig <<'EOF'
+// Local build configuration. No secrets. Gitignored.
+SENTRY_DSN =
+CLERK_PUBLISHABLE_KEY =
+CLERK_PUBLISHABLE_KEY_LIVE =
+CONFIGCAT_SDK_KEY =
+CONFIGCAT_SDK_KEY_LIVE =
+TELEMETRYDECK_APP_ID =
+EOF
+```
+
+Two traps worth naming:
+
+- **Do not copy `ios/Secrets.template.xcconfig` into place.** It holds `op://` vault *references*,
+  not values. It will not even survive as a literal: `//` starts a comment in an xcconfig, so each
+  reference is truncated and you get invalid build settings rather than an obvious error.
+- If you ever do supply a real URL-shaped value, escape `://` as `:$()/$()/` — a bare `//` starts a
+  comment in an xcconfig. `ios/ci_scripts/ci_pre_xcodebuild.sh` does exactly this when it generates
+  the same file on CI.
+
+`ProjectTool secrets refresh` regenerates this file *from the vault*. Without one it will fail
+rather than help, and it would overwrite the file you just wrote — there is no reason to run it.
+
+### 2. What degrades without keys
+
+| Service | Behaviour with no key |
+|-|-|
+| **Clerk** (sign-in) | Debug builds use an in-memory mock and you are signed in automatically — `DependencyContainer.swift` `usesMockAuth` |
+| **ConfigCat** (feature flags) | Falls back to the compiled defaults in `ios/MLBrowser/iOS/State/FeatureFlags.swift` |
+| **Sentry** | Not initialised; no crash reporting |
+| **TelemetryDeck** | Optional product analytics stay disabled |
+
+Everything the app is actually for — browsing, importing a model, on-device detection, saving and
+exporting findings — works untouched.
+
+**This path is Debug and simulator only.** The auth mock is inside `#if DEBUG`, and a Release build
+with no publishable key reaches an unconfigured `Clerk.shared` and traps. Do not try to archive
+without keys.
+
+### 3. Code signing
+
+`project.pbxproj` commits `DEVELOPMENT_TEAM = ZLR4X4U8UQ`, and `ios/MLBrowser/MLBrowser.entitlements`
+requests Sign in with Apple, associated domains, and the increased memory limit — capabilities a
+free Apple ID cannot sign. For simulator work, override the team with your own rather than turning
+signing off:
+
+```bash
+xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser \
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  DEVELOPMENT_TEAM=YOUR_TEAM_ID build
+```
+
+Do not pass `CODE_SIGNING_REQUIRED=NO` to get around it: the Keychain tests need the embedded
+entitlements, so an unsigned simulator build fails them for an unrelated reason. See
+[TESTING.md](specification/TESTING.md).
+
+Running on a **physical device** additionally needs your own bundle identifier and the entitlements
+trimmed to what your account can sign. That is not a supported contributor path today.
+
+### 4. Demo models
+
+Only the two first-party demo detectors (`AIArcheology` and `HroudaDetector15`) are committed
+under `Drivers/Demo Models/`. Ordinary app builds need no Apple model download.
+
+FastViT is an on-demand test fixture, cached in the gitignored `.apple-test-fixtures/` directory:
+
+```bash
+./scripts/fetch_apple_test_models.sh           # fetch missing/corrupt fixtures; verify pinned hashes
+./scripts/fetch_apple_test_models.sh --verify  # verify the local cache without network access
+```
+
+The unit-test wrapper fetches it automatically. For direct Xcode unit/UI test runs, fetch first
+and pass `AIA_INCLUDE_TEST_FIXTURES=YES`; see [TESTING.md](specification/TESTING.md).
+Only opted-in Debug builds embed the fixture. Ordinary builds omit it, and Release builds reject
+fixture opt-in. UI tests seed it only on explicit launch configuration; normal app launches never do.
+
+The first-party demos are Apache-2.0. Apple's separate fixture terms and notices are in
+[the fixture licence guide](ios/TestFixtures/FastViT/LICENSE.md).
 
 ## Day-to-day commands
 
@@ -160,6 +265,7 @@ The full setup reference — every `ProjectTool` command, pinned tooling, secret
 | `./scripts/swiftlint.sh` (`fix` to autocorrect) | SwiftLint over the iOS sources |
 | `./scripts/harmonize.sh` | Architectural rules, enforced as tests |
 | `./scripts/unittest.sh` | Unit test plan on a simulator |
+| `./scripts/aia-xcode-cloud-poll.sh --branch develop --watch` | Observe the latest branch build; [build URLs, credentials and options](specification/TESTING.md#observe-xcode-cloud) |
 | `./scripts/swiftgen.sh generate` | Regenerate `L10n.swift` after editing `Localizable.xcstrings` |
 
 Run lint + harmonize + unit tests before pushing; the same checks gate pull requests in CI (GitHub Actions for lint/architecture, Xcode Cloud for analyze/archive/unit tests).
@@ -230,6 +336,12 @@ local `.p8` instead of 1Password if you prefer. Store the key with the **App Man
 This is **Plan B** for the Xcode Cloud **"Release"** workflow, which archives + distributes from
 `release/*` branches. The local lane keys off the same branches, so releasing is identical either way:
 
+Cut the release branch from `develop`. Pushing it triggers paid Xcode Cloud work. To promote the
+reviewed state to `main`, open a PR with that disposable `release/*` branch as the source and
+`main` as the target. Never use `develop` as a PR source: automatic head-branch deletion can remove
+it when an administrator bypasses deletion protection. Keep automatic branch deletion enabled
+so merged feature and release branches are cleaned up.
+
 ```sh
 # 0. Cut the release branch from develop (the same trigger the Xcode Cloud Release workflow uses).
 git checkout develop && git pull
@@ -285,9 +397,9 @@ mistake here:
 
 | Tool | Answers | Status |
 |-|-|-|
-| **ConfigCat** | *Should this feature be on?* — remote feature flags, flippable without an App Store release | **live** — see [FEATUREFLAGS.md](FEATUREFLAGS.md) |
-| **Sentry** | *Did something break?* — crashes, errors, diagnostics | live — see [LOGGING_GUIDE.md](LOGGING_GUIDE.md) |
-| **TelemetryDeck** | *Is the feature used?* — product analytics (DAU/MAU, retention, funnels) | **designed, not implemented** — see [ANALYTICS.md](ANALYTICS.md) |
+| **ConfigCat** | *Should this feature be on?* — remote feature flags, flippable without an App Store release | **live** — see [FEATUREFLAGS.md](specification/FEATUREFLAGS.md) |
+| **Sentry** | *Did something break?* — crashes, errors, diagnostics | live — see [LOGGING_GUIDE.md](specification/LOGGING_GUIDE.md) |
+| **TelemetryDeck** | *Is the feature used?* — product analytics (DAU/MAU, retention, funnels) | **implemented in the client**, and inert until both the ConfigCat feature and the user's own opt-in allow it; policy and release review still outstanding — see [ANALYTICS.md](specification/ANALYTICS.md) |
 
 Sentry is **not** product analytics and does not overlap TelemetryDeck. Neither measures
 battery or performance attribution — that's Xcode Organizer / MetricKit / Sentry profiling.
@@ -308,28 +420,30 @@ environment, Release uses **Production**. Tests and previews never touch the net
 
 ## Conventions
 
-- **Branches**: `<type>/AIA-XXXX/description`, with `feature`, `fix`, `doc`, or `test`; pull requests target `develop`. Never commit directly to `develop` or `main`. See [AGENTS.md](AGENTS.md#issues-and-git) for the repository workflow.
+- **Branches**: branch normal work from `develop` as `<type>/AIA-XXXX/description`, with `feature`, `fix`, `doc`, or `test`, and target `develop` with its PRs. Release promotion uses a disposable `release/*` branch cut from `develop`, with a PR into `main`. Never use `develop` as a PR source or commit directly to `develop` or `main`. See [AGENTS.md](AGENTS.md#issues-and-git) for the repository workflow.
 - **Commits**: imperative summary prefixed with the issue key — `[AIA-XXXX] Fix crash when…`.
 - **Issues**: GitHub Issues carry `AIA-####` keys (normalized automatically by the `auto-issue-key` workflow); production crashes arrive as issues via Sentry → Cloudflare relay.
 
 ### Release baseline
 
-**In production: app `1.0.7`, Core Data model `0.0.1`.**
+**In production: app `1.0.8`, Core Data model `0.0.2`.**
 
-`1.0.8` is in preparation and carries model `0.0.2`. Keep both figures current — they are what
-tells you whether a migration is required, whether a stored format may still change freely, and
-which build a bug report is actually about. Updating them is part of shipping a release; see
-[AGENTS.md](AGENTS.md#review-and-delivery).
+Keep both figures current — they are what tells you whether a migration is required, whether a
+stored format may still change freely, and which build a bug report is actually about. Updating
+them is part of shipping a release; see [AGENTS.md](AGENTS.md#review-and-delivery).
 
-**Two source models are live at once**, because `1.0.6` shipped `0.0.0` and `1.0.7` shipped `0.0.1`,
-and a user on `1.0.6` can update straight to `1.0.8` without ever installing `1.0.7`.
+**Three source models are now live at once**, because `1.0.6` shipped `0.0.0`, `1.0.7` shipped
+`0.0.1`, and `1.0.8` shipped `0.0.2` — and a user may update from any of them straight to the next
+release without installing the ones in between.
 
 | State | Model version | Migration rule |
 |-|-|-|
-| Live release | `0.0.1` (`MLBrowser_0.0.1.xcdatamodel`) | Shipped in `1.0.7`. Frozen — never edit in place. |
-| Still in the field | `0.0.0` (`MLBrowser.xcdatamodel`) | Shipped in `1.0.6`; any install that skipped `1.0.7` is still here. |
-| Development target | `0.0.2` (`MLBrowser_0.0.2.xcdatamodel`) | Unreleased; changes belong here until it ships. |
-| Required release paths | `0.0.0 → 0.0.2` **and** `0.0.1 → 0.0.2` | One mapping model per live source, each covered by its own `FindingMigrationTests` case. |
+| Live release | `0.0.2` (`MLBrowser_0.0.2.xcdatamodel`) | Shipped in `1.0.8`. **Frozen — never edit in place.** |
+| Still in the field | `0.0.1` (`MLBrowser_0.0.1.xcdatamodel`) | Shipped in `1.0.7`. Frozen. |
+| Still in the field | `0.0.0` (`MLBrowser.xcdatamodel`) | Shipped in `1.0.6`. Frozen. |
+| Development target | *none — the next schema change creates `0.0.3`* | `0.0.2` shipped, so it is no longer a free-to-edit destination. |
+| Required **today** | `0.0.0 → 0.0.2` **and** `0.0.1 → 0.0.2` | The paths 1.0.8 ships. They must keep working. |
+| Required **once `0.0.3` exists** | `0.0.0 → 0.0.3`, `0.0.1 → 0.0.3` **and** `0.0.2 → 0.0.3` | One mapping model per live source, each covered by its own `FindingMigrationTests` case. |
 
 **Migration is single-hop — this is the part that is easy to get wrong.** Core Data matches *one*
 mapping model to the (store's version hashes, current model) pair; it never chains through
@@ -350,20 +464,70 @@ destination without mappings may be edited in place. Once mappings exist, treat 
 and its mapping artifacts as one unit: each `.xcmappingmodel` embeds an archived destination model.
 An intentional edit to an unreleased destination requires regenerating every affected mapping
 with Xcode and running inference-disabled migration tests from every supported shipped source.
-For 1.0.8, preserve and verify both direct upgrade paths above; a successful inferred migration in
-a test helper or TestFlight does not establish App Store compatibility.
+Until a schema change introduces `0.0.3`, the two shipped paths above are what must be preserved
+and verified; the moment it does, that becomes three. A successful inferred migration in a test
+helper or TestFlight does not establish App Store compatibility.
+
+## Licence
+
+The **source code** in this repository is licensed under the Apache License, Version 2.0 — see
+[LICENSE](LICENSE).
+
+That grant does **not** extend to everything in the tree. Apache-2.0 section 4(d) is explicit that
+a `NOTICE` file cannot modify the licence, so the carve-outs are stated here, and the excluded
+paths are named:
+
+| Not covered by LICENSE | Terms |
+|-|-|
+| `.apple-test-fixtures/FastViTT8F16.mlpackage` (downloaded) | Apple's, from the Core ML model gallery. Test fixture only, not an app demo; excluded from Release builds. Apple's custom licence permits redistribution subject to its notice requirements; see the [model licence](ios/TestFixtures/FastViT/LICENSE.md). |
+| `ios/TestFixtures/FastViT/FastViT-LICENSE.txt`, `FastViT-ACKNOWLEDGEMENTS.txt` in that directory | Verbatim Apple and component notices, retained under their original terms; see the [fixture licence guide](ios/TestFixtures/FastViT/LICENSE.md). |
+| `Tests/NativeModelConverterTests/Fixtures/ADAF/*` | CC-BY-SA-4.0 — ShareAlike. [Attribution](Tests/NativeModelConverterTests/Fixtures/ADAF/NOTICE.md) |
+| `ios/MLBrowserUnitTests/Fixtures/MapHarness/*.js` | Leaflet and OpenLayers, BSD-2-Clause |
+| `ios/MLBrowser/iOS/Assets/Assets.xcassets/AppIcon.appiconset/*.png`, `ios/MLBrowser/iOS/Assets/Assets.xcassets/AppLogo.imageset/AppLogo.png` | App icon and logo artwork; excluded from the source-code grant. See the [brand policy](specification/BRAND_POLICY.md) for limited source-fork retention. Asset-catalog configuration files are not artwork. |
+| `ios/MLBrowser/iOS/Assets/Assets.xcassets/WelcomeBackground.imageset/WelcomeBackground.jpg`, `ExampleScreenshot.jpg` | Ownership confirmed by the repository owner on 2026-09-14 in #906. These images remain excluded from the source-code grant; the imageset's `Contents.json` is configuration. See [NOTICE](NOTICE), section 5, and the [brand policy](specification/BRAND_POLICY.md) for limited source-fork retention. |
+
+**The detection models are included in the grant.** `AIArcheology.mlpackage` and
+`HroudaDetector15.mlpackage` are first-party weights — trained by this project on its own data, from
+scratch rather than fine-tuned from the CC-BY-SA-4.0 ADAF checkpoints — so they carry the same
+Apache-2.0 licence as the code. For a repository whose point is on-device detection, weights under a different licence to the
+code would be the asterisk that mattered, so it is stated rather than left to be inferred.
+
+[NOTICE](NOTICE) is the attribution record for the assets above. The
+[brand policy](specification/BRAND_POLICY.md) explains use of the AI Archeology and ML Browser
+names, the logo and app icon, the official App Store identity, and branding for independent
+forks. It preserves factual attribution and the Apache-2.0 rights in the code and first-party
+models; it permits retaining excluded artwork in a source-code fork, but does not grant its use
+in another app or listing or assert trademark registration.
+
+The 22 former gallery photographs came from Apple's Image Gallery sample. The owner chose
+removal, and the corrected `main` and `develop` histories contain none of those photo blobs or
+paths. On 2026-09-17, tags `1.0.7` / `1.0.8` were repointed to their corresponding cleaned release
+commits, preserving tag annotations and release contents apart from the photos and their Xcode
+resource entries. The temporary `main-public` / `develop-public` branches and the old backup
+branches `main-old` / `develop-old` were deleted after recovery verification on the same date.
+GitHub Support has removed the affected historical PR references. On 2026-09-28, an independent
+API check found none of the 368 affected refs and returned 404 for all 22 photo blobs. The affected
+PR discussions remain, but their Commits and Files changed views may error. Cached views and
+source archives were not independently verified; publication checks remain open. See [NOTICE](NOTICE), section 5, and
+[#906, A2](https://github.com/aiarcheology-com/aiarcheology/issues/906) for the remaining publication
+work. Removal does not grant rights to historical copies.
+
+Contributing: [CONTRIBUTING.md](.github/CONTRIBUTING.md) ·
+[Code of Conduct](.github/CODE_OF_CONDUCT.md) · [Security policy](.github/SECURITY.md).
 
 ## Further reading
 
 | Document | What it covers |
 |-|-|
+| [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | How to propose a change: issues, branches, commits, the local gates, and what makes a reviewable PR |
+| [LICENSE](LICENSE) · [NOTICE](NOTICE) | Apache-2.0 for the source code, and the per-asset attribution record for everything it does not cover |
 | [AGENTS.md](AGENTS.md) | Repository-wide scope, privacy, verification, Git, review, and delivery rules. **Read before contributing** |
 | [ios/AGENTS.md](ios/AGENTS.md) | Additional app rules: architecture/state, concurrency, persistence, localization, and ownership |
-| [TESTING.md](TESTING.md) | Current suites, relevant-test selection, commands, fixture gates, and trustworthy results |
+| [TESTING.md](specification/TESTING.md) | Current suites, relevant-test selection, commands, fixture gates, and trustworthy results |
 | [ios/ARCHITECTURE.md](ios/ARCHITECTURE.md) | Codebase map: layering, composition root, app entry & gating, the detection pipeline, persistence |
 | [ios/MLBrowser/README.md](ios/MLBrowser/README.md) | Project setup, `ProjectTool` reference, pinned tools, secrets via 1Password, Xcode Cloud notes |
-| [FEATUREFLAGS.md](FEATUREFLAGS.md) | Remote feature flags (ConfigCat): the current flags, live vs launch-only application, fail-open limits, environments, and how to add a flag |
-| [ANALYTICS.md](ANALYTICS.md) | Product analytics (TelemetryDeck) — **designed, not yet implemented**: event set, the notice-before-gates requirement, and what is/isn't collected |
-| [RATING.md](RATING.md) | The native App Store rating prompt: which moments trigger it, the request policy, where it never appears (TestFlight included), and how to test it by hand |
-| [LOGGING_GUIDE.md](LOGGING_GUIDE.md) | OSLog categories, log levels, privacy annotations, Sentry breadcrumb/quota policy |
+| [FEATUREFLAGS.md](specification/FEATUREFLAGS.md) | Remote feature flags (ConfigCat): the current flags, live vs launch-only application, fail-open limits, environments, and how to add a flag |
+| [ANALYTICS.md](specification/ANALYTICS.md) | Product analytics (TelemetryDeck) — **implemented in the client, not yet enabled for release**: event set, the notice-before-gates requirement, and what is/isn't collected |
+| [RATING.md](specification/RATING.md) | The native App Store rating prompt: which moments trigger it, the request policy, where it never appears (TestFlight included), and how to test it by hand |
+| [LOGGING_GUIDE.md](specification/LOGGING_GUIDE.md) | OSLog categories, log levels, privacy annotations, Sentry breadcrumb/quota policy |
 | [cloudflare/README.md](cloudflare/README.md) | Sentry → GitHub Issues relay worker: architecture, setup, configuration |

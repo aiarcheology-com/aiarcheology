@@ -400,6 +400,30 @@ final class FreeAccessStateTests: XCTestCase {
 		XCTAssertNotNil(relaunched.duePrompt, "the day-0 paywall must still be owed")
 	}
 
+	/// A window granted while payments were on, whose priced day-0 screen never made it on screen,
+	/// must not raise that screen after payments are switched off (AIA-0955) — and must still owe it
+	/// once they are back on. The screen names a price, a trial length and a subscription, none of
+	/// which a payments-off session may show.
+	@MainActor
+	func testStart_whenPaymentsAreOff_withholdsAnUnshownDay0Prompt_withoutForgettingIt() throws {
+		let clock = TestClock(try date(2026, 3, 2))
+		let durableStore = StubDurableStore()
+		let granting = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+		granting.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+		XCTAssertNotNil(granting.duePrompt, "precondition: the granting launch owes the day-0 screen")
+
+		let paymentsOff = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+		paymentsOff.start(isEntitled: false, isPaymentsSurfaceEnabled: false)
+		XCTAssertNil(paymentsOff.duePrompt, "a payments-off launch raised the priced day-0 screen")
+		paymentsOff.reevaluate()
+		XCTAssertNil(paymentsOff.duePrompt, "a foreground re-evaluation brought the priced screen back")
+		XCTAssertEqual(paymentsOff.availability, .open, "the window itself must still be honoured")
+
+		let paymentsBackOn = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+		paymentsBackOn.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+		XCTAssertNotNil(paymentsBackOn.duePrompt, "suppression must not have marked the screen shown")
+	}
+
 	/// Away from day 5 to day 16: the wall is what they meet, and the explanation of a window that is
 	/// already spent does not fire on the way to it.
 	@MainActor

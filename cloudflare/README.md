@@ -1,6 +1,6 @@
 # Sentry → Cloudflare Worker → GitHub Issues (+ Project) Relay
 
-This folder contains the Cloudflare Worker that turns **Sentry Issue webhooks** into **GitHub Issues**, plus optional **Sentry API enrichment** (issue + event JSON) stored in the GitHub issue body.
+This folder contains the Cloudflare Worker that turns **Sentry Issue webhooks** into **GitHub Issues**, plus optional **Sentry API enrichment**: allowlisted tag values and in-app exception frames from the latest event, added to the GitHub issue body.
 
 - Worker source: `cloudflare/sentry-github-relay-worker.js`
 
@@ -22,7 +22,7 @@ flowchart LR
 - **Event-driven**: no polling / no scheduled GitHub Actions to fetch Sentry.
 - **Dedupe**: one GitHub issue per Sentry issue group (uses a stable marker in the GitHub issue body).
 - **Readable titles**: strips a leading `ISO_TIMESTAMP File.swift:line` prefix from Sentry titles (when present) and moves those details into the body.
-- **Richer context**: fetches additional structured data via Sentry REST API and stores a redacted + size-capped JSON snapshot in the GitHub issue body.
+- **Richer context**: fetches the latest event via the Sentry REST API and adds allowlisted tags (environment, release, OS, device model, …) and in-app exception frames to the GitHub issue body.
 - **Project integration**: automatically adds issues to GitHub Project V2 via GraphQL (optional, requires `GH_PROJECT_ID` env var).
 
 ## 1) Cloudflare Worker setup
@@ -131,7 +131,7 @@ The Worker sanitizes the base title before GitHub Actions prefixes it.
 
 - **Sentry grouping**: GitHub issues are created on `issue.created`. If you trigger the same stacktrace again, Sentry will usually group it into an existing issue and no new GitHub issue will be created.
 - **Time limits**: the Worker responds quickly and runs enrichment in the background to avoid webhook cancellations.
-- **Privacy**: enrichment JSON is **redacted** and **size-capped**. If you want more/less redaction, edit `redact()` and `jsonBlock()` in the Worker.
+- **Privacy**: enrichment is an **allowlist**. User ids, device identifiers, contexts, request data, exception messages and raw issue/event JSON stay in Sentry; the issue links to the Sentry console instead. To copy another tag, add it to `ALLOWED_TAG_KEYS` and extend `cloudflare/sentry-github-relay-worker.test.mjs` (`node --test cloudflare/sentry-github-relay-worker.test.mjs`). Redeploy the Worker for changes to take effect.
 - **Monitoring**: Project addition failures are logged via `console.error` for better visibility in Cloudflare Worker logs. Monitor these errors as they may indicate permissions issues with the GitHub token or project configuration.
 
 

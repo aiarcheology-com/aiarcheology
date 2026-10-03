@@ -150,17 +150,21 @@ private extension CatalogBrowseView {
 					.disabled(provider.isSearchable == false)
 				}
 			} label: {
-				HStack {
-					Label(L10n.Catalog.provider, systemImage: "square.stack.3d.up")
-					Spacer()
-					Text(searchManager.selectedProviderSummary)
-						.foregroundStyle(.secondary)
-						.lineLimit(1)
-					Image(systemName: "chevron.up.chevron.down")
-						.foregroundStyle(.tertiary)
-				}
+				providerMenuLabel
 			}
 			.testability(Testability.Picker.catalogProvider)
+		}
+	}
+
+	private var providerMenuLabel: some View {
+		HStack {
+			Label(L10n.Catalog.provider, systemImage: "square.stack.3d.up")
+			Spacer()
+			Text(searchManager.selectedProviderSummary)
+				.foregroundStyle(.secondary)
+				.lineLimit(1)
+			Image(systemName: "chevron.up.chevron.down")
+				.foregroundStyle(.tertiary)
 		}
 	}
 
@@ -300,58 +304,74 @@ private extension CatalogBrowseView {
 		let newestDownloadItemsByURLSnapshot = newestDownloadItemsByURL
 		let importedConfigurationURLsSnapshot = importedConfigurationURLs
 		Section {
-			if searchManager.isLoading {
-				HStack {
-					Spacer()
-					ProgressView()
-					Spacer()
-				}
-			} else if let errorMessage = searchManager.errorMessage {
-				ContentUnavailableView(
-					L10n.Catalog.Error.title,
-					systemImage: "exclamationmark.triangle",
-					description: Text(errorMessage)
-				)
-			} else if searchManager.visibleResults.isEmpty {
-				if searchManager.hasResultsHiddenByFilters {
-					ContentUnavailableView(
-						L10n.Catalog.Filter.emptyTitle,
-						systemImage: "line.3.horizontal.decrease.circle",
-						description: Text(L10n.Catalog.Filter.emptyMessage)
-					)
-				} else {
-					ContentUnavailableView(
-						searchManager.query.isEmpty ? L10n.Catalog.Empty.title : L10n.Catalog.Empty.noResultsTitle,
-						systemImage: "magnifyingglass",
-						description: Text(searchManager.query.isEmpty ? L10n.Catalog.Empty.message : L10n.Catalog.Empty.noResultsMessage)
-					)
-				}
-		} else {
-				ForEach(searchManager.visibleResults) { model in
-					let artifactURL = searchManager.resolvedArtifactURL(for: model)
-					let item = artifactURL.flatMap { newestDownloadItemsByURLSnapshot[$0] }
-					let isImported = item?.state == .imported || artifactURL.map(importedConfigurationURLsSnapshot.contains) == true
-					Button {
-						select(model)
-					} label: {
-						CatalogResultRow(
-							model: model,
-							providerName: searchManager.providerName(for: model.providerId),
-							isResolving: searchManager.resolvingModelID == model.id,
-							downloadItem: item,
-							isImported: isImported
-						)
-					}
-					.buttonStyle(.plain)
-					.contentShape(Rectangle())
-					.disabled(searchManager.resolvingModelID != nil)
-					.testability(Testability.Button.catalogResult)
-				}
-			}
+			resultsSectionContent(
+				newestDownloadItemsByURLSnapshot: newestDownloadItemsByURLSnapshot,
+				importedConfigurationURLsSnapshot: importedConfigurationURLsSnapshot
+			)
 		} header: {
 			Text(L10n.Catalog.Results.title)
 		}
 		.testability(Testability.List.catalogResults)
+	}
+
+	@ViewBuilder
+	private func resultsSectionContent(
+		newestDownloadItemsByURLSnapshot: [URL: DownloadItem],
+		importedConfigurationURLsSnapshot: Set<URL>
+	) -> some View {
+		if searchManager.isLoading {
+			HStack {
+				Spacer()
+				ProgressView()
+				Spacer()
+			}
+		} else if let errorMessage = searchManager.errorMessage {
+			ContentUnavailableView(
+				L10n.Catalog.Error.title,
+				systemImage: "exclamationmark.triangle",
+				description: Text(errorMessage)
+			)
+		} else if searchManager.visibleResults.isEmpty {
+			resultsEmptyState
+		} else {
+			ForEach(searchManager.visibleResults) { model in
+				let artifactURL = searchManager.resolvedArtifactURL(for: model)
+				let item = artifactURL.flatMap { newestDownloadItemsByURLSnapshot[$0] }
+				let isImported = item?.state == .imported || artifactURL.map(importedConfigurationURLsSnapshot.contains) == true
+				Button {
+					select(model)
+				} label: {
+					CatalogResultRow(
+						model: model,
+						providerName: searchManager.providerName(for: model.providerId),
+						isResolving: searchManager.resolvingModelID == model.id,
+						downloadItem: item,
+						isImported: isImported
+					)
+				}
+				.buttonStyle(.plain)
+				.contentShape(Rectangle())
+				.disabled(searchManager.resolvingModelID != nil)
+				.testability(Testability.Button.catalogResult)
+			}
+		}
+	}
+
+	@ViewBuilder
+	private var resultsEmptyState: some View {
+		if searchManager.hasResultsHiddenByFilters {
+			ContentUnavailableView(
+				L10n.Catalog.Filter.emptyTitle,
+				systemImage: "line.3.horizontal.decrease.circle",
+				description: Text(L10n.Catalog.Filter.emptyMessage)
+			)
+		} else {
+			ContentUnavailableView(
+				searchManager.query.isEmpty ? L10n.Catalog.Empty.title : L10n.Catalog.Empty.noResultsTitle,
+				systemImage: "magnifyingglass",
+				description: Text(searchManager.query.isEmpty ? L10n.Catalog.Empty.message : L10n.Catalog.Empty.noResultsMessage)
+			)
+		}
 	}
 
 	func select(_ model: CatalogModel) {

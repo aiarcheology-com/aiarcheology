@@ -41,6 +41,11 @@ struct DeleteAccountView: View {
 	/// credential that can reach the remaining data (AIA-0816).
 	@ObservedObject var authState: AuthState
 
+	/// The launch-captured payments flag (AIA-0955). With payments off the app sells nothing, and
+	/// removing the subscription from sale stops renewals, so the dialog drops its billing sentence
+	/// and its Manage Subscription action rather than warning about a charge that cannot happen.
+	let isPaymentsSurfaceEnabled: Bool
+
 	@Environment(\.openURL) private var openURL
 
 	@State private var showConfirmation = false
@@ -91,8 +96,13 @@ struct DeleteAccountView: View {
 	/// Composed here rather than reusing ``PaywallAccountDeletionPrompt``: that type's message ends
 	/// "and you can export them first", a promise this screen deliberately does not make — see the
 	/// type doc above.
-	private static var confirmationMessage: String {
-		L10n.Auth.Account.Delete.messageBilling + "\n\n" + L10n.Auth.Account.Delete.deviceNote
+	///
+	/// With payments off the billing warning gives way to the screen's own footer sentence, which
+	/// says the same irreversibility without mentioning a subscription (AIA-0955). Reused rather
+	/// than a new key: it is the exact statement the screen under the dialog already makes.
+	static func confirmationMessage(isPaymentsSurfaceEnabled: Bool) -> String {
+		let lead = isPaymentsSurfaceEnabled ? L10n.Auth.Account.Delete.messageBilling : L10n.Auth.Account.Delete.footer
+		return lead + "\n\n" + L10n.Auth.Account.Delete.deviceNote
 	}
 
 	var body: some View {
@@ -128,10 +138,12 @@ struct DeleteAccountView: View {
 			isPresented: $showConfirmation,
 			titleVisibility: .visible
 		) {
-			Button(L10n.Paywall.manage) {
-				openURL(.appleManageSubscriptions)
+			if isPaymentsSurfaceEnabled {
+				Button(L10n.Paywall.manage) {
+					openURL(.appleManageSubscriptions)
+				}
+				.testability(Testability.Button.settingsDeleteAccountManage)
 			}
-			.testability(Testability.Button.settingsDeleteAccountManage)
 
 			Button(L10n.Auth.Account.Delete.action, role: .destructive) {
 				delete()
@@ -143,10 +155,23 @@ struct DeleteAccountView: View {
 			// Unconditional, where the wall's equivalent appears only when findings exist: this
 			// screen says the same thing whether or not anything is saved, because "your settings
 			// stay" is true either way and a reader mid-deletion should not have to infer it.
-			Text(Self.confirmationMessage)
+			Text(Self.confirmationMessage(isPaymentsSurfaceEnabled: isPaymentsSurfaceEnabled))
 		}
 		.alert(item: $failure) { item in
 			Alert(title: item.title, message: item.message, dismissButton: item.dismissButton)
+		}
+	}
+
+	/// The copy for a failed deletion. The stage picks the sentence because the two stages leave
+	/// the cloud copy in different states (AIA-0816). After `.purge` the erase is incomplete —
+	/// some objects may already be gone — so the purge sentence hedges. After `.accountDeletion`
+	/// the purge finished and only the account survives. `cloudDataErased: false` is a build with
+	/// nothing to erase, which says so rather than borrowing the purge hedge.
+	static func deletionFailureMessage(for failure: AccountDeletionFailure) -> String {
+		switch failure {
+		case .purge: L10n.Auth.Account.Delete.failedPurge
+		case .accountDeletion(_, cloudDataErased: true): L10n.Auth.Account.Delete.failedDeletion
+		case .accountDeletion(_, cloudDataErased: false): L10n.Auth.Account.Delete.failedNothingErased
 		}
 	}
 
@@ -170,11 +195,7 @@ struct DeleteAccountView: View {
 				// is the third state: a build with nothing to erase, which says so outright rather
 				// than borrowing the purge copy's hedge. `AuthState` has already reported the
 				// failure at `.error` with the stage named, so nothing is logged again here.
-				let message = switch failure {
-				case .purge: L10n.Auth.Account.Delete.failedPurge
-				case .accountDeletion(_, cloudDataErased: true): L10n.Auth.Account.Delete.failedDeletion
-				case .accountDeletion(_, cloudDataErased: false): L10n.Auth.Account.Delete.failedNothingErased
-				}
+				let message = Self.deletionFailureMessage(for: failure)
 				// Cleared on each failure path and on none of the success path: the account still
 				// exists here and the copy tells the user to try again, so the button they are
 				// told to press has to come back.

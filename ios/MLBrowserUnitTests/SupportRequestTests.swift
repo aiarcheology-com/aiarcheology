@@ -350,3 +350,41 @@ final class SupportLogAttachmentTests: XCTestCase {
 		XCTAssertFalse(fileManager.fileExists(atPath: strandedZipCopy.path), "old zip staging copy survived")
 	}
 }
+
+final class SupportMailUnavailableCopyTests: XCTestCase {
+	func testAnOpenedMailtoKeepsTheUserInAMailApp() {
+		XCTAssertEqual(
+			SupportMailUnavailableCopy.message(mailtoOpened: true, recipient: "help@example.com"),
+			L10n.Support.MailUnavailable.message("help@example.com")
+		)
+	}
+
+	func testAMissingMailAppSaysSo() {
+		XCTAssertEqual(
+			SupportMailUnavailableCopy.message(mailtoOpened: false, recipient: "help@example.com"),
+			L10n.Support.MailUnavailable.messageNoMailApp("help@example.com")
+		)
+	}
+
+	/// Payments off withdraws the purchase category from the picker (AIA-0955); payments on offers
+	/// every category, and nothing else is withdrawn either way.
+	func testOfferedCategories_withholdPurchaseOnlyWhilePaymentsAreOff() {
+		XCTAssertEqual(SupportCategory.offered(isPaymentsSurfaceEnabled: true), SupportCategory.allCases)
+		XCTAssertEqual(
+			SupportCategory.offered(isPaymentsSurfaceEnabled: false),
+			SupportCategory.allCases.filter { $0 != .purchase }
+		)
+	}
+
+	/// The payments-off deletion dialog keeps its irreversibility and device note but never
+	/// mentions a subscription (AIA-0955).
+	func testDeleteConfirmation_paymentsOff_dropsTheBillingSentence() {
+		let off = DeleteAccountView.confirmationMessage(isPaymentsSurfaceEnabled: false)
+		XCTAssertFalse(off.contains(L10n.Auth.Account.Delete.messageBilling))
+		XCTAssertTrue(off.contains(L10n.Auth.Account.Delete.footer))
+		XCTAssertTrue(off.contains(L10n.Auth.Account.Delete.deviceNote))
+
+		let on = DeleteAccountView.confirmationMessage(isPaymentsSurfaceEnabled: true)
+		XCTAssertTrue(on.contains(L10n.Auth.Account.Delete.messageBilling))
+	}
+}

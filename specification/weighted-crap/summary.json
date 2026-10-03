@@ -1,0 +1,103 @@
+{
+  "metadata": {
+    "source_revision": "392312f7b2a6c73dd20a15cc7915e1f63bc08742",
+    "analyzer_revision": "70245e434a271d6ce95a62976d67f7a14f9f298c",
+    "tool_version": "0.1.0",
+    "runs": [
+      {
+        "suite": "app",
+        "result": "2463 passed, 0 failed, 8 skipped.",
+        "detail": "MLBrowserUnitTests on an iPhone 18 Pro iOS 27.0 simulator with code coverage enabled. Seven skips are physical-device or opt-in live-map checks; the eighth is BrowserStateTests.testConsumePendingSessionState_IsOneShot, whose setup did not request the rebuild required to capture a session. That unexpected skip is not session-restoration evidence."
+      },
+      {
+        "suite": "converter",
+        "result": "556 passed, 0 failed, 0 skipped.",
+        "detail": "Root swift test with ONNX fixtures, Apple MobileNet reference models, and code coverage. ADAFCheckpointDirectoryTests were excluded with --skip, so they are not in the skip count."
+      },
+      {
+        "suite": "tools",
+        "result": "23 passed, 0 failed, 0 skipped.",
+        "detail": "swift test --package-path Tools with code coverage. The tested product is ProjectToolCore."
+      }
+    ],
+    "cohort_selection": "frozen",
+    "evidence_note": "PR #950 review correction: these are the original pre-refactor exports, reprocessed with corrected region, target, path, and ambiguity handling. Cohort membership and original rank order are unchanged. The legacy exports predate collection attestations; the source revision and test-run descriptions below are the original collector\u2019s attribution, not a new source attestation or validation of the refactored code. New collections require revision/hash sidecars.",
+    "artifact_sha256": {
+      "complexity.json": "4d51861659047cc021ddbf5ffb24b222a79c3c690eac496bd32b8f55f59d8e55",
+      "app-coverage.json": "6cf3d9b00e5b63a7127334dd95c865212525c12f9609d9a8926a87dc8cc57f18",
+      "converter-coverage.json": "10adf724a7316da060530f21467c7a046cb3fcda9bdd4f6aedf107b1e48ce02a",
+      "tools-coverage.json": "ae633095f70667948853874990214c2ef6d1e52c284e8cfea3c7aff1846a6e36"
+    }
+  },
+  "summary": {
+    "analyzed_methods": 3268,
+    "scored_methods": 3033,
+    "cohort_size": 490,
+    "cohort_cutoff": 2.2579635623730954,
+    "median": 0.0,
+    "p90": 7.40265263534645,
+    "p95": 13.482297354118595,
+    "max": 567.3238075793812,
+    "above_7": 332,
+    "above_30": 69,
+    "zero_cognitive": 1712,
+    "provenance": {
+      "function-match": 2184,
+      "measured-zero": 849,
+      "excluded": 83,
+      "ambiguous": 25,
+      "missing": 22,
+      "file-fallback": 105
+    },
+    "triage": {
+      "actionable": 69,
+      "acceptable": 420,
+      "measurement": 1
+    },
+    "clusters": {
+      "swiftui-subscription": 4,
+      "swiftui-import-and-catalog": 15,
+      "swiftui-settings": 4,
+      "swiftui-findings": 11,
+      "converter-emission": 3,
+      "swiftui-other": 15,
+      "persistence-store-recovery": 1,
+      "detection": 2,
+      "converter-other": 3,
+      "map-location-probe": 1,
+      "finding-restore": 2,
+      "background-download-reconnect": 2,
+      "crash-reporting": 2,
+      "debug-launch-helpers": 3,
+      "storekit-purchase": 1
+    },
+    "reconciliation": {
+      "stayed": 374,
+      "excluded": 31,
+      "removed": 5,
+      "left-cohort": 80,
+      "unmeasured": 2,
+      "entered": 115
+    },
+    "production_coverage": [
+      {
+        "suite": "app",
+        "covered": 23283,
+        "executable": 50920,
+        "percent": 45.72466614296936
+      },
+      {
+        "suite": "converter",
+        "covered": 10150,
+        "executable": 12088,
+        "percent": 83.96757114493712
+      },
+      {
+        "suite": "tools",
+        "covered": 268,
+        "executable": 290,
+        "percent": 92.41379310344827
+      }
+    ]
+  }
+}

@@ -1,15 +1,12 @@
 name: SwiftLint
 
 on:
+  # Report on every PR into the protected branches, including documentation-only changes.
+  # Path filters would leave future required checks pending (AIA-0900).
   pull_request:
-    branches-ignore:
-      - "copilot/**"
-    paths:
-      - "ios/**"
-      - ".swiftlint.yml"
-      - ".github/workflows/swiftlint.yml"
-      - "Tests/NativeModelConverterTests/Fixtures/ONNXConversionModels.json"
-      - "scripts/verify_catalog_onnx_sync.sh"
+    branches:
+      - develop
+      - main
   workflow_dispatch:
 
 concurrency:
@@ -22,11 +19,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Cache SwiftLint
         id: cache-swiftlint
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: /tmp/swiftlint
           key: ${{ runner.os }}-swiftlint-${{ hashFiles('.tools.json') }}

@@ -138,3 +138,26 @@ final class AccountDeletionOrderTests: XCTestCase {
 		XCTAssertEqual(provider.steps, [.deleteClerkUser])
 	}
 }
+
+final class DeleteAccountFailureCopyTests: XCTestCase {
+	func testPurgeFailureSaysTheEraseMayBeIncomplete() {
+		let message = DeleteAccountView.deletionFailureMessage(
+			for: .purge(NSError(domain: "test", code: 1))
+		)
+		XCTAssertEqual(message, L10n.Auth.Account.Delete.failedPurge)
+	}
+
+	func testAccountDeletionFailureAfterAnEraseSaysTheAccountSurvived() {
+		let message = DeleteAccountView.deletionFailureMessage(
+			for: .accountDeletion(NSError(domain: "test", code: 1), cloudDataErased: true)
+		)
+		XCTAssertEqual(message, L10n.Auth.Account.Delete.failedDeletion)
+	}
+
+	func testAccountDeletionWithNothingToEraseDoesNotClaimABackupWasRemoved() {
+		let message = DeleteAccountView.deletionFailureMessage(
+			for: .accountDeletion(NSError(domain: "test", code: 1), cloudDataErased: false)
+		)
+		XCTAssertEqual(message, L10n.Auth.Account.Delete.failedNothingErased)
+	}
+}

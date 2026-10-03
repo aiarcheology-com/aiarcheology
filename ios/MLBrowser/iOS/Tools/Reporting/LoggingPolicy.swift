@@ -745,7 +745,7 @@ final class ApplicationLogFileStore: ApplicationLogStoring, @unchecked Sendable 
 	private let maximumByteCount: Int
 	private let maximumRetainedAge: TimeInterval
 	private let fileManager: FileManager
-	private let queue = DispatchQueue(label: "com.aiarcheology.ios.application-log", qos: .utility)
+	private let queue: DispatchQueue
 	private let slots: DispatchSemaphore
 
 	// Everything below is read and written ONLY on `queue`.
@@ -762,12 +762,15 @@ final class ApplicationLogFileStore: ApplicationLogStoring, @unchecked Sendable 
 		directoryURL: URL,
 		maximumByteCount: Int = ApplicationLogFileStore.maximumByteCount,
 		maximumRetainedAge: TimeInterval = ApplicationLogFileStore.maximumRetainedAge,
-		fileManager: FileManager = .default
+		fileManager: FileManager = .default,
+		queue: DispatchQueue = DispatchQueue(label: "com.aiarcheology.ios.application-log", qos: .utility)
 	) {
 		self.directoryURL = directoryURL
 		self.maximumByteCount = maximumByteCount
 		self.maximumRetainedAge = maximumRetainedAge
 		self.fileManager = fileManager
+		// Must be serial: every file operation and its bookkeeping run on this queue.
+		self.queue = queue
 		self.slots = DispatchSemaphore(value: Self.outstandingWriteLimit)
 	}
 
@@ -803,8 +806,9 @@ final class ApplicationLogFileStore: ApplicationLogStoring, @unchecked Sendable 
 		// log with nothing marking it.
 		let acquiredSlot = slots.wait(timeout: .now() + .milliseconds(20)) == .success
 
-		queue.async { [weak self] in
-			guard let self else { return }
+		// An accepted write owns the store until it returns its semaphore slot. A weak capture
+		// lets owner release dispose a semaphore still in use, which traps, and loses the entry.
+		queue.async { [self] in
 			defer { if acquiredSlot { self.slots.signal() } }
 			self.write(record, allowRotation: isTerminal == false)
 		}

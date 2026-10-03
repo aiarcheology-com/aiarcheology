@@ -95,6 +95,55 @@ struct WebViewRebuildRequest: Equatable {
 	let url: URL
 }
 
+/// Which document — and which state of it — a snapshot was taken from (AIA-0846).
+///
+/// A finding pairs an image with a page URL and, on a map, a coordinate. Those come from different
+/// awaits, and the page can navigate, reload, be replaced, or rewrite its own URL between them, so
+/// each image carries the context it was taken under and every later step is checked against it.
+/// Read synchronously on both sides of the snapshot await; a snapshot whose two readings differ
+/// has no established source.
+struct CaptureContext: Equatable, Sendable {
+	/// Advances on every commit (same-URL reloads included), web-view attach and invalidation.
+	let documentRevision: UInt64
+	/// What the finding records as its page: `BrowserState.captureURL` at the time.
+	let sourceURL: URL?
+	/// What WebKit itself reported at the time. Differs from `sourceURL` while another document
+	/// is being fetched, and sees a same-document rewrite before the KVO sink has delivered it.
+	let liveURL: URL?
+	/// `BrowserState.urlRevision`: every URL change counts, so a round trip back to the same URL
+	/// is still a change.
+	let urlRevision: UInt64
+
+	enum Relation: Equatable {
+		/// Nothing observable changed.
+		case current
+		/// Same document, but its URL moved (as recorded, as WebKit reports it, or away and back).
+		case sameDocumentDrift
+		/// A different document, a different web view, or none at all.
+		case otherDocument
+	}
+}
+
+/// The outcome of ``BrowserState/captureSnapshot(_:)``.
+enum ContextBoundSnapshot<Image> {
+	case captured(Image, CaptureContext)
+	/// No web view, or WebKit produced no image.
+	case unavailable
+	/// The page changed while the image was being taken.
+	case documentChanged
+}
+
+extension ContextBoundSnapshot: Sendable where Image: Sendable {}
+
+/// The outcome of ``BrowserState/resolveCaptureLocation(for:)``.
+enum CaptureResolution: Equatable {
+	case resolved(MapPageLocation)
+	/// The document is the same but has moved since the image; a fresh image is needed before its
+	/// live map may be asked (see `specification/MAP_LOCATION.md`, "Binding the location to the
+	/// image").
+	case drifted
+}
+
 /// Mirrors the live `WKWebView` navigation state (URL, back/forward, loading) and carries
 /// browser navigation intents. KVO on `\.url` is the AIA-0044 fix: it also fires for
 /// same-document History-API navigations (map pans), which never reach the navigation
@@ -185,8 +234,20 @@ final class BrowserState: ObservableObject {
 	/// settle callback at all, which would otherwise leave the in-flight marker set and freeze the
 	/// capture URL for the rest of the session — every later map pan silently unrecorded.
 	private func resyncCommittedURL() {
+		let wasFetchingAnotherDocument = isProvisionalNavigationInFlight || isUserLoadPending
 		provisionalNavigation = nil
 		isProvisionalNavigationInFlight = false
+		// AIA-0875: loading has ended, so a change held back while it ran is no longer ambiguous. The
+		// document still showing a different address than it committed at, with nothing else being
+		// fetched, rewrote it itself; an address that went back, or a navigation that was still
+		// pending, belonged to a load that never arrived and says nothing about this page.
+		if hasURLChangeWhileLoading {
+			if wasFetchingAnotherDocument.not, webView?.isLoading == false,
+			   let committedURL, let url = webView?.url, url != committedURL {
+				hasObservedSameDocumentURLChange = true
+			}
+			hasURLChangeWhileLoading = false
+		}
 		if let url = webView?.url { committedURL = url }
 	}
 
@@ -198,45 +259,181 @@ final class BrowserState: ObservableObject {
 	/// view. Measured on demotiles.maplibre.org, which ignores its hash in both directions.
 	private(set) var hasObservedSameDocumentURLChange = false
 
+	/// Whether this document's URL moved while it was still loading, with no other navigation
+	/// behind the change (AIA-0875).
+	///
+	/// `urlChanged` cannot tell such a change apart from `load(_:)` publishing the URL of a document
+	/// that is only being requested, so it does not follow it — and that meant a map that rewrote its
+	/// address while its tiles were still arriving was never seen doing so. Kept apart from
+	/// ``hasObservedSameDocumentURLChange`` because it is weaker evidence: the change may belong to
+	/// another document that is about to be fetched. Treating it as "maintained" is still the safe
+	/// reading, since the only thing it withholds is our own rewrite of the URL. It lasts only as long
+	/// as the load: when loading ends `resyncCommittedURL` either confirms it as an observed rewrite
+	/// or drops it, and a commit clears it.
+	private(set) var hasURLChangeWhileLoading = false
+
+	/// The Reopen Last Page URL whose load is on its way, consumed by the next commit (AIA-0875).
+	private var pendingLastPageRestore: URL?
+
+	/// Whether this document opened at an address the map app is known to have written itself
+	/// (AIA-0875): the page Reopen Last Page brought back, at the address it was saved with, or a
+	/// reload of a page that maintained its URL.
+	///
+	/// `Settings.lastPage` is persisted from the web view's own URL stream, so for a map that keeps
+	/// its viewport in the address it is the app's own rewrite. Reopened, the app writes the same
+	/// string again, KVO reports no change, and nothing is ever *seen* — yet the URL in hand is the
+	/// app's own and already current. See ``pageMaintainsItsURL``.
+	private(set) var isOpenedAtAppWrittenURL = false
+
+	/// Whether the URL of the document on screen should be treated as the app's own, and so never be
+	/// rewritten from the live map (AIA-0871, AIA-0875).
+	///
+	/// An observation alone is not enough: before the first pan a restored page, or one that rewrote
+	/// its address while still loading, looks exactly like a frozen page and was refreshed anyway —
+	/// on a site whose URL and map hold different projections, into a link to somewhere else.
+	///
+	/// Accepted cost: a genuinely frozen page reopened by Reopen Last Page, or one that changed its
+	/// address once while loading, keeps that address — through reloads of it, until the user goes
+	/// elsewhere — instead of having its viewport refreshed. That URL is stale rather than wrong, and the GPS field still comes
+	/// from the live map. Not covered: a pasted share link, Back/Forward to a page that had been
+	/// panned, the reload onto a rebuilt web view after a crash, and a reload issued before loading
+	/// ends of a page that rewrote its address while loading (at commit that address cannot be told
+	/// from one `load(_:)` published for another page) — all still look frozen until the first pan.
+	var pageMaintainsItsURL: Bool {
+		hasObservedSameDocumentURLChange || hasURLChangeWhileLoading || isOpenedAtAppWrittenURL
+	}
+
+	/// Forgets everything known about whether the document's URL is its own, for a new document or
+	/// a new web view (AIA-0875).
+	private func resetURLOwnership() {
+		hasObservedSameDocumentURLChange = false
+		hasURLChangeWhileLoading = false
+		isOpenedAtAppWrittenURL = false
+	}
+
+	/// The initial load is about to reopen the last page (AIA-0875). Consumed by the next commit,
+	/// which is taken as the restore only when it lands on exactly this URL — a redirect elsewhere is
+	/// an address the app did not write. A user-requested load in between withdraws it, and any
+	/// other commit that lands first consumes it without a match; either way the page is simply
+	/// treated as it was before this existed.
+	func lastPageRestoreRequested(_ url: URL?) {
+		pendingLastPageRestore = url
+	}
+
 	/// What a finding should record as its page.
 	///
 	/// Falls back to `currentURL` when nothing has been observed to commit yet — attaching to an
 	/// already-loaded web view produces no commit callback, and a page is still on screen.
 	var captureURL: URL? { committedURL ?? currentURL }
 
-	/// Everything resolvable about the page right now: its URL always, and a coordinate when the
-	/// live map or the URL can supply one.
+	// MARK: - AIA-0846 capture context
+
+	/// Advances whenever the web view starts showing a different document: a commit (including a
+	/// reload of the same URL, a redirect and a back/forward restore), a new web view being
+	/// attached, or the current one being invalidated. URL equality cannot see any of the first
+	/// three, which is why a counter exists at all.
+	private(set) var documentRevision: UInt64 = 0
+
+	private func documentChanged() {
+		documentRevision &+= 1
+	}
+
+	/// Advances on every URL change the web view reports, same-document rewrites included.
+	private(set) var urlRevision: UInt64 = 0
+
+	/// Which document, and which state of it, a snapshot came from — or `nil` when no web view is
+	/// attached. Read synchronously on both sides of a snapshot's await; see ``CaptureContext``.
+	var captureContext: CaptureContext? {
+		guard let webView else { return nil }
+		return CaptureContext(
+			documentRevision: documentRevision,
+			sourceURL: captureURL,
+			liveURL: webView.url,
+			urlRevision: urlRevision
+		)
+	}
+
+	/// Whether `context` still describes what the web view is showing.
+	func relation(of context: CaptureContext) -> CaptureContext.Relation {
+		guard let current = captureContext, current.documentRevision == context.documentRevision else {
+			return .otherDocument
+		}
+		return current == context ? .current : .sameDocumentDrift
+	}
+
+	/// Takes a snapshot and states which document it came from (AIA-0846).
+	///
+	/// The context is read on both sides of the await. If anything changed while WebKit was
+	/// producing the image — a commit, a same-document URL rewrite, a web-view replacement — the
+	/// pixels could belong to either side, so the result is refused rather than guessed. Generic
+	/// over the image so this `*State` type stays free of UIKit.
+	func captureSnapshot<Image>(_ take: () async -> Image?) async -> ContextBoundSnapshot<Image> {
+		guard let before = captureContext else { return .unavailable }
+		guard let image = await take() else { return .unavailable }
+		guard captureContext == before else { return .documentChanged }
+		return .captured(image, before)
+	}
+
+	/// The resolver behind ``resolveCaptureLocation(for:)``. A seam so tests can hold the probe's
+	/// completion and change the page underneath it; production always uses the real resolver.
+	var locationResolver: @MainActor (
+		_ url: URL?,
+		_ webView: WKWebView?,
+		_ frames: [WKFrameInfo],
+		_ pageMaintainsItsURL: Bool,
+		_ mayProbe: @escaping @MainActor (URL?) -> Bool
+	) async -> MapPageLocation = { url, webView, frames, pageMaintainsItsURL, mayProbe in
+		await MapLocationResolver.resolve(
+			url: url,
+			webView: webView,
+			frames: frames,
+			pageMaintainsItsURL: pageMaintainsItsURL,
+			mayProbe: mayProbe
+		)
+	}
+
+	/// The location to record for an image taken under `context`: its URL always, and a
+	/// coordinate only when the live page can be proven to still be the one in that image.
 	///
 	/// Lives here because both inputs already do — the capture URL and the live `WKWebView`. Any
 	/// other home would have to be handed the web view a second time.
 	///
-	/// The URL is read **before** awaiting the probe, so the recorded page is the one the user was
-	/// on when they tapped rather than wherever the app drifted to while the page was being asked.
-	func resolveCaptureLocation() async -> MapPageLocation {
-		let url = captureURL
+	/// The live page is questioned only while it is exactly the state the image came from, and the
+	/// answer is kept only if that is still true once it arrives. Anything else would pair one
+	/// page's pixels with another's coordinate — the most confident possible wrong answer.
+	/// Reading the URL before an await does not establish that; only the context does (AIA-0846).
+	func resolveCaptureLocation(for context: CaptureContext) async -> CaptureResolution {
+		// The URL is this feature's floor: the page the image came from, with no coordinate.
+		let urlOnly = CaptureResolution.resolved(MapPageLocation(sourceURL: context.sourceURL))
+		switch relation(of: context) {
+		case .otherDocument:
+			// The image's document is gone. Its own URL is still exactly right; the live page is
+			// someone else's and must not be asked.
+			return urlOnly
+		case .sameDocumentDrift:
+			// Same document, but its URL moved since the image was taken,
+			// so the live viewport need not be the one in the pixels. The caller decides whether to
+			// take a fresh image or settle for the URL.
+			return .drifted
+		case .current:
+			break
+		}
 		// AIA-0821: the same arbiter that decides whether the script is injected decides whether the
 		// page is questioned. A switch that stopped the injection but still ran JavaScript in the
 		// user's document at capture time would only look like a kill switch.
-		let resolved = await MapLocationResolver.resolve(
-			url: url,
-			webView: webView,
-			frames: mapFrames.childFrames,
-			pageMaintainsItsURL: hasObservedSameDocumentURLChange,
-			mayProbe: { [mapParserArming] page in mapParserArming.isArmed(for: page) }
+		let resolved = await locationResolver(
+			context.sourceURL,
+			webView,
+			mapFrames.childFrames,
+			pageMaintainsItsURL,
+			{ [mapParserArming] page in mapParserArming.isArmed(for: page) }
 		)
-		// The probe can take seconds, and the page can move during them — a redirect, a tapped
-		// link, a pushState. What comes back then describes the document that is on screen NOW,
-		// while the finding is being recorded against the one the user tapped on. Pairing them
-		// would produce the most confident possible wrong answer: a precise coordinate under an
-		// unrelated address (raised in review).
-		//
+		// The probe can take seconds, and the page can move during them — a redirect, a reload, a
+		// pushState. What comes back then describes whatever is on screen NOW.
 		// The URL is kept and the coordinate dropped, rather than the whole result discarded,
-		// because the URL is this feature's floor — it was read before the probe started and is
-		// still the page the capture belongs to.
-		guard captureURL == url else {
-			return MapPageLocation(sourceURL: url)
-		}
-		return resolved
+		// because the URL was established with the image and is still the page it belongs to.
+		guard relation(of: context) == .current else { return urlOnly }
+		return .resolved(resolved)
 	}
 
 	/// Frames that announced a map, so an iframed map can be probed (AIA-0817).
@@ -310,7 +507,9 @@ final class BrowserState: ObservableObject {
 		// Per-instance: a new web view has not committed anything yet, and carrying the previous
 		// one's URL over would let a capture name a document this instance never showed.
 		committedURL = nil
-		hasObservedSameDocumentURLChange = false
+		// AIA-0846: whatever the previous instance was showing, an image from it is not from this one.
+		documentChanged()
+		resetURLOwnership()
 		provisionalNavigation = nil
 		isProvisionalNavigationInFlight = false
 		subscriptions.removeAll()
@@ -444,6 +643,8 @@ final class BrowserState: ObservableObject {
 	func userLoadRequested(_ input: String) {
 		isUserLoadPending = true
 		pendingNavigation = nil
+		// AIA-0875: the user asked for something else; the restore is no longer what will commit.
+		pendingLastPageRestore = nil
 		// Deliberate navigation replenishes the recovery budget and dismisses any failure UI:
 		// automatic recovery is bounded, the user's own intent is not.
 		recoveryPolicy.userDidNavigate()
@@ -510,10 +711,26 @@ final class BrowserState: ObservableObject {
 	/// A navigation committed: the page is live, so recovery is no longer in flight.
 	func navigationCommitted(_ navigation: WKNavigation?, from webView: WKWebView? = nil) {
 		guard isCurrent(webView), isLatest(navigation) else { return }
+		// AIA-0875: what the outgoing document was, read before anything below replaces it.
+		let previousURL = committedURL
+		// Only what is known about the ADDRESS carries over. A change seen while loading is a guess
+		// about the page, not its URL, and must not outlive the load it was made in.
+		let previousMaintainedItsURL = hasObservedSameDocumentURLChange || isOpenedAtAppWrittenURL
 		// The document is now the one on screen, so its URL is what a finding should record.
 		committedURL = (webView ?? self.webView)?.url ?? currentURL
+		// A new document even when the URL is unchanged (a reload): an image of the previous one must
+		// not be paired with this one's map (AIA-0846).
+		documentChanged()
 		// A new document has its own habits; what the previous one did says nothing about it.
-		hasObservedSameDocumentURLChange = false
+		resetURLOwnership()
+		// AIA-0875: except where the new document opens at an address the app itself wrote. The
+		// restore is one-shot — only the first commit after the request can be it, and only at the
+		// address that was saved. A reload of a page that maintained its URL reopens that page's own
+		// address, which it would otherwise have to be seen rewriting all over again.
+		let isRestore = pendingLastPageRestore != nil && committedURL == pendingLastPageRestore
+		let isReloadOfMaintainedPage = previousMaintainedItsURL && previousURL != nil && committedURL == previousURL
+		isOpenedAtAppWrittenURL = isRestore || isReloadOfMaintainedPage
+		pendingLastPageRestore = nil
 		// Every frame handle belonged to the page being replaced.
 		mapFrames.reset()
 		clearProvisionalNavigation(navigation)
@@ -651,7 +868,8 @@ final class BrowserState: ObservableObject {
 		// The committed URL belongs to a document on an instance that is gone. Left in place, a
 		// finding captured before the replacement lands could name the previous page.
 		committedURL = nil
-		hasObservedSameDocumentURLChange = false
+		documentChanged()
+		resetURLOwnership()
 		// Whichever path invalidated the instance (rebuild or process death), its committed
 		// document does not survive it (AIA-0552).
 		hasCommittedContent = false
@@ -807,6 +1025,9 @@ final class BrowserState: ObservableObject {
 	// MARK: - Mirroring
 
 	private func urlChanged(_ url: URL?) {
+		// Counted, not only compared: a map that goes A → B → A while a probe is out ends where it
+		// started, and value equality alone would take B's answer for A's image (AIA-0846).
+		if url != currentURL { urlRevision &+= 1 }
 		currentURL = url
 		// A same-document navigation -- the History-API rewrite a map fires on every pan -- changes
 		// the URL without any commit, so this is the only place it can be picked up.
@@ -824,6 +1045,13 @@ final class BrowserState: ObservableObject {
 			// A change with no navigation behind it is the page rewriting its own address.
 			if committedURL != nil, url != committedURL { hasObservedSameDocumentURLChange = true }
 			committedURL = url
+		} else if isProvisionalNavigationInFlight.not, isUserLoadPending.not,
+		          committedURL != nil, url != nil, url != committedURL {
+			// AIA-0875: only `isLoading` held this back. It may be the committed document rewriting
+			// its address while its resources still arrive, or a load not yet announced by
+			// `didStartProvisionalNavigation`; see `hasURLChangeWhileLoading` for why either is
+			// taken as the safe answer.
+			hasURLChangeWhileLoading = true
 		}
 		// Sticky, and gated on the same reopenability rule persistence uses: KVO drives
 		// `currentURL` to nil when the content process dies, and `file://` fixture URLs

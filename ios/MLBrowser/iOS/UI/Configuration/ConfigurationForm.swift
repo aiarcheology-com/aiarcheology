@@ -161,45 +161,49 @@ private struct HardwareAccelerationPicker: View {
 	var body: some View {
 		List {
 			ForEach(ModelComputeUnit.allCases) { option in
-				let isAvailable = option.isAvailable(in: availableAccelerators)
-				Button {
-					selection = option
-				} label: {
-					HStack(alignment: .top, spacing: 12) {
-						VStack(alignment: .leading, spacing: 4) {
-							Text(option.localizedName)
-								.foregroundStyle(.primary)
-							Text(option.localizedDescription)
-								.font(.caption)
-								.foregroundStyle(.secondary)
-								.fixedSize(horizontal: false, vertical: true)
-							if isAvailable.not {
-								Text(L10n.Configuration.hardwareAccelerationUnavailable)
-									.font(.caption)
-									.foregroundStyle(.secondary)
-							}
-						}
-						Spacer(minLength: 0)
-						if selection == option {
-							Image(systemName: "checkmark")
-								.foregroundStyle(.tint)
-								.accessibilityHidden(true)
-						}
-					}
-					.contentShape(Rectangle())
-				}
-				.disabled(isAvailable.not)
-				.accessibilityLabel(option.localizedName)
-				.accessibilityHint(
-					isAvailable
-						? option.localizedDescription
-						: "\(option.localizedDescription) \(L10n.Configuration.hardwareAccelerationUnavailable)"
-				)
+				acceleratorOption(option)
 			}
 		}
 		.navigationTitle(L10n.Configuration.hardwareAcceleration)
 		.navigationBarTitleDisplayMode(.inline)
 		.testability(Testability.Picker.configurationFormComputeUnits)
+	}
+
+	private func acceleratorOption(_ option: ModelComputeUnit) -> some View {
+		let isAvailable = option.isAvailable(in: availableAccelerators)
+		return Button {
+			selection = option
+		} label: {
+			HStack(alignment: .top, spacing: 12) {
+				VStack(alignment: .leading, spacing: 4) {
+					Text(option.localizedName)
+						.foregroundStyle(.primary)
+					Text(option.localizedDescription)
+						.font(.caption)
+						.foregroundStyle(.secondary)
+						.fixedSize(horizontal: false, vertical: true)
+					if isAvailable.not {
+						Text(L10n.Configuration.hardwareAccelerationUnavailable)
+							.font(.caption)
+							.foregroundStyle(.secondary)
+					}
+				}
+				Spacer(minLength: 0)
+				if selection == option {
+					Image(systemName: "checkmark")
+						.foregroundStyle(.tint)
+						.accessibilityHidden(true)
+				}
+			}
+			.contentShape(Rectangle())
+		}
+		.disabled(isAvailable.not)
+		.accessibilityLabel(option.localizedName)
+		.accessibilityHint(
+			isAvailable
+				? option.localizedDescription
+				: "\(option.localizedDescription) \(L10n.Configuration.hardwareAccelerationUnavailable)"
+		)
 	}
 }
 
@@ -352,67 +356,87 @@ struct ConfigurationForm: View {
 				layout: .leadingStacked,
 				showsCopyButton: false
 			)
-			if configuration.modelTypeParsed {
-				// The parser read the type from the model's metadata, so it's authoritative and
-				// shown read-only — the user only picks a type when the parser couldn't (AIA-0402).
-				ConfigurationDetailRow(label: L10n.Configuration.type, value: configuration.modelType.localizedName)
-			} else {
-				VStack(alignment: .leading, spacing: 6) {
-					Text(L10n.Configuration.type)
-					Picker(L10n.Configuration.type, selection: modelTypeSelection) {
-						Text(DeepDriverType.detector.localizedName).tag(DeepDriverType.detector)
-						Text(DeepDriverType.classificator.localizedName).tag(DeepDriverType.classificator)
-						Text(DeepDriverType.invalid.localizedName).tag(DeepDriverType.invalid)
-					}
-					.pickerStyle(.segmented)
-					.labelsHidden()
-					// In a post-import review, a still-undetermined type (Disabled) is a problem the
-					// user must resolve — tint the control red to match the warning footnote (AIA-0402).
-					.tint(pendingTypeReview && configuration.modelType == .invalid ? .red : nil)
-					.testability(Testability.Picker.configurationFormModelType)
-					modelTypeFootnote
-				}
-			}
+			modelTypeRow
 			ConfigurationDetailRow(label: L10n.Configuration.version, value: " \(configuration.modelVersion ?? "")")
+			hardwareAccelerationRow
+			catalogSourceRow
+			downloadLinkRow
+			conversionLogRow
+		}
+	}
 
-			NavigationLink {
-				HardwareAccelerationPicker(selection: Binding(
-					get: { configuration.computeUnit },
-					set: { configuration.computeUnit = $0 }
-				))
-			} label: {
-				ConfigurationDetailRow(
-					label: L10n.Configuration.hardwareAcceleration,
-					value: configuration.computeUnit.localizedName
-				)
-			}
-			.accessibilityLabel(L10n.Configuration.hardwareAcceleration)
-			.accessibilityHint(L10n.Configuration.hardwareAccelerationPickerHint)
-
-			if let catalogSource = configuration.catalogSource {
-				ConfigurationDetailRow(label: L10n.Configuration.catalog, value: catalogSource)
-			}
-
-			if let downloadURL = configuration.downloadURL {
-				ExpandableDetailRow(label: L10n.Configuration.link, value: downloadURL.absoluteString)
-			}
-
-			// Only natively converted imports (.onnx/.aiagraph) leave a conversion report in the
-			// configuration's directory; direct Core ML imports have none and show no row.
-			if let conversionReport {
-				// Pushed, not presented: the log is a detail of this form, and the form already
-				// owns a navigation stack — a sheet on top of a sheet reads as a separate task.
-				NavigationLink {
-					NativeModelConversionReportContent(
-						report: conversionReport,
-						isPreparingExport: isPreparingConversionExport,
-						onExport: { exportConvertedModel(conversionReport) }
-					)
-				} label: {
-					Text(L10n.Configuration.conversionLog)
+	@ViewBuilder
+	private var modelTypeRow: some View {
+		if configuration.modelTypeParsed {
+			// The parser read the type from the model's metadata, so it's authoritative and
+			// shown read-only — the user only picks a type when the parser couldn't (AIA-0402).
+			ConfigurationDetailRow(label: L10n.Configuration.type, value: configuration.modelType.localizedName)
+		} else {
+			VStack(alignment: .leading, spacing: 6) {
+				Text(L10n.Configuration.type)
+				Picker(L10n.Configuration.type, selection: modelTypeSelection) {
+					Text(DeepDriverType.detector.localizedName).tag(DeepDriverType.detector)
+					Text(DeepDriverType.classificator.localizedName).tag(DeepDriverType.classificator)
+					Text(DeepDriverType.invalid.localizedName).tag(DeepDriverType.invalid)
 				}
-				.testability(Testability.Button.configurationFormConversionLog)
+				.pickerStyle(.segmented)
+				.labelsHidden()
+				// In a post-import review, a still-undetermined type (Disabled) is a problem the
+				// user must resolve — tint the control red to match the warning footnote (AIA-0402).
+				.tint(pendingTypeReview && configuration.modelType == .invalid ? .red : nil)
+				.testability(Testability.Picker.configurationFormModelType)
+				modelTypeFootnote
 			}
+		}
+	}
+
+	private var hardwareAccelerationRow: some View {
+		NavigationLink {
+			HardwareAccelerationPicker(selection: Binding(
+				get: { configuration.computeUnit },
+				set: { configuration.computeUnit = $0 }
+			))
+		} label: {
+			ConfigurationDetailRow(
+				label: L10n.Configuration.hardwareAcceleration,
+				value: configuration.computeUnit.localizedName
+			)
+		}
+		.accessibilityLabel(L10n.Configuration.hardwareAcceleration)
+		.accessibilityHint(L10n.Configuration.hardwareAccelerationPickerHint)
+	}
+
+	@ViewBuilder
+	private var catalogSourceRow: some View {
+		if let catalogSource = configuration.catalogSource {
+			ConfigurationDetailRow(label: L10n.Configuration.catalog, value: catalogSource)
+		}
+	}
+
+	@ViewBuilder
+	private var downloadLinkRow: some View {
+		if let downloadURL = configuration.downloadURL {
+			ExpandableDetailRow(label: L10n.Configuration.link, value: downloadURL.absoluteString)
+		}
+	}
+
+	@ViewBuilder
+	private var conversionLogRow: some View {
+		// Only natively converted imports (.onnx/.aiagraph) leave a conversion report in the
+		// configuration's directory; direct Core ML imports have none and show no row.
+		if let conversionReport {
+			// Pushed, not presented: the log is a detail of this form, and the form already
+			// owns a navigation stack — a sheet on top of a sheet reads as a separate task.
+			NavigationLink {
+				NativeModelConversionReportContent(
+					report: conversionReport,
+					isPreparingExport: isPreparingConversionExport,
+					onExport: { exportConvertedModel(conversionReport) }
+				)
+			} label: {
+				Text(L10n.Configuration.conversionLog)
+			}
+			.testability(Testability.Button.configurationFormConversionLog)
 		}
 	}
 
@@ -640,59 +664,11 @@ private struct AnnotationSoundConfigurationView: View {
 
 	var body: some View {
 		Form {
-			Toggle(L10n.Configuration.soundEnabled, isOn: $configuration.annotationSoundEnabled)
-				.testability(Testability.Toggle.configurationFormSoundEnabled)
-
-			VStack(alignment: .leading) {
-				HStack {
-					Text(L10n.Configuration.soundVolume)
-					Spacer()
-					Text(volumeBinding.wrappedValue, format: .percent.precision(.fractionLength(0)))
-						.foregroundStyle(.secondary)
-				}
-				Slider(value: volumeBinding, in: AnnotationSoundConfiguration.volumeRange, step: 0.01)
-					.testability(Testability.Slider.configurationFormSoundVolume)
-					.accessibilityLabel(Text(L10n.Configuration.soundVolume))
-					.accessibilityValue(Text(volumeBinding.wrappedValue, format: .percent.precision(.fractionLength(0))))
-			}
-
-			// AIA-0720. An explicit preview tap that produces nothing, with no explanation, is a
-			// defect regardless of cause — #720 was reported as "no sound on iPhone" and turned out
-			// to be Silent mode. iOS exposes no API for the Silent switch, so the note carries the
-			// weight and is always shown; the muted-volume warning below is the only part that can
-			// actually be detected, and it is the rarer case.
-			Section {
-				Text(L10n.Configuration.soundOutputNote)
-					.font(.footnote)
-					.foregroundStyle(.secondary)
-					.testability(Testability.Label.configurationFormSoundOutputNote)
-
-				if isDeviceOutputMuted {
-					Label(L10n.Configuration.soundOutputMuted, systemImage: "speaker.slash")
-						.font(.footnote)
-						.foregroundStyle(.orange)
-						.testability(Testability.Label.configurationFormSoundOutputMuted)
-				}
-			}
-
+			soundEnabledToggle
+			soundVolumeControl
+			soundOutputSection
 			ForEach(AnnotationSound.allCases) { sound in
-				Button {
-					configuration.annotationSound = sound
-					Task { await onPreview(previewRequest(for: sound)) }
-				} label: {
-					HStack {
-						Text(sound.localizedName)
-						Spacer()
-						if configuration.annotationSound == sound {
-							Image(systemName: "checkmark")
-								.foregroundStyle(.tint)
-								.accessibilityHidden(true)
-						}
-					}
-				}
-				.accessibilityLabel(sound.localizedName)
-				.accessibilityValue(configuration.annotationSound == sound ? Testability.valueTrue : Testability.valueFalse)
-				.testability(Testability.Button.configurationFormSoundChoice, label: sound.rawValue)
+				soundChoice(sound)
 			}
 		}
 		.navigationTitle(L10n.Configuration.sound)
@@ -702,6 +678,66 @@ private struct AnnotationSoundConfigurationView: View {
 			// volume and come straight back, which is the whole point of showing the warning.
 			isDeviceOutputMuted = await onReadOutputVolume() <= 0
 		}
+	}
+
+	private var soundEnabledToggle: some View {
+		Toggle(L10n.Configuration.soundEnabled, isOn: $configuration.annotationSoundEnabled)
+			.testability(Testability.Toggle.configurationFormSoundEnabled)
+	}
+
+	private var soundVolumeControl: some View {
+		VStack(alignment: .leading) {
+			HStack {
+				Text(L10n.Configuration.soundVolume)
+				Spacer()
+				Text(volumeBinding.wrappedValue, format: .percent.precision(.fractionLength(0)))
+					.foregroundStyle(.secondary)
+			}
+			Slider(value: volumeBinding, in: AnnotationSoundConfiguration.volumeRange, step: 0.01)
+				.testability(Testability.Slider.configurationFormSoundVolume)
+				.accessibilityLabel(Text(L10n.Configuration.soundVolume))
+				.accessibilityValue(Text(volumeBinding.wrappedValue, format: .percent.precision(.fractionLength(0))))
+		}
+	}
+
+	/// AIA-0720. An explicit preview tap that produces nothing, with no explanation, is a defect
+	/// regardless of cause — #720 was reported as "no sound on iPhone" and turned out to be Silent
+	/// mode. iOS exposes no API for the Silent switch, so the note carries the weight and is always
+	/// shown; the muted-volume warning is the only part that can actually be detected.
+	private var soundOutputSection: some View {
+		Section {
+			Text(L10n.Configuration.soundOutputNote)
+				.font(.footnote)
+				.foregroundStyle(.secondary)
+				.testability(Testability.Label.configurationFormSoundOutputNote)
+
+			if isDeviceOutputMuted {
+				Label(L10n.Configuration.soundOutputMuted, systemImage: "speaker.slash")
+					.font(.footnote)
+					.foregroundStyle(.orange)
+					.testability(Testability.Label.configurationFormSoundOutputMuted)
+			}
+		}
+	}
+
+	private func soundChoice(_ sound: AnnotationSound) -> some View {
+		Button {
+			configuration.annotationSound = sound
+			Task { await onPreview(previewRequest(for: sound)) }
+		} label: {
+			HStack {
+				Text(sound.localizedName)
+				Spacer()
+				if configuration.annotationSound == sound {
+					Image(systemName: "checkmark")
+						.foregroundStyle(.tint)
+						.accessibilityHidden(true)
+				}
+			}
+		}
+		.accessibilityLabel(sound.localizedName)
+		.accessibilityValue(configuration.annotationSound == sound ? Testability.valueTrue : Testability.valueFalse)
+		.testability(Testability.Button.configurationFormSoundChoice, label: sound.rawValue)
 	}
 
 	private func previewRequest(for sound: AnnotationSound) -> AnnotationSoundPlaybackRequest {

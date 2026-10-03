@@ -8,8 +8,9 @@
 // - Creates a GitHub issue on `action: created` with label `bug`
 // - Adds the issue to a GitHub Project V2 board (if GH_PROJECT_ID is set)
 // - Sanitizes title by stripping leading "ISO_TIMESTAMP File.swift:123 " when present
-// - Enriches GitHub body by fetching Sentry Issue JSON + latest event JSON (best-effort)
-// - Redacts common sensitive keys and caps JSON size to avoid giant GitHub bodies
+// - Enriches GitHub body from the latest Sentry event (best-effort), copying only
+//   allowlisted tag values and in-app exception frames; no user, device-identifier,
+//   context, request or raw JSON data leaves Sentry
 //
 // Required Cloudflare env vars (Settings -> Variables/Secrets):
 // - GH_OWNER
@@ -18,7 +19,7 @@
 // - SENTRY_WEBHOOK_SECRET
 //
 // Optional Cloudflare env vars:
-// - SENTRY_API_TOKEN (required only for enrichment: fetching Sentry Issue JSON + latest event JSON)
+// - SENTRY_API_TOKEN (required only for enrichment: fetching the Sentry issue + latest event)
 // - GH_PROJECT_ID (GitHub Project V2 node ID, e.g., PVT_kwDODw8uZM4BMCyN)
 //   Get this via: gh api graphql -f query='{ organization(login: "YOUR_ORG") { projectsV2(first: 10) { nodes { id number title } } } }'
 //
@@ -182,58 +183,70 @@ async function sentryFetch(env, url, timeoutMs = 7000) {
   }
 }
 
-function redact(obj) {
-  const SENSITIVE_KEYS = new Set([
-    "ip_address",
-    "ipaddress",
-    "email",
-    "username",
-    "user",
-    "request",
-    "cookies",
-    "headers",
-    "authorization",
-    "token",
-    "access_token",
-    "refresh_token",
-    "device_id",
-    "deviceid",
-    "identifierforvendor",
-    "idfv",
-  ]);
+// Only these event tag values are copied into GitHub issues. Everything else
+// (user ids, device identifiers, contexts, request data, raw issue/event JSON)
+// stays in Sentry, reachable through the console link.
+const ALLOWED_TAG_KEYS = [
+  "environment",
+  "release",
+  "dist",
+  "distribution_channel",
+  "build_configuration",
+  "app_version",
+  "app_build",
+  "os",
+  "os.name",
+  "os.build",
+  "device",
+  "device.family",
+  "device.class",
+  "mechanism",
+  "handled",
+  "level",
+];
 
-  function walk(v, depth) {
-    if (depth > 12) return "[truncated-depth]";
-    if (v === null || v === undefined) return v;
+const MAX_TAG_VALUE_CHARS = 200;
+const MAX_FRAMES = 25;
 
-    if (Array.isArray(v)) {
-      return v.slice(0, 200).map((x) => walk(x, depth + 1));
-    }
-
-    if (typeof v === "object") {
-      const out = {};
-      for (const [k, val] of Object.entries(v)) {
-        const lk = String(k).toLowerCase();
-        if (SENSITIVE_KEYS.has(lk)) {
-          out[k] = "[redacted]";
-        } else {
-          out[k] = walk(val, depth + 1);
-        }
-      }
-      return out;
-    }
-
-    if (typeof v === "string" && v.length > 4000) return `${v.slice(0, 4000)}…[truncated]`;
-    return v;
-  }
-
-  return walk(obj, 0);
+function cleanValue(value) {
+  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return null;
+  const s = String(value).replace(/[\r\n`]/g, " ").trim();
+  if (!s) return null;
+  return s.length > MAX_TAG_VALUE_CHARS ? `${s.slice(0, MAX_TAG_VALUE_CHARS)}…` : s;
 }
 
-function jsonBlock(obj, maxChars) {
-  const s = JSON.stringify(obj, null, 2);
-  if (s.length <= maxChars) return s;
-  return `${s.slice(0, maxChars)}\n…[truncated]`;
+function basename(path) {
+  if (typeof path !== "string") return null;
+  return path.split(/[\\/]/).pop() || null;
+}
+
+// Exception types and in-app stack frames (function, file name, line) only.
+// Exception messages are omitted: in a browser app they can carry visited URLs.
+function exceptionSummary(eventDetails) {
+  const entries = Array.isArray(eventDetails?.entries) ? eventDetails.entries : [];
+  const exception = entries.find((e) => e?.type === "exception");
+  const values = Array.isArray(exception?.data?.values) ? exception.data.values : [];
+  const lines = [];
+  for (const v of values) {
+    const type = cleanValue(v?.type);
+    if (type) lines.push(`- **${type}**`);
+    const frames = Array.isArray(v?.stacktrace?.frames) ? v.stacktrace.frames : [];
+    const inApp = frames.filter((f) => f?.inApp === true).reverse().slice(0, MAX_FRAMES);
+    for (const f of inApp) {
+      const fn = cleanValue(f?.function) || "?";
+      const file = cleanValue(basename(f?.filename));
+      const line = Number.isInteger(f?.lineNo) ? f.lineNo : null;
+      const loc = file ? ` (${file}${line !== null ? `:${line}` : ""})` : "";
+      lines.push(`  - \`${fn}\`${loc}`);
+    }
+  }
+  return lines;
+}
+
+function keyTagLines(eventTags) {
+  return ALLOWED_TAG_KEYS.map((k) => [k, cleanValue(getTagValue(eventTags, k))])
+    .filter(([, v]) => v !== null)
+    .map(([k, v]) => `- **${k}**: ${v}`);
 }
 
 function getTagValue(tagsArray, key) {
@@ -300,27 +313,6 @@ function deriveSentryHtmlIssueUrlFromApiUrl(apiUrl) {
   const org = m[1];
   const issueId = m[2];
   return `https://${org}.sentry.io/issues/${issueId}/`;
-}
-
-function redactTagValue(tagKey, value) {
-  // Tag values can contain user identifiers / IPs depending on Sentry settings.
-  // Keep this conservative to avoid leaking PII into GitHub.
-  const SENSITIVE_TAG_KEYS = new Set([
-    "user",
-    "ip_address",
-    "ip",
-    "email",
-    "username",
-    "auth",
-    "authorization",
-    "cookie",
-    "cookies",
-  ]);
-
-  const k = String(tagKey || "").toLowerCase();
-  if (SENSITIVE_TAG_KEYS.has(k)) return "[redacted]";
-  if (typeof value === "string" && value.length > 500) return `${value.slice(0, 500)}…[truncated]`;
-  return value;
 }
 
 export default {
@@ -523,46 +515,8 @@ export default {
             console.log("Sentry enrichment failed:", e?.message || String(e));
           }
 
-          const safeIssueDetails = issueDetails ? redact(issueDetails) : null;
-          const safeEventDetails = eventDetails ? redact(eventDetails) : null;
-
-          // Issue JSON only lists tag KEYS (and counts). Tag VALUES usually live on the EVENT.
-          // Extract the most useful values from the latest event payload when available.
-          const eventTags = eventDetails?.tags;
-          const keyTags = [
-            ["environment", getTagValue(eventTags, "environment")],
-            ["release", getTagValue(eventTags, "release")],
-            ["dist", getTagValue(eventTags, "dist")],
-            ["distribution_channel", getTagValue(eventTags, "distribution_channel")],
-            ["build_configuration", getTagValue(eventTags, "build_configuration")],
-            ["app_version", getTagValue(eventTags, "app_version")],
-            ["app_build", getTagValue(eventTags, "app_build")],
-            ["os", getTagValue(eventTags, "os")],
-            ["os.name", getTagValue(eventTags, "os.name")],
-            ["os.build", getTagValue(eventTags, "os.build")],
-            ["device", getTagValue(eventTags, "device")],
-            ["device.family", getTagValue(eventTags, "device.family")],
-            ["device.class", getTagValue(eventTags, "device.class")],
-            // The "user" tag value is usually "id:<uuid>" for iOS and can be useful; keep it separate.
-            ["user_tag", getTagValue(eventTags, "user")],
-          ].filter(([, v]) => v !== null && v !== undefined && v !== "");
-
-          // Dump ALL tags from the latest event (key/value), with light redaction for sensitive keys.
-          const allTagLines = Array.isArray(eventTags)
-            ? eventTags
-                .map((t) => {
-                  const k = t?.key;
-                  const v = redactTagValue(k, t?.value);
-                  if (!k || v === null || v === undefined || v === "") return null;
-                  return `- **${k}**: ${v}`;
-                })
-                .filter(Boolean)
-                .sort((a, b) => a.localeCompare(b))
-            : [];
-
-          // Contexts (OS/device/app/runtime/etc) are on the event payload and are very useful for repro.
-          const contexts = safeEventDetails?.contexts ?? null;
-          const sdk = safeEventDetails?.sdk ?? null;
+          const tagLines = keyTagLines(eventDetails?.tags);
+          const exceptionLines = exceptionSummary(eventDetails);
 
           const enrichedBody = [
             `Created automatically from Sentry.`,
@@ -575,32 +529,14 @@ export default {
             sourceLoc ? `Source: ${sourceLoc}` : null,
             ``,
             `## Key tags (from latest event)`,
-            ...(keyTags.length
-              ? keyTags.map(([k, v]) => `- **${k}**: ${v}`)
+            ...(tagLines.length
+              ? tagLines
               : [`_No event tag values available (event fetch failed or returned no tags)._`]),
             ``,
-            `## Tags (all from latest event)`,
-            ...(allTagLines.length ? allTagLines : [`_No tags available._`]),
+            `## Exception (in-app frames, from latest event)`,
+            ...(exceptionLines.length ? exceptionLines : [`_No exception data available._`]),
             ``,
-            `## Contexts (from latest event, redacted)`,
-            "```json",
-            contexts ? jsonBlock(contexts, 12000) : '{"note":"no contexts fetched"}',
-            "```",
-            ``,
-            `## SDK (from latest event, redacted)`,
-            "```json",
-            sdk ? jsonBlock(sdk, 4000) : '{"note":"no sdk fetched"}',
-            "```",
-            ``,
-            `## Issue JSON (redacted)`,
-            "```json",
-            safeIssueDetails ? jsonBlock(safeIssueDetails, 45000) : '{"note":"no issue details fetched"}',
-            "```",
-            ``,
-            `## Latest event JSON (redacted, best-effort)`,
-            "```json",
-            safeEventDetails ? jsonBlock(safeEventDetails, 15000) : '{"note":"no event details fetched"}',
-            "```",
+            `_User, device-identifier, context and request data are not copied here; open the Sentry console link for full details._`,
           ]
             .filter((v) => v !== null && v !== "")
             .join("\n");

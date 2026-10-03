@@ -47,6 +47,20 @@ internal enum L10n {
     internal static let title = L10n.tr("Localizable", "adjustment.title", fallback: "Adjustments")
   }
   internal enum Alert {
+    internal enum DeleteCache {
+      /// This deletes all cookies, local storage and cached data for every website. You will be signed out of websites. This cannot be undone.
+      internal static let message = L10n.tr("Localizable", "alert.deleteCache.message", fallback: "This deletes all cookies, local storage and cached data for every website. You will be signed out of websites. This cannot be undone.")
+      /// Delete website data?
+      internal static let title = L10n.tr("Localizable", "alert.deleteCache.title", fallback: "Delete website data?")
+    }
+    internal enum DeleteModel {
+      /// “%@” and its settings will be removed from ML Browser. This cannot be undone.
+      internal static func message(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "alert.deleteModel.message", String(describing: p1), fallback: "“%@” and its settings will be removed from ML Browser. This cannot be undone.")
+      }
+      /// Delete model?
+      internal static let title = L10n.tr("Localizable", "alert.deleteModel.title", fallback: "Delete model?")
+    }
     internal enum Error {
       /// Error
       internal static let title = L10n.tr("Localizable", "alert.error.title", fallback: "Error")
@@ -96,8 +110,6 @@ internal enum L10n {
     internal enum Account {
       /// Deleting your account does not cancel your subscription. Cancel it in the App Store.
       internal static let deleteBillingNote = L10n.tr("Localizable", "auth.account.deleteBillingNote", fallback: "Deleting your account does not cancel your subscription. Cancel it in the App Store.")
-      /// Free Beta
-      internal static let freeBeta = L10n.tr("Localizable", "auth.account.freeBeta", fallback: "Free Beta")
       /// Manage Account
       internal static let manage = L10n.tr("Localizable", "auth.account.manage", fallback: "Manage Account")
       /// Subscription
@@ -1345,8 +1357,6 @@ internal enum L10n {
     internal static let rectangle = L10n.tr("Localizable", "symbol.rectangle", fallback: "Rectangle")
   }
   internal enum Tab {
-    /// Examples
-    internal static let examples = L10n.tr("Localizable", "tab.examples", fallback: "Examples")
     /// Web
     internal static let web = L10n.tr("Localizable", "tab.web", fallback: "Web")
   }
@@ -1403,6 +1413,8 @@ internal enum L10n {
     internal static func headline(_ p1: Int) -> String {
       return L10n.tr("Localizable", "welcome.headline", p1, fallback: "Explore everything free for %lld days")
     }
+    /// Browse any web page and let on-device detection models point out what they find. A short tour shows you how.
+    internal static let introBody = L10n.tr("Localizable", "welcome.introBody", fallback: "Browse any web page and let on-device detection models point out what they find. A short tour shows you how.")
     /// After your free access ends, you can subscribe for %@ to continue using ML Browser.
     internal static func priceNote(_ p1: Any) -> String {
       return L10n.tr("Localizable", "welcome.priceNote", String(describing: p1), fallback: "After your free access ends, you can subscribe for %@ to continue using ML Browser.")

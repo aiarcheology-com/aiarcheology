@@ -1,60 +1,29 @@
-Build: Importing a large model no longer kills the app
+Build: 1.0.9 — Welcome, safer model storage and map findings
 
-Test Focus: Converting a big model (the ~500 MB detector checkpoints) could make the app vanish
-with no message, sometimes leaving only a "could not be loaded, validated, or registered" note.
-The conversion itself was never the problem - it finished every time. The app died afterwards,
-loading the finished model. This build raises the memory the app is allowed to use, and where that
-is still not enough it now says so instead of disappearing.
+Test Focus: The app can now run with no subscription at all. In this build that free mode is used for the very first launch after a fresh install; payments stay on from the second launch, exactly as before. Please test on a device where you can delete and reinstall the app.
 
-- Import a large model and watch it through to the end. Menu > Models > Import, pick a .tar
-  detector checkpoint. Conversion runs to 100%, and then EITHER the model imports and appears in
-  the list, OR you get a clear message saying there was not enough memory. Both are correct. The
-  app disappearing, or dropping back to the browser with no explanation, is the bug and should no
-  longer happen.
+- Fresh install, first launch. Delete ML Browser, install this build, open it. You should see "Welcome to ML Browser", one sentence about what the app does, and Continue. It must NOT mention a price, a trial, "free for 14 days", "no payment today" or a subscription anywhere. Please report any wording that does.
 
-- The message matters. If you get the memory message, please copy the numbers it shows (it names
-  roughly how much was needed and how much was free) and send the conversion log with it: Models >
-  the failed import > the log icon > Share. That log now records the memory readings, and it is
-  what tells us the limit is set correctly.
+- The order after Continue: the guided tour starts, and only after you finish or skip it does the analytics question appear. Nothing should appear on top of the Welcome screen, and the tour must not start behind it.
 
-- iPad 8th generation (3 GB memory) is the device to try first - a ~190 MB converted model does
-  not fit there and SHOULD produce the memory message. iPad Air M3/M4 and recent iPhones have more
-  room and may well import the same file successfully. Both outcomes are worth reporting, with the
-  device named.
+- On that first launch, open Settings. There should be no Subscription section at all. Settings > About the app > Report a problem > Send email: the "What is this about?" list should not offer "Purchase or subscription".
 
-- MOST IMPORTANT: if a model that imported FINE on your device before now says there is not enough
-  memory, that is a bug in this build, not a real limit. Please report it with the device, the
-  numbers in the message, and the log. The threshold is set deliberately cautiously, and this is
-  the one way we find out it is set too high.
+- With an internet connection, close the app completely (swipe it away) and open it again. Now payments are back on: you should see the familiar Welcome screen that offers the free period and names the price. Continue, and Settings > Subscription is back too. This second-launch switch is expected in this build.
 
-- Please retry a failed import once. It should behave the same way twice, and the app should stay
-  responsive after a refusal - no freeze, no stuck progress bar.
+- Interrupted first run: fresh install, tap Continue, then close the app in the middle of the tour. On reopening, the price-offer Welcome screen appears (payments are on now) and the tour runs again after it, but the plain Welcome screen from step 1 must not come back.
 
-- Check normal imports did not regress: a small .mlmodel or .mlpackage should import exactly as
-  before, with no memory message.
+- If you already have the app installed and just update, nothing should change for you: no new Welcome screen, and your subscription status in Settings as before.
 
-- Check the app still starts normally and your existing models are all still listed after this
-  update, including the two built-in detectors. Please say if anything is missing from the list.
+- Crash fix: the app could crash on its own when iOS woke it in the background to check for new messages, often right as you opened it. Keep this build installed with Background App Refresh on (Settings > General > Background App Refresh) and use it normally over a few days. Please report any crash, especially one right after opening the app.
 
-ALSO IN THIS BUILD: Delete Account is easier to find
+- Delete asks first. Menu > Models: swipe a model left (or long-press it) and tap Delete. An alert should name the model; Cancel keeps it, Delete removes it. A long fast swipe must not delete without the alert. Settings > Delete cache > Delete: an alert should say all cookies and website data will be deleted; Cancel changes nothing.
 
-- Settings > Account > Manage account. A Delete Account row now sits directly under Sign out, and
-  opens a screen explaining what deletion removes. Check Cancel leaves the account untouched. Only
-  confirm on a throwaway account: it is permanent and erases your cloud back-up.
+- Findings on maps: on a map site, tap Find, pan, and store a finding. The saved picture, Page and GPS must all describe the same view. If the page moves or changes as you tap, the crosshair may go red again; tap once more. Report a finding whose picture and Page/GPS disagree.
 
-STILL WORTH RETESTING FROM THE PREVIOUS BUILD
+- Reopened map pages: turn on Settings > Reopen Last Page. On atlas.bayern.de, pan somewhere, close the app completely, reopen it, and store a finding WITHOUT panning. Its Page must be exactly the address the map showed, not a different place.
 
-- Pages that reload themselves: on a heavy GIS site (umweltdaten.hessen.de, zbgis.skgeodesy.sk,
-  ags.cuzk.cz), start detection and leave it 15-20 minutes. The first reload should pause detection
-  and resume it; a second reload within ten minutes should stop detection until you press the
-  button again. Please report how often you restart detection.
+- Model replacement: import a model, then replace it with another model of the same name. It must still load and detect. Cancel or fail a replacement and confirm the original still works. A rejected import must leave its source file intact.
 
-- Storing a finding: tapping Find twice should end aiming with nothing saved. Cancel is a red pill
-  and must end aiming the same way. Crosshair contrast on a dark satellite view, a bright white map
-  and a busy aerial photo - red vs green must stay obvious.
+- Large model import: Menu > Models > Import a ~500 MB .tar detector checkpoint. It should either import, or show a clear "not enough memory" message, never make the app vanish. Please send the numbers from the message and the conversion log (Models > failed import > log icon > Share), with your device named. A model that imported fine before but now reports low memory is a bug.
 
-- The page address saved with a finding: the note under the Page field should read clearly at the
-  largest text sizes (Settings > Accessibility > Display & Text Size > Larger Text).
-
-- KNOWN GAP: on atlas.bayern.de, reopening the app straight onto the page and saving a finding
-  without panning first may still store the wrong address. Please report whether that reproduces.
+- Delete Account: Settings > Account > Manage account > Delete Account sits under Sign out. Cancel must leave the account untouched; only confirm on a throwaway account.

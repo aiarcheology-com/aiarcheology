@@ -397,4 +397,188 @@ final class DataControllerTests: XCTestCase {
 
         XCTAssertEqual(countBeforeCutoff, 3)
     }
+
+    // MARK: - Store-load recovery (AIA-0934)
+
+    /// Migration codes that open the destroy-and-retry path outside App Store builds.
+    private static let migrationStoreLoadCodes: [Int] = [
+        NSPersistentStoreIncompatibleVersionHashError, // 134100
+        NSMigrationMissingSourceModelError,            // 134130
+        NSMigrationMissingMappingModelError,           // 134140
+        NSMigrationError,                              // 134110
+        NSPersistentStoreIncompatibleSchemaError       // 134020
+    ]
+
+    func testCanAttemptStoreRecovery_appStore_isFalse() {
+        XCTAssertFalse(
+            DataController.canAttemptStoreRecovery(
+                isAppStoreDistribution: true,
+                isMigrationError: true,
+                didRetryAfterStoreDestruction: false
+            ),
+            "App Store builds must not destroy the user's store"
+        )
+    }
+
+    func testCanAttemptStoreRecovery_alreadyRetried_isFalse() {
+        XCTAssertFalse(
+            DataController.canAttemptStoreRecovery(
+                isAppStoreDistribution: false,
+                isMigrationError: true,
+                didRetryAfterStoreDestruction: true
+            ),
+            "a second failure after destroy must not attempt another destroy"
+        )
+    }
+
+    func testCanAttemptStoreRecovery_nonMigrationError_isFalse() {
+        XCTAssertFalse(
+            DataController.canAttemptStoreRecovery(
+                isAppStoreDistribution: false,
+                isMigrationError: false,
+                didRetryAfterStoreDestruction: false
+            ),
+            "non-migration load errors must not destroy the store"
+        )
+    }
+
+    func testCanAttemptStoreRecovery_migrationNonAppStoreFirstAttempt_isTrue() {
+        XCTAssertTrue(
+            DataController.canAttemptStoreRecovery(
+                isAppStoreDistribution: false,
+                isMigrationError: true,
+                didRetryAfterStoreDestruction: false
+            )
+        )
+    }
+
+    /// Recovery must destroy and reload the TEMP store this controller was created with — never
+    /// `DataController.shared` and never the default Application Support store.
+    func testHandleStoreLoadError_migrationError_destroysAndRetriesTheTempStore() async throws {
+        XCTAssertFalse(AppEnvironment.isAppStoreDistribution, "unit tests must see the recovery path")
+        XCTAssertFalse(AppEnvironment.isRunningUITests, "UI-test store pinning must stay off here")
+
+        let storeURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("StoreRecovery-\(UUID().uuidString).sqlite")
+        defer {
+            for suffix in ["", "-wal", "-shm"] {
+                try? FileManager.default.removeItem(at: URL(fileURLWithPath: storeURL.path + suffix))
+            }
+        }
+
+        let controller = DataController(storeURL: storeURL)
+        await controller.awaitStoreReady()
+        XCTAssertFalse(controller.didRetryAfterStoreDestruction)
+        XCTAssertEqual(
+            controller.container.persistentStoreDescriptions.first?.url,
+            storeURL,
+            "precondition: controller is bound to the temp store"
+        )
+
+        // Seed a row so the destroy is observable as a wipe of THIS file, not a silent no-op.
+        let seededId = UUID()
+        let entry = WebHistoryEntry.create(in: controller.container.viewContext)
+        entry.entityId = seededId
+        entry.creationDate_ = .now
+        entry.page = URL(string: "https://example.com/recovery")
+        entry.transition(to: .draft)
+        entry.transition(to: .ready)
+        try WebHistoryEntry.save(in: controller.container.viewContext)
+        XCTAssertEqual(
+            WebHistoryEntry.count(
+                in: controller.container.viewContext,
+                predicate: NSPredicate(format: "entityId == %@", seededId as CVarArg)
+            ),
+            1
+        )
+
+        // Production only reaches destroy after loadPersistentStores failed, so the store is not
+        // attached. Detach first so destroyPersistentStore can wipe the temp file without crashing.
+        let coordinator = controller.container.persistentStoreCoordinator
+        for store in coordinator.persistentStores {
+            try coordinator.remove(store)
+        }
+
+        let description = try XCTUnwrap(controller.container.persistentStoreDescriptions.first)
+        let generationBefore = controller.containerGeneration
+        let migrationError = NSError(
+            domain: NSCocoaErrorDomain,
+            code: NSPersistentStoreIncompatibleVersionHashError,
+            userInfo: [NSLocalizedDescriptionKey: "test migration failure"]
+        )
+
+        controller.handleStoreLoadError(migrationError, description: description)
+
+        XCTAssertTrue(
+            controller.didRetryAfterStoreDestruction,
+            "first migration failure outside App Store must arm the one-retry flag"
+        )
+
+        // destroyAndRetryStore installs the replacement on the next main-queue turn.
+        // isStoreLoaded stays true across replacement, so wait for the new coordinator's store.
+        let reloaded = await waitForCondition(timeout: 2.0) {
+            controller.containerGeneration > generationBefore
+                && !controller.container.persistentStoreCoordinator.persistentStores.isEmpty
+        }
+        XCTAssertTrue(reloaded, "replacement container should finish loading the temp store")
+
+        XCTAssertEqual(
+            controller.container.persistentStoreDescriptions.first?.url,
+            storeURL,
+            "retry must keep the temp-directory store URL — not Application Support"
+        )
+        XCTAssertEqual(
+            WebHistoryEntry.count(
+                in: controller.container.viewContext,
+                predicate: NSPredicate(format: "entityId == %@", seededId as CVarArg)
+            ),
+            0,
+            "the destroyed temp store must be the one that lost its rows"
+        )
+    }
+
+    func testHandleStoreLoadError_eachMigrationCode_armsRetryOnTempStore() async throws {
+        XCTAssertFalse(AppEnvironment.isAppStoreDistribution)
+
+        for code in Self.migrationStoreLoadCodes {
+            let storeURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("StoreRecoveryCode-\(code)-\(UUID().uuidString).sqlite")
+            defer {
+                for suffix in ["", "-wal", "-shm"] {
+                    try? FileManager.default.removeItem(at: URL(fileURLWithPath: storeURL.path + suffix))
+                }
+            }
+
+            let controller = DataController(storeURL: storeURL)
+            await controller.awaitStoreReady()
+
+            let coordinator = controller.container.persistentStoreCoordinator
+            for store in coordinator.persistentStores {
+                try coordinator.remove(store)
+            }
+
+            let description = try XCTUnwrap(controller.container.persistentStoreDescriptions.first)
+            let generationBefore = controller.containerGeneration
+            let error = NSError(domain: NSCocoaErrorDomain, code: code, userInfo: nil)
+
+            controller.handleStoreLoadError(error, description: description)
+
+            XCTAssertTrue(
+                controller.didRetryAfterStoreDestruction,
+                "migration code \(code) must open the destroy-and-retry path"
+            )
+
+            // Drain the async replacement so we assert the RETRY container's URL, not the old one.
+            let replaced = await waitForCondition(timeout: 2.0) {
+                controller.containerGeneration > generationBefore
+                    && !controller.container.persistentStoreCoordinator.persistentStores.isEmpty
+            }
+            XCTAssertTrue(replaced, "code \(code): replacement container should install")
+            XCTAssertEqual(
+                controller.container.persistentStoreDescriptions.first?.url,
+                storeURL,
+                "code \(code): retry must keep the temp store — not Application Support"
+            )
+        }
+    }
 }

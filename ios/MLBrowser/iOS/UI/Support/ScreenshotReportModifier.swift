@@ -49,6 +49,10 @@ struct ScreenshotReportModifier: ViewModifier {
 	/// the key's default (`false`) and silently drop the account ID from every report.
 	let usesRealAuth: Bool
 
+	/// The launch-captured payments flag, passed explicitly for the same reason `usesRealAuth` is:
+	/// this modifier sits above the gates that carry `SubscriptionState` (AIA-0955).
+	let isPaymentsSurfaceEnabled: Bool
+
 	/// Supplies the web address involved, if the caller knows one. A closure, not a value, so this
 	/// modifier does not have to observe the browser and re-render on every navigation.
 	let currentURL: () -> String?
@@ -74,7 +78,11 @@ struct ScreenshotReportModifier: ViewModifier {
 				Text(L10n.Support.Prompt.message)
 			}
 			.sheet(isPresented: $showRequest) {
-				SupportRequestView(initialCategory: .bug, contextURL: currentURL())
+				SupportRequestView(
+					initialCategory: .bug,
+					contextURL: currentURL(),
+					isPaymentsSurfaceEnabled: isPaymentsSurfaceEnabled
+				)
 					// Re-injected per the key's own contract: it does not reliably cross `.sheet`
 					// boundaries (see `UsesRealAuthKey`), and this sheet hangs off the scene root.
 					.environment(\.usesRealAuth, usesRealAuth)
@@ -98,12 +106,14 @@ extension View {
 		settings: Settings,
 		featureFlags: FeatureFlagsState,
 		usesRealAuth: Bool,
+		isPaymentsSurfaceEnabled: Bool,
 		currentURL: @escaping () -> String? = { nil }
 	) -> some View {
 		modifier(ScreenshotReportModifier(
 			settings: settings,
 			featureFlags: featureFlags,
 			usesRealAuth: usesRealAuth,
+			isPaymentsSurfaceEnabled: isPaymentsSurfaceEnabled,
 			currentURL: currentURL
 		))
 	}
