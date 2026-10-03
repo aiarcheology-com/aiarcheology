@@ -160,6 +160,11 @@ final class TargetingCoordinatorTests: XCTestCase {
 
 		XCTAssertEqual(provider.calls.last, .clear)
 		XCTAssertNil(defaults.data(forKey: TargetingCoordinator.contextDefaultsKey))
+
+		// A later trigger must not resurrect the cached user either.
+		subscribed = true
+		subscribedSubject.send(true)
+		XCTAssertEqual(provider.calls.last, .clear)
 	}
 
 	/// Subscription entitlement moves independently of the auth gate and must retarget too.
@@ -325,5 +330,37 @@ final class TargetingCoordinatorTests: XCTestCase {
 		XCTAssertEqual(provider.calls.last, .clear, "neither A (gone) nor B (not validated) may stay targeted")
 		XCTAssertFalse(provider.calls.contains { if case .set(accountB, _) = $0 { return true }; return false })
 		XCTAssertNil(defaults.data(forKey: TargetingCoordinator.contextDefaultsKey))
+	}
+
+	/// AIA-0522: the switch fails validation offline straight from `.ready`, so the gate *does*
+	/// move (to `.offline`) after the account was withdrawn — and a later entitlement change fires
+	/// too. Neither may re-target from the backend, which already reports the unvalidated B.
+	func test_accountSwitch_failingOfflineFromReady_staysClearedAcrossLaterTriggers() async {
+		let accountA = "user_A"
+		let accountB = "user_B"
+		let auth = MockAuthProvider(outcome: .ready, accountID: accountA)
+		let (authState, provider, coordinator) = makeAuthDrivenSUT(auth: auth)
+		_ = coordinator
+
+		await authState.start()
+		auth.setAccountIDForTesting(accountB)
+		auth.setOutcomeForTesting(.offline)
+		await authState.refresh()
+		XCTAssertEqual(authState.gate, .offline)
+		XCTAssertNil(authState.accountIdentifier)
+
+		subscribedSubject.send(true)
+
+		XCTAssertEqual(provider.calls.last, .clear, "neither A (gone) nor B (not validated) may be targeted")
+		XCTAssertFalse(provider.calls.contains { if case .set(accountB, _) = $0 { return true }; return false })
+		XCTAssertNil(defaults.data(forKey: TargetingCoordinator.contextDefaultsKey))
+
+		// Validation succeeds once the connection is back: B is published, and targeted.
+		auth.setOutcomeForTesting(.ready)
+		await authState.refresh()
+		guard case let .set(lastID, _)? = provider.calls.last else {
+			return XCTFail("expected targeting on B, got \(provider.calls)")
+		}
+		XCTAssertEqual(lastID, accountB)
 	}
 }

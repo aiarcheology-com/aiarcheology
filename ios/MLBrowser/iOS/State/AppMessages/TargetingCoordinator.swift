@@ -56,6 +56,14 @@ final class TargetingCoordinator {
 	private var observations: Set<AnyCancellable> = []
 	private var refreshTask: Task<Void, Never>?
 
+	/// Set while ``AuthState`` vouches for nobody: it withdrew the account (published `nil`) or
+	/// landed `.signedOut`. Every trigger then clears instead of asking the backend, until AuthState
+	/// publishes an account again. Asking would undo the clear: before validation the backend
+	/// already reports the incoming account, and after a revocation it may still hold the cached
+	/// user. Starts `false` — before AuthState has said anything, the backend's persisted session is
+	/// the best answer (a relaunch targets immediately, even offline).
+	private var accountWithdrawn = false
+
 	init(
 		identity: @escaping @MainActor () -> (userID: String?, isSignedIn: Bool),
 		isSubscribed: @escaping @MainActor () -> Bool,
@@ -80,24 +88,27 @@ final class TargetingCoordinator {
 
 		// All three publishers are `@Published` projections, which emit on willSet from the main
 		// actor; `assumeIsolated` mirrors MessageCenterState's foreground observer (AGENTS §4).
-		// `.signedOut` is AuthState's verdict, and it can land while the backend still holds a
-		// revoked user it has not dropped yet — so it clears, rather than asking the backend.
+		// The sinks use only the emitted value (see ``accountWithdrawn``), never a re-read.
 		authGateChanges
 			.removeDuplicates()
 			.dropFirst()
 			.sink { [weak self] gate in
-				MainActor.assumeIsolated { self?.recompute(clearingAccount: gate == .signedOut) }
+				MainActor.assumeIsolated {
+					guard let self else { return }
+					if gate == .signedOut { self.accountWithdrawn = true }
+					self.recompute()
+				}
 			}
 			.store(in: &observations)
-		// The account published is the one to target, so a `nil` clears targeting without asking the
-		// backend. `AuthState` writes `nil` before it validates an incoming account: asking would
-		// target that account unvalidated, and ignoring the write would leave the outgoing one
-		// targeted for as long as validation cannot finish (offline, or no usable identifier).
 		accountChanges
 			.removeDuplicates()
 			.dropFirst()
 			.sink { [weak self] account in
-				MainActor.assumeIsolated { self?.recompute(clearingAccount: account == nil) }
+				MainActor.assumeIsolated {
+					guard let self else { return }
+					self.accountWithdrawn = account == nil
+					self.recompute()
+				}
 			}
 			.store(in: &observations)
 		subscriptionChanges
@@ -111,10 +122,8 @@ final class TargetingCoordinator {
 		recompute()
 	}
 
-	/// - Parameter clearingAccount: targets nobody, whatever the backend reports — for the moments
-	///   ``AuthState`` stops publishing an account or concludes nobody is signed in.
-	private func recompute(clearingAccount: Bool = false) {
-		let (userID, isSignedIn) = clearingAccount ? (nil, false) : identity()
+	private func recompute() {
+		let (userID, isSignedIn) = accountWithdrawn ? (nil, false) : identity()
 		if isSignedIn, let userID {
 			let context = Context(id: userID, custom: [
 				"appVersion": appVersion,
