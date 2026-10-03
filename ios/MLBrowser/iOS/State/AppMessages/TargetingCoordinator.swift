@@ -80,10 +80,14 @@ final class TargetingCoordinator {
 
 		// All three publishers are `@Published` projections, which emit on willSet from the main
 		// actor; `assumeIsolated` mirrors MessageCenterState's foreground observer (AGENTS §4).
+		// `.signedOut` is AuthState's verdict, and it can land while the backend still holds a
+		// revoked user it has not dropped yet — so it clears, rather than asking the backend.
 		authGateChanges
 			.removeDuplicates()
 			.dropFirst()
-			.sink { [weak self] _ in MainActor.assumeIsolated { self?.recompute() } }
+			.sink { [weak self] gate in
+				MainActor.assumeIsolated { self?.recompute(clearingAccount: gate == .signedOut) }
+			}
 			.store(in: &observations)
 		// The account published is the one to target, so a `nil` clears targeting without asking the
 		// backend. `AuthState` writes `nil` before it validates an incoming account: asking would
@@ -107,8 +111,8 @@ final class TargetingCoordinator {
 		recompute()
 	}
 
-	/// - Parameter clearingAccount: targets nobody, whatever the backend reports — for the moment
-	///   ``AuthState`` stops publishing an account.
+	/// - Parameter clearingAccount: targets nobody, whatever the backend reports — for the moments
+	///   ``AuthState`` stops publishing an account or concludes nobody is signed in.
 	private func recompute(clearingAccount: Bool = false) {
 		let (userID, isSignedIn) = clearingAccount ? (nil, false) : identity()
 		if isSignedIn, let userID {

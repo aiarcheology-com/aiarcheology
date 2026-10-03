@@ -142,6 +142,26 @@ final class TargetingCoordinatorTests: XCTestCase {
 		XCTAssertNil(defaults.data(forKey: TargetingCoordinator.contextDefaultsKey))
 	}
 
+	/// AIA-0522: a revoked session lands `.signedOut` while the backend may still hold the cached
+	/// user. The gate's verdict wins: targeting clears instead of re-reading that user.
+	func test_signedOutGate_clearsEvenWhileBackendStillReportsTheUser() {
+		let provider = RecordingFlagProvider()
+		let (coordinator, _) = makeSUT(provider: provider)
+		_ = coordinator
+
+		userID = "user_abc"
+		isSignedIn = true
+		gateSubject.send(.ready)
+		XCTAssertNotNil(defaults.data(forKey: TargetingCoordinator.contextDefaultsKey))
+
+		// Revoked: AuthState publishes nil and `.signedOut`; the backend has not dropped the user.
+		accountSubject.send(nil)
+		gateSubject.send(.signedOut)
+
+		XCTAssertEqual(provider.calls.last, .clear)
+		XCTAssertNil(defaults.data(forKey: TargetingCoordinator.contextDefaultsKey))
+	}
+
 	/// Subscription entitlement moves independently of the auth gate and must retarget too.
 	func test_subscriptionChange_retargetsWithUpdatedAttribute() {
 		let provider = RecordingFlagProvider()
