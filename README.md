@@ -426,23 +426,23 @@ environment, Release uses **Production**. Tests and previews never touch the net
 
 ### Release baseline
 
-**In production: app `1.0.8`, Core Data model `0.0.2`.**
+**In production: app `1.0.9`, Core Data model `0.0.2`.**
 
 Keep both figures current — they are what tells you whether a migration is required, whether a
 stored format may still change freely, and which build a bug report is actually about. Updating
 them is part of shipping a release; see [AGENTS.md](AGENTS.md#review-and-delivery).
 
 **Three source models are now live at once**, because `1.0.6` shipped `0.0.0`, `1.0.7` shipped
-`0.0.1`, and `1.0.8` shipped `0.0.2` — and a user may update from any of them straight to the next
-release without installing the ones in between.
+`0.0.1`, and `1.0.8` and `1.0.9` shipped `0.0.2` — and a user may update from any of them
+straight to the next release without installing the ones in between.
 
 | State | Model version | Migration rule |
 |-|-|-|
-| Live release | `0.0.2` (`MLBrowser_0.0.2.xcdatamodel`) | Shipped in `1.0.8`. **Frozen — never edit in place.** |
+| Live release | `0.0.2` (`MLBrowser_0.0.2.xcdatamodel`) | Shipped in `1.0.8` and `1.0.9`. **Frozen — never edit in place.** |
 | Still in the field | `0.0.1` (`MLBrowser_0.0.1.xcdatamodel`) | Shipped in `1.0.7`. Frozen. |
 | Still in the field | `0.0.0` (`MLBrowser.xcdatamodel`) | Shipped in `1.0.6`. Frozen. |
 | Development target | *none — the next schema change creates `0.0.3`* | `0.0.2` shipped, so it is no longer a free-to-edit destination. |
-| Required **today** | `0.0.0 → 0.0.2` **and** `0.0.1 → 0.0.2` | The paths 1.0.8 ships. They must keep working. |
+| Required **today** | `0.0.0 → 0.0.2` **and** `0.0.1 → 0.0.2` | The paths 1.0.8 and 1.0.9 ship. They must keep working. |
 | Required **once `0.0.3` exists** | `0.0.0 → 0.0.3`, `0.0.1 → 0.0.3` **and** `0.0.2 → 0.0.3` | One mapping model per live source, each covered by its own `FindingMigrationTests` case. |
 
 **Migration is single-hop — this is the part that is easy to get wrong.** Core Data matches *one*
