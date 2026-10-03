@@ -272,6 +272,7 @@ class UITestCase: XCTestCase {
 		_ config: LaunchConfig = LaunchConfig(),
 		mockAuthGate: String? = nil,
 		mockSubscription: String? = nil,
+		mockSubscriptionLapsesInBackground: Bool = false,
 		mockAccountID: String? = nil
 	) -> XCUIApplication {
 		let app = XCUIApplication()
@@ -290,6 +291,11 @@ class UITestCase: XCTestCase {
 		// `.subscribed`, so existing tests pass straight through the whole-app gate.
 		if let mockSubscription {
 			app.launchArguments += ["-mockSubscription", mockSubscription]
+		}
+		// AIA-0988: the mock's entitlement is lost when the app is backgrounded, so the gate's
+		// foreground re-check lays the paywall over the app (`.wallOverContent`).
+		if mockSubscriptionLapsesInBackground {
+			app.launchArguments += ["-mockSubscriptionLapsesInBackground"]
 		}
 		// AIA-0437: choose which account the mock auth provider reports, so a test can drive the
 		// account-scoped analytics choice across a switch. Default (nil) keeps the mock's own
@@ -420,6 +426,15 @@ class UITestCase: XCTestCase {
 	@discardableResult
 	func waitForDisappearance(of element: XCUIElement, timeout: TimeInterval = 10) -> Bool {
 		let predicate = NSPredicate(format: "exists == false")
+		let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+	}
+
+	/// Waits for an element to exist and be hittable — reachable by an accessibility hit-test, which
+	/// is what VoiceOver's touch exploration uses — rather than merely present in the tree.
+	@discardableResult
+	func waitForHittable(_ element: XCUIElement, timeout: TimeInterval = 10) -> Bool {
+		let predicate = NSPredicate(format: "exists == true && hittable == true")
 		let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
 		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
 	}

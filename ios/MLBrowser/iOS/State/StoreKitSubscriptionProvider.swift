@@ -10,6 +10,7 @@
 
 import Foundation
 import StoreKit
+import UIKit
 import OSLog
 #if canImport(ClerkKit)
 import ClerkKit
@@ -450,12 +451,37 @@ final class MockSubscriptionProvider: SubscriptionProviding {
 	/// the app. Tests that need the paywall pass `-mockSubscription notSubscribed`.
 	static func fromLaunchArguments() -> MockSubscriptionProvider {
 		let args = ProcessInfo.processInfo.arguments
+		var outcome = Outcome.subscribed
 		if let idx = args.firstIndex(of: "-mockSubscription"),
 		   idx + 1 < args.count,
 		   let parsed = Outcome(rawValue: args[idx + 1]) {
-			return MockSubscriptionProvider(outcome: parsed)
+			outcome = parsed
 		}
-		return MockSubscriptionProvider(outcome: .subscribed)
+		let provider = MockSubscriptionProvider(outcome: outcome)
+		if args.contains(lapsesInBackgroundArgument) {
+			provider.lapseWhenBackgrounded()
+		}
+		return provider
+	}
+
+	/// `-mockSubscriptionLapsesInBackground` (AIA-0988): the entitlement is lost the moment the app
+	/// goes to the background. Nothing is published then; the gate's existing foreground re-check
+	/// (`SubscriptionState.start()`) picks it up, so a UI test reaches the paywall laid over the app
+	/// — `RootGateDisplay.wallOverContent` — through the same path a real lapse takes. Keyed to the
+	/// background event rather than to a count of `start()` calls, because whether a cold launch
+	/// also delivers a foreground notification to the gate is a timing question.
+	static let lapsesInBackgroundArgument = "-mockSubscriptionLapsesInBackground"
+
+	private var backgroundObserver: NSObjectProtocol?
+
+	private func lapseWhenBackgrounded() {
+		backgroundObserver = NotificationCenter.default.addObserver(
+			forName: UIApplication.didEnterBackgroundNotification,
+			object: nil,
+			queue: .main
+		) { [weak self] _ in
+			MainActor.assumeIsolated { self?.outcome = .notSubscribed }
+		}
 	}
 
 	/// Mutate the simulated outcome between syncs (tests/previews only).

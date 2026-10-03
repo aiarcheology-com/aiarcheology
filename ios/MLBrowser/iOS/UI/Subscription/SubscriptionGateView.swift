@@ -255,6 +255,13 @@ struct SubscriptionGateView<Content: View>: View {
 		)
 	}
 
+	/// Whether the overlay is laid over the mounted app: the paywall after access ran out
+	/// mid-session, or a Welcome screen. `.wall` is not one of them — it is a root swap, with nothing
+	/// mounted beneath it.
+	private var isOverlayCoveringContent: Bool {
+		display == .wallOverContent || presentedPrompt != nil
+	}
+
 	private var display: RootGateDisplay {
 		RootGateDisplay.resolve(
 			isPaymentsSurfaceEnabled: subscriptionState.isPaymentsSurfaceEnabled,
@@ -271,6 +278,16 @@ struct SubscriptionGateView<Content: View>: View {
 			// SwiftUI does not remount the subtree it is only meant to cover.
 			case .content, .wallOverContent:
                 content()
+					// Covered is not the same as gone (AIA-0988). The overlay below is opaque, but
+					// the app under it is still mounted and, without this, still in the accessibility
+					// tree: VoiceOver could move past the Welcome screen or the paywall into a browser
+					// the user cannot see and activate its controls. `.accessibilityAddTraits(.isModal)`
+					// on the overlay did not change that — an accessibility hit-test still reached the
+					// toolbar through the opaque screen — and a modal overlay risks hiding its siblings
+					// too, such as the app-message banner laid over the paywall (AIA-0115). So the
+					// covered content is hidden instead.
+					// Sheets presented from inside it are their own presentations and stay reachable.
+					.accessibilityHidden(isOverlayCoveringContent)
 			case .wall:
 				paywall()
 			case .hold:
@@ -286,6 +303,7 @@ struct SubscriptionGateView<Content: View>: View {
 		// one, so it is structurally impossible to show a paywall about an open window over the wall
 		// that says it has run out. They are already mutually exclusive in time — the prompts need a
 		// live window and the wall needs a spent one — and the `else` makes that a fact of the tree.
+		// Whatever either branch covers is hidden from accessibility above (AIA-0988).
 		.overlay {
 			if display == .wallOverContent {
 				paywall()

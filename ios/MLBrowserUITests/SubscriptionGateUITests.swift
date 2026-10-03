@@ -33,6 +33,51 @@ final class SubscriptionGateUITests: UITestCase {
 		assertExists(AID.paywallDismiss, false)
 	}
 
+	/// AIA-0988: access lost mid-session lays the paywall *over* the app (`.wallOverContent`) rather
+	/// than replacing it, so the browser stays mounted beneath — and must not stay reachable. The
+	/// lapse arrives the way a real one does: the mock drops the entitlement while the app is in the
+	/// background, and the gate's foreground re-check publishes it.
+	///
+	/// What this test can and cannot prove. It cannot show the covered app is hidden: unlike the
+	/// Welcome screen, the paywall's content view is one full-screen accessibility element, so every
+	/// hit-test point lands on it with or without the fix (measured by removing the fix), and
+	/// VoiceOver's swipe order is not observable from XCUITest. The hiding mechanism is shared with
+	/// the Welcome screen and proven by
+	/// `FreeAccessUITests.testWelcome_hidesTheAppBeneathItFromAccessibility`; this paywall's swipe
+	/// order is the manual VoiceOver check.
+	///
+	/// What it does prove is the risk that hiding adds: the Settings sheet, presented from inside the
+	/// very content being hidden, must stay usable over the paywall, and a sheet the paywall itself
+	/// presents must be reachable over it.
+	func testPaywallOverContent_hidesTheAppAndKeepsSheetsReachable() {
+		launch(mockAuthGate: "ready", mockSubscriptionLapsesInBackground: true)
+		XCTAssertTrue(waitForHittable(element(AID.cpu), timeout: 15), "The app never became reachable")
+
+		openSettings()
+		XCUIDevice.shared.press(.home)
+		app.activate()
+
+		XCTAssertTrue(element(AID.paywallContent).waitForExistence(timeout: 15), "The lapse did not raise the paywall")
+		let settingsDismiss = app.buttons[AID.settingsDismiss]
+		XCTAssertTrue(
+			waitForHittable(settingsDismiss),
+			"The Settings sheet stopped being reachable when the content beneath the paywall was hidden"
+		)
+		settingsDismiss.tap()
+
+		let restore = element(AID.paywallRestore)
+		XCTAssertTrue(waitForHittable(restore), "The paywall laid over the app is not reachable")
+		// The app is still mounted underneath — covered, not replaced — so this is `.wallOverContent`
+		// and not the root wall, which has nothing beneath it to hide.
+		XCTAssertTrue(element(AID.cpAppMode).exists, "The app is not mounted under the paywall")
+		XCTAssertTrue(scrollTo(AID.paywallPrivacyPolicy), "Paywall has no Privacy Policy link")
+		app.buttons[AID.paywallPrivacyPolicy].tap()
+		let marker = app.staticTexts
+			.matching(NSPredicate(format: "label CONTAINS[c] %@", "Data Controller"))
+			.firstMatch
+		XCTAssertTrue(waitForHittable(marker, timeout: 20), "A sheet presented over the paywall is not reachable")
+	}
+
 	/// **Schedule 2 §3.8(b) says the privacy-policy link must be *functional*, and this is what
 	/// checks it** (AIA-0616).
 	///

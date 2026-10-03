@@ -186,6 +186,42 @@ final class FreeAccessUITests: UITestCase {
 		XCTAssertTrue(subscriptionRow.isHittable, "Settings came back but is still covered")
 	}
 
+	/// AIA-0988: the Welcome screen is laid over the app, which stays mounted beneath it — and until
+	/// now stayed reachable too. VoiceOver could move past the opaque screen into a browser the user
+	/// cannot see; under XCUITest the toolbar's menu button reported itself hittable straight through
+	/// it.
+	///
+	/// Hittability is the assertion because it is what an accessibility hit-test — VoiceOver's touch
+	/// exploration — reaches. Existence cannot be: XCUITest still reports accessibility-hidden
+	/// elements as existing, so "absent from the tree" is not observable from here and stays a manual
+	/// VoiceOver check.
+	func testWelcome_hidesTheAppBeneathItFromAccessibility() {
+		launch(
+			LaunchConfig(featureFlagOverrides: ["isFreeAccessPeriodEnabled": true]),
+			mockAuthGate: "ready",
+			mockSubscription: "notSubscribed"
+		)
+
+		// The screen's own controls stay reachable — which also proves the overlay is fully up before
+		// anything beneath it is judged.
+		let continueButton = element(AID.welcomeContinue)
+		XCTAssertTrue(waitForHittable(continueButton, timeout: 15), "The Welcome screen's Continue is not reachable")
+		XCTAssertTrue(element(AID.welcomeHeadline).isHittable, "The Welcome screen's headline is not reachable")
+
+		// Canary, not decoration: the app is mounted underneath, and XCUITest still sees it. If this
+		// ever fails, XCUITest has started filtering hidden elements, and the absence assertions on
+		// `tourBubble` / `cpTourStep` in the ordering tests below have silently become vacuous —
+		// reinstate a checkpoint inside the overlay before trusting them again.
+		XCTAssertTrue(element(AID.cpAppMode).exists, "The app is not mounted under the Welcome screen")
+		XCTAssertFalse(element(AID.cpu).isHittable, "The toolbar is reachable through the Welcome screen")
+
+		continueButton.tap()
+
+		// Non-vacuity: the same control becomes reachable the moment the screen is gone, so the
+		// assertion above was about the overlay and not about an identifier that never resolves.
+		XCTAssertTrue(waitForHittable(element(AID.cpu)), "The toolbar did not become reachable after Continue")
+	}
+
 	// MARK: - Welcome → tour ordering (AIA-0567)
 
 	/// The inversion itself: on a first run that owes both, the Welcome screen goes first and the
