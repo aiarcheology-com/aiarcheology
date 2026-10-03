@@ -128,3 +128,37 @@ extension BackendEnvironmentTests {
         return decoded.hasSuffix("$") ? String(decoded.dropLast()) : decoded
     }
 }
+
+// MARK: - Headless mode (AIA-0970, AIA-0991)
+
+#if DEBUG
+extension BackendEnvironmentTests {
+
+    /// Headless mode never moves the backend: the switch refuses before doing anything, even to the
+    /// backend already in force, which it would otherwise report as success without touching Clerk.
+    /// That first call is what makes the guard observable safely; the switch to production after it
+    /// runs only once the guard is proven, so a broken guard cannot reconfigure Clerk here.
+    @MainActor
+    func test_switch_refusesInHeadlessMode() async {
+        continueAfterFailure = false
+        let before = BackendEnvironment.current
+
+        let toCurrent = await BackendEnvironment.switch(to: before, isHeadlessMode: true)
+        XCTAssertFalse(toCurrent, "headless mode must refuse even a switch to the backend in force")
+
+        let toProduction = await BackendEnvironment.switch(to: .production, isHeadlessMode: true)
+        XCTAssertFalse(toProduction)
+        XCTAssertEqual(BackendEnvironment.current, before)
+    }
+
+    /// The control: outside headless mode, a switch to the backend in force succeeds without a
+    /// reconfigure, so the refusal above is the guard and not some other early return.
+    @MainActor
+    func test_switch_toTheBackendInForce_succeedsOutsideHeadlessMode() async {
+        let before = BackendEnvironment.current
+        let result = await BackendEnvironment.switch(to: before, isHeadlessMode: false)
+        XCTAssertTrue(result)
+        XCTAssertEqual(BackendEnvironment.current, before)
+    }
+}
+#endif

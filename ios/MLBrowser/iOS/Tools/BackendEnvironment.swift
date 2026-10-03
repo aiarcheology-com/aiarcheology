@@ -86,6 +86,17 @@ extension BackendEnvironment {
 
     @MainActor
     static func `switch`(to environment: BackendEnvironment) async -> Bool {
+        await self.switch(to: environment, isHeadlessMode: AppEnvironment.isHeadlessMode)
+    }
+
+    /// `switch(to:)` with the process's headless mode passed in, so a unit test can show the refusal
+    /// (AIA-0991). The app calls the one-argument form.
+    @MainActor
+    static func `switch`(to environment: BackendEnvironment, isHeadlessMode: Bool) async -> Bool {
+        // Headless mode is automation, and automation never touches production data (AIA-0970):
+        // it stays on the backend it was built for. It refuses even a switch to where it already
+        // is, so no answer from here can read as permission.
+        guard isHeadlessMode == false else { return false }
         // The re-entrancy guard comes FIRST, before the already-there check. The other order has
         // a race: with a switch to production in flight, `current` still reads development, so a
         // second tap back to development would take the already-there path and report success —

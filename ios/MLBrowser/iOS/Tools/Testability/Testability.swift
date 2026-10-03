@@ -162,8 +162,8 @@ extension TestabilityIdentification {
 		/// **Unreferenced by the UI suite, and not an oversight.** The screen sits behind Clerk's
 		/// embedded profile, which Settings renders only when `usesRealAuth` — and the UI suite runs
 		/// on `MockAuthProvider` under `UI_TESTING`, where that is false by construction
-		/// (`DependencyContainer.usesMockAuth`). No launch argument reaches this screen, so these
-		/// exist for manual and future coverage rather than for a test that could be written today.
+		/// (`DependencyContainer.usesMockAuth`) unless a launch opts into `usesRealAuth` (AIA-0984).
+		/// No test reaches this screen, so these exist for manual and future coverage.
 		///
 		/// The Clerk row that *reaches* the screen could not carry one anyway: Clerk applies
 		/// `accessibilityIdentifier` to its built-in rows only, so a custom row's label is all

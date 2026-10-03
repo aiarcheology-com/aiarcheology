@@ -512,6 +512,102 @@ final class ArchitectureTests: XCTestCase {
         }
     }
 
+    // MARK: - Headless mode (AIA-0970, AIA-0991)
+
+    /// Headless mode's command server must exist only in a Debug build against the development
+    /// backend. Every file that imports the transport or HeadlessKitUI, starts a `HeadlessServer`
+    /// or a `HeadlessServerView` (or `.headless`), or names an `NWListener` is wrapped whole in
+    /// `#if DEBUG && AIA_BACKEND_ENV_development`, so neither a
+    /// shipping build nor a Debug build against production can compile a listener into the app.
+    /// Since AIA-0991 no build setting selects the mode; this wrap is the compile-time lock.
+    func testHeadlessCommandServerExistsOnlyInDevelopmentDebugBuilds() {
+        let guardLine = "#if DEBUG && AIA_BACKEND_ENV_development"
+        var wrapped: [String] = []
+        var offenders: [String] = []
+        for fileURL in Self.productionSwiftFiles() {
+            let relativePath = Self.relativePath(for: fileURL)
+            let lines: [String]
+            do {
+                lines = try Self.readLines(of: fileURL)
+            } catch {
+                XCTFail("Headless transport scan could not read \(relativePath): \(error) — failing closed.")
+                continue
+            }
+            let code = lines
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { $0.isEmpty == false && $0.hasPrefix("//") == false }
+            let usesTransport = code.contains { line in
+                // `import HeadlessKitTransport`, `@_exported import …`, `import struct HeadlessKitTransport.X`;
+                // the same for HeadlessKitUI, whose view owns the server (AIA-1007).
+                let importsServer = line.contains("import ") && ["HeadlessKitTransport", "HeadlessKitUI"].contains { module in
+                    line.hasSuffix(" \(module)") || line.contains(" \(module) ") || line.contains(" \(module).")
+                }
+                return importsServer || line.contains("NWListener") || line.contains("HeadlessServer(")
+                    || line.contains("HeadlessServerView") || line.contains(".headless(") || line.contains(".headless {")
+            }
+            guard usesTransport else { continue }
+            if Self.isWhollyGuarded(code, by: guardLine) {
+                wrapped.append(relativePath)
+            } else {
+                offenders.append(relativePath)
+            }
+        }
+        XCTAssertTrue(
+            offenders.isEmpty,
+            """
+            These files use the headless command server outside development Debug builds. Wrap the whole file in
+            `\(guardLine)` … `#endif`, as `Headless/Entry/MLBrowserHeadless.swift` is:
+            \(offenders.joined(separator: "\n"))
+            """
+        )
+        // Fail closed: the headless entry uses the transport, so an empty result means the scan broke.
+        XCTAssertFalse(wrapped.isEmpty, "No file uses the headless transport — the scan is broken, not clean.")
+    }
+
+    /// Whether every line of `code` sits inside one `guardLine` block: it opens the file, closes at the
+    /// last line, and no `#else`/`#elseif` of it — nor a closing and reopening — lets code escape.
+    private static func isWhollyGuarded(_ code: [String], by guardLine: String) -> Bool {
+        guard code.first == guardLine, code.last?.hasPrefix("#endif") == true else { return false }
+        var depth = 0
+        for (index, line) in code.enumerated() {
+            if line.hasPrefix("#if") {
+                depth += 1
+            } else if line.hasPrefix("#endif") {
+                depth -= 1
+                // Closing the outer block before the last line would leave the rest unguarded.
+                if depth == 0, index != code.count - 1 { return false }
+            } else if depth == 1, line.hasPrefix("#else") || line.hasPrefix("#elseif") {
+                return false
+            }
+        }
+        return depth == 0
+    }
+
+    /// Headless adapters describe screens over `AppState` and call its methods; they have no business
+    /// with views. `Headless/Entry/` holds the SwiftUI app headless mode launches, and is exempt.
+    func testHeadlessAdaptersDoNotImportUIFrameworks() {
+        let root = Self.productionIOSRootURL().appendingPathComponent("Headless", isDirectory: true)
+        let files = Self.swiftFiles(under: root).filter { Self.relativePath(for: $0).contains("/Headless/Entry/") == false }
+        XCTAssertFalse(files.isEmpty, "No Swift files under \(root.path) outside Entry/ — the scan is broken, not clean.")
+        var offenders: [ImportFinding] = []
+        for fileURL in files {
+            let relativePath = Self.relativePath(for: fileURL)
+            do {
+                let lines = try Self.readLines(of: fileURL)
+                offenders += Self.findImports(inLines: lines, relativePath: relativePath, modules: ["SwiftUI", "UIKit", "HeadlessKitUI"])
+            } catch {
+                XCTFail("Headless adapter scan could not read \(relativePath): \(error) — failing closed.")
+            }
+        }
+        XCTAssertTrue(
+            offenders.isEmpty,
+            """
+            Headless adapters must not import SwiftUI, UIKit or HeadlessKitUI — call the state objects the views call instead:
+            \(offenders.map { "\($0.relativePath):\($0.lineNumber)  \($0.line)" }.joined(separator: "\n"))
+            """
+        )
+    }
+
     /// Privacy invariant (AIA-0392): finding screenshots are written ONLY by `FindingRepository`,
     /// the single auditable on-device write path (images never leave the device except via explicit
     /// user export). Any other PRODUCTION caller of `FindingScreenshotStore.save` is an unreviewed

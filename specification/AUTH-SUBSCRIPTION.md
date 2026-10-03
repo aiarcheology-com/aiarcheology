@@ -88,8 +88,9 @@ or would land on top of the tour that Welcome's Continue just started. The inten
 **Welcome → tour → consent**.
 
 Deciding to run the tour and actually running it are two steps, which is what makes that order hold.
-`Appstate.initialize()` *arms* the tour before `isReady`; `SubscriptionGateView.startTourIfClear()`
-starts what was armed, once nothing is owed the screen ahead of it. Arming from a view would arm
+`Appstate.initialize()` *arms* the tour before `isReady`; `SubscriptionGateCoordinator.startTourIfClear()`,
+run by `SubscriptionGateView`'s handlers (AIA-0976 moved the gate's orchestration into that coordinator,
+which headless mode runs too), starts what was armed, once nothing is owed the screen ahead of it. Arming from a view would arm
 something nobody would act on — the gate's `onChange(initial: true)` handlers are what start the
 tour, and nothing re-fires them later — and `AnalyticsChoiceGate` reads "armed **or** running", not
 "running", so a launch that resumes over an unacknowledged Welcome screen holds the consent question
@@ -121,7 +122,7 @@ artifacts can be asserted about from shell. `ClerkAuthProvider.publishableKey` a
 
 The compilation condition alone is not a sufficient guard. `SWIFT_ACTIVE_COMPILATION_CONDITIONS`
 is a whitespace-separated **list**, so `AIA_BACKEND_ENVIRONMENT="development production"` still
-defines `AIA_BACKEND_ENV_development` and compiles clean. The "Validate backend environment" run
+defines `AIA_BACKEND_ENV_development` and compiles clean. The "Validate build parameters" run
 script phase does the exact-string comparison that catches that; both guards are needed.
 
 Two settings, one string: the target-level `SWIFT_ACTIVE_COMPILATION_CONDITIONS` **must** keep its
@@ -145,6 +146,41 @@ has no receipt at that path, and an iPhone restored from backup has none until
 `SKReceiptRefreshRequest` completes. It still decides other things — Settings' debug section,
 Sentry sampling, StoreKit sandbox detection, and (pre-existing, load-bearing, out of scope here)
 `DataController`'s mapping-model inference and its destructive store-recovery gate.
+
+## Signing in without the UI (Debug only, AIA-0974)
+
+Headless mode (`specification/HEADLESS.md`) has no Clerk `AuthView` to present, so it signs in
+through Clerk's own API instead. That surface is compiled only into Debug builds; a Release build's
+`AuthProviding` is exactly what it was.
+
+- `AuthProviding.signIn(emailAddress:code:)` is a `#if DEBUG` requirement with **no default
+  implementation**, so a conformer whose signature drifts fails to compile instead of silently
+  inheriting a stub.
+- `ClerkAuthProvider` signs in with the email code (`Clerk.shared.auth.signInWithEmailCode`, then
+  `verifyCode`). For an address Clerk does not know (`form_identifier_not_found`) it signs up first,
+  the two paths `AuthView` takes. The development instance requires first name, last name and a
+  password at sign-up. The password is random, never stored or logged, and never used again: every
+  later sign-in uses the email code. The method returns only once Clerk reports a signed-in user.
+- Only **Clerk test addresses** at the reserved domain are accepted, `<name>+clerk_test@example.com`
+  (`ClerkTestAddress`), and only while the build points at the **development** backend. Both checks
+  run before any request, so automation cannot sign in to a real account or touch production. In
+  test mode Clerk sends no email to these addresses and accepts the fixed code `424242`
+  ([Clerk docs](https://clerk.com/docs/guides/development/testing/test-emails-and-phones)). The
+  domain is pinned because the subaddress alone protects only while test mode stays on: with it
+  off, `jane+clerk_test@gmail.com` would get a real code in jane@gmail.com's inbox.
+- `MockAuthProvider.signIn` throws rather than pretending. A Debug build without Clerk keys falls
+  back to the mock, and a mock that "signed in" would let a headless run pass a sign-in scenario
+  without ever reaching Clerk.
+- `AuthState.signIn` calls the provider, then `refresh()` — what `SignInSheet` runs when Clerk's
+  sheet closes — so the gate, the account identity and the consent scope move exactly as they do
+  after a sign-in in the app. Sign-out is the existing `AuthState.signOut()`.
+- `AuthState.isProviderSignedIn` (Debug) reports whether Clerk itself still holds a user. It can
+  differ from the gate after a sign-out whose server call failed, because `signOut()` publishes
+  `.signedOut` regardless; headless scenarios read it to prove the session really ended.
+
+Headless mode does not mount `ClerkSessionWatcher`, which is a view. A session revoked on the
+server while a headless run is signed in is therefore noticed at the next foreground re-validation
+(`AppRuntime`), not immediately.
 
 ## State table
 

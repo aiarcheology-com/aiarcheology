@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "name": "fresh-install-enable-model",
+  "installations": {
+    "a": {
+      "launch": {
+        "flags": { "isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false }
+      }
+    }
+  },
+  "steps": [
+    { "name": "a fresh install finishes launching into the free-access Welcome screen",
+      "wait": { "condition": "ready", "timeout": 120 },
+      "expect": [ { "route": "welcome" }, { "equals": { "pointer": "/state/offer", "value": "freeAccess" } }, { "equals": { "pointer": "/context/backendEnvironment", "value": "development" } } ] },
+    { "name": "continue past the free-access Welcome screen", "perform": { "action": "continue" }, "expect": [ { "route": "tour" } ] },
+    { "name": "skip the tour", "perform": { "action": "skip" }, "expect": [ { "route": "consent" } ] },
+    { "name": "decline analytics", "perform": { "action": "deny" }, "expect": [ { "route": "home" }, { "equals": { "pointer": "/context/analytics/enabled", "value": false } } ] },
+    { "name": "no teleporting: home does not lead back to consent", "goto": "consent",
+      "expect": [ { "error": "unreachable" }, { "route": "home" } ] },
+    { "name": "open the menu", "goto": "drawer",
+      "capture": { "model": "/state/models/0/id" },
+      "expect": [ { "route": "drawer" }, { "exists": "/state/models/0/id" } ] },
+    { "name": "switch the first model on and wait for it to load",
+      "perform": { "action": "enable", "arguments": { "id": "${model}" } },
+      "expect": [ { "equals": { "pointer": "/result/loaded", "value": true } } ] },
+    { "name": "the menu shows it on and loaded",
+      "expect": [
+        { "equals": { "pointer": "/state/models/0/id", "value": "${model}" } },
+        { "equals": { "pointer": "/state/models/0/enabled", "value": true } },
+        { "equals": { "pointer": "/state/models/0/loaded", "value": true } }
+      ] }
+  ]
+}

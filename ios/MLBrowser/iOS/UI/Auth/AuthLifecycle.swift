@@ -2,35 +2,31 @@
 //  AuthLifecycle.swift
 //  AI Archeology
 //
-//  Owns driving `AuthState`, independently of who renders because of it (AIA-0536).
+//  The view half of driving `AuthState` (AIA-0536); the process half is `AppRuntime` (AIA-0970).
 //
 
 import SwiftUI
-import UIKit
 import ClerkKit
 
-/// Drives ``AuthState``: the initial session check, re-validation on every foreground, and — on the
-/// real-auth path only — Clerk's own session observer plus the Clerk environment that observer needs.
+/// The view half of driving ``AuthState``: on the real-auth path, Clerk's own session observer plus
+/// the Clerk environment that observer needs.
 ///
-/// These four belong together and belong at a root that mounts **once**. They used to live on the
-/// since-deleted `AuthGateView`, which was safe only because that view was the root and never
-/// swapped — the reason this modifier exists at all. Under the
-/// paywall-first gate order (AIA-0536) auth no longer decides the root, so attaching them to any view
-/// that can be swapped would restart the session check on every swap — and dropping the Clerk
-/// environment would silently disable the out-of-band sign-out observer while everything still
-/// compiled and mostly worked.
+/// The initial session check and the re-validation on every foreground moved to ``AppRuntime``
+/// (AIA-0970), so headless mode drives auth exactly as the app does. The observer stays here:
+/// it follows Clerk through the SwiftUI environment. Headless mode, which signs in
+/// programmatically (AIA-0974), refreshes auth itself after each sign-in and sign-out, and notices an
+/// out-of-band change only at the next foreground re-validation.
 ///
-/// Applied above the gates, so nothing below can unmount it.
+/// It must mount **once**, at a root that never swaps. Attached to a view that can be swapped, it
+/// would be torn down with it — and dropping the Clerk environment would silently disable the
+/// out-of-band sign-out observer while everything still compiled and mostly worked. Applied above
+/// the gates, so nothing below can unmount it.
 struct AuthLifecycleModifier: ViewModifier {
 	@ObservedObject var authState: AuthState
 	@Environment(\.usesRealAuth) private var usesRealAuth
 
 	func body(content: Content) -> some View {
 		content
-			.task { await authState.start() }
-			.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-				Task { await authState.refresh() }
-			}
 			.background {
 				// Real-auth only: keep auth in sync with Clerk's session so a sign-out done
 				// out-of-band (e.g. inside the embedded UserProfileView) is noticed immediately. The
@@ -43,7 +39,7 @@ struct AuthLifecycleModifier: ViewModifier {
 }
 
 extension View {
-	/// Attach the auth lifecycle. Must be applied **once**, at a root that never unmounts.
+	/// Attach the Clerk session observer. Must be applied **once**, at a root that never unmounts.
 	func authLifecycle(_ authState: AuthState) -> some View {
 		modifier(AuthLifecycleModifier(authState: authState))
 	}

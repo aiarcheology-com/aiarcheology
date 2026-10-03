@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "name": "payments-off-no-gate",
+  "installations": {"a": {"launch": {"flags": {"isPaymentsEnabled": false, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false}}}},
+  "steps": [
+    {"name": "payments off: a fresh install is welcomed with the introduction, which names no offer", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "welcome"}, {"equals": {"pointer": "/state/offer", "value": "introduction"}}, {"absent": "/state/days"}, {"equals": {"pointer": "/context/gate/display", "value": "content"}}, {"equals": {"pointer": "/context/gate/isPaymentsSurfaceEnabled", "value": false}}, {"equals": {"pointer": "/context/gate/isDay0AcknowledgementPending", "value": false}}]},
+    {"name": "continue into the tour", "perform": {"action": "continue"}, "expect": [{"route": "tour"}]},
+    {"name": "skip the tour", "perform": {"action": "skip"}, "expect": [{"route": "consent"}]},
+    {"name": "decline analytics", "perform": {"action": "deny"}, "expect": [{"route": "home"}]},
+    {"name": "quit and reopen the app", "relaunch": true},
+    {"name": "no gate and no second Welcome screen", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "home"}, {"equals": {"pointer": "/context/gate/display", "value": "content"}}, {"equals": {"pointer": "/context/gate/welcomeDue", "value": false}}]}
+  ]
+}

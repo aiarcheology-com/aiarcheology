@@ -55,6 +55,7 @@ struct SupportSettingsView: View {
 	}
 }
 
+// Debug-only, like PaywallView's previews: `MockSubscriptionProvider` does not exist in Release.
 #if DEBUG
 #Preview {
 	NavigationStack {

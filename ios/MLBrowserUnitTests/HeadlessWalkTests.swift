@@ -1,0 +1,522 @@
+//
+//  HeadlessWalkTests.swift
+//  MLBrowserUnitTests
+//
+//  AIA-0982.
+//
+
+import HeadlessKit
+import UIKit
+import XCTest
+@testable import ML_Browser
+
+/// The navigation map against the adapters: a real `MLBrowserHeadlessApplication`, built from
+/// isolated parts and driven in-process only through headless commands, walks the states the
+/// scenarios reach. At every state every live action must resolve to its catalog entry (no `problem`,
+/// and its effective outcomes within the entry's), nothing may lead off the map (`map`'s `undeclared`
+/// and `problems`), every action must land on one of its effective outcomes, staying included, and
+/// every move on the app's own must be a declared app move.
+///
+/// Isolation: in-memory Core Data, mock auth, the mock subscription and the ephemeral free-access
+/// anchor, a stub detector on a staged PNG, a stubbed Worker, and scratch directories for staged
+/// images, the findings sweep and the sync ledger. The walk never performs `save`: the screenshot
+/// store writes to the app's real Documents directory, which the parts do not redirect. `sign-in`
+/// is not walkable either: mock auth refuses the handler, so its outcomes are verified only by the
+/// sign-in scenario.
+@MainActor
+final class HeadlessWalkTests: XCTestCase {
+
+	/// Routes the walk cannot reach, each with the reason. With the visited routes they must make up
+	/// every `HeadlessRoute`, so a new route forces a decision: walk it, or say why not.
+	private static let unvisited: [HeadlessRoute: String] = [
+		.backupConsent: "needs a finding saved before sign-in and an account change through sync; the walk "
+			+ "saves nothing and cannot sign in. Its entry edges are covered by the sheet-exit enumeration "
+			+ "(HeadlessNavigationMapTests) and the scenarios"
+	]
+
+	private var scratch: URL!
+	/// Every walker made, for the action names each saw.
+	private var walkers: [Walker] = []
+	/// The back-up question's action names: the walk cannot reach the route, and its actions do not
+	/// depend on state, so they are read from the screen itself.
+	private var backupConsentActionNames: Set<String> = []
+	private var realDirectoriesBefore: [String: [String]?] = [:]
+
+	override func setUp() async throws {
+		try await super.setUp()
+		StubWorkerProtocol.reset()
+		scratch = FileManager.default.temporaryDirectory
+			.appending(path: "HeadlessWalkTests-\(UUID().uuidString)", directoryHint: .isDirectory)
+		try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+		realDirectoriesBefore = Self.realDirectoryListings()
+	}
+
+	override func tearDown() async throws {
+		XCTAssertEqual(
+			Self.realDirectoryListings(),
+			realDirectoriesBefore,
+			"the walk touched the app's real screenshot or staging directory"
+		)
+		try? FileManager.default.removeItem(at: scratch)
+		scratch = nil
+		walkers.removeAll()
+		StubWorkerProtocol.reset()
+		try await super.tearDown()
+	}
+
+	// MARK: - Walks
+
+	/// Every walk, once, and then every route is walked or explained. One test rather than one per
+	/// walk: the coverage check needs all of them, and XCTest does not order tests, so separate tests
+	/// would run each walk twice. Every failure names its walk.
+	func test_theWalks_stayOnTheMap_andEveryRouteIsWalkedOrExplained() async throws {
+		let walks: [(name: String, walk: () async throws -> Set<HeadlessRoute>)] = [
+			("fresh", { try await self.walkAFreshInstall() }),
+			("signed-in", { try await self.walkASignedInAccount() }),
+			("wall", { try await self.walkTheWall() }),
+			("expiry", { try await self.walkAccessRunningOutUnderASheet() }),
+			("payments-off", { try await self.walkPaymentsOff() })
+		]
+		var visited: Set<HeadlessRoute> = []
+		var stopped: [String] = []
+		for (name, walk) in walks {
+			do {
+				visited.formUnion(try await walk())
+			} catch {
+				stopped.append(name)
+				XCTFail("[walk \(name)] stopped: \(error)")
+			}
+		}
+
+		// A walk that stopped visited only part of its routes; the coverage check would only repeat that.
+		guard stopped.isEmpty else { return }
+
+		// AIA-0992: the action names every route offers — declared, seen live, and the unwalked
+		// back-up question's — never collide across a move on the app's own.
+		let map = HeadlessNavigationMap.declaration
+		var offered = HeadlessNavigationMapTests.declaredActionNames(in: map)
+		// The walk never reaches the back-up question, so its live actions are checked against the
+		// catalog here: a live name without an entry would only fail in a simulator run.
+		let backupConsentCatalog = offered[Route(HeadlessRoute.backupConsent.rawValue)] ?? []
+		XCTAssertTrue(
+			backupConsentActionNames.isSubset(of: backupConsentCatalog),
+			"backup-consent offers actions its catalog lacks: \(backupConsentActionNames.subtracting(backupConsentCatalog).sorted())"
+		)
+		for walker in walkers {
+			offered.merge(walker.offered) { $0.union($1) }
+		}
+		offered[Route(HeadlessRoute.backupConsent.rawValue), default: []].formUnion(backupConsentActionNames)
+		XCTAssertFalse(backupConsentActionNames.isEmpty, "the back-up question offers no actions to check")
+		let shared = HeadlessNavigationMapTests.actionNamesSharedAcrossAppMoves(offered: offered, in: map)
+		XCTAssertTrue(
+			shared.isEmpty,
+			"An app move between these routes would make an action name mean another action:\n" + shared.joined(separator: "\n")
+		)
+		XCTAssertTrue(
+			visited.isDisjoint(with: Self.unvisited.keys),
+			"walked routes are listed as unvisited: \(visited.intersection(Self.unvisited.keys).map(\.rawValue))"
+		)
+		XCTAssertEqual(
+			visited.union(Self.unvisited.keys),
+			Set(HeadlessRoute.allCases),
+			"routes neither walked nor explained: \(Set(HeadlessRoute.allCases).subtracting(visited.union(Self.unvisited.keys)).map(\.rawValue))"
+		)
+	}
+
+	/// launching → gate → welcome (the free-access offer) → tour → consent → home → drawer → account
+	/// (anonymous) → drawer → findings → drawer → home → detect → save-finding → home.
+	private func walkAFreshInstall() async throws -> Set<HeadlessRoute> {
+		let walker = try await makeWalker(
+			name: "fresh",
+			auth: MockAuthProvider(outcome: .signedOut),
+			startFreeAccess: false,
+			answersConsent: false
+		)
+		try await walker.observe(expecting: .launching)
+
+		walker.ready.isReady = true
+		try await walker.settle(at: .gate)
+
+		walker.world.startFreeAccess()
+		let welcome = try await walker.settle(at: .welcome)
+		XCTAssertEqual(welcome.state.value(at: "/offer"), .string("freeAccess"), "[walk fresh]")
+
+		try await walker.perform("continue", arrivesAt: .tour)
+		try await walker.perform("skip", arrivesAt: .consent)
+		try await walker.perform("deny", arrivesAt: .home)
+		try await walker.perform("open-drawer", arrivesAt: .drawer)
+		let account = try await walker.perform("open-account", arrivesAt: .account)
+		XCTAssertEqual(account.state.value(at: "/signedIn"), .bool(false), "[walk fresh]")
+		try await walker.perform("close", arrivesAt: .drawer)
+		// `open-findings` sweeps the screenshot directory these parts name, not the app's (AIA-1003).
+		let orphan = scratch.appending(path: "fresh/Findings/\(UUID().uuidString).jpg")
+		try Data([0]).write(to: orphan)
+		try await walker.perform("open-findings", arrivesAt: .findings)
+		XCTAssertFalse(FileManager.default.fileExists(atPath: orphan.path), "[walk fresh] the orphan was not swept")
+		try await walker.perform("close", arrivesAt: .drawer)
+		try await walker.perform("close", arrivesAt: .home)
+
+		let detected = try await walker.perform("detect-image", ["image": "walk.png"], arrivesAt: .home)
+		XCTAssertEqual(detected.result?.value(at: "/detections/0/label"), .string("walk-object"), "[walk fresh]")
+		try await walker.perform("pick", ["detection": 0], arrivesAt: .saveFinding)
+		// Never `save`: see the class comment.
+		try await walker.perform("cancel", arrivesAt: .home)
+		return walker.visited
+	}
+
+	/// A validated account: launching → welcome → tour → home → drawer → account → sign-out → drawer.
+	private func walkASignedInAccount() async throws -> Set<HeadlessRoute> {
+		let walker = try await makeWalker(
+			name: "signed-in",
+			auth: MockAuthProvider(outcome: .ready, accountID: "user_walk000000000000000000")
+		)
+		try await walker.observe(expecting: .launching)
+		walker.ready.isReady = true
+		try await walker.settle(at: .welcome)
+		try await walker.perform("continue", arrivesAt: .tour)
+		try await walker.perform("skip", arrivesAt: .home)
+		try await walker.perform("open-drawer", arrivesAt: .drawer)
+		let account = try await walker.perform("open-account", arrivesAt: .account)
+		XCTAssertEqual(account.state.value(at: "/signedIn"), .bool(true), "[walk signed-in]")
+		let signedOut = try await walker.perform("sign-out", arrivesAt: .drawer)
+		XCTAssertEqual(signedOut.context.value(at: "/auth/signedIn"), .bool(false), "[walk signed-in]")
+		return walker.visited
+	}
+
+	/// Payments on, no free-access window, not subscribed: launching → paywall; a subscription
+	/// arriving (Ask to Buy approved) → tour.
+	private func walkTheWall() async throws -> Set<HeadlessRoute> {
+		let walker = try await makeWalker(
+			name: "wall",
+			auth: MockAuthProvider(outcome: .signedOut),
+			isFreeAccessPeriodEnabled: false
+		)
+		try await walker.observe(expecting: .launching)
+		walker.ready.isReady = true
+		let paywall = try await walker.settle(at: .paywall)
+		XCTAssertTrue(paywall.actions.isEmpty, "[walk wall] the wall offers nothing")
+
+		walker.world.provider.simulateEntitlementChange(to: .subscribed)
+		try await walker.settle(at: .tour)
+		return walker.visited
+	}
+
+	/// The free-access window runs out while the account screen is up: the sheet stays above the
+	/// paywall laid over the app, closing it lands on the paywall, and a subscription then uncovers
+	/// the open menu.
+	private func walkAccessRunningOutUnderASheet() async throws -> Set<HeadlessRoute> {
+		let walker = try await makeWalker(name: "expiry", auth: MockAuthProvider(outcome: .signedOut))
+		try await walker.observe(expecting: .launching)
+		walker.ready.isReady = true
+		try await walker.settle(at: .welcome)
+		try await walker.perform("continue", arrivesAt: .tour)
+		try await walker.perform("skip", arrivesAt: .home)
+		try await walker.perform("open-drawer", arrivesAt: .drawer)
+		try await walker.perform("open-account", arrivesAt: .account)
+
+		let world = walker.world
+		world.clock.now = try XCTUnwrap(GateWorld.calendar.date(byAdding: .day, value: 16, to: world.clock.now))
+		world.foreground()
+		let ranOut = try await HeadlessWait.until(timeout: .seconds(10)) {
+			walker.application.currentDecision().display == .wallOverContent
+		}
+		XCTAssertTrue(ranOut, "[walk expiry] the window did not run out")
+		try await walker.observe(expecting: .account)
+
+		try await walker.perform("close", arrivesAt: .paywall)
+		world.provider.simulateEntitlementChange(to: .subscribed)
+		try await walker.settle(at: .drawer)
+		return walker.visited
+	}
+
+	/// Payments off: launching → welcome (the introduction) → tour → home.
+	private func walkPaymentsOff() async throws -> Set<HeadlessRoute> {
+		let walker = try await makeWalker(
+			name: "payments-off",
+			auth: MockAuthProvider(outcome: .signedOut),
+			isPaymentsEnabled: false
+		)
+		try await walker.observe(expecting: .launching)
+		walker.ready.isReady = true
+		let welcome = try await walker.settle(at: .welcome)
+		XCTAssertEqual(welcome.state.value(at: "/offer"), .string("introduction"), "[walk payments-off]")
+		try await walker.perform("continue", arrivesAt: .tour)
+		try await walker.perform("skip", arrivesAt: .home)
+		return walker.visited
+	}
+
+	// MARK: - Building a world
+
+	/// A real headless application on isolated parts, with a gate world built as the app builds it.
+	private func makeWalker(
+		name: String,
+		auth provider: MockAuthProvider,
+		isPaymentsEnabled: Bool = true,
+		isFreeAccessPeriodEnabled: Bool = true,
+		startFreeAccess: Bool = true,
+		answersConsent: Bool = true
+	) async throws -> Walker {
+		let root = scratch.appending(path: name, directoryHint: .isDirectory)
+		let stagedDirectory = root.appending(path: "Staged", directoryHint: .isDirectory)
+		let findingsDirectory = root.appending(path: "Findings", directoryHint: .isDirectory)
+		let ledgerDirectory = root.appending(path: "Ledger", directoryHint: .isDirectory)
+		for directory in [stagedDirectory, findingsDirectory, ledgerDirectory] {
+			try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+		}
+		try Self.stageImage(named: "walk.png", in: stagedDirectory)
+
+		let suiteName = "com.aiarcheology.ios.tests.headlessWalk.\(UUID().uuidString)"
+		let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+		addTeardownBlock { UserDefaults().removePersistentDomain(forName: suiteName) }
+		let world = try await makeGateWorld(
+			defaults: defaults,
+			isPaymentsEnabled: isPaymentsEnabled,
+			isFreeAccessPeriodEnabled: isFreeAccessPeriodEnabled,
+			startFreeAccess: startFreeAccess,
+			answersConsent: answersConsent
+		)
+
+		let dataController = DataController(inMemory: true)
+		await dataController.awaitStoreReady()
+		let settings = Settings()
+		let deep = DeepState(dataController: dataController)
+		deep.drivers.register(
+			driver: FixedObjectsDetecting(
+				params: DeepDriverParams(entityId: UUID(), modelName: "Stub"),
+				objects: [
+					DetectedObject(
+						uuid: UUID(),
+						labels: [DetectedObject.Label(identifier: "walk-object", confidence: 0.9)],
+						confidence: 0.8,
+						boundingBox: CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2),
+						regionIndex: 0
+					)
+				]
+			),
+			along: .detector
+		)
+		let repository = FindingRepository(dataController: dataController)
+		let findingsSync = FindingsSyncCoordinator(
+			authProvider: provider,
+			analytics: world.analytics,
+			findingRepository: repository,
+			dataController: dataController,
+			transportFactory: { url in
+				FindingsCloudTransport(baseURL: url, session: StubWorkerProtocol.session) { "stub.token" }
+			},
+			ledgerDirectory: ledgerDirectory
+		)
+		let authState = AuthState(provider: provider)
+		await authState.start()
+
+		let snap = SnapState(settings: settings)
+		addTeardownBlock { @MainActor in snap.stopTimer() }
+		let chromeState = AppChromeState(
+			detectionState: DetectionSessionState(snap: snap, settings: settings, snapAdjustment: SnapAdjustment()),
+			deep: deep,
+			settings: settings,
+			demoDataManager: DemoDataManager(dataController: dataController)
+		)
+
+		let ready = ReadyFlag()
+		let parts = HeadlessAppParts(
+			analytics: world.analytics,
+			authState: authState,
+			chromeState: chromeState,
+			dataController: dataController,
+			deep: deep,
+			findingRepository: repository,
+			findingsSync: findingsSync,
+			freeAccess: world.freeAccess,
+			settings: settings,
+			subscriptionState: world.subscriptionState,
+			tour: world.tour,
+			isReady: { ready.isReady },
+			usesRealAuth: false,
+			stagedNames: ["walk.png"],
+			stagedDirectory: stagedDirectory,
+			findingsDirectory: findingsDirectory
+		)
+		// The walk writes only where it was pointed.
+		XCTAssertEqual(parts.stagedDirectory, stagedDirectory, "[walk \(name)]")
+		XCTAssertNotEqual(parts.stagedDirectory, StagedImageCapture.defaultStagedDirectory, "[walk \(name)]")
+		XCTAssertEqual(parts.findingsDirectory, findingsDirectory, "[walk \(name)]")
+		XCTAssertNotEqual(parts.findingsDirectory, FindingScreenshotStore.directory, "[walk \(name)]")
+
+		let application = MLBrowserHeadlessApplication(parts: parts, launchOptions: .object([:]), crashReporting: false)
+		backupConsentActionNames.formUnion(HeadlessBackupConsentScreen(findingsSync: parts.findingsSync).actions().map(\.name))
+		let walker = Walker(name: name, application: application, world: world, ready: ready)
+		walkers.append(walker)
+		return walker
+	}
+
+	/// Writes a real 10×10 PNG.
+	private static func stageImage(named name: String, in directory: URL) throws {
+		let image = UIGraphicsImageRenderer(size: CGSize(width: 10, height: 10)).image { context in
+			UIColor.gray.setFill()
+			context.fill(CGRect(x: 0, y: 0, width: 10, height: 10))
+		}
+		let data = try XCTUnwrap(image.pngData())
+		try data.write(to: directory.appending(path: name))
+	}
+
+	/// The app's own screenshot and staging directories: their listings, or `nil` where absent.
+	private static func realDirectoryListings() -> [String: [String]?] {
+		let directories = [FindingScreenshotStore.directory, StagedImageCapture.defaultStagedDirectory].compactMap { $0 }
+		var listings: [String: [String]?] = [:]
+		for directory in directories {
+			let listing = try? FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
+			listings[directory.path] = .some(listing)
+		}
+		return listings
+	}
+}
+
+// MARK: - The walker
+
+/// `AppState.isReady`, owned by the test.
+@MainActor
+private final class ReadyFlag {
+	var isReady = false
+}
+
+/// Drives one application through `InProcessDriver` and checks every state and move against the map.
+@MainActor
+private final class Walker {
+	/// The walk's name, which every failure message starts with.
+	let name: String
+	let application: MLBrowserHeadlessApplication
+	let world: GateWorld
+	let ready: ReadyFlag
+	private let driver: InProcessDriver
+	private let map = HeadlessNavigationMap.declaration
+	private(set) var visited: Set<HeadlessRoute> = []
+	/// The action names each observed route offered live.
+	private(set) var offered: [Route: Set<String>] = [:]
+	/// The route of the last observed state.
+	private var current: HeadlessRoute?
+	/// The effective specs the last observed state offered, by name.
+	private var currentActions: [String: ActionSpec] = [:]
+
+	/// Upper bound for the app to move on its own; the moves are immediate once their input changes.
+	private static let settleTimeout = 10.0
+
+	init(name: String, application: MLBrowserHeadlessApplication, world: GateWorld, ready: ReadyFlag) {
+		self.name = name
+		self.application = application
+		self.world = world
+		self.ready = ready
+		driver = InProcessDriver(session: HeadlessSession(application: application))
+	}
+
+	/// Looks at the current state: it must be `expected`, satisfy the reachable-state predicate once
+	/// the app is ready, and offer only actions that resolve to their catalog entries.
+	@discardableResult
+	func observe(
+		expecting expected: HeadlessRoute,
+		file: StaticString = #filePath,
+		line: UInt = #line
+	) async throws -> Response {
+		let response = try await driver.send(.map)
+		XCTAssertTrue(response.ok, "[walk \(name)] map failed: \(String(describing: response.error))", file: file, line: line)
+		let route = try XCTUnwrap(
+			HeadlessRoute(rawValue: response.route.rawValue),
+			"[walk \(name)] '\(response.route)' is not a route",
+			file: file,
+			line: line
+		)
+		XCTAssertEqual(route, expected, "[walk \(name)]", file: file, line: line)
+		visited.insert(route)
+		current = route
+		offered[response.route, default: []].formUnion(response.actions.map(\.name))
+		currentActions = Dictionary(response.actions.map { ($0.name, $0) }) { first, _ in first }
+
+		// The drift check: no offered action leads off the map, and every one resolves.
+		XCTAssertEqual(
+			response.result?.value(at: "/undeclared"),
+			.array([]),
+			"[walk \(name)] '\(route.rawValue)' offers transitions the navigation map lacks",
+			file: file,
+			line: line
+		)
+		XCTAssertEqual(
+			response.result?.value(at: "/problems"),
+			.array([]),
+			"[walk \(name)] the map or an action of '\(route.rawValue)' has problems",
+			file: file,
+			line: line
+		)
+		for action in response.actions {
+			XCTAssertNil(action.problem, "[walk \(name)] '\(action.name)' on '\(route.rawValue)' does not resolve", file: file, line: line)
+			let catalog = HeadlessNavigationMapTests.catalogTargets(of: action.name, on: response.route, in: map)
+			let effective = try XCTUnwrap(action.outcomes, "[walk \(name)] '\(action.name)' declares no outcomes", file: file, line: line)
+			let targets = HeadlessNavigationMapTests.targets(of: effective, from: response.route)
+			XCTAssertFalse(targets.isEmpty, "[walk \(name)] '\(action.name)' on '\(route.rawValue)' has no outcomes", file: file, line: line)
+			XCTAssertTrue(
+				catalog.map(targets.isSubset(of:)) ?? false,
+				"[walk \(name)] '\(action.name)' on '\(route.rawValue)' offers \(targets.sorted()), outside its catalog entry \(catalog?.sorted() ?? [])",
+				file: file,
+				line: line
+			)
+		}
+
+		let decision = application.currentDecision()
+		XCTAssertEqual(decision.route, route, "[walk \(name)]", file: file, line: line)
+		if decision.isReady, let violation = HeadlessReachableStates.violation(of: decision) {
+			XCTFail("[walk \(name)] the walk reached a state the enumeration calls unreachable (\(violation)): \(decision)", file: file, line: line)
+		}
+		return response
+	}
+
+	/// Performs `action`; it must succeed and arrive at `expected`, which must be one of the targets the
+	/// action's effective outcomes named when it was offered (`.stays` for its own route), and so one its
+	/// catalog entry declares. One move on the app's own is not accepted here: the walk provokes none.
+	@discardableResult
+	func perform(
+		_ action: String,
+		_ arguments: [String: JSONValue] = [:],
+		arrivesAt expected: HeadlessRoute,
+		file: StaticString = #filePath,
+		line: UInt = #line
+	) async throws -> Response {
+		let from = try XCTUnwrap(current, "[walk \(name)] observe before performing", file: file, line: line)
+		let spec = try XCTUnwrap(currentActions[action], "[walk \(name)] '\(from.rawValue)' does not offer '\(action)'", file: file, line: line)
+		let response = try await driver.send(.perform(action: action, arguments: arguments))
+		XCTAssertTrue(response.ok, "[walk \(name)] '\(action)' failed: \(String(describing: response.error))", file: file, line: line)
+		XCTAssertEqual(response.route.rawValue, expected.rawValue, "[walk \(name)] '\(action)' on '\(from.rawValue)'", file: file, line: line)
+		let effective = HeadlessNavigationMapTests.targets(of: spec.outcomes ?? [], from: Route(from.rawValue))
+		XCTAssertTrue(
+			effective.contains(expected.rawValue),
+			"[walk \(name)] '\(action)' on '\(from.rawValue)' landed on '\(expected.rawValue)', not one of its outcomes \(effective.sorted())",
+			file: file,
+			line: line
+		)
+		XCTAssertTrue(
+			HeadlessNavigationMapTests.catalogTargets(of: action, on: Route(from.rawValue), in: map)?.contains(expected.rawValue) ?? false,
+			"[walk \(name)] undeclared outcome: \(from.rawValue) --\(action)--> \(expected.rawValue)",
+			file: file,
+			line: line
+		)
+		try await observe(expecting: expected, file: file, line: line)
+		return response
+	}
+
+	/// Waits, as a client does, for the app to move to `expected` on its own; the move must be a
+	/// declared app move.
+	@discardableResult
+	func settle(at expected: HeadlessRoute, file: StaticString = #filePath, line: UInt = #line) async throws -> Response {
+		let from = try XCTUnwrap(current, "[walk \(name)] observe before settling", file: file, line: line)
+		let response = try await driver.send(.wait(
+			condition: HeadlessSession.routeCondition,
+			arguments: ["route": .string(expected.rawValue)],
+			timeout: Self.settleTimeout
+		))
+		XCTAssertTrue(response.ok, "[walk \(name)] the app did not move to '\(expected.rawValue)': \(String(describing: response.error))", file: file, line: line)
+		if expected != from {
+			let declared = map.declaration(for: Route(from.rawValue))?.appMoves
+				.contains { $0.route?.rawValue == expected.rawValue } ?? false
+			XCTAssertTrue(declared, "[walk \(name)] undeclared move on its own: \(from.rawValue) --> \(expected.rawValue)", file: file, line: line)
+		}
+		return try await observe(expecting: expected, file: file, line: line)
+	}
+}

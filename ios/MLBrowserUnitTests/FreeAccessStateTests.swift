@@ -814,4 +814,113 @@ final class FreeAccessStateTests: XCTestCase {
 			"the foreground wrote the cleared anchor back to UserDefaults"
 		)
 	}
+
+	// MARK: - Expiry seed (AIA-0984)
+
+	private func storedFastRecord() throws -> FreeAccessWindow.Record? {
+		guard let data = try XCTUnwrap(defaults).data(forKey: FreeAccessAnchorService.defaultsKey) else { return nil }
+		return try JSONDecoder().decode(FreeAccessWindow.Record.self, from: data)
+	}
+
+	func testExpirySeed_recordIsCredible_withTheDay0ScreenShown_evenAcrossMidnight() throws {
+		let afternoon = try date(2026, 3, 2, hour: 15)
+		let beforeMidnight = try XCTUnwrap(calendar.date(bySettingHour: 23, minute: 59, second: 30, of: afternoon))
+		for (now, seconds) in [(afternoon, 90), (beforeMidnight, 60), (beforeMidnight, 3600)] {
+			let record = FreeAccessExpirySeed.record(endingInSeconds: seconds, now: now)
+			XCTAssertEqual(record.grantedAt, now)
+			XCTAssertEqual(record.expiresAt, now.addingTimeInterval(TimeInterval(seconds)))
+			XCTAssertEqual(record.maxObservedDate, now)
+			XCTAssertTrue(record.day0Shown, "an unexplained window owes the Welcome screen first")
+			XCTAssertFalse(record.expiryReported)
+			XCTAssertTrue(FreeAccessWindow.isCredible(record, now: now, calendar: calendar), "\(now) + \(seconds)s")
+			XCTAssertEqual(FreeAccessWindow.credible(record, now: now, calendar: calendar), record, "bounding must not rebuild it")
+		}
+		let crossing = FreeAccessExpirySeed.record(endingInSeconds: 60, now: beforeMidnight)
+		XCTAssertEqual(FreeAccessWindow.claimedThresholds(of: crossing, calendar: calendar)?.grantDays, 1)
+	}
+
+	func testExpirySeed_onAFreshInstall_writesOnlyTheFastStore_andReconciliationMirrorsIt() throws {
+		let now = try date(2026, 3, 2)
+		let durableStore = StubDurableStore()
+
+		let result = FreeAccessExpirySeed.seedWindowEnding(
+			inSeconds: 90,
+			now: now,
+			fastStore: try XCTUnwrap(defaults),
+			durableStore: durableStore
+		)
+
+		let seeded = FreeAccessExpirySeed.record(endingInSeconds: 90, now: now)
+		XCTAssertEqual(result, .success(seeded))
+		XCTAssertEqual(try storedFastRecord(), seeded)
+		XCTAssertNil(durableStore.record, "the seed never writes the durable store itself")
+
+		let window = try makeService(clock: TestClock(now), durableStore: durableStore).reconciledWindow()
+		XCTAssertEqual(window.anchor, .granted(seeded))
+		XCTAssertEqual(durableStore.record, seeded, "reconciliation copies the fast record into the durable store")
+	}
+
+	func testExpirySeed_whenEitherStoreHoldsAnAnchor_leavesBothUntouched() throws {
+		let now = try date(2026, 3, 2)
+		let existing = FreeAccessWindow.record(grantedAt: try day(-3, after: now), thresholds: .standard, calendar: calendar)
+
+		// The fast store: a relaunch inside a scenario, after the first launch's reconciliation.
+		try seedFastRecord(existing)
+		let durableStore = StubDurableStore()
+		var result = FreeAccessExpirySeed.seedWindowEnding(inSeconds: 90, now: now, fastStore: try XCTUnwrap(defaults), durableStore: durableStore)
+		XCTAssertEqual(result, .failure(.anchorExists))
+		XCTAssertEqual(try storedFastRecord(), existing)
+		XCTAssertNil(durableStore.record)
+
+		// The durable store alone: a reinstall of an install that had a window.
+		try XCTUnwrap(defaults).removeObject(forKey: FreeAccessAnchorService.defaultsKey)
+		durableStore.record = existing
+		result = FreeAccessExpirySeed.seedWindowEnding(inSeconds: 90, now: now, fastStore: try XCTUnwrap(defaults), durableStore: durableStore)
+		XCTAssertEqual(result, .failure(.anchorExists))
+		XCTAssertNil(try storedFastRecord())
+		XCTAssertEqual(durableStore.record, existing)
+	}
+
+	func testExpirySeed_whenTheDurableStoreCannotBeRead_writesNothing() throws {
+		let durableStore = StubDurableStore()
+		durableStore.readError = FreeAccessAnchorError.malformedRecord
+
+		let result = FreeAccessExpirySeed.seedWindowEnding(
+			inSeconds: 90,
+			fastStore: try XCTUnwrap(defaults),
+			durableStore: durableStore
+		)
+
+		XCTAssertEqual(result, .failure(.durableStoreUnreadable))
+		XCTAssertNil(try storedFastRecord())
+	}
+
+	/// The seed's whole purpose: the window opens, the real wake-up is armed at its end, and the
+	/// re-evaluation that wake-up runs closes it. The clock is advanced by hand instead of sleeping.
+	@MainActor
+	func testExpirySeed_opensAWindowThatTheExpiryWakeUpCloses() throws {
+		// A real-clock seed, because the wake-up's delay is measured against the real clock.
+		let clock = TestClock(Date())
+		let durableStore = StubDurableStore()
+		let seeded = try FreeAccessExpirySeed.seedWindowEnding(
+			inSeconds: 60,
+			now: clock.now,
+			fastStore: try XCTUnwrap(defaults),
+			durableStore: durableStore
+		).get()
+		let state = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		XCTAssertEqual(state.availability, .open)
+		XCTAssertNil(state.duePrompt, "the seeded window owes no Welcome screen")
+		XCTAssertFalse(state.isDay0AcknowledgementPending, "the seed is not a grant on this launch")
+		XCTAssertEqual(state.scheduledExpiry, seeded.expiresAt)
+
+		clock.now = seeded.expiresAt
+		state.reevaluate()
+
+		XCTAssertEqual(state.availability, .closed)
+		XCTAssertNil(state.scheduledExpiry)
+	}
 }

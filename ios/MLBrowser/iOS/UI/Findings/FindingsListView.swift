@@ -13,7 +13,6 @@ import UniformTypeIdentifiers
 /// presented as a sheet from the drawer's Findings section.
 struct FindingsListView: View {
 	@Environment(\.dismiss) private var dismiss
-	@Environment(\.managedObjectContext) private var moc
 	/// Held only to hand on to the share composer's own sheet, which needs it live (AIA-0650).
 	@EnvironmentObject private var featureFlags: FeatureFlagsState
 
@@ -37,14 +36,7 @@ struct FindingsListView: View {
 	/// sheet and the drawer before the web screen loads the URL.
 	let onOpenPage: (URL) -> Void
 
-	@FetchRequest(
-		sortDescriptors: [NSSortDescriptor(keyPath: \Finding.creationDate_, ascending: false)],
-		predicate: NSPredicate(
-			format: "%K == %@",
-			#keyPath(Finding.lifeCycleString),
-			CoreDataManageableState.ready.rawValue
-		),
-		animation: .default)
+	@FetchRequest(fetchRequest: Finding.findingsListFetchRequest(), animation: .default)
 	private var findings: FetchedResults<Finding>
 
 	/// nil = no filter (all findings, including unlabeled ones).
@@ -135,21 +127,8 @@ struct FindingsListView: View {
 		// last row carrying the active label without changing how many rows there are, which would
 		// leave a selected chip over an unexplained empty list.
 		.onChange(of: distinctLabels) { _, _ in dropFilterIfUnavailable() }
-		.onAppear {
-			// Self-heal write-time leftovers (image written, entity insert failed) and
-			// failed file deletes. Runs on the viewContext/MainActor; the save sheet
-			// is dismissed before this list can open, so it never races a save.
-			FindingScreenshotStore.sweepOrphans(in: moc)
-			// Opening this list is the moment the user asks "what have I got?", and until now it
-			// was the one moment nothing asked the server. A cycle runs on foreground, on the
-			// network returning, and on a local save -- none of which happens when the app has been
-			// open the whole time and the change was made on another device (AIA-0758).
-			//
-			// Deliberately the bare cycle and not `synchronizeNow`: nobody pressed anything, so
-			// this must not spin the button or post an outcome line. `syncNow` coalesces, so
-			// re-presenting the sheet cannot stack cycles.
-			findingsSync.syncNow()
-		}
+		// Sweep leftover screenshots, then ask the server; shared with headless (AIA-1003).
+		.onAppear { findingsSync.activateFindings() }
 		// Driven by the account appearing, NOT by the sheet closing. `SignInSheet` validates the
 		// session asynchronously after Clerk's own sheet goes away, so at dismissal the identifier
 		// can still be nil for a session that is about to succeed -- reading it there dropped the

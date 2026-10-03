@@ -113,3 +113,34 @@ final class CrashReporterProtocolTests: XCTestCase {
         reporter.recordError(NSError(domain: "Test", code: 1), context: nil)
     }
 }
+
+// MARK: - Which reporter a process runs (AIA-0991)
+
+/// `DependencyContainer.usesRealCrashReporter(isTestOrDebug:requiresRealCrashReporter:forcesNoOp:)`:
+/// headless mode forces the no-op reporter even when a `SENTRY_TEST_*` variable asks for Sentry.
+final class CrashReporterSelectionTests: XCTestCase {
+
+    func test_release_usesTheRealReporter() {
+        XCTAssertTrue(DependencyContainer.usesRealCrashReporter(isTestOrDebug: false, requiresRealCrashReporter: false, forcesNoOp: false))
+    }
+
+    func test_debugOrTests_useTheNoOpReporter() {
+        XCTAssertFalse(DependencyContainer.usesRealCrashReporter(isTestOrDebug: true, requiresRealCrashReporter: false, forcesNoOp: false))
+    }
+
+    func test_debugWithASentryTestVariable_usesTheRealReporter() {
+        XCTAssertTrue(DependencyContainer.usesRealCrashReporter(isTestOrDebug: true, requiresRealCrashReporter: true, forcesNoOp: false))
+    }
+
+    func test_forcedNoOp_winsOverASentryTestVariable() {
+        XCTAssertFalse(DependencyContainer.usesRealCrashReporter(isTestOrDebug: true, requiresRealCrashReporter: true, forcesNoOp: true))
+        XCTAssertFalse(DependencyContainer.usesRealCrashReporter(isTestOrDebug: false, requiresRealCrashReporter: false, forcesNoOp: true))
+    }
+
+    /// The container this test host runs, launched without `-interface`: a Debug test process, so
+    /// the real reporter only if a `SENTRY_TEST_*` variable asks for it.
+    @MainActor
+    func test_theUnitTestHostsReporterFollowsTheDecision() {
+        XCTAssertEqual(DependencyContainer.shared.usesRealCrashReporter, AppEnvironment.requiresRealCrashReporter)
+    }
+}

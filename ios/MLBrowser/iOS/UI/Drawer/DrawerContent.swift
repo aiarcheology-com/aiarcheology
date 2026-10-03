@@ -10,17 +10,6 @@ import CoreData
 import ClerkKit
 import StoreKit
 
-private enum SettingsPresentation: Hashable, Identifiable {
-    case settings
-    case manageAccount
-
-    var id: Self { self }
-
-    var startsAtManageAccount: Bool {
-        self == .manageAccount
-    }
-}
-
 /// The content displayed inside the drawer for MLBrowser.
 ///
 /// This view displays the list of ML configurations.
@@ -47,29 +36,17 @@ struct DrawerContent: View {
     @EnvironmentObject private var authState: AuthState
 	@EnvironmentObject private var analytics: AnalyticsState
 
-    @FetchRequest(
-        entity: DeepConfiguration.entity(),
-        sortDescriptors: [
-            NSSortDescriptor(keyPath: \DeepConfiguration.creationDate_, ascending: false)
-        ],
-        predicate: NSPredicate(
-            format: "%K == %@",
-            #keyPath(DeepConfiguration.lifeCycleString),
-            CoreDataManageableState.ready.rawValue
-        )
-    ) private var configurations: FetchedResults<DeepConfiguration>
+    /// Ready models, newest first — shared with the headless drawer screen (AIA-0970).
+    @FetchRequest(fetchRequest: DeepConfiguration.drawerListFetchRequest())
+    private var configurations: FetchedResults<DeepConfiguration>
     
     /// Controls the model import sheet
     @State private var showImport = false
 
-    /// Controls the findings inventory sheet
-    @State private var showFindings = false
-
-    /// Controls the settings sheet (presented here, not at ContentView level,
-    /// so the drawer stays open behind it — same behavior as Findings)
-    @State private var settingsPresentation: SettingsPresentation?
-    /// Contextual sign-in from the drawer (AIA-0536).
-    @State private var showSignIn = false
+    /// The findings, sign-in (AIA-0536) and settings sheets, presented here rather than at
+    /// ContentView level so the drawer stays open behind them. The flags live on `chromeState`, shared
+    /// with headless mode (AIA-0984), which also dismisses them when the drawer closes.
+    private var presentation: DrawerPresentation { chromeState.drawerPresentation }
 
     /// The configuration ID to show in detail sheet
     @State private var selectedConfigurationId: UUID?
@@ -91,6 +68,7 @@ struct DrawerContent: View {
     @State private var didAutoReviewForUITests = false
 
     var body: some View {
+        @Bindable var presentation = self.presentation
         NavigationStack {
             configurationList
                 // No `.navigationTitle`: the toolbar's Add Model button now carries a visible title,
@@ -132,11 +110,15 @@ struct DrawerContent: View {
         }) { configId in
             configurationSheet(for: configId)
         }
-        .sheet(isPresented: $showFindings) { findingsSheet }
-        .sheet(isPresented: $showSignIn) { signInSheet }
-        .sheet(item: $settingsPresentation) { presentation in
+        .sheet(isPresented: $presentation.isFindingsPresented) { findingsSheet }
+        .sheet(isPresented: $presentation.isSignInPresented) { signInSheet }
+        .sheet(item: $presentation.settings) { presentation in
             settingsSheet(presentation)
         }
+        // These sheets were `@State` here, dropped whenever this view unmounted. The shared model
+        // outlives it, so it is dismissed on that same event, whatever path unmounted the drawer;
+        // closing the drawer also dismisses it in `AppChromeState.presentedSideMenu` (AIA-0984).
+        .onDisappear { presentation.dismissSheets() }
     }
 
     private var importSheet: some View {
@@ -177,7 +159,7 @@ struct DrawerContent: View {
         ) { url in
             // Open the captured page: tear down this sheet and the drawer,
             // then hand the URL to the web screen via chromeState.pageToOpen.
-            showFindings = false
+            presentation.isFindingsPresented = false
             drawer.close()
             chromeState.pageToOpen = url
         }
@@ -367,7 +349,8 @@ struct DrawerContent: View {
     private func presentFindingsIfRequested() {
         guard chromeState.presentsFindings else { return }
         chromeState.presentsFindings = false
-        showFindings = true
+        // The latch predates the shared model (AIA-0984); see `AppChromeState.presentsFindings`.
+        presentation.isFindingsPresented = true
     }
 
     /// The label colour for the drawer's own rows — Findings, Settings and the account footer.
@@ -393,7 +376,7 @@ struct DrawerContent: View {
     private var findingsSection: some View {
         Section {
             Button {
-                showFindings = true
+                presentation.isFindingsPresented = true
             } label: {
                 Label(L10n.Findings.title, systemImage: "archivebox")
             }
@@ -408,7 +391,7 @@ struct DrawerContent: View {
     private var settingsSection: some View {
         Section {
             Button {
-                settingsPresentation = .settings
+                presentation.settings = .settings
             } label: {
                 Label(L10n.Settings.title, systemImage: "gearshape")
             }
@@ -418,31 +401,27 @@ struct DrawerContent: View {
         }
     }
 
-    /// The drawer's bottom slot: always "who am I" (AIA-0536). Sign In while signed out; the
-    /// signed-in account otherwise, deep-linking to Settings → Manage Account. Pinned via
-    /// `safeAreaInset` so it cannot scroll away, and absent entirely for `.indeterminate` /
-    /// `.suspended` — sign-in would fail offline, and the account row would promise a profile
-    /// Clerk cannot show.
+    /// The drawer's bottom slot: always "who am I" (AIA-0536). What it offers is
+    /// `DrawerPresentation.accountOffer(for:)`, shared with headless mode (AIA-1003). Pinned via
+    /// `safeAreaInset` so it cannot scroll away.
     @ViewBuilder
     private var accountFooter: some View {
-        switch authState.effectiveContext {
-        case .anonymous:
+        switch DrawerPresentation.accountOffer(for: authState.effectiveContext) {
+        case .signIn:
             accountFooterButton(title: L10n.Auth.SignIn.button, systemImage: "person.crop.circle") {
-                showSignIn = true
+                // The offer this row was drawn for, as before the model took the choice over.
+                presentation.presentAccount(.signIn, usesRealAuth: usesRealAuth)
             }
             .testability(Testability.Button.drawerSignIn)
-        case .validated:
+        case .account:
             // The email is read at render time, not observed — safe because the footer re-renders
             // on every context change (authState IS observed), and the email cannot change without
             // one. Mock auth has no Clerk instance to read, so it falls back to the generic label.
             accountFooterButton(title: signedInLabel, systemImage: "person.crop.circle.fill") {
-                // Deep-link only on the real-auth path: the profile destination reads
-                // `Clerk.shared`, which traps when Clerk was never configured, so a mock-auth tap
-                // opens plain Settings instead of pushing a screen that would crash.
-                settingsPresentation = usesRealAuth ? .manageAccount : .settings
+                presentation.presentAccount(.account, usesRealAuth: usesRealAuth)
             }
             .testability(Testability.Button.drawerAccount)
-        case .suspended:
+        case .offline:
             // Signed in, unverifiable — the account still EXISTS and the slot must say so
             // (an empty slot reads as broken, which is how this state was found). Disabled:
             // sign-in would fail with no network, and Clerk cannot render the profile.
@@ -460,7 +439,7 @@ struct DrawerContent: View {
                 .foregroundStyle(.secondary)
             }
             .testability(Testability.Label.drawerAccountOffline)
-        case .indeterminate:
+        case nil:
             // Transient (auth is still resolving) — a row that flickers in and out for a second
             // at launch is worse than a brief absence.
             EmptyView()
@@ -709,6 +688,7 @@ private struct PendingModelDeletion {
 /// swipe actions to coexist with Toggle on all platforms.
 private struct ConfigurationRow: View {
     @ObservedObject var configuration: DeepConfiguration
+    @EnvironmentObject private var deep: DeepState
     /// The tour engine, poked when a demo model is enabled during the enable-model step (AIA-0333).
     var tour: TourState?
     /// True for the one row the tour's enable step will switch on — see
@@ -808,22 +788,17 @@ private struct ConfigurationRow: View {
         }
     }
 
-    /// Persists an enable toggle and tells the tour only after that save succeeds.
-    ///
-    /// A failed save refreshes the row from the store so the switch cannot sit on a value the
-    /// context rejected. The tour hook runs only for a real off-to-on change (AIA-0333).
+    /// Persists an enable toggle through `DeepState.setEnabled` — the same call headless mode
+    /// makes (AIA-0970) — and tells the tour only after that save succeeds, and only for a real
+    /// off-to-on change (AIA-0333).
     private func persistEnabled(_ newValue: Bool) {
-        let wasEnabled = configuration.enabled
-        configuration.enabled = newValue
-        guard let context = configuration.managedObjectContext else { return }
         do {
-            try DeepConfiguration.save(in: context)
-            if wasEnabled == false, newValue {
+            if try deep.setEnabled(newValue, for: configuration) == .turnedOn {
                 tour?.userEnabledModel()
             }
         } catch {
-            LoggingPolicy.error("Failed to save configuration toggle", error: error, logger: .configuration)
-            context.refresh(configuration, mergeChanges: false)
+            // Already logged, and the row restored from the store, by `setEnabled`. The switch
+            // re-renders from that value; there is nothing further to undo here.
         }
     }
 

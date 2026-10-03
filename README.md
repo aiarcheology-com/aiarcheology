@@ -15,6 +15,7 @@ The flagship use case — and where the name comes from — is archeology: brows
 | `ios/` | The Xcode workspace (`MLBrowser.xcworkspace`), app sources, unit/UI/architecture tests, test plans, and Xcode Cloud `ci_scripts/` |
 | `Package.swift`, `Sources/NativeModelConverter/` | `NativeModelConverter` Swift package: a native `.aiagraph` → Core ML converter used by the iOS app. |
 | `Tools/` | `ProjectTool` — a SwiftPM CLI for repo setup, pinned-tool installation, and secrets management |
+| (external) | [HeadlessKit](https://github.com/aiarcheology-com/HeadlessKit), private: the screen/action package behind headless mode, pinned by URL from the Xcode project and `Tools/Package.swift` ([HEADLESS.md](specification/HEADLESS.md)) |
 | `scripts/` | Developer scripts: lint, codegen, architectural tests, unit tests |
 | `cloudflare/` | Cloudflare Worker relaying Sentry issues into GitHub Issues ([details](cloudflare/README.md)) |
 | `.github/workflows/` | CI: SwiftLint, Harmonize (architecture tests), issue-key automation |
@@ -132,6 +133,10 @@ maintained in [NATIVE_MODEL_CONVERSION.md](specification/NATIVE_MODEL_CONVERSION
 
 - **macOS with Xcode** (the team currently builds with Xcode 26.x; an iPhone simulator runtime is required for tests)
 - **Swift toolchain** (ships with Xcode) — needed to run `ProjectTool`
+- **Read access to [aiarcheology-com/HeadlessKit](https://github.com/aiarcheology-com/HeadlessKit)**, a
+  private package the app and `ProjectTool` depend on, and GitHub credentials for it: the
+  **GitHub CLI** (`gh`) for `swift` and git, plus a GitHub account in Xcode > Settings > Accounts for
+  Xcode and `xcodebuild` ([details](specification/HEADLESS.md#where-ml-browser-pins-it))
 - *Maintainers only:* **1Password CLI** (`op`), signed in — the project vault holds the service
   keys. **Contributors do not need it**: see
   [Building without the project vault](#building-without-the-project-vault).
@@ -143,15 +148,20 @@ maintained in [NATIVE_MODEL_CONVERSION.md](specification/NATIVE_MODEL_CONVERSION
 git clone git@github.com:aiarcheology-com/aiarcheology.git
 cd aiarcheology
 
-# 1. Install pinned tools, configure git hooks (one-time)
+# 1. Let git over HTTPS use your GitHub login: Tools and the app depend on the private
+#    aiarcheology-com/HeadlessKit package (one-time; needs read access to that repository).
+#    Xcode and xcodebuild use the GitHub account in Xcode > Settings > Accounts instead.
+gh auth setup-git
+
+# 2. Install pinned tools, configure git hooks (one-time)
 swift run --package-path Tools ProjectTool setup
 
-# 2. Provide ios/Secrets.xcconfig — the build will not start without it. Pick ONE:
+# 3. Provide ios/Secrets.xcconfig — the build will not start without it. Pick ONE:
 #    (a) maintainers, with the project vault:
 swift run --package-path Tools ProjectTool secrets generate
 #    (b) everyone else: see "Building without the project vault" below.
 
-# 3. Open the workspace and run the MLBrowser scheme
+# 4. Open the workspace and run the MLBrowser scheme
 open ios/MLBrowser.xcworkspace
 ```
 
@@ -167,7 +177,8 @@ The full setup reference — every `ProjectTool` command, pinned tooling, secret
 ## Building without the project vault
 
 The app builds, runs, and passes its unit suite on the simulator with **no 1Password vault, no
-accounts, and no production services**. This is the supported path for contributors, and the rest
+service accounts, and no production services**. It does need a GitHub login with read access to the
+private HeadlessKit package (see [Prerequisites](#prerequisites)). This is the supported path for contributors, and the rest
 of this section is the whole of it.
 
 ### 1. Create `ios/Secrets.xcconfig`

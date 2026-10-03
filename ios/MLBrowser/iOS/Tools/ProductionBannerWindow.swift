@@ -30,10 +30,10 @@ enum ProductionBannerWindow {
 
     /// Whether the app is on the mock-auth path, handed in at `install()`.
     ///
-    /// Passed in rather than read from `DependencyContainer.shared`: only the `@main` entry and the
-    /// background-session app delegate may touch that singleton (`DependencyContainer.swift:19-21`),
+    /// Passed in rather than read from `DependencyContainer.shared`: only the app entry point and the
+    /// background-session app delegate may touch that singleton (`DependencyContainer.swift:19-22`),
     /// and this window's content is built outside the app's environment tree, so it cannot read
-    /// `\.usesRealAuth` either. `install()` is called from the `@main` entry, which may.
+    /// `\.usesRealAuth` either. `install()` is called from the app entry point, which may.
     private static var usesMockAuth = false
 
     /// Call once, at app launch. Idempotent per scene.
@@ -44,7 +44,7 @@ enum ProductionBannerWindow {
     /// scene — including the one that just connected.
     ///
     /// All three notifications are observed and none alone is sufficient: `install()` runs from
-    /// the `@main` initialiser, before any scene exists, so the launch-time `update()` below sees
+    /// the app's initialiser (`MLBrowser.init`), before any scene exists, so the launch-time `update()` below sees
     /// an empty `connectedScenes`; a scene is not guaranteed to be in `connectedScenes` yet when
     /// `willConnect` is posted, so `didActivate` is the one that certainly catches it; and
     /// `didDisconnect` is what lets `update()` release a closed window's scene.

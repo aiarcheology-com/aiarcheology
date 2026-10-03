@@ -139,7 +139,7 @@ struct FreeAccessWindow: Equatable, Sendable {
 
 		/// Tolerates a stored record written before ``day0Shown`` existed instead of rejecting it.
 		///
-		/// The Keychain mirror deliberately outlives app deletion — and `simctl erase` — so a record
+		/// The Keychain mirror deliberately outlives app deletion, so a record
 		/// in the older shape is not hypothetical on any device this feature has ever run on. An
 		/// absent marker reads as "not shown yet"; the synthesized decoder would instead throw, and a
 		/// throw here discards the whole anchor, which is precisely the resume-don't-restart

@@ -35,6 +35,10 @@ private final class RecordingAuthProvider: AuthProviding {
 	}
 
 	func recordPurge() { steps.append(.purge) }
+
+	func signIn(emailAddress: String, code: String) async throws {
+		throw ProgrammaticSignInError.unsupported
+	}
 }
 
 @MainActor

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "name": "parity-save-finding",
+  "installations": {
+    "a": {
+      "launch": {
+        "flags": {
+          "isPaymentsEnabled": true,
+          "isFreeAccessPeriodEnabled": true,
+          "isAnalyticsEnabled": true,
+          "isCrossDeviceAnalyticsIdentityEnabled": false
+        },
+        "stage": [ "ios/MLBrowserUnitTests/Fixtures/terrain_iphone.png" ]
+      }
+    }
+  },
+  "steps": [
+    { "name": "a fresh install opens on the free-access Welcome screen",
+      "wait": { "condition": "ready", "timeout": 120 }, "expect": [ { "route": "welcome" } ] },
+    { "name": "continue past the Welcome screen", "perform": { "action": "continue" }, "expect": [ { "route": "tour" } ] },
+    { "name": "skip the tour", "perform": { "action": "skip" }, "expect": [ { "route": "consent" } ] },
+    { "name": "decline analytics", "perform": { "action": "deny" }, "expect": [ { "route": "home" } ] },
+    { "name": "open the menu; the first model is a bundled demo detector", "goto": "drawer",
+      "capture": { "model": "/state/models/0/id" }, "expect": [ { "route": "drawer" } ] },
+    { "name": "switch it on", "perform": { "action": "enable", "arguments": { "id": "${model}" } } },
+    { "name": "close the menu", "perform": { "action": "close" }, "expect": [ { "route": "home" } ] },
+    { "name": "detect on the staged image (at least one detection)",
+      "perform": { "action": "detect-image", "arguments": { "image": "terrain_iphone.png" } },
+      "expect": [ { "exists": "/result/detections/0/label" } ] },
+    { "name": "pick the first detection", "perform": { "action": "pick", "arguments": { "detection": 0 } }, "expect": [ { "route": "save-finding" } ] },
+    { "name": "save it while signed out; the first signed-out save offers sign-in",
+      "perform": { "action": "save", "arguments": { "title": "Parity save" } },
+      "expect": [ { "exists": "/result/id" }, { "route": "account" } ] },
+    { "name": "decline the offer for now", "perform": { "action": "close" }, "expect": [ { "route": "home" } ] }
+  ],
+  "teardown": []
+}

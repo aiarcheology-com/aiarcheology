@@ -182,6 +182,33 @@ struct FindingCapture: Identifiable {
 		)
 	}
 
+	/// The capture as it is stored for a crop: the image IS the cropped region (still clean — no
+	/// highlight baked in) and the box is re-normalized into crop space, so every downstream
+	/// renderer works unchanged. `cropRect` is a normalized TOP-LEFT rect of the image, as the crop
+	/// editor publishes it; the unit rect means no crop. Any failure falls back to the uncropped
+	/// capture rather than losing the finding. Moved out of `SaveFindingSheet` (AIA-0975) so the
+	/// headless build saves through the same code.
+	func cropped(to cropRect: CGRect) -> (image: UIImage, box: CGRect) {
+		let box = observation.boundingBox
+		guard
+			cropRect != CGRect(x: 0, y: 0, width: 1, height: 1),
+			let cgImage = frame.image.cgImage
+		else { return (frame.image, box) }
+
+		// cropRect is top-left normalized — cgImage space directly.
+		let bounds = CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height)
+		let pixelRect = CGRect(
+			x: cropRect.minX * bounds.width,
+			y: cropRect.minY * bounds.height,
+			width: cropRect.width * bounds.width,
+			height: cropRect.height * bounds.height
+		).integral.intersection(bounds)
+		guard pixelRect.width > 0, pixelRect.height > 0, let cropped = cgImage.cropping(to: pixelRect) else {
+			return (frame.image, box)
+		}
+		return (UIImage(cgImage: cropped), FindingCapture.remappedBox(box, into: cropRect))
+	}
+
 	/// Re-normalizes a Vision box (bottom-left origin) into the crop's own
 	/// coordinate space. A box fully outside the crop falls back to the whole
 	/// crop — the crop IS the finding then; an empty stored box would fail
@@ -590,15 +617,14 @@ struct SaveFindingSheet: View {
 
 	// MARK: - Save
 
-	/// Bake the editor's crop, then hand the finding to the repository — the whole persist
-	/// transaction (image write → entity → lifecycle → save → rollback) lives there (AIA-0392).
+	/// Hand the finding and the editor's crop to the repository, which bakes the crop and runs the
+	/// whole persist transaction (image write → entity → lifecycle → save → rollback) (AIA-0392,
+	/// AIA-0975).
 	private func save() {
-		let (imageToStore, boxToStore) = croppedCapture()
 		do {
 			try repository.save(
 				capture: capture,
-				image: imageToStore,
-				box: boxToStore,
+				cropRect: cropRect,
 				metadata: FindingMetadata(
 					title: title, label: label, note: note, author: author, gps: gps,
 					page: FindingPageURL.resolve(edited: page, captured: capture.pageURL)
@@ -620,30 +646,6 @@ struct SaveFindingSheet: View {
 		title.trimmingCharacters(in: .whitespacesAndNewlines)
 	}
 
-	/// Bakes the editor's crop at save time: the stored image IS the cropped region
-	/// (still clean — no highlight baked in) and the box is re-normalized into
-	/// crop space, so every downstream renderer works unchanged. Any failure
-	/// falls back to the uncropped capture rather than losing the finding.
-	private func croppedCapture() -> (image: UIImage, box: CGRect) {
-		let box = capture.observation.boundingBox
-		guard
-			cropRect != CGRect(x: 0, y: 0, width: 1, height: 1),
-			let cgImage = capture.frame.image.cgImage
-		else { return (capture.frame.image, box) }
-
-		// cropRect is top-left normalized — cgImage space directly.
-		let bounds = CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height)
-		let pixelRect = CGRect(
-			x: cropRect.minX * bounds.width,
-			y: cropRect.minY * bounds.height,
-			width: cropRect.width * bounds.width,
-			height: cropRect.height * bounds.height
-		).integral.intersection(bounds)
-		guard pixelRect.width > 0, pixelRect.height > 0, let cropped = cgImage.cropping(to: pixelRect) else {
-			return (capture.frame.image, box)
-		}
-		return (UIImage(cgImage: cropped), FindingCapture.remappedBox(box, into: cropRect))
-	}
 }
 
 // MARK: - Crop editor

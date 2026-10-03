@@ -50,4 +50,16 @@ final class FeatureFlagUITests: UITestCase {
 			"Catalog entry point must be present when isModelCatalogEnabled is on"
 		)
 	}
+
+	/// Headless mode is a launch mode of this same Debug app (AIA-0991), and its options are parsed
+	/// only in headless mode. A UI launch that still carries them — a scheme argument left on, say —
+	/// must reach the app, not trap on them: each of these stops a headless launch.
+	func testStaleHeadlessOptions_doNotStopAUILaunch() {
+		launch(additionalArguments: [
+			"-headlessFlag", "bogus",
+			"-headlessStagedImage", "../x",
+			"-headlessFreeAccessEndsIn", "1"
+		])
+		openDrawer()
+	}
 }

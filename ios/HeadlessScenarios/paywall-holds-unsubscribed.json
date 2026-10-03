@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "name": "paywall-holds-unsubscribed",
+  "installations": {"a": {"launch": {"flags": {"isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": false, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false}}}},
+  "steps": [
+    {"name": "payments on, no free-access window, real StoreKit: a fresh install meets the wall", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "paywall"}, {"equals": {"pointer": "/state/isSubscribed", "value": false}}, {"equals": {"pointer": "/state/expired", "value": false}}, {"equals": {"pointer": "/context/gate/display", "value": "wall"}}, {"equals": {"pointer": "/context/gate/freeAccess", "value": "closed"}}, {"equals": {"pointer": "/context/gate/isSubscribed", "value": false}}, {"absent": "/context/launchOptions/mockSubscription"}]},
+    {"name": "the wall offers nothing to act on", "expect": [{"absent": "/actions/0"}]},
+    {"name": "and no way past it", "goto": "home", "expect": [{"error": "unreachable"}, {"route": "paywall"}]},
+    {"name": "quit and reopen the app", "relaunch": true},
+    {"name": "still the wall", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "paywall"}, {"equals": {"pointer": "/context/gate/display", "value": "wall"}}, {"equals": {"pointer": "/context/gate/isSubscribed", "value": false}}]}
+  ]
+}

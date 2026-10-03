@@ -358,6 +358,74 @@ final class FindingRepositoryTests: XCTestCase {
 		)
 	}
 
+	// MARK: - AIA-0975: the crop moved out of the save sheet
+
+	/// A 100×50 image, big enough for a crop to have a measurable pixel size.
+	private func makeWideImage() -> UIImage {
+		let format = UIGraphicsImageRendererFormat()
+		format.scale = 1
+		return UIGraphicsImageRenderer(size: CGSize(width: 100, height: 50), format: format).image { ctx in
+			UIColor.gray.setFill()
+			ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 50))
+		}
+	}
+
+	private func makeWideCapture(box: CGRect) -> FindingCapture {
+		FindingCapture(
+			observation: DetectedObject(uuid: UUID(), labels: [], confidence: 0.9, boundingBox: box, regionIndex: 0),
+			params: nil,
+			frame: AppliedDetectionFrame(image: makeWideImage(), results: []),
+			pageURL: nil
+		)
+	}
+
+	/// The unit rect is "no crop": the frame's own image and the detection's own box, untouched.
+	func testCropped_unitRect_returnsTheFrameImageAndTheDetectionBox() {
+		let box = CGRect(x: 0.2, y: 0.3, width: 0.1, height: 0.2)
+		let capture = makeWideCapture(box: box)
+		let (image, croppedBox) = capture.cropped(to: CGRect(x: 0, y: 0, width: 1, height: 1))
+		XCTAssertTrue(image === capture.frame.image)
+		XCTAssertEqual(croppedBox, box)
+	}
+
+	/// A real crop stores that region's pixels and the box re-normalized into it.
+	func testCropped_halfWidthCrop_storesTheRegionAndTheRemappedBox() throws {
+		let box = CGRect(x: 0.6, y: 0.2, width: 0.2, height: 0.4)
+		let crop = CGRect(x: 0.5, y: 0, width: 0.5, height: 1)
+		let (image, croppedBox) = makeWideCapture(box: box).cropped(to: crop)
+		let cgImage = try XCTUnwrap(image.cgImage)
+		XCTAssertEqual(cgImage.width, 50)
+		XCTAssertEqual(cgImage.height, 50)
+		XCTAssertEqual(croppedBox, FindingCapture.remappedBox(box, into: crop))
+		XCTAssertNotEqual(croppedBox, box, "the box must be re-expressed in the crop's space")
+	}
+
+	/// A crop with no pixels falls back to the uncropped capture rather than losing the finding.
+	func testCropped_emptyCrop_fallsBackToTheUncroppedCapture() {
+		let box = CGRect(x: 0.2, y: 0.3, width: 0.1, height: 0.2)
+		let capture = makeWideCapture(box: box)
+		let (image, croppedBox) = capture.cropped(to: CGRect(x: 2, y: 2, width: 0.5, height: 0.5))
+		XCTAssertTrue(image === capture.frame.image)
+		XCTAssertEqual(croppedBox, box)
+	}
+
+	/// The sheet's save call: the repository bakes the crop it is given, so the stored box is the
+	/// crop-relative one and the capture box stays the detection's own.
+	func testSaveWithCropRect_bakesTheCropAndKeepsTheCaptureBox() throws {
+		let box = CGRect(x: 0.6, y: 0.2, width: 0.2, height: 0.4)
+		let crop = CGRect(x: 0.5, y: 0, width: 0.5, height: 1)
+		let finding = try sut.save(
+			capture: makeWideCapture(box: box),
+			cropRect: crop,
+			metadata: FindingMetadata(title: "Cropped", label: "", note: "", author: "", gps: "", page: nil)
+		)
+		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
+		XCTAssertEqual(finding.normalizedBox, FindingCapture.remappedBox(box, into: crop))
+		XCTAssertEqual(finding.captureNormalizedBox, box)
+		let stored = try XCTUnwrap(FindingScreenshotStore.load(filename: finding.screenshotFilename))
+		XCTAssertEqual(stored.size.width / stored.size.height, 1, accuracy: 0.01, "the stored image is the square half, not the 2:1 whole")
+	}
+
 	/// The archive/sync lane of AIA-0761, from a real row rather than a memberwise snapshot.
 	/// `FindingSnapshot.init(_:)` is the only place a stored capture box becomes wire data, and it
 	/// is the mapping that turns the zero rect into a nil — delete it and every other test stays

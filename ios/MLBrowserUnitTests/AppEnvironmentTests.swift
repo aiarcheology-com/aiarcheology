@@ -125,3 +125,96 @@ final class AppEnvironmentTests: XCTestCase {
         XCTAssertTrue(hasTestConfig, "XCTestConfigurationFilePath should be set when running tests")
     }
 }
+
+// MARK: - Interface (AIA-0991)
+
+/// `-interface`: which interface a launch of the Debug app asks for, and when that request stops it.
+/// `#if DEBUG` only, like `AppInterface` itself: the unit suite always builds against development, so
+/// the non-development rule is covered through `resolve`'s `backend` parameter.
+#if DEBUG
+final class AppInterfaceTests: XCTestCase {
+
+    private let executable = "/path/to/ML Browser"
+    private let noMarkers: [String: String] = [:]
+
+    private func resolve(_ arguments: [String], environment: [String: String] = [:], backend: BackendEnvironment = .development) -> Result<AppInterface, AppInterface.Refusal> {
+        AppInterface.resolve(arguments: [executable] + arguments, environment: environment, backend: backend)
+    }
+
+    private func assertRefused(_ result: Result<AppInterface, AppInterface.Refusal>, file: StaticString = #filePath, line: UInt = #line) {
+        if case .success(let interface) = result {
+            XCTFail("expected a refusal, got \(interface)", file: file, line: line)
+        }
+    }
+
+    func test_noInterfaceArgument_isTheUI() {
+        XCTAssertEqual(resolve([]), .success(.ui))
+    }
+
+    /// A normal UI launch is untouched, even under the UI tests' marker and with stale headless
+    /// options on the command line: nothing asks for headless, so nothing is refused.
+    func test_uiLaunchWithStaleHeadlessOptionsUnderTestMarkers_isTheUI() {
+        let stale = ["-headlessFlag", "bogus", "-headlessStagedImage", "../x", "-mockSubscription", "nonsense"]
+        XCTAssertEqual(resolve(stale, environment: ["UI_TESTING": "1"]), .success(.ui))
+        XCTAssertEqual(resolve(stale, environment: ["XCTestConfigurationFilePath": "/tmp/x"]), .success(.ui))
+        XCTAssertEqual(resolve(stale), .success(.ui))
+    }
+
+    func test_interfaceHeadless_isHeadless() {
+        XCTAssertEqual(resolve(["-interface", "headless"]), .success(.headless))
+    }
+
+    func test_interfaceUI_isTheUI() {
+        XCTAssertEqual(resolve(["-interface", "ui"]), .success(.ui))
+    }
+
+    func test_lastInterfaceArgumentWins() {
+        XCTAssertEqual(resolve(["-interface", "headless", "-interface", "ui"]), .success(.ui))
+        XCTAssertEqual(resolve(["-interface", "ui", "-interface", "headless"]), .success(.headless))
+    }
+
+    func test_interfaceWithoutAValue_isRefused() {
+        assertRefused(resolve(["-interface"]))
+    }
+
+    func test_interfaceFollowedByAnotherOption_isRefused() {
+        assertRefused(resolve(["-interface", "-headlessFlag", "isPaymentsEnabled=true"]))
+    }
+
+    func test_unknownInterface_isRefused() {
+        assertRefused(resolve(["-interface", "Headless"]))
+        assertRefused(resolve(["-interface", "cli"]))
+    }
+
+    /// The scheme hands its launch arguments to the test hosts, so a left-on `-interface headless`
+    /// must stop a test run rather than run the host as a server or wipe data headlessly.
+    func test_headlessInATestHost_isRefused() {
+        assertRefused(resolve(["-interface", "headless"], environment: ["XCTestConfigurationFilePath": "/tmp/x"]))
+        assertRefused(resolve(["-interface", "headless"], environment: ["UI_TESTING": "1"]))
+    }
+
+    /// AIA-1007: the kit's `HeadlessLaunch` reads `-headlessAppMoves` in headless mode, so a malformed
+    /// one stops a headless launch at the same point as a malformed `-interface`; a UI launch never
+    /// reads it, and a production build reads neither.
+    func test_malformedAppMoves_stopsOnlyAHeadlessLaunch() {
+        assertRefused(resolve(["-interface", "headless", "-headlessAppMoves", "sometimes"]))
+        XCTAssertEqual(resolve(["-interface", "headless", "-headlessAppMoves", "off"]), .success(.headless))
+        XCTAssertEqual(resolve(["-headlessAppMoves", "sometimes"]), .success(.ui))
+        XCTAssertEqual(resolve(["-interface", "headless", "-headlessAppMoves", "sometimes"], backend: .production), .success(.ui))
+    }
+
+    /// A Debug build against production has no headless mode: `-interface` is ignored unread, so
+    /// even a value that a development build refuses cannot stop it.
+    func test_nonDevelopmentBackend_ignoresInterfaceUnread() {
+        XCTAssertEqual(resolve(["-interface", "headless"], backend: .production), .success(.ui))
+        XCTAssertEqual(resolve(["-interface", "nonsense"], backend: .production), .success(.ui))
+        XCTAssertEqual(resolve(["-interface"], backend: .production), .success(.ui))
+        XCTAssertEqual(resolve(["-interface", "headless"], environment: ["UI_TESTING": "1"], backend: .production), .success(.ui))
+    }
+
+    /// This process is the unit-test host, launched without `-interface`.
+    func test_theUnitTestHostIsNotInHeadlessMode() {
+        XCTAssertFalse(AppEnvironment.isHeadlessMode)
+    }
+}
+#endif

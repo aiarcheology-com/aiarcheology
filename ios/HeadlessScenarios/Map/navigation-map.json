@@ -1,0 +1,981 @@
+{
+  "routes" : [
+    {
+      "actions" : [
+
+      ],
+      "route" : "launching",
+      "summary" : "The app is still launching; nothing to do but wait.",
+      "transitions" : [
+        {
+          "condition" : "ready while the free-access window is still being read",
+          "to" : "gate"
+        },
+        {
+          "condition" : "ready without access: payments on, not subscribed, no open window",
+          "to" : "paywall"
+        },
+        {
+          "condition" : "ready and a Welcome screen is owed",
+          "to" : "welcome"
+        },
+        {
+          "condition" : "ready, no Welcome screen owed, and the tour is armed",
+          "to" : "tour"
+        },
+        {
+          "condition" : "ready with the analytics question unanswered or its scope unresolved",
+          "to" : "consent"
+        },
+        {
+          "condition" : "ready with nothing owed",
+          "to" : "home"
+        },
+        {
+          "condition" : "ready with a back-up question already pending and the analytics question not on screen",
+          "to" : "backup-consent"
+        }
+      ]
+    },
+    {
+      "actions" : [
+
+      ],
+      "route" : "gate",
+      "summary" : "The root gate holds while the free-access window is being read.",
+      "transitions" : [
+        {
+          "condition" : "the window is closed and there is no subscription",
+          "to" : "paywall"
+        },
+        {
+          "condition" : "the window is open and its Welcome screen is owed",
+          "to" : "welcome"
+        },
+        {
+          "condition" : "access is granted, no Welcome screen owed, and the tour is armed",
+          "to" : "tour"
+        },
+        {
+          "condition" : "access is granted with the analytics question unanswered",
+          "to" : "consent"
+        },
+        {
+          "condition" : "access is granted with nothing owed",
+          "to" : "home"
+        },
+        {
+          "condition" : "a back-up question is pending and the analytics question is not on screen: it draws over the hold",
+          "to" : "backup-consent"
+        }
+      ]
+    },
+    {
+      "actions" : [
+
+      ],
+      "route" : "paywall",
+      "summary" : "The paywall; purchasing is not automatable, so it offers nothing.",
+      "transitions" : [
+        {
+          "condition" : "a subscription became active and the tour is armed",
+          "to" : "tour"
+        },
+        {
+          "condition" : "a subscription became active with the analytics question unanswered",
+          "to" : "consent"
+        },
+        {
+          "condition" : "a subscription became active, menu closed",
+          "to" : "home"
+        },
+        {
+          "condition" : "a subscription became active while the paywall covered the open menu",
+          "to" : "drawer"
+        },
+        {
+          "condition" : "a back-up question is raised while the analytics question is not on screen",
+          "to" : "backup-consent"
+        }
+      ]
+    },
+    {
+      "actions" : [
+        {
+          "name" : "continue",
+          "outcomes" : [
+            {
+              "condition" : "the tour is armed",
+              "to" : "tour"
+            },
+            {
+              "condition" : "no tour, and the analytics question is unanswered",
+              "to" : "consent"
+            },
+            {
+              "condition" : "nothing else is owed",
+              "to" : "home"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Continue past the Welcome screen."
+        }
+      ],
+      "route" : "welcome",
+      "summary" : "A Welcome screen: the free-access offer, or the payments-off introduction.",
+      "transitions" : [
+        {
+          "action" : "continue",
+          "condition" : "the tour is armed",
+          "to" : "tour"
+        },
+        {
+          "action" : "continue",
+          "condition" : "no tour, and the analytics question is unanswered",
+          "to" : "consent"
+        },
+        {
+          "action" : "continue",
+          "condition" : "nothing else is owed",
+          "to" : "home"
+        },
+        {
+          "condition" : "access ran out",
+          "to" : "paywall"
+        },
+        {
+          "condition" : "a back-up question is pending: it draws over the Welcome screen",
+          "to" : "backup-consent"
+        }
+      ]
+    },
+    {
+      "actions" : [
+        {
+          "name" : "skip",
+          "outcomes" : [
+            {
+              "condition" : "the analytics question is unanswered",
+              "to" : "consent"
+            },
+            {
+              "condition" : "the analytics question is answered",
+              "to" : "home"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Skip the tour."
+        }
+      ],
+      "route" : "tour",
+      "summary" : "The onboarding tour is armed or running.",
+      "transitions" : [
+        {
+          "action" : "skip",
+          "condition" : "the analytics question is unanswered",
+          "to" : "consent"
+        },
+        {
+          "action" : "skip",
+          "condition" : "the analytics question is answered",
+          "to" : "home"
+        },
+        {
+          "condition" : "access ran out",
+          "to" : "paywall"
+        },
+        {
+          "condition" : "a back-up question is pending: it draws over the tour",
+          "to" : "backup-consent"
+        }
+      ]
+    },
+    {
+      "actions" : [
+        {
+          "name" : "allow",
+          "outcomes" : [
+            {
+              "condition" : "the menu is closed",
+              "to" : "home"
+            },
+            {
+              "condition" : "asked over the open menu, after a sign-in",
+              "to" : "drawer"
+            },
+            {
+              "condition" : "a back-up question is pending",
+              "to" : "backup-consent"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Allow anonymous analytics."
+        },
+        {
+          "name" : "deny",
+          "outcomes" : [
+            {
+              "condition" : "the menu is closed",
+              "to" : "home"
+            },
+            {
+              "condition" : "asked over the open menu, after a sign-in",
+              "to" : "drawer"
+            },
+            {
+              "condition" : "a back-up question is pending",
+              "to" : "backup-consent"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Do not allow analytics."
+        }
+      ],
+      "route" : "consent",
+      "summary" : "The analytics consent question, or its hold while the scope resolves.",
+      "transitions" : [
+        {
+          "action" : "allow",
+          "condition" : "the menu is closed",
+          "to" : "home"
+        },
+        {
+          "action" : "allow",
+          "condition" : "asked over the open menu, after a sign-in",
+          "to" : "drawer"
+        },
+        {
+          "action" : "allow",
+          "condition" : "a back-up question is pending",
+          "to" : "backup-consent"
+        },
+        {
+          "action" : "deny",
+          "condition" : "the menu is closed",
+          "to" : "home"
+        },
+        {
+          "action" : "deny",
+          "condition" : "asked over the open menu, after a sign-in",
+          "to" : "drawer"
+        },
+        {
+          "action" : "deny",
+          "condition" : "a back-up question is pending",
+          "to" : "backup-consent"
+        },
+        {
+          "condition" : "the held question's scope resolved with nothing to ask, menu closed",
+          "to" : "home"
+        },
+        {
+          "condition" : "the held question's scope resolved with nothing to ask, menu open",
+          "to" : "drawer"
+        },
+        {
+          "condition" : "a back-up question is raised over the held question, which does not hold it; or one is pending and the held question's scope resolved with nothing to ask, or access ran out",
+          "to" : "backup-consent"
+        },
+        {
+          "condition" : "access ran out",
+          "to" : "paywall"
+        }
+      ]
+    },
+    {
+      "actions" : [
+        {
+          "name" : "open-drawer",
+          "outcomes" : [
+            {
+              "condition" : "always",
+              "to" : "drawer"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Open the menu."
+        },
+        {
+          "name" : "detect-image",
+          "outcomes" : [
+            {
+              "stays" : true
+            }
+          ],
+          "parameters" : [
+            {
+              "name" : "image",
+              "required" : true,
+              "summary" : "A staged image name, from launchOptions.stagedImages.",
+              "type" : "string"
+            }
+          ],
+          "summary" : "Run detection with the enabled models on a staged image."
+        },
+        {
+          "name" : "pick",
+          "outcomes" : [
+            {
+              "condition" : "a detect-image result is held",
+              "to" : "save-finding"
+            }
+          ],
+          "parameters" : [
+            {
+              "name" : "detection",
+              "required" : true,
+              "summary" : "The index from detect-image's result.",
+              "type" : "integer"
+            }
+          ],
+          "summary" : "Pick a detection and open the save sheet."
+        }
+      ],
+      "route" : "home",
+      "summary" : "The app proper, menu closed.",
+      "transitions" : [
+        {
+          "action" : "open-drawer",
+          "condition" : "always",
+          "to" : "drawer"
+        },
+        {
+          "action" : "pick",
+          "condition" : "a detect-image result is held",
+          "to" : "save-finding"
+        },
+        {
+          "condition" : "access ran out mid-session",
+          "to" : "paywall"
+        },
+        {
+          "condition" : "a sign-in from the sign-in offer: its account has not answered the analytics question",
+          "to" : "consent"
+        },
+        {
+          "condition" : "a sync found findings saved before this account signed in",
+          "to" : "backup-consent"
+        }
+      ]
+    },
+    {
+      "actions" : [
+        {
+          "name" : "close",
+          "outcomes" : [
+            {
+              "condition" : "always",
+              "to" : "home"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Close the menu."
+        },
+        {
+          "name" : "enable",
+          "outcomes" : [
+            {
+              "stays" : true
+            }
+          ],
+          "parameters" : [
+            {
+              "name" : "id",
+              "required" : true,
+              "summary" : "The model id, from state.models.",
+              "type" : "string"
+            }
+          ],
+          "summary" : "Switch a model on and wait until it has loaded."
+        },
+        {
+          "name" : "disable",
+          "outcomes" : [
+            {
+              "stays" : true
+            }
+          ],
+          "parameters" : [
+            {
+              "name" : "id",
+              "required" : true,
+              "summary" : "The model id, from state.models.",
+              "type" : "string"
+            }
+          ],
+          "summary" : "Switch a model off."
+        },
+        {
+          "name" : "open-findings",
+          "outcomes" : [
+            {
+              "condition" : "always",
+              "to" : "findings"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Open the findings list, and wait for the sync its opening starts."
+        },
+        {
+          "name" : "open-account",
+          "outcomes" : [
+            {
+              "condition" : "auth is anonymous or validated",
+              "to" : "account"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Open the account screen: sign in, or the signed-in account."
+        }
+      ],
+      "route" : "drawer",
+      "summary" : "The app proper, menu open.",
+      "transitions" : [
+        {
+          "action" : "close",
+          "condition" : "always",
+          "to" : "home"
+        },
+        {
+          "action" : "open-findings",
+          "condition" : "always",
+          "to" : "findings"
+        },
+        {
+          "action" : "open-account",
+          "condition" : "auth is anonymous or validated",
+          "to" : "account"
+        },
+        {
+          "condition" : "access ran out mid-session",
+          "to" : "paywall"
+        },
+        {
+          "condition" : "a sign-in's account has not answered the analytics question",
+          "to" : "consent"
+        },
+        {
+          "condition" : "a sync found findings saved before this account signed in",
+          "to" : "backup-consent"
+        }
+      ]
+    },
+    {
+      "actions" : [
+        {
+          "name" : "close",
+          "outcomes" : [
+            {
+              "condition" : "no back-up question is pending and access remains",
+              "to" : "drawer"
+            },
+            {
+              "condition" : "a back-up question is pending",
+              "to" : "backup-consent"
+            },
+            {
+              "condition" : "access ran out while the sheet was up",
+              "to" : "paywall"
+            },
+            {
+              "condition" : "the sign-in offer, menu closed",
+              "to" : "home"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Close the account screen."
+        },
+        {
+          "name" : "sign-in",
+          "outcomes" : [
+            {
+              "condition" : "signed in with the question answered (verified only by the sign-in scenario)",
+              "to" : "drawer"
+            },
+            {
+              "condition" : "the new account has not answered the analytics question (verified only by the sign-in scenario)",
+              "to" : "consent"
+            },
+            {
+              "condition" : "findings saved before sign-in await the back-up question (verified only by the sign-in scenario)",
+              "to" : "backup-consent"
+            },
+            {
+              "condition" : "signed in from the sign-in offer with the question answered (not exercised by a scenario)",
+              "to" : "home"
+            },
+            {
+              "condition" : "access ran out while the account screen was up: signing in closes it onto the wall (verified only by the sign-in scenario)",
+              "to" : "paywall"
+            }
+          ],
+          "parameters" : [
+            {
+              "name" : "email",
+              "required" : true,
+              "summary" : "A Clerk test address: <name>+clerk_test@example.com.",
+              "type" : "string"
+            },
+            {
+              "name" : "code",
+              "required" : true,
+              "summary" : "The email verification code.",
+              "type" : "string"
+            }
+          ],
+          "summary" : "Sign in to a Clerk test account with its email code, creating it if new."
+        },
+        {
+          "name" : "sign-out",
+          "outcomes" : [
+            {
+              "condition" : "access remains",
+              "to" : "drawer"
+            },
+            {
+              "condition" : "access ran out while the sheet was up",
+              "to" : "paywall"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Sign out of the account."
+        },
+        {
+          "name" : "set-backup",
+          "outcomes" : [
+            {
+              "stays" : true
+            }
+          ],
+          "parameters" : [
+            {
+              "name" : "enabled",
+              "required" : true,
+              "summary" : "Whether the account backs findings up.",
+              "type" : "boolean"
+            }
+          ],
+          "summary" : "Switch backing up on or off, and wait for the sync it starts."
+        },
+        {
+          "name" : "remove-all-findings",
+          "outcomes" : [
+            {
+              "stays" : true
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Permanently delete every finding on this device and its screenshot."
+        }
+      ],
+      "route" : "account",
+      "summary" : "The account screen over the open menu: sign in, or the signed-in account. Also the sign-in offer after the first signed-out save, menu closed.",
+      "transitions" : [
+        {
+          "action" : "close",
+          "condition" : "no back-up question is pending and access remains",
+          "to" : "drawer"
+        },
+        {
+          "action" : "close",
+          "condition" : "a back-up question is pending",
+          "to" : "backup-consent"
+        },
+        {
+          "action" : "close",
+          "condition" : "access ran out while the sheet was up",
+          "to" : "paywall"
+        },
+        {
+          "action" : "close",
+          "condition" : "the sign-in offer, menu closed",
+          "to" : "home"
+        },
+        {
+          "action" : "sign-in",
+          "condition" : "signed in with the question answered (verified only by the sign-in scenario)",
+          "to" : "drawer"
+        },
+        {
+          "action" : "sign-in",
+          "condition" : "the new account has not answered the analytics question (verified only by the sign-in scenario)",
+          "to" : "consent"
+        },
+        {
+          "action" : "sign-in",
+          "condition" : "findings saved before sign-in await the back-up question (verified only by the sign-in scenario)",
+          "to" : "backup-consent"
+        },
+        {
+          "action" : "sign-in",
+          "condition" : "signed in from the sign-in offer with the question answered (not exercised by a scenario)",
+          "to" : "home"
+        },
+        {
+          "action" : "sign-in",
+          "condition" : "access ran out while the account screen was up: signing in closes it onto the wall (verified only by the sign-in scenario)",
+          "to" : "paywall"
+        },
+        {
+          "action" : "sign-out",
+          "condition" : "access remains",
+          "to" : "drawer"
+        },
+        {
+          "action" : "sign-out",
+          "condition" : "access ran out while the sheet was up",
+          "to" : "paywall"
+        }
+      ]
+    },
+    {
+      "actions" : [
+        {
+          "name" : "save",
+          "outcomes" : [
+            {
+              "condition" : "no back-up question is pending and access remains",
+              "to" : "home"
+            },
+            {
+              "condition" : "a back-up question is pending",
+              "to" : "backup-consent"
+            },
+            {
+              "condition" : "access ran out while the sheet was up",
+              "to" : "paywall"
+            },
+            {
+              "condition" : "the first signed-out save offers sign-in",
+              "to" : "account"
+            }
+          ],
+          "parameters" : [
+            {
+              "name" : "title",
+              "required" : true,
+              "summary" : "The finding's name; required, as the sheet requires it.",
+              "type" : "string"
+            },
+            {
+              "name" : "label",
+              "required" : false,
+              "summary" : "The finding's label; empty by default.",
+              "type" : "string"
+            }
+          ],
+          "summary" : "Save the picked detection as a finding, then wait for the sync it triggers."
+        },
+        {
+          "name" : "cancel",
+          "outcomes" : [
+            {
+              "condition" : "no back-up question is pending and access remains",
+              "to" : "home"
+            },
+            {
+              "condition" : "a back-up question is pending",
+              "to" : "backup-consent"
+            },
+            {
+              "condition" : "access ran out while the sheet was up",
+              "to" : "paywall"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Close the sheet without saving."
+        }
+      ],
+      "route" : "save-finding",
+      "summary" : "The save-finding sheet for a picked detection.",
+      "transitions" : [
+        {
+          "action" : "save",
+          "condition" : "no back-up question is pending and access remains",
+          "to" : "home"
+        },
+        {
+          "action" : "save",
+          "condition" : "a back-up question is pending",
+          "to" : "backup-consent"
+        },
+        {
+          "action" : "save",
+          "condition" : "access ran out while the sheet was up",
+          "to" : "paywall"
+        },
+        {
+          "action" : "save",
+          "condition" : "the first signed-out save offers sign-in",
+          "to" : "account"
+        },
+        {
+          "action" : "cancel",
+          "condition" : "no back-up question is pending and access remains",
+          "to" : "home"
+        },
+        {
+          "action" : "cancel",
+          "condition" : "a back-up question is pending",
+          "to" : "backup-consent"
+        },
+        {
+          "action" : "cancel",
+          "condition" : "access ran out while the sheet was up",
+          "to" : "paywall"
+        }
+      ]
+    },
+    {
+      "actions" : [
+        {
+          "name" : "close",
+          "outcomes" : [
+            {
+              "condition" : "no back-up question is pending and access remains",
+              "to" : "drawer"
+            },
+            {
+              "condition" : "a back-up question is pending",
+              "to" : "backup-consent"
+            },
+            {
+              "condition" : "access ran out while the sheet was up",
+              "to" : "paywall"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Close the findings list."
+        },
+        {
+          "name" : "refresh",
+          "outcomes" : [
+            {
+              "stays" : true
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Pull to refresh: run a sync cycle and wait for it."
+        },
+        {
+          "name" : "synchronize",
+          "outcomes" : [
+            {
+              "stays" : true
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Press Synchronize and wait for the outcome line."
+        },
+        {
+          "name" : "delete",
+          "outcomes" : [
+            {
+              "stays" : true
+            }
+          ],
+          "parameters" : [
+            {
+              "name" : "id",
+              "required" : true,
+              "summary" : "The finding id, from state.findings.",
+              "type" : "string"
+            }
+          ],
+          "summary" : "Delete a finding, then wait for the sync that sends its deletion."
+        }
+      ],
+      "route" : "findings",
+      "summary" : "The findings list over the open menu.",
+      "transitions" : [
+        {
+          "action" : "close",
+          "condition" : "no back-up question is pending and access remains",
+          "to" : "drawer"
+        },
+        {
+          "action" : "close",
+          "condition" : "a back-up question is pending",
+          "to" : "backup-consent"
+        },
+        {
+          "action" : "close",
+          "condition" : "access ran out while the sheet was up",
+          "to" : "paywall"
+        }
+      ]
+    },
+    {
+      "actions" : [
+        {
+          "name" : "accept",
+          "outcomes" : [
+            {
+              "condition" : "the question covered the app, menu closed",
+              "to" : "home"
+            },
+            {
+              "condition" : "the question covered the open menu",
+              "to" : "drawer"
+            },
+            {
+              "condition" : "the question covered the paywall",
+              "to" : "paywall"
+            },
+            {
+              "condition" : "the question covered the root gate's hold",
+              "to" : "gate"
+            },
+            {
+              "condition" : "the question covered a Welcome screen",
+              "to" : "welcome"
+            },
+            {
+              "condition" : "the question covered the tour",
+              "to" : "tour"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Back these findings up, and wait for the upload it starts."
+        },
+        {
+          "name" : "decline",
+          "outcomes" : [
+            {
+              "condition" : "the question covered the app, menu closed",
+              "to" : "home"
+            },
+            {
+              "condition" : "the question covered the open menu",
+              "to" : "drawer"
+            },
+            {
+              "condition" : "the question covered the paywall",
+              "to" : "paywall"
+            },
+            {
+              "condition" : "the question covered the root gate's hold",
+              "to" : "gate"
+            },
+            {
+              "condition" : "the question covered a Welcome screen",
+              "to" : "welcome"
+            },
+            {
+              "condition" : "the question covered the tour",
+              "to" : "tour"
+            }
+          ],
+          "parameters" : [
+
+          ],
+          "summary" : "Keep these findings on this device."
+        }
+      ],
+      "route" : "backup-consent",
+      "summary" : "The back-up question for findings saved before this account signed in.",
+      "transitions" : [
+        {
+          "action" : "accept",
+          "condition" : "the question covered the app, menu closed",
+          "to" : "home"
+        },
+        {
+          "action" : "accept",
+          "condition" : "the question covered the open menu",
+          "to" : "drawer"
+        },
+        {
+          "action" : "accept",
+          "condition" : "the question covered the paywall",
+          "to" : "paywall"
+        },
+        {
+          "action" : "accept",
+          "condition" : "the question covered the root gate's hold",
+          "to" : "gate"
+        },
+        {
+          "action" : "accept",
+          "condition" : "the question covered a Welcome screen",
+          "to" : "welcome"
+        },
+        {
+          "action" : "accept",
+          "condition" : "the question covered the tour",
+          "to" : "tour"
+        },
+        {
+          "action" : "decline",
+          "condition" : "the question covered the app, menu closed",
+          "to" : "home"
+        },
+        {
+          "action" : "decline",
+          "condition" : "the question covered the open menu",
+          "to" : "drawer"
+        },
+        {
+          "action" : "decline",
+          "condition" : "the question covered the paywall",
+          "to" : "paywall"
+        },
+        {
+          "action" : "decline",
+          "condition" : "the question covered the root gate's hold",
+          "to" : "gate"
+        },
+        {
+          "action" : "decline",
+          "condition" : "the question covered a Welcome screen",
+          "to" : "welcome"
+        },
+        {
+          "action" : "decline",
+          "condition" : "the question covered the tour",
+          "to" : "tour"
+        },
+        {
+          "condition" : "access returned while the question covered the wall, and the analytics question is unanswered",
+          "to" : "consent"
+        },
+        {
+          "condition" : "the gate lifted to the paywall over the app, whose analytics question holds it",
+          "to" : "paywall"
+        }
+      ]
+    }
+  ]
+}

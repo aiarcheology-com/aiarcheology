@@ -131,6 +131,17 @@ protocol AuthProviding {
 
     /// Permanently delete the current user's account (Apple Guideline 5.1.1(v)).
     func deleteAccount() async throws
+
+    #if DEBUG
+    /// Sign in with an email verification code through the backend's own API, without its UI
+    /// (AIA-0974). Headless mode has no Clerk `AuthView` to present, so this is how it signs in.
+    ///
+    /// Debug-only, so the shipping auth surface is unchanged. Returns only once the provider reports
+    /// a signed-in user; the caller then re-evaluates the gate exactly as `SignInSheet` does.
+    /// Deliberately no default implementation: a conformer whose signature drifted would otherwise
+    /// fall back to it silently.
+    func signIn(emailAddress: String, code: String) async throws
+    #endif
 }
 
 /// Owns ``AuthGate``. Re-evaluated at launch, on every foreground, and — since AIA-0757 — when the
@@ -216,8 +227,30 @@ final class AuthState: ObservableObject {
     /// `refreshPending` so exactly one more pass runs afterward — avoiding redundant
     /// round-trips without *dropping* a trigger (e.g. an out-of-band sign-out arriving
     /// mid-refresh still gets re-evaluated rather than leaving a stale gate).
+    ///
+    /// A coalesced caller also *waits* for that pass (``refreshWaiters``). Until AIA-0987 it
+    /// returned at once, before its pass had even started: `SignInSheet` then read the gate the
+    /// Clerk session watcher's in-flight pass had not yet updated, found it still `.signedOut`,
+    /// and stayed open over a completed sign-in.
     private var isRefreshing = false
     private var refreshPending = false
+
+    /// How many passes the running refresh loop has started; the ordinal of the current one.
+    private var passesStarted = 0
+
+    /// Callers that arrived while a pass was running, each waiting for a pass that *started after
+    /// it arrived* to settle (AIA-0987). Released per pass, not when the loop drains: a trigger
+    /// that keeps arriving (the watcher, a foreground) keeps the loop running, and must not
+    /// postpone a caller whose own pass has already finished.
+    private var refreshWaiters: [Int: RefreshWaiter] = [:]
+    private var nextWaiterID = 0
+
+    private struct RefreshWaiter {
+        /// The ordinal of the pass that was running when the caller arrived. Any later settled pass
+        /// answers it.
+        let arrivedDuringPass: Int
+        let continuation: CheckedContinuation<Void, Never>
+    }
 
     /// Watches for the network coming back (AIA-0757). Optional and **defaulted to `nil`**: the
     /// production monitor is constructed at the composition boundary (`AccountSession`) and nowhere
@@ -299,20 +332,92 @@ final class AuthState: ObservableObject {
     }
 
     /// Re-evaluate the gate. Safe to call on launch and on every foreground.
+    ///
+    /// On return, a pass that started after this call has settled, so ``gate`` reflects the
+    /// provider's state as of the call — also when the call was coalesced into a pass already
+    /// running. A caller that reads the gate afterwards (the sign-in sheet, headless sign-in)
+    /// relies on this (AIA-0987). A coalesced caller whose task is cancelled returns early, without
+    /// that guarantee. A pass whose own task is cancelled changes nothing; see ``evaluateGate()``.
     func refresh() async {
         if isRefreshing {
             // A pass is already running — request one more afterward instead of
-            // running concurrently or dropping this trigger.
+            // running concurrently or dropping this trigger, and wait for it.
             refreshPending = true
+            await waitForPass(after: passesStarted)
             return
         }
         isRefreshing = true
-        defer { isRefreshing = false }
+        var cancelled = false
         repeat {
             refreshPending = false
-            await evaluateGate()
-        } while refreshPending
+            passesStarted += 1
+            let pass = passesStarted
+            switch await evaluateGate() {
+            case .settled: releaseWaiters(answeredBy: pass)
+            case .superseded: break
+            case .cancelled: cancelled = true
+            }
+        } while refreshPending && cancelled == false
+        if cancelled {
+            // This task can run no further pass: every one would be cancelled too. It had no
+            // outcome to settle, so the offline retry is left as it was. Anything still owed moves
+            // to a fresh task, whose pass answers it — no caller is stranded or answered with a
+            // result nobody produced. Owed: a queued trigger, a caller waiting for its pass, or an
+            // account the pass stopped publishing before validation (a fact about the provider,
+            // kept rather than restored) with the incoming one not yet validated.
+            isRefreshing = false
+            let accountOwed = accountIdentifier != provider.accountIdentifier
+            if refreshPending || refreshWaiters.isEmpty == false || accountOwed {
+                Task { await self.refresh() }
+            }
+            return
+        }
         settleOfflineRetry()
+        isRefreshing = false
+        // Nothing can still be waiting: each waiter set `refreshPending`, so a later pass ran, and a
+        // pass that did not settle queued another. The assert flags a broken invariant in Debug;
+        // the release still runs, because a stranded waiter is a sheet that never closes.
+        // `refresh()` has no throwing path; the cancelled exit above hands its waiters on, and
+        // this is the only other one.
+        assert(refreshWaiters.isEmpty, "a refresh waiter outlived the loop that should have answered it")
+        releaseWaiters(answeredBy: .max)
+    }
+
+    #if DEBUG
+    /// How many coalesced callers are waiting. Tests only: it lets a test know a caller has joined
+    /// before it moves the pass on, instead of trusting scheduler order.
+    var refreshWaiterCount: Int { refreshWaiters.count }
+    #endif
+
+    /// Suspends until a pass that started after `pass` settles, or until the calling task is
+    /// cancelled.
+    private func waitForPass(after pass: Int) async {
+        let id = nextWaiterID
+        nextWaiterID += 1
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                guard Task.isCancelled == false else {
+                    continuation.resume()
+                    return
+                }
+                refreshWaiters[id] = RefreshWaiter(arrivedDuringPass: pass, continuation: continuation)
+            }
+        } onCancel: {
+            // Runs off the main actor. The hop is enqueued behind the synchronous registration
+            // above, so it always finds the waiter it is meant to release (or nothing, if a pass
+            // already did).
+            Task { @MainActor [weak self] in
+                self?.refreshWaiters.removeValue(forKey: id)?.continuation.resume()
+            }
+        }
+    }
+
+    private func releaseWaiters(answeredBy pass: Int) {
+        let answered = refreshWaiters.filter { $0.value.arrivedDuringPass < pass }
+        for (id, waiter) in answered {
+            refreshWaiters.removeValue(forKey: id)
+            waiter.continuation.resume()
+        }
     }
 
     /// One rule, applied to the *outcome* of every refresh: if it ended `.offline`, try once more
@@ -349,10 +454,21 @@ final class AuthState: ObservableObject {
         }
     }
 
-    private func evaluateGate() async {
+    /// What one pass of ``evaluateGate()`` did, which decides whether it answers waiting callers.
+    private enum PassOutcome {
+        /// The gate now reflects the provider: waiting callers are answered.
+        case settled
+        /// Another account arrived during validation: nothing was published and another pass is
+        /// queued, so nobody waiting is answered.
+        case superseded
+        /// The pass's task was cancelled before validation returned an answer: nothing changed.
+        case cancelled
+    }
+
+    private func evaluateGate() async -> PassOutcome {
         guard provider.isSignedIn else {
             setSignedOut()
-            return
+            return .settled
         }
 
         // Bind this validation to a specific account. `validateSession()` suspends, and a sign-out
@@ -376,17 +492,31 @@ final class AuthState: ObservableObject {
 
         do {
             try await provider.validateSession()
+        } catch AuthValidationError.noValidSession {
+            // The server's answer: this session is gone. A real sign-out, even if the task was
+            // cancelled while the answer came back.
+            setSignedOut()
+            return .settled
+        } catch where Task.isCancelled {
+            // A cancelled pass has no result, and "no result" is not "signed out" or "offline":
+            // leave the gate and the account as they are. Decided by this task's cancellation, not
+            // by the error's type: `ClerkAuthProvider` reports a cancelled round trip as `.offline`,
+            // and a `CancellationError` from a task nobody cancelled is a failure like any other —
+            // treating it as cancellation would hand the pass to a fresh task that fails the same
+            // way, for ever. Before this, a cancelled pass landed `.offline` through the shipping
+            // provider and `.signedOut` through one that throws the raw cancellation (AIA-0987).
+            return .cancelled
         } catch AuthValidationError.offline {
             // Identity deliberately left as-is: losing connectivity is not a change of account.
             // On a cold offline launch that identity is still `nil` — this line is the reason
             // `.suspended(nil)` is the common shape rather than the exotic one.
             effectiveContext = .suspended(accountIdentifier)
             setGate(.offline)
-            return
+            return .settled
         } catch {
             // Revoked / banned / signed out elsewhere — fall back to sign-in.
             setSignedOut()
-            return
+            return .settled
         }
 
         // Re-check signed-in status: `validateSession()` suspends, and a sign-out can
@@ -394,7 +524,7 @@ final class AuthState: ObservableObject {
         // mid-refresh sign-out would still land on `.ready` rather than `.signedOut`.
         guard provider.isSignedIn else {
             setSignedOut()
-            return
+            return .settled
         }
 
         // A different account arrived while we were validating. Publishing now would mark the new
@@ -402,7 +532,7 @@ final class AuthState: ObservableObject {
         // that was never about it. Queue another pass instead; the loop in `refresh()` runs it.
         guard provider.accountIdentifier == accountUnderValidation else {
             refreshPending = true
-            return
+            return .superseded
         }
 
         // Read fresh rather than reusing the pre-`await` local, so the published value can only
@@ -413,6 +543,7 @@ final class AuthState: ObservableObject {
         // anonymous user, it is an unusable one. Fail to `.indeterminate` rather than select a scope.
         effectiveContext = validatedAccount.map(EffectiveAuthContext.validated) ?? .indeterminate
         setGate(.ready)
+        return .settled
     }
 
     /// Sign out and return to the sign-in screen.
@@ -420,6 +551,27 @@ final class AuthState: ObservableObject {
         await provider.signOut()
         setSignedOut()
     }
+
+    #if DEBUG
+    /// Sign in without the Clerk UI, then re-evaluate the gate — the `authState.refresh()` that
+    /// `SignInSheet` runs when Clerk's sheet closes (AIA-0974). Only headless mode calls it.
+    ///
+    /// Throws what the provider throws and leaves the gate to the refresh: a failed sign-in changes
+    /// nothing here, so a signed-out app stays signed out.
+    func signIn(emailAddress: String, code: String) async throws {
+        try await provider.signIn(emailAddress: emailAddress, code: code)
+        await refresh()
+    }
+
+    /// Whether the backend itself still holds a signed-in user, as opposed to what ``gate`` says.
+    ///
+    /// The two differ after a sign-out whose server call failed: ``signOut()`` publishes
+    /// `.signedOut` regardless, because a user who asked to leave must not be kept in. Headless
+    /// scenarios read this to prove the session really ended (AIA-0974).
+    var isProviderSignedIn: Bool {
+        provider.isSignedIn
+    }
+    #endif
 
     /// Erase the account's cloud data, then delete the account, then return to the sign-in screen.
     ///

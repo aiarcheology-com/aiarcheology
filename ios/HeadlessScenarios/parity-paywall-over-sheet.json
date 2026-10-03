@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "name": "parity-paywall-over-sheet",
+  "installations": {
+    "a": {
+      "launch": {
+        "flags": {
+          "isPaymentsEnabled": true,
+          "isFreeAccessPeriodEnabled": true,
+          "isAnalyticsEnabled": true,
+          "isCrossDeviceAnalyticsIdentityEnabled": false
+        },
+        "freeAccessEndsIn": 120
+      }
+    }
+  },
+  "steps": [
+    { "name": "a window seeded to end 120 s after launch, its day-0 screen already shown, opens on the tour",
+      "wait": { "condition": "ready", "timeout": 120 }, "expect": [ { "route": "tour" } ] },
+    { "name": "skip the tour", "perform": { "action": "skip" }, "expect": [ { "route": "consent" } ] },
+    { "name": "decline analytics", "perform": { "action": "deny" }, "expect": [ { "route": "home" } ] },
+    { "name": "open the menu", "goto": "drawer", "expect": [ { "route": "drawer" } ] },
+    { "name": "open the findings list", "goto": "findings", "expect": [ { "route": "findings" } ] },
+    { "name": "the window runs out under the open sheet, which stays on top",
+      "wait": { "condition": "access-ended", "timeout": 180 }, "expect": [ { "route": "findings" } ] },
+    { "name": "closing the sheet uncovers the paywall", "perform": { "action": "close" }, "expect": [ { "route": "paywall" } ] }
+  ],
+  "teardown": []
+}

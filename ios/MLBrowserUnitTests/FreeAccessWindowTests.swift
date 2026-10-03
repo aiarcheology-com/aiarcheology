@@ -224,7 +224,7 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertNil(second)
 	}
 
-	/// The Keychain mirror outlives app deletion and `simctl erase`, so a record in the shape that
+	/// The Keychain mirror outlives app deletion, so a record in the shape that
 	/// predates the day-0 marker is one a running app can still meet. It must read as "not shown
 	/// yet"; throwing would discard the anchor, and with it the resume-don't-restart guarantee.
 	func testRecord_decodedWithoutTheDay0Marker_readsAsNotShown() throws {

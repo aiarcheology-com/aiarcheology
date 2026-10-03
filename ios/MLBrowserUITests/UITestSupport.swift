@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 15
+	var version = 17
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -57,6 +57,13 @@ struct LaunchConfig: Encodable {
 	/// Two deliveries in one session is the only way to exercise duplicate import, because every
 	/// launch starts from an empty store.
 	var sharedLinkDeliveries: Int?
+	/// Use the real Clerk provider (development instance, `+clerk_test` addresses) instead of the
+	/// mock (AIA-0984). `nil` = mock. The app traps without a `pk_` key or off development.
+	var usesRealAuth: Bool?
+	/// Seed a free-access window ending this many seconds (30...3600) after launch, day-0 screen
+	/// shown, so it expires mid-session (AIA-0984). `nil` = no anchor. The app traps when it is set
+	/// with `freeAccessAnchorAgeDays` or `freeAccessDay0Unshown`.
+	var freeAccessEndsInSeconds: Int?
 }
 
 // MARK: - Accessibility identifiers
@@ -228,6 +235,10 @@ enum AID {
 	static func appMessageAboutRow(_ messageID: String) -> String { "_AIA:Label.#\(messageID)AppMessageAboutRow" }
 	static func appMessageSettingsRow(_ messageID: String) -> String { "_AIA:Label.#\(messageID)AppMessageSettingsRow" }
 
+	// Screen probes for the parity test (AIA-0984) not mirrored above
+	static let signInSheetCancel = "_AIA:Button.SignInSheetCancel"
+	static let backupConsentConfirm = "_AIA:Button.BackupConsentConfirm"
+
 	// Location / address sheet
 	static let locationInput = "_AIA:TextField.LocationSheetInput"
 	static let locationDismiss = "_AIA:Button.LocationSheetDismiss"
@@ -271,7 +282,8 @@ class UITestCase: XCTestCase {
 		_ config: LaunchConfig = LaunchConfig(),
 		mockAuthGate: String? = nil,
 		mockSubscription: String? = nil,
-		mockAccountID: String? = nil
+		mockAccountID: String? = nil,
+		additionalArguments: [String] = []
 	) -> XCUIApplication {
 		let app = XCUIApplication()
 		app.launchEnvironment["UI_TESTING"] = "1"
@@ -296,6 +308,7 @@ class UITestCase: XCTestCase {
 		if let mockAccountID {
 			app.launchArguments += ["-mockAccountID", mockAccountID]
 		}
+		app.launchArguments += additionalArguments
 		app.launch()
 		self.app = app
 		return app

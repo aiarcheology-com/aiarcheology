@@ -37,16 +37,35 @@ It is the app's **single** composition root (AIA-0385): it constructor-injects a
 `AppState` via `makeAppState()`. `AppState` holds those injected instances and never reaches back
 into `DependencyContainer.shared`; Views never touch `.shared` either (they read from `AppState` or
 a dedicated environment value such as `\.usesRealAuth`). The only `.shared` sites are bootstrap —
-the `@main` entry and the background-session `UIApplicationDelegate`, which run outside the SwiftUI
-graph.
+the app entry points (`MLBrowser`, and `MLBrowserHeadless` in headless mode) and the
+background-session `UIApplicationDelegate`, which run outside the SwiftUI graph.
 
 Test isolation lives here: in DEBUG under tests, `usesMockAuth` / `usesMockSubscription`
 swap in in-memory mock providers so unit/UI tests never touch Clerk or StoreKit. The mocks
-are `#if DEBUG`, so they can never ship in Release/TestFlight.
+are `#if DEBUG`, so they can never ship in Release/TestFlight. Headless mode selects its few
+explicit launch options here too (`HeadlessLaunchOptions`, AIA-0970), never through the test markers,
+and reads them only in headless mode (AIA-0991). Headless mode also forces the no-op crash reporter.
 
 ## App entry & gating
 
-`MLBrowser/iOS/UI/MLBrowser.swift` — `@main struct MLBrowser: App`. The root `AppState`
+`MLBrowser/iOS/UI/AppEntry.swift` — `@main enum AppEntry` launches `MLBrowser` (the SwiftUI app,
+`UI/MLBrowser.swift`) or, when launched with `-interface headless`, `MLBrowserHeadless`
+(`Headless/Entry/`), the same app without its views, served by the kit's `HeadlessKitUI` (see `specification/HEADLESS.md`). Its screen/action
+kit is the external HeadlessKit package (`aiarcheology-com/HeadlessKit`, pinned by exact version), which compiles to nothing outside Debug unless its `HeadlessHost` trait is enabled, as only ProjectTool does (AIA-1006). Headless is
+a launch mode of the Debug app (AIA-0991; AIA-0970 made it a separate build):
+`AppEnvironment.isHeadlessMode` is read at launch, and the branch, the entry and its command server
+compile only under `DEBUG && AIA_BACKEND_ENV_development`, so Release and a Debug build against
+production always launch `MLBrowser`.
+
+Both entries bootstrap through `AppRuntime` (`State/AppRuntime.swift`): observability, Clerk, then
+the composition root, in that order. `AppRuntime.start()` then runs the process-level work that
+used to hang off the root scene — store-dependent services, the detailed-log brake,
+background/foreground handling, and auth, which starts only once `AppState.isReady` — and the
+foreground entitlement re-check, which used to hang off `SubscriptionGateView` (AIA-0993).
+Presentation stays in the UI entry: overlays, URL intake, the production banner, and the Clerk
+session watcher.
+
+The root `AppState`
 (`@StateObject`) is built by `DependencyContainer.makeAppState()`: it receives the shared services
 by constructor injection (`snap`, `deep`, `dataController`, `settings`, `downloader`,
 `demoDataManager`, auth/subscription providers) and additionally owns the view-derived state
@@ -63,7 +82,9 @@ SubscriptionGateView      (AIA-0343 — the app root since AIA-0536)
 Signing in is **not** a gate: `AuthGateView` was the outermost layer until AIA-0536, and the view
 itself has since been deleted — sign-in is a contextual sheet (`SignInSheet`). Access is `payments surface off || StoreKit entitled
 || app-managed free window open`, resolved in that order by `RootGateDisplay`
-(`UI/Subscription/SubscriptionGateView.swift`). The free window (AIA-0556) is a 14-day period owned
+(`UI/Subscription/SubscriptionGateView.swift`). Which Welcome screen goes up, and when the tour may
+start, is `SubscriptionGateCoordinator` (same folder, AIA-0976): the view holds one per window and
+calls it from its `onChange` handlers, and headless mode runs the same object. The free window (AIA-0556) is a 14-day period owned
 by `FreeAccessWindow` / `FreeAccessAnchorService` / `FreeAccessState`, anchored in UserDefaults and
 mirrored into the Keychain so a reinstall resumes it rather than restarting it. `AUTH-SUBSCRIPTION.md`
 holds the full order, the state table and the edge cases.
@@ -114,12 +135,13 @@ Production. Views observe `FeatureFlagsState` directly rather than through `AppS
 
 | Dir | Contents |
 |-|-|
-| `UI/` | SwiftUI views by feature (`Screens`, `Drawer`, `Auth`, `Subscription`, `Findings`, `Annotation`, `Tour`, `SettingsView`, …); app entry `MLBrowser.swift` |
+| `UI/` | SwiftUI views by feature (`Screens`, `Drawer`, `Auth`, `Subscription`, `Findings`, `Annotation`, `Tour`, `SettingsView`, …); app entry `AppEntry.swift` and `MLBrowser.swift` |
 | `State/` | State objects, `DependencyContainer`, `DataController`, auth/subscription providers |
 | `Drivers/` | Detection engine: `Driver`, `DeepDriver`, `Detector`, `Classificator`, `DetectionTiling`, demo models |
 | `Rendering/` | WebView snapshotting: `WebViewRenderer`, `DefaultRenderer`, `Snapshot` |
 | `Persistence/` | Core Data classes, `.xcdatamodeld`, migrations |
 | `Services/` | Stateless workers (e.g. `ModelLoadingService`) |
+| `Headless/` | Headless mode (AIA-0970, AIA-0991): screens and actions over `AppState`, launch options, and the `Entry/` app; see `specification/HEADLESS.md` |
 | `Tools/` | Cross-cutting helpers: reporting/observability, testability, extensions, localization |
 | `Resources/`, `Assets/`, `Generated/` | `Localizable.xcstrings`, assets, generated `L10n.swift` |
 

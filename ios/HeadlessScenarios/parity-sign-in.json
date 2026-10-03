@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "name": "parity-sign-in",
+  "installations": {
+    "a": {
+      "launch": {
+        "flags": {
+          "isPaymentsEnabled": true,
+          "isFreeAccessPeriodEnabled": true,
+          "isAnalyticsEnabled": true,
+          "isCrossDeviceAnalyticsIdentityEnabled": true
+        }
+      }
+    }
+  },
+  "steps": [
+    { "name": "a fresh install opens on the free-access Welcome screen",
+      "wait": { "condition": "ready", "timeout": 120 }, "expect": [ { "route": "welcome" } ] },
+    { "name": "continue past the Welcome screen", "perform": { "action": "continue" }, "expect": [ { "route": "tour" } ] },
+    { "name": "skip the tour", "perform": { "action": "skip" }, "expect": [ { "route": "consent" } ] },
+    { "name": "decline analytics for this device", "perform": { "action": "deny" }, "expect": [ { "route": "home" } ] },
+    { "name": "open the menu", "goto": "drawer", "expect": [ { "route": "drawer" } ] },
+    { "name": "open the account screen", "goto": "account", "expect": [ { "route": "account" } ] },
+    { "name": "sign in to the automation account; where it lands is asynchronous, so the next step says",
+      "perform": { "action": "sign-in", "arguments": { "email": "aia-headless+clerk_test@example.com", "code": "424242" } },
+      "expect": [ { "equals": { "pointer": "/result/signedIn", "value": true } } ] },
+    { "name": "the new account's analytics question takes the screen",
+      "wait": { "condition": "route", "arguments": { "route": "consent" }, "timeout": 30 },
+      "expect": [ { "route": "consent" } ] },
+    { "name": "decline analytics for the account", "perform": { "action": "deny" }, "expect": [ { "route": "drawer" } ] },
+    { "name": "the account screen shows the signed-in account", "goto": "account", "expect": [ { "route": "account" } ] },
+    { "name": "sign out", "perform": { "action": "sign-out" }, "expect": [ { "route": "drawer" } ] }
+  ],
+  "teardown": [
+    { "name": "answer a pending analytics question", "perform": { "action": "deny" }, "bestEffort": true, "unless": [ { "notRoute": "consent" } ] },
+    { "name": "reach the menu", "goto": "drawer", "bestEffort": true },
+    { "name": "reach the account screen", "goto": "account", "bestEffort": true },
+    { "name": "end any session this run left open", "perform": { "action": "sign-out" }, "bestEffort": true, "unless": [ { "equals": { "pointer": "/context/auth/accountPresent", "value": false } } ] }
+  ]
+}

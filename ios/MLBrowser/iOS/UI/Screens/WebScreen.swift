@@ -222,8 +222,9 @@ struct WebScreenView: View {
 	/// snapshot so a just-enabled model runs on the current page right away.
 	@State private var runningClassifierIDs: Set<UUID> = []
 	@State private var runningDetectorIDs: Set<UUID> = []
-	/// The tapped detection being saved; non-nil presents the save sheet.
-	@State private var findingCapture: FindingCapture?
+	/// The tapped detection being saved; non-nil presents the save sheet. It lives on `chromeState`,
+	/// shared with headless mode (AIA-0984), and is cleared when this screen leaves.
+	private var saveFinding: SaveFindingPresentation { appState.chromeState.saveFindingPresentation }
 	/// Guards the asynchronous window between a centre alignment and the sheet appearing.
 	@State private var isResolvingCapture = false
 	/// Invalidates an asynchronous location resolution if the user keeps manipulating the page or
@@ -244,8 +245,6 @@ struct WebScreenView: View {
 	/// review prompt cannot stand in for this — it declines for its own reasons (AIA-0536).
 	@State private var didSaveFinding = false
 
-	/// The one-time contextual sign-in offer that follows a save (AIA-0536).
-	@State private var showSignInOffer = false
 	/// Mirror of DetectableView's displayed frame (updated on every apply/clear). Alignment mode
 	/// reads the exact frame it displays, so its saved image and detected rectangle stay coherent.
 	@State private var appliedFrame: AppliedDetectionFrame?
@@ -371,6 +370,7 @@ struct WebScreenView: View {
     }
 
     var body: some View {
+        @Bindable var saveFinding = self.saveFinding
         detectableWebContent
         .onReceive(appState.settings.$showIdentifiers) { value in
             showIdentifiers = value
@@ -420,7 +420,7 @@ struct WebScreenView: View {
             }
             .environmentObject(appState.settings)
         }
-        .sheet(item: $findingCapture, onDismiss: {
+        .sheet(item: $saveFinding.capture, onDismiss: {
             finishFindingCapture()
         }) { capture in
             SaveFindingSheet(
@@ -435,7 +435,7 @@ struct WebScreenView: View {
             // to three lines above it (reported from a build on iPad).
             .roomySheet()
         }
-        .sheet(isPresented: $showSignInOffer) {
+        .sheet(isPresented: $saveFinding.isSignInOfferPresented) {
             SignInSheet(authState: appState.authState)
                 // Re-inject across the sheet boundary (AGENTS.md §3).
                 .environment(\.usesRealAuth, usesRealAuth)
@@ -719,11 +719,14 @@ struct WebScreenView: View {
         }
 
     private func releaseCaptureIfScreenLeaves() {
+            // The sign-in offer was `@State`, dropped with the view; it now lives on `chromeState`
+            // (AIA-0984), so it is closed here to leave the same state behind.
+            saveFinding.dismissSignInOffer()
             // The screen can be unmounted mid-capture (mode switch): without
             // this, the snap timer would stay paused and the pick/sheet state
             // would leak into the next appearance.
-            guard findPickActive || isCapturingFinding || findingCapture != nil else { return }
-            findingCapture = nil
+            guard findPickActive || isCapturingFinding || saveFinding.capture != nil else { return }
+            saveFinding.capture = nil
             cancelFindPick()
         }
 
@@ -930,18 +933,13 @@ struct WebScreenView: View {
 		appState.detectionState.findingCaptureEnded()
 	}
 
-	/// Offer sign-in once, after a save, to someone who could actually act on it.
-	///
-	/// Deliberately narrow. The offer is a convenience, not a gate: the save already succeeded and
-	/// nothing about it depends on an account. So it is skipped during onboarding, for anyone not
-	/// plainly signed out, and after it has been shown once — with the marker set here, at the moment
-	/// of showing, so a save that produced no offer never spends the single chance to ask.
+	/// Offer sign-in once, after a save: the decision headless mode's `save` shares (AIA-0984).
 	private func offerSignInIfEarned() {
-		guard case .anonymous = appState.authState.effectiveContext else { return }
-		guard !appState.tour.isActive else { return }
-		guard !appState.settings.signInOfferShown else { return }
-		appState.settings.signInOfferShown = true
-		showSignInOffer = true
+		saveFinding.offerSignInIfEarned(
+			authContext: appState.authState.effectiveContext,
+			isTourActive: appState.tour.isActive,
+			settings: appState.settings
+		)
 	}
 
 	/// What a pick does with a retained frame that can no longer be tied to the live page.
@@ -1062,7 +1060,7 @@ struct WebScreenView: View {
 	/// Alignment mode ends only when the capture is ready (or cancelled).
 	private func present(_ capture: FindingCapture) {
 		endFindPick()
-		findingCapture = capture
+		saveFinding.capture = capture
 	}
 
 	/// Leaves pick mode and brings the chrome's copy back in step, so the Find/Store control stops

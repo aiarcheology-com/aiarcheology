@@ -855,6 +855,77 @@ final class AppChromeStateTests: XCTestCase {
         XCTAssertTrue(sut.presentedSideMenu)
     }
 
+    // MARK: - Drawer Sheet Tests (AIA-0984)
+
+    /// Presents every drawer sheet at once. The flags are independent, so this is a setup
+    /// convenience, not a state the drawer reaches.
+    private func presentEveryDrawerSheet() {
+        sut.drawerPresentation.isFindingsPresented = true
+        sut.drawerPresentation.isSignInPresented = true
+        sut.drawerPresentation.settings = .manageAccount
+    }
+
+    private func assertNoDrawerSheet(_ message: String, line: UInt = #line) {
+        XCTAssertFalse(sut.drawerPresentation.isFindingsPresented, message, line: line)
+        XCTAssertFalse(sut.drawerPresentation.isSignInPresented, message, line: line)
+        XCTAssertNil(sut.drawerPresentation.settings, message, line: line)
+    }
+
+    /// The drawer view unmounts when the drawer closes, which used to drop its sheets' `@State`;
+    /// the shared model must be reset instead, on every closing path.
+    func testClosingTheDrawer_DismissesItsSheets() {
+        for sheet in [\DrawerPresentation.isFindingsPresented, \DrawerPresentation.isSignInPresented] {
+            sut.presentedSideMenu = true
+            sut.drawerPresentation[keyPath: sheet] = true
+
+            sut.presentedSideMenu = false
+
+            XCTAssertFalse(sut.drawerPresentation[keyPath: sheet], "\(sheet) must close with the drawer")
+        }
+        for settings in [SettingsPresentation.settings, .manageAccount] {
+            sut.presentedSideMenu = true
+            sut.drawerPresentation.settings = settings
+
+            sut.presentedSideMenu = false
+
+            XCTAssertNil(sut.drawerPresentation.settings, "Settings (\(settings)) must close with the drawer")
+        }
+    }
+
+    func testTogglingTheDrawerClosed_DismissesItsSheets() {
+        sut.presentedSideMenu = true
+        presentEveryDrawerSheet()
+
+        sut.togglingSideMenu()
+
+        assertNoDrawerSheet("Toggling the drawer closed must dismiss its sheets")
+    }
+
+    func testOpeningTheDrawer_KeepsItsSheets() {
+        presentEveryDrawerSheet()
+
+        sut.presentedSideMenu = true
+        XCTAssertTrue(sut.drawerPresentation.isFindingsPresented)
+        XCTAssertTrue(sut.drawerPresentation.isSignInPresented)
+        XCTAssertEqual(sut.drawerPresentation.settings, .manageAccount)
+
+        // An open drawer written open again (SharedFindingView's own-finding path) is not a close.
+        sut.presentedSideMenu = true
+        XCTAssertTrue(sut.drawerPresentation.isFindingsPresented)
+        XCTAssertTrue(sut.drawerPresentation.isSignInPresented)
+        XCTAssertEqual(sut.drawerPresentation.settings, .manageAccount)
+    }
+
+    /// The sign-in offer is the web screen's sheet, not the drawer's: closing the drawer leaves it.
+    func testClosingTheDrawer_LeavesTheSignInOffer() {
+        sut.saveFindingPresentation.isSignInOfferPresented = true
+        sut.presentedSideMenu = true
+
+        sut.presentedSideMenu = false
+
+        XCTAssertTrue(sut.saveFindingPresentation.isSignInOfferPresented)
+    }
+
     // MARK: - Mode Tests
 
     /// `AppMode` has a single case since AIA-0898 removed the unreachable gallery, so there is no

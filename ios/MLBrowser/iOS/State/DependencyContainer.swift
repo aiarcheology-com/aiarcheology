@@ -16,8 +16,9 @@ import UIKit
 
 /// The app's **single composition root** (AIA-0385). Owns every shared service (Core Data,
 /// settings, snap/deep state, downloader, demo data, auth/subscription providers) and builds
-/// the fully-wired `AppState` via `makeAppState()`. Nothing outside bootstrap (`@main` app
-/// entry + the background-session `UIApplicationDelegate`) may touch `DependencyContainer.shared`;
+/// the fully-wired `AppState` via `makeAppState()`. Nothing outside bootstrap (the app entry points
+/// `MLBrowser` and the headless `MLBrowserHeadless`, plus the background-session
+/// `UIApplicationDelegate`) may touch `DependencyContainer.shared`;
 /// in particular Views never do — they read what they need from `AppState` / the environment.
 @MainActor
 class DependencyContainer {
@@ -107,15 +108,69 @@ class DependencyContainer {
     /// SwiftUI previews). All of these would otherwise take the real path and touch
     /// `Clerk.shared`, which traps (SIGILL) when Clerk was never configured. Release builds
     /// always use the real provider (the mock is `#if DEBUG`, so it can never ship).
+    ///
+    /// One exception, UI tests only: a launch that sets `UITestLaunchConfiguration.usesRealAuth`
+    /// gets the real provider (AIA-0984), or a trap — see ``authProviderSelection(isRunningUITests:isRunningUnderAnyTests:realAuthRequested:publishableKey:environment:)``.
     let usesMockAuth: Bool = {
         #if DEBUG
-        return AppEnvironment.isRunningUITests
-            || AppEnvironment.isRunningUnderAnyTests
-            || ClerkAuthProvider.publishableKey.hasPrefix("pk_") == false
+        // The *configured* backend and its key, deliberately, not `BackendEnvironment.current`:
+        // this runs while the container is built, before any `switch(to:)` can have set the
+        // override, so `configured` is the environment in force — read without the main actor.
+        let selection = DependencyContainer.authProviderSelection(
+            isRunningUITests: AppEnvironment.isRunningUITests,
+            isRunningUnderAnyTests: AppEnvironment.isRunningUnderAnyTests,
+            realAuthRequested: UITestLaunchConfiguration.requestsRealAuth,
+            publishableKey: ClerkAuthProvider.publishableKey(for: BackendEnvironment.configured),
+            environment: BackendEnvironment.configured
+        )
+        switch selection {
+        case .mock: return true
+        case .real: return false
+        case .refused(let reason): fatalError(reason)
+        }
         #else
         return false
         #endif
     }()
+
+    #if DEBUG
+    /// Which auth provider a DEBUG launch uses. `refused` is a misconfigured UI test, which the
+    /// caller traps on rather than quietly running it on the mock.
+    enum AuthProviderSelection: Equatable {
+        case mock
+        case real
+        case refused(String)
+    }
+
+    /// The decision behind ``usesMockAuth``, pure so it can be tested without a launch.
+    ///
+    /// The real-auth request is weighed **first**: evaluated after the keyless-clone rule, a
+    /// missing key would quietly pick the mock and the test would pass on the wrong provider. A
+    /// request outside a UI test is ignored (``UITestLaunchConfiguration/requestsRealAuth`` is
+    /// already false there). The development-only rule matches headless mode's: automation
+    /// signs in with `+clerk_test` addresses, which exist on the development instance only.
+    nonisolated static func authProviderSelection(
+        isRunningUITests: Bool,
+        isRunningUnderAnyTests: Bool,
+        realAuthRequested: Bool,
+        publishableKey: String,
+        environment: BackendEnvironment
+    ) -> AuthProviderSelection {
+        if isRunningUITests && realAuthRequested {
+            guard publishableKey.hasPrefix("pk_") else {
+                return .refused("UI test requested real auth (usesRealAuth), but this build has no Clerk publishable key. Add it to Secrets.xcconfig.")
+            }
+            guard environment == .development else {
+                return .refused("UI test requested real auth (usesRealAuth), but this build points at the \(environment.rawValue) backend. Real auth in a UI test is development only.")
+            }
+            return .real
+        }
+        if isRunningUITests || isRunningUnderAnyTests || publishableKey.hasPrefix("pk_") == false {
+            return .mock
+        }
+        return .real
+    }
+    #endif
 
     lazy var authProvider: AuthProviding = {
         #if DEBUG
@@ -130,10 +185,21 @@ class DependencyContainer {
 
     /// Whether the subscription layer uses the in-memory mock instead of StoreKit.
     /// DEBUG-only and gated on test runs, mirroring `usesMockAuth`: UI tests and unit
-    /// tests must never touch StoreKit / the App Store. Release builds always use the
-    /// real provider (the mock is `#if DEBUG`, so it can never ship).
+    /// tests must never touch StoreKit / the App Store. Headless mode opts in per launch
+    /// with `-mockSubscription` (AIA-0970). Release builds always use the real provider (the
+    /// mock is `#if DEBUG`, so it can never ship).
     let usesMockSubscription: Bool = {
         #if DEBUG
+        #if AIA_BACKEND_ENV_development
+        // Headless mode (AIA-0970): real StoreKit is the default. It reaches the sandbox and reads as not
+        // subscribed, and a subscribed install would need a real sandbox purchase (AIA-0976). A
+        // manual launch can still opt into the mock with `-mockSubscription`, which the handshake
+        // echoes; no committed scenario may. Read only in headless mode (AIA-0991): a UI launch never
+        // parses the headless options, so a stale one cannot stop it.
+        if AppEnvironment.isHeadlessMode, HeadlessLaunchOptions.current.mockSubscription != nil {
+            return true
+        }
+        #endif
         return AppEnvironment.isRunningUITests
             || AppEnvironment.isRunningUnderAnyTests
         #else
@@ -171,12 +237,16 @@ class DependencyContainer {
     /// The durable half of the free-access anchor.
     ///
     /// Tests and previews get the ephemeral store, for a reason specific to this feature: the
-    /// Keychain item deliberately outlives app deletion *and* `simctl erase`, while `Settings.init()`
-    /// wipes the UI-test defaults suite on every launch. A UI test that granted a window would
-    /// otherwise leave behind a durable anchor no later run could clear, permanently poisoning every
-    /// "fresh install" path on that simulator. `#if DEBUG` like `authProvider`'s mock: the markers
-    /// that select it are launch-controlled, so keeping the type out of shipping binaries is what
-    /// actually guarantees a Release build reaches the Keychain.
+    /// Keychain item deliberately outlives app deletion, while `Settings.init()` wipes the UI-test
+    /// defaults suite on every launch and test runs reinstall rather than erase. A UI test that
+    /// granted a window would otherwise leave behind a durable anchor no later run could clear,
+    /// permanently poisoning every "fresh install" path on that simulator. `#if DEBUG` like
+    /// `authProvider`'s mock: the markers that select it are launch-controlled, so keeping the type
+    /// out of shipping binaries is what actually guarantees a Release build reaches the Keychain.
+    ///
+    /// Headless mode uses the Keychain (AIA-0976). Its fresh installs erase the device, and
+    /// `simctl erase` clears the item (measured on the iOS 27.0 simulator); the launcher also resets
+    /// the device's Keychain in case another runtime keeps it.
     lazy var freeAccessDurableStore: FreeAccessAnchorDurableStore = {
         #if DEBUG
         if AppEnvironment.isRunningUITests
@@ -222,6 +292,17 @@ class DependencyContainer {
     /// drop `featureFlagOverrides` on the floor — the overrides would appear to work while
     /// the app answered from the network.
     lazy var featureFlagProvider: FeatureFlagProviding = {
+        #if DEBUG && AIA_BACKEND_ENV_development
+        // Headless flag pins (AIA-0970), layered over the live provider. Upstream of
+        // `FeatureFlagsState`, so the launch mirror records pinned values too. Read only in headless
+        // mode (AIA-0991): a stale `-headlessFlag` on a UI launch is never parsed.
+        if AppEnvironment.isHeadlessMode {
+            let pins = HeadlessLaunchOptions.current.flagOverrides
+            if pins.isEmpty == false {
+                return OverridingFeatureFlagProvider(base: Self.makeLiveFeatureFlagProvider(), overrides: pins)
+            }
+        }
+        #endif
         if AppEnvironment.isRunningUITests
             || AppEnvironment.isRunningUnderAnyTests
             || AppEnvironment.isRunningInPreviews {
@@ -230,9 +311,15 @@ class DependencyContainer {
                 appMessagesJSON: UITestLaunchConfiguration.fromEnvironment?.appMessagesJSON ?? ""
             )
         }
-        return ConfigCatFeatureFlagProvider(sdkKey: ConfigCatFeatureFlagProvider.sdkKeyFromInfoPlist())
-            ?? StaticFeatureFlagProvider()
+        return Self.makeLiveFeatureFlagProvider()
     }()
+
+    /// ConfigCat, or the compiled defaults when there is no SDK key. One definition for the app and
+    /// headless mode's pinned provider, so neither can drift from the other.
+    private static func makeLiveFeatureFlagProvider() -> FeatureFlagProviding {
+        ConfigCatFeatureFlagProvider(sdkKey: ConfigCatFeatureFlagProvider.sdkKeyFromInfoPlist())
+            ?? StaticFeatureFlagProvider()
+    }
 
     /// Scenario flag overrides from the UI-test launch configuration (AIA-0350). Empty for
     /// unit tests and for UI tests that do not vary a flag, leaving every compiled default.
@@ -542,15 +629,41 @@ class DependencyContainer {
 	// MARK: - Initialization
 
     private init() {
-		self.crashReporter = Self.crashReporterFactory()
+		let usesRealCrashReporter = Self.usesRealCrashReporter(
+			isTestOrDebug: AppEnvironment.isRunningUnderAnyTests || AppEnvironment.isDebugConfiguration,
+			requiresRealCrashReporter: AppEnvironment.requiresRealCrashReporter,
+			forcesNoOp: Self.forcesNoOpCrashReporter
+		)
+		self.usesRealCrashReporter = usesRealCrashReporter
+		self.crashReporter = Self.crashReporterFactory(shouldUseRealReporter: usesRealCrashReporter)
 	}
-	
-	private static func crashReporterFactory() -> CrashReportingService {
+
+	/// Whether `crashReporter` is the real one, which sends events. Headless mode reports it in its
+	/// handshake (AIA-0991), because that is what decides whether an automation run reaches Sentry.
+	let usesRealCrashReporter: Bool
+
+	/// Headless mode never sends crash reports, even with a `SENTRY_TEST_*` variable set (AIA-0991):
+	/// Sentry's alert rule files a GitHub issue for the first error-level event of any environment,
+	/// and scenario runs provoke failures on purpose.
+	private static var forcesNoOpCrashReporter: Bool {
+		#if DEBUG
+		return AppEnvironment.isHeadlessMode
+		#else
+		return false
+		#endif
+	}
+
+	/// The reporter decision, pure so it can be tested without a launch: Release, or a test/Debug
+	/// process that asks for Sentry with a `SENTRY_TEST_*` variable, gets the real reporter, unless
+	/// `forcesNoOp`.
+	nonisolated static func usesRealCrashReporter(isTestOrDebug: Bool, requiresRealCrashReporter: Bool, forcesNoOp: Bool) -> Bool {
+		guard forcesNoOp == false else { return false }
+		return isTestOrDebug == false || requiresRealCrashReporter
+	}
+
+	private static func crashReporterFactory(shouldUseRealReporter: Bool) -> CrashReportingService {
 		// Create crash reporter FIRST - this must happen before anything else
 		let reportingRate: Float = AppEnvironment.isAppStoreDistribution ? 0.2 : 1.0
-		let isTestOrDebug = AppEnvironment.isRunningUnderAnyTests || AppEnvironment.isDebugConfiguration
-		
-		let shouldUseRealReporter = !isTestOrDebug || AppEnvironment.requiresRealCrashReporter
 		let reporter: CrashReportingService = shouldUseRealReporter
 			? SentryCrashReportingService(tracesSampleRate: reportingRate)
 			: NoOpCrashReportingService()

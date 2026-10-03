@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "name": "error-contract",
+  "installations": {"a": {"launch": {"flags": {"isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false}, "stage": ["ios/HeadlessScenarios/Fixtures/not-an-image.png"]}}},
+  "steps": [
+    {"name": "a fresh install launches into the free-access Welcome screen", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "welcome"}, {"equals": {"pointer": "/state/offer", "value": "freeAccess"}}, {"equals": {"pointer": "/context/backendEnvironment", "value": "development"}}]},
+    {"name": "continue past the free-access Welcome screen", "perform": {"action": "continue"}, "expect": [{"route": "tour"}]},
+    {"name": "skip the tour", "perform": {"action": "skip"}, "expect": [{"route": "consent"}]},
+    {"name": "decline analytics", "perform": {"action": "deny"}, "expect": [{"route": "home"}, {"equals": {"pointer": "/context/analytics/enabled", "value": false}}]},
+    {"name": "unknownAction: an action the screen does not offer", "perform": {"action": "fly"}, "expect": [{"error": "unknownAction"}, {"route": "home"}]},
+    {"name": "unreachable: a screen home does not lead to", "goto": "findings", "expect": [{"error": "unreachable"}, {"route": "home"}]},
+    {"name": "unknownCondition: a condition the app does not know", "wait": {"condition": "no-such-condition", "timeout": 5}, "expect": [{"error": "unknownCondition"}, {"route": "home"}]},
+    {"name": "timeout: a route that never arrives", "wait": {"condition": "route", "arguments": {"route": "findings"}, "timeout": 1}, "expect": [{"error": "timeout"}, {"route": "home"}]},
+    {"name": "actionFailed: detection on a staged file that is not an image", "perform": {"action": "detect-image", "arguments": {"image": "not-an-image.png"}}, "expect": [{"error": "actionFailed"}, {"matches": {"pointer": "/error/message", "regex": "undecodableImage"}}, {"route": "home"}]},
+    {"name": "invalidArgument: a staged-image name this launch did not stage", "perform": {"action": "detect-image", "arguments": {"image": "missing.png"}}, "expect": [{"error": "invalidArgument"}, {"route": "home"}]},
+    {"name": "the app is healthy: the menu opens", "goto": "drawer", "capture": {"model": "/state/models/0/id"}, "expect": [{"route": "drawer"}, {"exists": "/state/models/0/id"}]},
+    {"name": "invalidArgument: a required argument missing", "perform": {"action": "enable"}, "expect": [{"error": "invalidArgument"}, {"route": "drawer"}]},
+    {"name": "invalidArgument: an id that is not a model", "perform": {"action": "enable", "arguments": {"id": "not-a-model"}}, "expect": [{"error": "invalidArgument"}, {"route": "drawer"}]},
+    {"name": "and a real action still works", "perform": {"action": "enable", "arguments": {"id": "${model}"}}, "expect": [{"equals": {"pointer": "/result/loaded", "value": true}}]},
+    {"name": "and closes", "perform": {"action": "close"}, "expect": [{"route": "home"}]}
+  ]
+}

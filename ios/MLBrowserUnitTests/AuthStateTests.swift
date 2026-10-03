@@ -324,6 +324,302 @@ final class AuthStateTests: XCTestCase {
 		XCTAssertEqual(sut.accountIdentifier, Self.accountB)
 	}
 
+	// MARK: - A refresh that joins a pass in flight (AIA-0987)
+
+	/// A signed-out app whose provider has just signed in to A, the moment Clerk's sheet completes a
+	/// sign-in: the gate still says `.signedOut`, and only a new pass can change that.
+	private func signedOutAppThatJustSignedIn() async -> (SuspendableAuthProvider, AuthState) {
+		let provider = SuspendableAuthProvider(accountIdentifier: nil)
+		provider.isSignedIn = false
+		let sut = AuthState(provider: provider)
+		await sut.refresh()
+		XCTAssertEqual(sut.gate, .signedOut)
+		provider.isSignedIn = true
+		provider.accountIdentifier = Self.accountA
+		return (provider, sut)
+	}
+
+	/// Starts the refresh that owns the loop (the Clerk session watcher's, in the reported bug) and
+	/// returns once its first validation is suspended.
+	private func startSuspendedPass(
+		_ sut: AuthState,
+		_ provider: SuspendableAuthProvider
+	) async -> (Task<Void, Never>, XCTestExpectation) {
+		let suspended = expectation(description: "the owning pass is validating")
+		provider.suspendNextValidation = suspended
+		let finished = expectation(description: "the owning refresh returned")
+		let task = Task {
+			await sut.refresh()
+			finished.fulfill()
+		}
+		await fulfillment(of: [suspended], timeout: 2)
+		return (task, finished)
+	}
+
+	/// Starts a refresh the way `SignInSheet`'s `onDismiss` does, records the gate it reads once the
+	/// call returns, and returns only once the call has joined the pass in flight. The waiter count
+	/// is the handshake: scheduler order alone would not prove the caller joined before the test
+	/// moves the pass on. Code that returns without waiting never registers, so this fails there.
+	private func startJoiner(
+		_ sut: AuthState,
+		_ label: String
+	) async -> (Task<Void, Never>, XCTestExpectation, RefreshOutcome) {
+		let outcome = RefreshOutcome()
+		let returned = expectation(description: "\(label) returned")
+		let waitersBefore = sut.refreshWaiterCount
+		let task = Task {
+			await sut.refresh()
+			outcome.gate = sut.gate
+			returned.fulfill()
+		}
+		for _ in 0..<100 where sut.refreshWaiterCount == waitersBefore {
+			await Task.yield()
+		}
+		XCTAssertEqual(sut.refreshWaiterCount, waitersBefore + 1, "\(label) did not wait for the pass in flight")
+		return (task, returned, outcome)
+	}
+
+	/// Suspends the next validation, lets the current one finish (or throw), and returns once the
+	/// next one is suspended.
+	private func advanceToNextSuspendedPass(_ provider: SuspendableAuthProvider, _ label: String) async {
+		let next = expectation(description: label)
+		provider.suspendNextValidation = next
+		provider.resumeValidation()
+		await fulfillment(of: [next], timeout: 2)
+	}
+
+	/// Ends a test without ever hanging on a stranded continuation: waits for the given
+	/// completions with a timeout and cancels every task. A failed wait fails the test instead of
+	/// blocking it.
+	private func finish(_ tasks: [Task<Void, Never>], waitingFor completions: [XCTestExpectation]) async {
+		await fulfillment(of: completions, timeout: 2)
+		tasks.forEach { $0.cancel() }
+	}
+
+	/// The reported bug (#987). The Clerk session watcher's refresh is validating when Clerk's sheet
+	/// closes; the sign-in sheet's own refresh used to return at once, read `.signedOut`, and leave
+	/// the sheet open over a completed sign-in. It must return only after a pass of its own.
+	func testRefresh_CalledWhileAPassIsInFlight_ReturnsOnlyAfterAPassThatStartedAfterIt() async {
+		let (provider, sut) = await signedOutAppThatJustSignedIn()
+		let (watcher, watcherFinished) = await startSuspendedPass(sut, provider)
+		let (sheet, sheetReturned, outcome) = await startJoiner(sut, "the sheet's refresh")
+
+		await advanceToNextSuspendedPass(provider, "the pass the sheet asked for is validating")
+		XCTAssertEqual(sut.gate, .ready, "the watcher's pass settled the gate")
+		XCTAssertNil(outcome.gate, "the sheet's refresh returned before the pass it asked for finished")
+
+		provider.resumeValidation()
+		await finish([watcher, sheet], waitingFor: [sheetReturned, watcherFinished])
+		XCTAssertEqual(outcome.gate, .ready)
+		XCTAssertEqual(provider.validationCount, 2)
+	}
+
+	/// Triggers that keep arriving keep the loop running, and must not postpone a caller whose own
+	/// pass has finished: it returns after exactly one more pass, while the loop runs on.
+	func testRefresh_TriggersKeepArriving_AnEarlyCallerReturnsAfterItsOwnPass() async {
+		let (provider, sut) = await signedOutAppThatJustSignedIn()
+		let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+		let (early, earlyReturned, earlyOutcome) = await startJoiner(sut, "the early caller")
+		await advanceToNextSuspendedPass(provider, "pass 2, the early caller's, is validating")
+
+		// Another trigger arrives while pass 2 runs, so the loop has to run a third pass.
+		let (later, laterReturned, _) = await startJoiner(sut, "the later caller")
+		await advanceToNextSuspendedPass(provider, "pass 3 is validating")
+		await fulfillment(of: [earlyReturned], timeout: 2)
+		XCTAssertEqual(earlyOutcome.gate, .ready)
+		XCTAssertEqual(sut.refreshWaiterCount, 1, "only the later caller is still waiting")
+
+		provider.resumeValidation()
+		await finish([owner, early, later], waitingFor: [laterReturned, ownerFinished])
+		XCTAssertEqual(provider.validationCount, 3)
+	}
+
+	/// A pass that validated one account while another signed in publishes nothing and queues a
+	/// pass for the new account. It answers nobody: a caller released by it would read the gate the
+	/// switch left behind, not the new account's.
+	func testRefresh_AccountSwitchesDuringTheCallersPass_WaitsForThePassThatValidatesTheNewAccount() async {
+		let (provider, sut) = await signedOutAppThatJustSignedIn()
+		let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+		let (caller, callerReturned, outcome) = await startJoiner(sut, "the caller")
+		await advanceToNextSuspendedPass(provider, "pass 2, the caller's, is validating A")
+
+		// B signs in while pass 2 validates A: pass 2 settles nothing and queues pass 3 for B.
+		provider.accountIdentifier = Self.accountB
+		await advanceToNextSuspendedPass(provider, "pass 3 is validating B")
+		XCTAssertNil(outcome.gate, "the caller was released by a pass that published nothing")
+		XCTAssertEqual(sut.refreshWaiterCount, 1)
+
+		provider.resumeValidation()
+		await finish([owner, caller], waitingFor: [callerReturned, ownerFinished])
+		XCTAssertEqual(outcome.gate, .ready)
+		XCTAssertEqual(sut.accountIdentifier, Self.accountB)
+	}
+
+	/// A caller waiting on a pass must never be stranded — a stranded caller is a sign-in sheet that
+	/// never closes. Cancelling the waiting task releases it at once, while the pass runs on.
+	func testRefresh_WaitingCallerIsCancelled_ReturnsWithoutWaitingForThePass() async {
+		let (provider, sut) = await signedOutAppThatJustSignedIn()
+		let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+		let (waiter, waiterReturned, outcome) = await startJoiner(sut, "the cancelled caller")
+
+		waiter.cancel()
+		await fulfillment(of: [waiterReturned], timeout: 2)
+		XCTAssertEqual(outcome.gate, .signedOut, "released while the pass was still validating")
+		XCTAssertEqual(sut.refreshWaiterCount, 0)
+
+		// The trigger it left behind still runs.
+		provider.resumeValidation()
+		await finish([owner], waitingFor: [ownerFinished])
+		XCTAssertEqual(sut.gate, .ready)
+		XCTAssertEqual(provider.validationCount, 2)
+	}
+
+	/// The pass a caller waits on can fail. Every failure ends the pass, so the caller is released
+	/// and reads what the pass published.
+	func testRefresh_ThePassACallerWaitsOnFails_ReleasesTheCaller() async {
+		let failures: [(Error, AuthGate)] = [
+			(AuthValidationError.offline, .offline),
+			(AuthValidationError.noValidSession, .signedOut)
+		]
+		for (error, expectedGate) in failures {
+			let (provider, sut) = await signedOutAppThatJustSignedIn()
+			let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+			let (waiter, waiterReturned, outcome) = await startJoiner(sut, "the caller (\(error))")
+			await advanceToNextSuspendedPass(provider, "the caller's pass is validating (\(error))")
+			XCTAssertEqual(sut.gate, .ready, "the first pass settled; only the caller's pass fails")
+
+			provider.resumeValidation(throwing: error)
+			await finish([owner, waiter], waitingFor: [waiterReturned, ownerFinished])
+			XCTAssertEqual(outcome.gate, expectedGate, "after \(error)")
+		}
+	}
+
+	/// The sign-in sheet's cancel path, with a pass in flight: the account signs out mid-validation,
+	/// and the caller returns `.signedOut` rather than hanging. Starts from a validated account, so
+	/// `.signedOut` can only come from a pass that ran after the sign-out.
+	func testRefresh_SignOutDuringThePassACallerJoined_ReturnsSignedOut() async {
+		let provider = SuspendableAuthProvider(accountIdentifier: Self.accountA)
+		let sut = AuthState(provider: provider)
+		await sut.start()
+		XCTAssertEqual(sut.gate, .ready)
+
+		let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+		let (waiter, waiterReturned, outcome) = await startJoiner(sut, "the caller")
+		await advanceToNextSuspendedPass(provider, "the caller's pass is validating")
+		XCTAssertNil(outcome.gate)
+
+		await provider.signOut()
+		provider.resumeValidation()
+		await finish([owner, waiter], waitingFor: [waiterReturned, ownerFinished])
+		XCTAssertEqual(outcome.gate, .signedOut)
+	}
+
+	// MARK: - A cancelled pass (AIA-0987)
+
+	/// A cancelled pass has no result, and "no result" is not "signed out": the gate and the
+	/// account stay as they were. Both ways a cancelled round trip surfaces are covered — the raw
+	/// cancellation, and `.offline`, which is how `ClerkAuthProvider` reports one.
+	func testRefresh_ThePassIsCancelled_LeavesTheGateAndTheAccountUnchanged() async {
+		let cancellations: [Error] = [CancellationError(), AuthValidationError.offline]
+		for thrown in cancellations {
+			let provider = SuspendableAuthProvider(accountIdentifier: Self.accountA)
+			let sut = AuthState(provider: provider)
+			await sut.start()
+			XCTAssertEqual(sut.gate, .ready)
+
+			let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+			owner.cancel()
+			provider.resumeValidation(throwing: thrown)
+			await finish([owner], waitingFor: [ownerFinished])
+
+			XCTAssertEqual(sut.gate, .ready, "a cancelled pass that threw \(thrown) changed the gate")
+			XCTAssertEqual(sut.accountIdentifier, Self.accountA, "after \(thrown)")
+			XCTAssertEqual(sut.effectiveContext, .validated(Self.accountA), "after \(thrown)")
+		}
+	}
+
+	/// The fix must not work by never signing out: Clerk answering "no session" is a real
+	/// sign-out, whether or not the pass's task was cancelled while the answer came back.
+	func testRefresh_NoSessionAnswer_SignsOutWhetherOrNotThePassWasCancelled() async {
+		for cancelsThePass in [false, true] {
+			let provider = SuspendableAuthProvider(accountIdentifier: Self.accountA)
+			let sut = AuthState(provider: provider)
+			await sut.start()
+			XCTAssertEqual(sut.gate, .ready)
+
+			let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+			if cancelsThePass { owner.cancel() }
+			provider.resumeValidation(throwing: AuthValidationError.noValidSession)
+			await finish([owner], waitingFor: [ownerFinished])
+
+			XCTAssertEqual(sut.gate, .signedOut, "cancelled: \(cancelsThePass)")
+			XCTAssertNil(sut.accountIdentifier, "cancelled: \(cancelsThePass)")
+		}
+	}
+
+	/// A caller waiting on the loop of a cancelled task is not stranded, and not answered by the
+	/// cancelled pass either: a fresh task runs the pass it asked for, and it reads that result.
+	func testRefresh_CancelledPassWithACallerWaiting_AFreshPassAnswersTheCaller() async {
+		let (provider, sut) = await signedOutAppThatJustSignedIn()
+		let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+		let (caller, callerReturned, outcome) = await startJoiner(sut, "the caller")
+
+		owner.cancel()
+		let handedOff = expectation(description: "the caller's pass runs in a fresh task")
+		provider.suspendNextValidation = handedOff
+		provider.resumeValidation(throwing: CancellationError())
+		await fulfillment(of: [handedOff, ownerFinished], timeout: 2)
+		XCTAssertNil(outcome.gate, "the caller was answered by the cancelled pass")
+		XCTAssertEqual(sut.gate, .signedOut, "the cancelled pass changed nothing")
+
+		provider.resumeValidation()
+		await finish([caller], waitingFor: [callerReturned])
+		XCTAssertEqual(outcome.gate, .ready)
+		XCTAssertEqual(provider.validationCount, 2)
+	}
+
+	/// A pass validating a new account stops publishing the outgoing one before it suspends. If it
+	/// is then cancelled, the outgoing account must not come back (it is no longer signed in), and
+	/// the incoming one is still owed a validation: a fresh task runs it, with nobody asking.
+	func testRefresh_CancelledPassThatStoppedPublishingAnAccount_AFreshPassValidatesTheNewOne() async {
+		let provider = SuspendableAuthProvider(accountIdentifier: Self.accountA)
+		let sut = AuthState(provider: provider)
+		await sut.start()
+		XCTAssertEqual(sut.accountIdentifier, Self.accountA)
+
+		provider.accountIdentifier = Self.accountB
+		let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+		XCTAssertNil(sut.accountIdentifier, "A stops being published before B's validation")
+
+		owner.cancel()
+		let handedOff = expectation(description: "B's validation runs in a fresh task")
+		provider.suspendNextValidation = handedOff
+		provider.resumeValidation(throwing: CancellationError())
+		await fulfillment(of: [handedOff, ownerFinished], timeout: 2)
+		XCTAssertNil(sut.accountIdentifier, "the cancelled pass restored an account that signed out")
+
+		// The fresh task has no handle to await; its published result is the signal.
+		let accountB = Self.accountB
+		let publishedB = expectation(description: "B is published")
+		let observation = sut.$accountIdentifier.sink { if $0 == accountB { publishedB.fulfill() } }
+		provider.resumeValidation()
+		await fulfillment(of: [publishedB], timeout: 2)
+		observation.cancel()
+		XCTAssertEqual(sut.gate, .ready)
+	}
+
+	/// A `CancellationError` from a pass whose task nobody cancelled is a failure, not a
+	/// cancellation. Treated as a cancellation it would be handed to a fresh task that fails the
+	/// same way, for ever; the refresh must end after that one pass.
+	func testRefresh_CancellationErrorFromAnUncancelledPass_IsNotHandedOn() async {
+		let (provider, sut) = await signedOutAppThatJustSignedIn()
+		let (owner, ownerFinished) = await startSuspendedPass(sut, provider)
+		provider.resumeValidation(throwing: CancellationError())
+		await finish([owner], waitingFor: [ownerFinished])
+		for _ in 0..<20 { await Task.yield() }
+		XCTAssertEqual(provider.validationCount, 1, "the failed pass was handed to another task")
+	}
+
 	// MARK: - Reconnecting (AIA-0757)
 
 	/// A delay long enough that the post-reconnect retry can never fire inside a test. The retry is
@@ -519,6 +815,95 @@ final class AuthStateTests: XCTestCase {
 		XCTAssertFalse(detector.isReconnection(isSatisfied: false))
 		XCTAssertTrue(detector.isReconnection(isSatisfied: true))
 	}
+
+	// MARK: - Programmatic sign-in (AIA-0974)
+
+	func testSignIn_ThenRefresh_LandsReadyWithTheAccount() async throws {
+		let provider = CountingAuthProvider(outcome: .signedOut, accountID: Self.accountA)
+		let sut = AuthState(provider: provider)
+		await sut.start()
+		XCTAssertEqual(sut.gate, .signedOut)
+
+		try await sut.signIn(emailAddress: "a+clerk_test@example.com", code: "424242")
+
+		XCTAssertEqual(provider.signInCount, 1)
+		XCTAssertEqual(sut.gate, .ready)
+		XCTAssertEqual(sut.accountIdentifier, Self.accountA)
+		XCTAssertEqual(sut.effectiveContext, .validated(Self.accountA))
+		XCTAssertTrue(sut.isProviderSignedIn)
+	}
+
+	func testSignIn_ProviderFailure_RethrowsAndStaysSignedOut() async {
+		let provider = CountingAuthProvider(outcome: .signedOut, accountID: Self.accountA)
+		provider.signInError = ProgrammaticSignInError.incomplete
+		let sut = AuthState(provider: provider)
+		await sut.start()
+
+		do {
+			try await sut.signIn(emailAddress: "a+clerk_test@example.com", code: "000000")
+			XCTFail("a failed sign-in must throw")
+		} catch {
+			XCTAssertEqual(error as? ProgrammaticSignInError, .incomplete)
+		}
+		XCTAssertEqual(sut.gate, .signedOut)
+		XCTAssertNil(sut.accountIdentifier)
+		XCTAssertFalse(sut.isProviderSignedIn)
+	}
+
+	func testSignIn_TheMock_RefusesRatherThanPretending() async {
+		let sut = AuthState(provider: MockAuthProvider(outcome: .signedOut))
+		await sut.start()
+
+		do {
+			try await sut.signIn(emailAddress: "a+clerk_test@example.com", code: "424242")
+			XCTFail("the mock must not sign in")
+		} catch {
+			XCTAssertEqual(error as? ProgrammaticSignInError, .unsupported)
+		}
+		XCTAssertEqual(sut.gate, .signedOut)
+	}
+
+	/// A plain address is refused before Clerk is touched. Clerk is never configured in a unit-test
+	/// host, and reaching `Clerk.shared` there traps — so this test finishing at all is the proof that
+	/// the check runs before any network call, not just before a successful one.
+	func testClerkSignIn_PlainAddress_IsRefusedBeforeAnyClerkCall() async {
+		let provider = ClerkAuthProvider()
+		for address in ["jane@example.com", "jane+clerk_test_x@example.com", "jane+clerk_test@gmail.com"] {
+			do {
+				try await provider.signIn(emailAddress: address, code: "424242")
+				XCTFail("\(address) must be refused")
+			} catch {
+				XCTAssertEqual(error as? ProgrammaticSignInError, .notATestAddress, address)
+			}
+		}
+	}
+
+	func testClerkTestAddress_AcceptsOnlyTheDocumentedSubaddress() {
+		for valid in ["jane+clerk_test@example.com", "aia-headless+clerk_test@example.com", "a.b+clerk_test@example.com"] {
+			XCTAssertTrue(ClerkTestAddress.isValid(valid), valid)
+		}
+		for invalid in [
+			"jane@example.com",
+			"jane+clerk_test_extra@example.com",
+			"jane+clerk_testx@example.com",
+			"+clerk_test@example.com",
+			"jane+clerk_test@example",
+			"jane+clerk_test@example.",
+			"jane+clerk_test@.com",
+			// Real domains: with test mode off, a real inbox would receive the code.
+			"jane+clerk_test@gmail.com",
+			"jane+clerk_test@sub.example.com",
+			"jane+clerk_test@example.com.evil.com",
+			"jane+clerk_test@EXAMPLE.COM",
+			"jane+clerk_test@@example.com",
+			"jane+clerk_test@example.com@evil.com",
+			"jane +clerk_test@example.com",
+			"jane+CLERK_TEST@example.com",
+			""
+		] {
+			XCTAssertFalse(ClerkTestAddress.isValid(invalid), invalid)
+		}
+	}
 }
 
 /// A ``ConnectivityMonitoring`` the test drives by hand. The production monitor cannot be asked for
@@ -572,6 +957,16 @@ private final class CountingAuthProvider: AuthProviding {
 	func sessionToken() async throws -> String? { isSignedIn ? "counting.session.token" : nil }
 	func signOut() async { outcome = .signedOut }
 	func deleteAccount() async throws { outcome = .signedOut }
+
+	/// Set to make the next `signIn` fail the way a rejected code does.
+	var signInError: Error?
+	private(set) var signInCount = 0
+
+	func signIn(emailAddress: String, code: String) async throws {
+		signInCount += 1
+		if let signInError { throw signInError }
+		outcome = .ready
+	}
 }
 
 /// An ``AuthProviding`` whose `validateSession()` can be suspended and resumed by the test, so the
@@ -590,7 +985,7 @@ private final class SuspendableAuthProvider: AuthProviding {
 	/// How many round-trips were actually made — the evidence that B was validated for itself.
 	private(set) var validationCount = 0
 
-	private var suspended: CheckedContinuation<Void, Never>?
+	private var suspended: CheckedContinuation<Void, Error>?
 
 	init(accountIdentifier: String?) {
 		self.accountIdentifier = accountIdentifier
@@ -602,7 +997,7 @@ private final class SuspendableAuthProvider: AuthProviding {
 		validationCount += 1
 		guard let armed = suspendNextValidation else { return }
 		suspendNextValidation = nil
-		await withCheckedContinuation { continuation in
+		try await withCheckedThrowingContinuation { continuation in
 			suspended = continuation
 			armed.fulfill()
 		}
@@ -610,11 +1005,15 @@ private final class SuspendableAuthProvider: AuthProviding {
 
 	func sessionToken() async throws -> String? { isSignedIn ? "suspendable.session.token" : nil }
 
-	/// Let the currently suspended `validateSession()` return successfully.
-	func resumeValidation() {
+	/// Let the currently suspended `validateSession()` return successfully, or throw `error`.
+	func resumeValidation(throwing error: Error? = nil) {
 		let continuation = suspended
 		suspended = nil
-		continuation?.resume()
+		if let error {
+			continuation?.resume(throwing: error)
+		} else {
+			continuation?.resume()
+		}
 	}
 
 	func signOut() async {
@@ -626,6 +1025,9 @@ private final class SuspendableAuthProvider: AuthProviding {
 		isSignedIn = false
 		accountIdentifier = nil
 	}
+	func signIn(emailAddress: String, code: String) async throws {
+		throw ProgrammaticSignInError.unsupported
+	}
 }
 
 /// Collects published contexts from a Combine sink. A reference box rather than a captured local
@@ -633,4 +1035,11 @@ private final class SuspendableAuthProvider: AuthProviding {
 /// from inside it.
 private final class ContextLog: @unchecked Sendable {
 	var values: [EffectiveAuthContext] = []
+}
+
+/// What a refresh caller read once its call returned. A `@MainActor` reference box rather than a
+/// captured local `var`, which Swift 6 concurrency checking rejects inside a `Task`.
+@MainActor
+private final class RefreshOutcome {
+	var gate: AuthGate?
 }

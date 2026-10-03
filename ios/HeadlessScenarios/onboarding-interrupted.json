@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "name": "onboarding-interrupted",
+  "installations": {"a": {"launch": {"flags": {"isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false}}}, "b": {"launch": {"flags": {"isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false}}}},
+  "steps": [
+    {"on": "a", "name": "a fresh install launches into the free-access Welcome screen", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "welcome"}, {"equals": {"pointer": "/state/offer", "value": "freeAccess"}}, {"equals": {"pointer": "/context/backendEnvironment", "value": "development"}}]},
+    {"on": "a", "name": "continue past the free-access Welcome screen", "perform": {"action": "continue"}, "expect": [{"route": "tour"}]},
+    {"on": "a", "name": "skip the tour", "perform": {"action": "skip"}, "expect": [{"route": "consent"}]},
+    {"on": "a", "name": "the consent question is up", "expect": [{"route": "consent"}]},
+    {"on": "a", "name": "quit between the tour and the consent question", "relaunch": true},
+    {"on": "a", "name": "the tour is not repeated; the question comes back", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "consent"}, {"equals": {"pointer": "/context/gate/welcomeDue", "value": false}}]},
+    {"on": "a", "name": "answer it", "perform": {"action": "deny"}, "expect": [{"route": "home"}]},
+    {"on": "b", "name": "b launches into the Welcome screen", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "welcome"}]},
+    {"on": "b", "name": "quit while the Welcome screen is up", "relaunch": true},
+    {"on": "b", "name": "day 0 was marked shown when it went up: no second Welcome, the tour runs", "wait": {"condition": "ready", "timeout": 120}, "expect": [{"route": "tour"}, {"equals": {"pointer": "/context/gate/welcomeDue", "value": false}}]},
+    {"on": "b", "name": "skip the tour", "perform": {"action": "skip"}, "expect": [{"route": "consent"}]},
+    {"on": "b", "name": "the consent question is still asked", "perform": {"action": "deny"}, "expect": [{"route": "home"}]}
+  ]
+}

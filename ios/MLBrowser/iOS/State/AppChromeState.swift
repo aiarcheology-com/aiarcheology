@@ -20,15 +20,33 @@ final class AppChromeState: ObservableObject {
 	/// controller. Chrome → detection is one-directional (detection never references chrome).
 	let detectionState: DetectionSessionState
 
+	/// The drawer's sheets, shared by the drawer view and headless mode (AIA-0984).
+	let drawerPresentation = DrawerPresentation()
+	/// The web screen's save-finding sheet, shared by the web screen and headless mode (AIA-0984).
+	let saveFindingPresentation = SaveFindingPresentation()
+
 	@Published var mode = AppMode.web
-	@Published var presentedSideMenu: Bool = false
+	/// Whether the drawer is open. Every path that closes it — the drawer's own controls through
+	/// ContentView's bridge, a direct write, `togglingSideMenu()` — ends in this property, so this is
+	/// where the drawer's sheets are dismissed. `DrawerContent` unmounts when the drawer closes, which
+	/// used to drop the `@State` those sheets were bound to; the shared model must be reset instead.
+	/// A `didSet` rather than a Combine sink: `@Published` publishes from `willSet`, so a subscriber
+	/// would run before the new value is stored (see `findPickActive`). Dismissing mutates the
+	/// `@Observable` model, not a `@Published` property, so no nested publish can write back.
+	@Published var presentedSideMenu: Bool = false {
+		didSet {
+			if presentedSideMenu == false {
+				drawerPresentation.dismissSheets()
+			}
+		}
+	}
 	@Published var selectedConfigurationId: UUID?
 	@Published var pageToOpen: URL?
-	/// A request to put the findings inventory on screen (AIA-0650). The sheet itself is owned by
-	/// `DrawerContent`, which is only mounted while the drawer is open — so this is a *latch*, set
-	/// alongside ``presentedSideMenu`` and consumed (reset to `false`) by `DrawerContent` when it
-	/// appears. A plain call is impossible: the presenting `@State` lives inside a view that does not
-	/// exist yet at the moment the request is made.
+	/// A request to put the findings inventory on screen (AIA-0650), set alongside
+	/// ``presentedSideMenu`` and consumed (reset to `false`) by `DrawerContent` when it appears. It
+	/// was a *latch* because the presenting flag was `@State` inside a view that did not exist yet
+	/// when the request was made. That flag now lives in ``drawerPresentation`` (AIA-0984), which
+	/// outlives the view; whether the latch is still needed is left to a separate change.
 	@Published var presentsFindings: Bool = false
 	/// Write-only today (set by WebScreen; no reader) — retained as-is, out of scope to remove.
 	@Published var contentInteractionState: ContentInteractionState = .idle

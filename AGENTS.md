@@ -13,6 +13,7 @@ resources, Xcode configuration, and iOS tests. Load references only when relevan
 | Tests, lint, fixtures, and verification | [TESTING.md](specification/TESTING.md) |
 | Setup, tools, secrets, and build caches | [ios/MLBrowser/README.md](ios/MLBrowser/README.md) |
 | Converter or root SwiftPM package | [NATIVE_MODEL_CONVERSION.md](specification/NATIVE_MODEL_CONVERSION.md) |
+| Headless build, HeadlessKit, scenarios | [HEADLESS.md](specification/HEADLESS.md) |
 | Map URL/location capture | [MAP_LOCATION.md](specification/MAP_LOCATION.md) |
 | Findings ownership, backup, deletion, formats | [USER_DATA_PERSISTENCE.md](specification/USER_DATA_PERSISTENCE.md) |
 | Findings backend | [Worker README](cloudflare/findings-worker/README.md) and its provisioning rules |

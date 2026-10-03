@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 15
+	static let currentVersion = 17
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -129,6 +129,35 @@ struct UITestLaunchConfiguration: Codable {
 	/// an empty database and proves nothing. Delivering twice inside one session is also the honest
 	/// shape of the real case: a user re-scanning a printed card while the app is open.
 	var sharedLinkDeliveries: Int?
+
+	#if DEBUG
+	/// Use the real Clerk provider instead of `MockAuthProvider` for this launch (AIA-0984).
+	/// `nil`/`false` keeps the baseline: every UI test runs on the mock.
+	///
+	/// It exists for the headless-parity sign-in flow, which must sign in and out through Clerk's
+	/// own `AuthView` and `UserProfileView` on the **development** instance with a
+	/// `+clerk_test` address — the flow headless mode drives against the same instance. Read
+	/// only by ``requestsRealAuth``; `DependencyContainer.authProviderSelection` traps when the
+	/// build has no `pk_` key or does not point at development, so it never falls back to the mock.
+	/// `#if DEBUG`, like the mock it replaces, so Release neither decodes nor honours it.
+	///
+	/// Removal: delete this field, ``requestsRealAuth``, its input to the selection, and the
+	/// parity sign-in flow that sets it.
+	var usesRealAuth: Bool?
+
+	/// Seed a free-access window that ends this many seconds after launch (AIA-0984). `nil`/absent
+	/// keeps the baseline: no anchor. Must be within `FreeAccessExpirySeed.allowedSeconds`.
+	///
+	/// It exists for the headless-parity flow in which the paywall arrives over an open sheet: the
+	/// window has to run out while the app is in use, through `FreeAccessState`'s own expiry wake-up,
+	/// and ``freeAccessAnchorAgeDays`` can only seed one open for days or already expired. Mutually
+	/// exclusive with that field and with ``freeAccessDay0Unshown`` — the seed writes its own anchor
+	/// with the day-0 screen shown — so setting either alongside it traps.
+	///
+	/// Removal: delete this field, `FreeAccessExpirySeed`, the headless `-headlessFreeAccessEndsIn`
+	/// option, and the parity flow that sets them.
+	var freeAccessEndsInSeconds: Int?
+	#endif
 
 	/// Decoded from the launch environment, or `nil` if absent. Traps on malformed input
 	/// or version mismatch — a UI test must never proceed on a misread configuration.
@@ -250,10 +279,37 @@ struct UITestLaunchConfiguration: Codable {
 			settings.analyticsEnabled = true
 		}
 
+		#if DEBUG
+		if let conflict = freeAccessSeedConflict(in: config) {
+			fatalError("\(environmentKey) \(conflict)")
+		}
+		if let seconds = config.freeAccessEndsInSeconds {
+			// No durable store to consult here: under UI testing it is a per-process
+			// `EphemeralFreeAccessAnchorStore`, empty at this point, and `applyBaseline` has just
+			// removed the fast key.
+			FreeAccessExpirySeed.seedWindowEnding(inSeconds: seconds, fastStore: settings.persistenceStore, durableStore: nil)
+		}
+		#endif
+
 		if let ageDays = config.freeAccessAnchorAgeDays {
 			seedFreeAccessAnchor(ageDays: ageDays, day0Shown: config.freeAccessDay0Unshown != true, in: settings)
 		}
 	}
+
+	#if DEBUG
+	/// Why `config`'s free-access fields cannot all be honoured, or `nil` when they can. The apply
+	/// path traps on a non-`nil` answer; a function so the rule is testable without the trap.
+	static func freeAccessSeedConflict(in config: UITestLaunchConfiguration) -> String? {
+		guard config.freeAccessEndsInSeconds != nil else { return nil }
+		if config.freeAccessAnchorAgeDays != nil {
+			return "freeAccessEndsInSeconds and freeAccessAnchorAgeDays both seed the anchor; set one"
+		}
+		if config.freeAccessDay0Unshown == true {
+			return "freeAccessEndsInSeconds seeds the day-0 screen as shown; freeAccessDay0Unshown cannot apply"
+		}
+		return nil
+	}
+	#endif
 
 	/// Writes a free-access anchor granted `ageDays` ago into the fast store (AIA-0556).
 	///
@@ -282,10 +338,25 @@ struct UITestLaunchConfiguration: Codable {
 			maxObservedDate: frozen.maxObservedDate,
 			day0Shown: day0Shown
 		)
+		writeFreeAccessAnchor(
+			record,
+			to: settings.persistenceStore,
+			orTrap: "\(environmentKey) could not encode the seeded free-access anchor"
+		)
+	}
+
+	/// Writes `record` into `store` under the key and encoding `FreeAccessAnchorService` reads, or
+	/// traps with `message` when it cannot be encoded. The one write both seeds share: the aged seed
+	/// above and `FreeAccessExpirySeed`. Not `#if DEBUG`, because the aged seed is not.
+	static func writeFreeAccessAnchor(
+		_ record: FreeAccessWindow.Record,
+		to store: UserDefaults,
+		orTrap message: @autoclosure () -> String
+	) {
 		guard let data = try? JSONEncoder().encode(record) else {
-			fatalError("\(environmentKey) could not encode the seeded free-access anchor")
+			fatalError(message())
 		}
-		settings.persistenceStore.set(data, forKey: FreeAccessAnchorService.defaultsKey)
+		store.set(data, forKey: FreeAccessAnchorService.defaultsKey)
 	}
 
 	/// Whether this launch should force-start the onboarding tour (AIA-0333). The single
@@ -294,6 +365,15 @@ struct UITestLaunchConfiguration: Codable {
 		guard AppEnvironment.isRunningUITests else { return false }
 		return fromEnvironment?.startOnboardingTour == true
 	}
+
+	#if DEBUG
+	/// Whether this launch asks for the real Clerk provider (AIA-0984). The single consumer of
+	/// `usesRealAuth`. Always false outside UI tests.
+	static var requestsRealAuth: Bool {
+		guard AppEnvironment.isRunningUITests else { return false }
+		return fromEnvironment?.usesRealAuth == true
+	}
+	#endif
 
 	/// Whether this launch should auto-open the first seeded model's settings in type-review mode
 	/// (AIA-0402). The single consumer of `reviewFirstModelType`. Always false outside UI tests.

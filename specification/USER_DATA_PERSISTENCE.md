@@ -337,6 +337,14 @@ That is worth testing after every issuer change, because **it is the one propert
 observes**: unauthenticated requests are refused whether or not the issuer is right, so a Worker
 pointed at the wrong key set passes every check except this one.
 
+### Automation against staging (AIA-0975)
+
+The headless scenarios ([HEADLESS.md](HEADLESS.md)) run this document's real path end to end against the staging pair: save, upload, pull on a second installation, delete, the back-up question, the back-up switch, and ownership across two accounts.
+- **Accounts.** They use two Clerk test accounts on the development instance, `aia-headless+clerk_test@example.com` and `aia-headless-other+clerk_test@example.com`. Neither may hold real data.
+- **Saving.** A finding is saved through `FindingRepository.save(capture:cropRect:metadata:)`, the save sheet's own call. It bakes the crop with `FindingCapture.cropped(to:)` and then runs the persist transaction.
+- **Clean-up.** Each run removes its rows through the app's own delete path. Tombstones stay in the index (§4).
+- **Never the account-erase route.** Automation never calls the account-erase route, because its fence (§9) would lock the test account out of every later write.
+
 ### What is a var and what is a secret
 
 `CLERK_ISSUER` and `CLERK_JWKS_URL` are **public URLs** and live in `wrangler.jsonc` as vars,

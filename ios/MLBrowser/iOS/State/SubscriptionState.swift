@@ -87,8 +87,10 @@ protocol SubscriptionProviding: AnyObject {
 	var isInTrial: Bool { get }
 
 	/// Install the `Transaction.updates` listener and drain any unfinished /
-	/// pending transactions (Ask-to-Buy, interrupted purchases). Call once at app
-	/// launch, BEFORE any purchase UI is shown.
+	/// pending transactions (Ask-to-Buy, interrupted purchases). Called at app
+	/// launch, BEFORE any purchase UI is shown, and again on every foreground
+	/// (`AppRuntime`, AIA-0993): installing the listener must be idempotent; the drain
+	/// and the entitlement refresh run on every call.
 	func start() async
 
 	/// Load the subscription products from the store. Degrades gracefully and never throws.
@@ -161,7 +163,8 @@ final class SubscriptionState: ObservableObject {
 	var isPaymentsSurfaceEnabled: Bool { isPaymentsEnabled }
 
 	/// Install the transaction listener, drain pending transactions, and publish the
-	/// initial entitlement. Call once at launch. Product loading is intentionally NOT
+	/// entitlement. Called at launch and re-run on every foreground once the app is ready
+	/// (`AppRuntime`, AIA-0993), so a lapse while backgrounded is noticed. Product loading is intentionally NOT
 	/// done here — it's a network call and must not block app readiness; the paywall
 	/// loads products when it appears (``loadProducts()``).
 	func start() async {

@@ -220,34 +220,23 @@ final class BackgroundTaskAssertion {
 	}
 }
 
-@main
+/// The app with its UI. `AppEntry` launches it, or headless mode in its place (AIA-0970).
 struct MLBrowser: App {
 	@UIApplicationDelegateAdaptor(BackgroundDownloadAppDelegate.self) var appDelegate
 	@StateObject private var appState: AppState
+	/// Process-level work shared with headless mode; see `AppRuntime`.
+	private let runtime: AppRuntime
 
 	init() {
-		Observability.start(with: DependencyContainer.shared.crashReporter)
-		Observability.runTestTriggersIfEnabled()
-		// Configure Clerk for the auth gate (AIA-0340). Skipped for the DEBUG-only
-		// mock-auth path used by UI tests, which must not touch Clerk or the network.
-		if !DependencyContainer.shared.usesMockAuth {
-			ClerkAuthProvider.configure()
-		}
-		// Build the app's single composition root LAST — after observability is started and
-		// Clerk is configured — so service construction never precedes them (AIA-0385).
-		_appState = StateObject(wrappedValue: DependencyContainer.shared.makeAppState())
+		// Observability, Clerk, then the composition root, in that order (AIA-0340, AIA-0385).
+		let appState = AppRuntime.bootstrap(container: DependencyContainer.shared)
+		_appState = StateObject(wrappedValue: appState)
+		runtime = AppRuntime(appState: appState)
 		// Clears readable support-log exports that a PRE-AIA-0643 build left in the temporary
 		// container. iOS does not wipe `tmp` on update, and the in-sheet cleanup only runs if the
 		// user opens the Support form — which most never will. Off the main thread and best-effort:
 		// it touches nothing this launch depends on.
 		Task.detached(priority: .utility) { SupportRequestView.purgeLegacyApplicationLogExports() }
-		LoggingPolicy.info("MLBrowser app launching", logger: .lifecycle)
-		// Answers "which Worker did this build talk to?" from a support log alone. Diagnosing
-		// AIA-0791 needed a decrypted log plus three source files to answer it.
-		LoggingPolicy.info(
-			"Backend environment: \(BackendEnvironment.current.rawValue)",
-			logger: .configuration
-		)
 		#if DEBUG
 		// A Debug build pointed at production can write real findings and delete a real account,
 		// so the warning is a window rather than a view modifier: it has to survive `.sheet` and
@@ -264,9 +253,10 @@ struct MLBrowser: App {
 	/// sign-in wall was the larger 5.1.1(v) risk. Sign-in is now offered contextually instead
 	/// (`SignInSheet`), from the paywall, the drawer, Settings, and once after a finding is saved.
 	///
-	/// `AuthState` is still driven — by `.authLifecycle()` below — because analytics consent,
-	/// purchase tagging and the account UI all depend on knowing who is signed in. It just no
-	/// longer decides whether the app renders.
+	/// `AuthState` is still driven — started by `AppRuntime` once the app is ready, and kept in step
+	/// with Clerk by `.authLifecycle()` below — because analytics consent, purchase tagging and the
+	/// account UI all depend on knowing who is signed in. It just no longer decides whether the app
+	/// renders.
 	///
 	/// `Clerk.shared` is injected only on the real-auth path; the mock path never accesses it.
 	@ViewBuilder
@@ -395,51 +385,6 @@ struct MLBrowser: App {
 				LoggingPolicy.debug("Shared finding: URL delivered via NSUserActivity", logger: .state)
 				appState.sharedFinding.handle(url)
 			}
-			// The remote brake on the detailed application log (AIA-0602). `initial: true` so the
-			// compiled default is applied on a first launch that has not synced yet, and the live
-			// snapshot thereafter — `FeatureFlagsState` observes the provider's change stream, so a
-			// dashboard flip lands without a relaunch, which is the point of an emergency brake.
-			// `Settings` combines this with the user's own switch; off either way deletes the log.
-			.onChange(of: appState.featureFlags.snapshot.isDetailedApplicationLogEnabled, initial: true) { _, isEnabled in
-				appState.settings.isDetailedLoggingFeatureEnabled = isEnabled
-			}
-			.onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
-				LoggingPolicy.info("App entering background", logger: .lifecycle)
-				LoggingPolicy.flushApplicationLog()
-				appState.analytics.flushDetectionSessionSummary()
-				// Ends any sounding annotation voice before the process is suspended, and refuses
-				// new ones until the app is back (#785). A player left alive across a suspend
-				// outlives the shared audio session the system tears down, and the retention task
-				// that eventually released it then deallocated a player whose queue was already gone.
-				//
-				// Held under a background-task assertion because this handler cannot await: the stop
-				// reaches the player through an actor hop, and without the assertion the process may
-				// be suspended before the hop lands — which is the state the stop exists to prevent,
-				// so an unheld `Task` would leave the comment above claiming more than it delivers.
-				let annotationSoundSuspension = BackgroundTaskAssertion(name: "Annotation sound suspend")
-				Task { @MainActor in
-					await appState.annotationSoundPlayer.suspend()
-					annotationSoundSuspension.end()
-				}
-				if appState.detectionState.ontheflyDetectionEnabled {
-					appState.settings.isDetectionPaused = true
-					// `isUserInitiated: false`: this pause and the foreground resume are one detection
-					// session either side of a suspend. Treating them as a fresh start would clear an
-					// outstanding web-content interruption and refill the escalation budget, so a page
-					// that kills its renderer could survive the fix by the user visiting the home
-					// screen (AIA-0879).
-					appState.detectionState.ontheflyDetectionTapped(isUserInitiated: false)
-				}
-			}
-			.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-				LoggingPolicy.info("App entering foreground", logger: .lifecycle)
-				Task { await appState.annotationSoundPlayer.resume() }
-				if appState.settings.isDetectionPaused {
-					appState.settings.isDetectionPaused = false
-					// Resume is a continuation of the same detection session, not a new run.
-					appState.detectionState.ontheflyDetectionTapped(recordAnalytics: false, isUserInitiated: false)
-				}
-			}
 			// Attached above the analytics/auth/subscription gates, so a bug on the paywall or the
 			// sign-in screen is reportable too — exactly the screens a stuck user cannot get past
 			// to reach Settings (AIA-0454).
@@ -466,14 +411,11 @@ struct MLBrowser: App {
 			// screen would never be asked -- and their findings would sit unsynced with nothing
 			// saying so (AIA-727).
 			.backupConsentPrompt(appState.findingsSync)
+			// The process-level runtime (AIA-0970): store-dependent services, the detailed-log brake,
+			// background/foreground handling, and auth once the app is ready. It used to live here as
+			// scene modifiers; it moved so headless mode runs exactly the same runtime.
 			.task {
-				// Reconnect to background URLSession tasks after app launch.
-				// (No-op during XCTest runs; gated inside Downloader.)
-				await appState.dataController.awaitStoreReady()
-				appState.downloader.reconnectBackgroundSession()
-				// Started here rather than at construction: sync reads and writes findings, so it
-				// must not run before the store is open (AIA-727).
-				appState.findingsSync.start()
+				runtime.start()
 			}
 			// A received shared finding (AIA-0650, moved here by AIA-0657). **Applied last, on
 			// purpose**: this modifier must be the outermost one in the scene so the card sits above
@@ -492,6 +434,84 @@ struct MLBrowser: App {
 			// whenever one was already up (the trap `AnalyticsChoiceGate` documents). A link arriving
 			// while Settings or the composer is open would flash and be lost.
 			.sharedFindingPresentation(appState)
+		}
+	}
+}
+
+/// What the analytics consent gate shows (AIA-0447), decided from state alone.
+///
+/// Extracted from `AnalyticsChoiceGate` for the reason `RootGateDisplay` was: headless mode
+/// (AIA-0970) must know whether the question is on screen, and a second copy of these rules would
+/// drift. The view keeps what only a view can know — whether content has ever been shown.
+enum AnalyticsChoiceDisplay: Equatable {
+	case choice
+	case content
+	case hold
+
+	/// Whether the consent question must wait rather than be put to the user right now.
+	///
+	/// Three independent reasons, all of them about *when* to ask rather than whether analytics may
+	/// run: a sign-out that revealed an unanswered anonymous bucket (AIA-0536), a free-access window
+	/// granted on this launch that its Welcome screen has not introduced yet (AIA-0556), and an
+	/// onboarding tour that has not had its turn (AIA-0567). Consent fails closed while any of them
+	/// holds, so waiting costs nothing.
+	///
+	/// The third is what makes the new first-run order actually hold. Welcome's Continue releases
+	/// the second reason, and without this the consent question would land on top of the tour that
+	/// same tap starts. It is deliberately `isPendingOrRunning` and not `isActive`: on the launch
+	/// after a force-quit over the Welcome screen the tour is merely *armed* when this gate first
+	/// computes — `day0Shown` is durable, but `isDay0AcknowledgementPending` is in-memory and so
+	/// false — and an `isActive` test would flash the consent screen full-width, unmounting
+	/// `ContentView`, before the gate above had started anything.
+	static func isAskDeferred(
+		afterSignOut: Bool,
+		isDay0AcknowledgementPending: Bool,
+		isTourPendingOrRunning: Bool
+	) -> Bool {
+		afterSignOut || isDay0AcknowledgementPending || isTourPendingOrRunning
+	}
+
+	/// Whether the question is asked *over* content the user is already using.
+	///
+	/// Deferred asks stay silent: a sign-out is a disengagement act, and a first-run window is still
+	/// being explained. Analytics simply stays off; the question returns at the next arrival,
+	/// sign-in, explicit reset, or once the day-0 paywall has been seen.
+	static func asksOverContent(
+		presentation: AnalyticsConsentPresentation,
+		hasEverShownContent: Bool,
+		isAskDeferred: Bool
+	) -> Bool {
+		hasEverShownContent && presentation == .ask && !isAskDeferred
+	}
+
+	static func resolve(
+		presentation: AnalyticsConsentPresentation,
+		hasEverShownContent: Bool,
+		isAskDeferred: Bool
+	) -> AnalyticsChoiceDisplay {
+		switch presentation {
+		// Asking is a full screen only on the way *in*. Afterwards it must not replace the root:
+		// under paywall-first, signing in happens mid-session by design, and a first sign-in — or an
+		// A→B switch, or a sign-out for anyone whose anonymous bucket is unanswered — selects a new
+		// scope with no stored choice, which lands here. Swapping the root then destroys the
+		// `WKWebView` the user is looking at, along with the page, scroll position and history.
+		// Before the cut-over this was unreachable: consent could only ever be asked at launch.
+		//
+		// A deferred ask takes the same branch for a different reason: the question is not refused,
+		// it is queued behind the paywall that explains the free window, and content goes up first.
+		case .ask: (hasEverShownContent || isAskDeferred) ? .content : .choice
+		case .resolved: .content
+		// Holding is only right *before* anything has been shown, and only while the wait is going
+		// to end. Afterwards the user is already in the app, and an unresolved scope is not a reason
+		// to throw them out of it — analytics simply fails closed until it resolves.
+		case .pending: hasEverShownContent ? .content : .hold
+		// **Never hold on `.unavailable`.** It means no scope can be selected *at all* — the session
+		// cannot be verified — so the wait would never end. On a cold launch in airplane mode an
+		// entitled user reaches exactly this state, and holding here would strand them on a spinner
+		// in front of an app whose features are entirely on-device. That is the lockout AIA-0536
+		// exists to remove (#532); it must not come back through the consent gate. They go in, with
+		// analytics off until a scope can be resolved.
+		case .unavailable: .content
 		}
 	}
 }
@@ -539,67 +559,31 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 	/// overlay instead of a root swap that would take the tour's web view with it.
 	@State private var hasEverShownContent = false
 
-	private enum Display: Equatable {
-		case choice
-		case content
-		case hold
-	}
-
-	/// Whether the consent question must wait rather than be put to the user right now.
-	///
-	/// Three independent reasons, all of them about *when* to ask rather than whether analytics may
-	/// run: a sign-out that revealed an unanswered anonymous bucket (AIA-0536), a free-access window
-	/// granted on this launch that its Welcome screen has not introduced yet (AIA-0556), and an
-	/// onboarding tour that has not had its turn (AIA-0567). Consent fails closed while any of them
-	/// holds, so waiting costs nothing.
-	///
-	/// The third is what makes the new first-run order actually hold. Welcome's Continue releases
-	/// the second reason, and without this the consent question would land on top of the tour that
-	/// same tap starts. It is deliberately `isPendingOrRunning` and not `isActive`: on the launch
-	/// after a force-quit over the Welcome screen the tour is merely *armed* when this gate first
-	/// computes — `day0Shown` is durable, but `isDay0AcknowledgementPending` is in-memory and so
-	/// false — and an `isActive` test would flash the consent screen full-width, unmounting
-	/// `ContentView`, before the gate above had started anything.
+	/// Whether the consent question must wait — see ``AnalyticsChoiceDisplay/isAskDeferred(afterSignOut:isDay0AcknowledgementPending:isTourPendingOrRunning:)``.
 	private var isAskDeferred: Bool {
-		analytics.isAskDeferredAfterSignOut
-			|| freeAccess.isDay0AcknowledgementPending
-			|| tour.isPendingOrRunning
+		AnalyticsChoiceDisplay.isAskDeferred(
+			afterSignOut: analytics.isAskDeferredAfterSignOut,
+			isDay0AcknowledgementPending: freeAccess.isDay0AcknowledgementPending,
+			isTourPendingOrRunning: tour.isPendingOrRunning
+		)
 	}
 
 	/// Whether the consent question is being asked *over* content the user is already using, rather
 	/// than as the screen they arrive at. Rendered as an overlay in that case — see ``body``.
 	private var asksOverContent: Bool {
-		// Deferred asks stay silent: a sign-out is a disengagement act, and a first-run window is
-		// still being explained. Analytics simply stays off; the question returns at the next
-		// arrival, sign-in, explicit reset, or once the day-0 paywall has been seen.
-		hasEverShownContent && analytics.consentPresentation == .ask && !isAskDeferred
+		AnalyticsChoiceDisplay.asksOverContent(
+			presentation: analytics.consentPresentation,
+			hasEverShownContent: hasEverShownContent,
+			isAskDeferred: isAskDeferred
+		)
 	}
 
-	private var display: Display {
-		switch analytics.consentPresentation {
-		// Asking is a full screen only on the way *in*. Afterwards it must not replace the root:
-		// under paywall-first, signing in happens mid-session by design, and a first sign-in — or an
-		// A→B switch, or a sign-out for anyone whose anonymous bucket is unanswered — selects a new
-		// scope with no stored choice, which lands here. Swapping the root then destroys the
-		// `WKWebView` the user is looking at, along with the page, scroll position and history.
-		// Before the cut-over this was unreachable: consent could only ever be asked at launch.
-		//
-		// A deferred ask takes the same branch for a different reason: the question is not refused,
-		// it is queued behind the paywall that explains the free window, and content goes up first.
-		case .ask: (hasEverShownContent || isAskDeferred) ? .content : .choice
-		case .resolved: .content
-		// Holding is only right *before* anything has been shown, and only while the wait is going
-		// to end. Afterwards the user is already in the app, and an unresolved scope is not a reason
-		// to throw them out of it — analytics simply fails closed until it resolves.
-		case .pending: hasEverShownContent ? .content : .hold
-		// **Never hold on `.unavailable`.** It means no scope can be selected *at all* — the session
-		// cannot be verified — so the wait would never end. On a cold launch in airplane mode an
-		// entitled user reaches exactly this state, and holding here would strand them on a spinner
-		// in front of an app whose features are entirely on-device. That is the lockout AIA-0536
-		// exists to remove (#532); it must not come back through the consent gate. They go in, with
-		// analytics off until a scope can be resolved.
-		case .unavailable: .content
-		}
+	private var display: AnalyticsChoiceDisplay {
+		AnalyticsChoiceDisplay.resolve(
+			presentation: analytics.consentPresentation,
+			hasEverShownContent: hasEverShownContent,
+			isAskDeferred: isAskDeferred
+		)
 	}
 
 	var body: some View {

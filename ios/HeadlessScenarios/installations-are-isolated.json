@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "name": "installations-are-isolated",
+  "installations": {
+    "a": {
+      "launch": {
+        "flags": { "isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false }
+      }
+    },
+    "b": {
+      "launch": {
+        "flags": { "isPaymentsEnabled": true, "isFreeAccessPeriodEnabled": true, "isAnalyticsEnabled": true, "isCrossDeviceAnalyticsIdentityEnabled": false }
+      }
+    }
+  },
+  "steps": [
+    { "on": "a", "name": "a launches", "wait": { "condition": "ready", "timeout": 120 }, "expect": [ { "route": "welcome" }, { "equals": { "pointer": "/state/offer", "value": "freeAccess" } } ] },
+    { "on": "a", "name": "continue past the free-access Welcome screen", "perform": { "action": "continue" }, "expect": [ { "route": "tour" } ] },
+    { "on": "a", "perform": { "action": "skip" } },
+    { "on": "a", "perform": { "action": "deny" }, "expect": [ { "route": "home" }, { "equals": { "pointer": "/context/analytics/enabled", "value": false } } ] },
+    { "on": "a", "goto": "drawer", "capture": { "model": "/state/models/0/id" } },
+    { "on": "a", "name": "a switches a model on", "perform": { "action": "enable", "arguments": { "id": "${model}" } },
+      "expect": [ { "equals": { "pointer": "/result/loaded", "value": true } } ] },
+    { "on": "b", "name": "b is a fresh install, whatever a did", "wait": { "condition": "ready", "timeout": 120 },
+      "expect": [ { "route": "welcome" }, { "equals": { "pointer": "/state/offer", "value": "freeAccess" } } ] },
+    { "on": "b", "name": "continue past the free-access Welcome screen", "perform": { "action": "continue" }, "expect": [ { "route": "tour" } ] },
+    { "on": "b", "perform": { "action": "skip" } },
+    { "on": "b", "perform": { "action": "deny" }, "expect": [ { "route": "home" }, { "equals": { "pointer": "/context/analytics/enabled", "value": false } } ] },
+    { "on": "b", "name": "b's models are its own: none switched on", "goto": "drawer",
+      "expect": [ { "equals": { "pointer": "/state/models/0/enabled", "value": false } } ] },
+    { "on": "a", "name": "a's model is still on", "expect": [ { "equals": { "pointer": "/state/models/0/enabled", "value": true } } ] }
+  ]
+}
