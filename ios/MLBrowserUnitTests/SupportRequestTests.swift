@@ -354,16 +354,49 @@ final class SupportLogAttachmentTests: XCTestCase {
 final class SupportMailUnavailableCopyTests: XCTestCase {
 	func testAnOpenedMailtoKeepsTheUserInAMailApp() {
 		XCTAssertEqual(
-			SupportMailUnavailableCopy.message(mailtoOpened: true, recipient: "help@example.com"),
-			L10n.Support.MailUnavailable.message("help@example.com")
+			SupportMailUnavailableCopy.message(mailtoOpened: true, recipient: "help@example.com", platform: .iOS),
+			L10n.Support.MailUnavailable.mailAppOpened("help@example.com") + "\n\n" + L10n.Support.MailSetup.ios
 		)
 	}
 
 	func testAMissingMailAppSaysSo() {
 		XCTAssertEqual(
-			SupportMailUnavailableCopy.message(mailtoOpened: false, recipient: "help@example.com"),
-			L10n.Support.MailUnavailable.messageNoMailApp("help@example.com")
+			SupportMailUnavailableCopy.message(mailtoOpened: false, recipient: "help@example.com", platform: .iOS),
+			L10n.Support.MailUnavailable.noMailApp("help@example.com") + "\n\n" + L10n.Support.MailSetup.ios
 		)
+	}
+
+	/// AIA-0641: the notice no longer offers a Settings button — which opened this app's own page, or
+	/// on a Mac its own settings window — so the words have to name the right place for the host.
+	func testTheSetupHintNamesWhereThisHostKeepsMailAccounts() {
+		let cases: [(SupportMailUnavailableCopy.MailSetupPlatform, String)] = [
+			(.iOS, L10n.Support.MailSetup.ios),
+			(.iOSBefore18, L10n.Support.MailSetup.iosLegacy),
+			(.mac, L10n.Support.MailSetup.mac)
+		]
+		for (platform, hint) in cases {
+			for mailtoOpened in [true, false] {
+				let base = mailtoOpened
+					? L10n.Support.MailUnavailable.mailAppOpened("help@example.com")
+					: L10n.Support.MailUnavailable.noMailApp("help@example.com")
+				XCTAssertEqual(
+					SupportMailUnavailableCopy.message(
+						mailtoOpened: mailtoOpened,
+						recipient: "help@example.com",
+						platform: platform
+					),
+					base + "\n\n" + hint,
+					"\(platform), mailtoOpened: \(mailtoOpened)"
+				)
+			}
+		}
+	}
+
+	/// The simulator is iOS 18+ and not a Mac, so the live platform must resolve to the current
+	/// iOS path, never the pre-18 one or the Mac one.
+	@MainActor
+	func testTheSimulatorResolvesToTheCurrentIOSPath() {
+		XCTAssertEqual(SupportMailUnavailableCopy.MailSetupPlatform.current, .iOS)
 	}
 
 	/// Payments off withdraws the purchase category from the picker (AIA-0955); payments on offers
