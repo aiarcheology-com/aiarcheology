@@ -56,13 +56,22 @@ final class TargetingCoordinator {
 	private var observations: Set<AnyCancellable> = []
 	private var refreshTask: Task<Void, Never>?
 
-	/// Set while ``AuthState`` vouches for nobody: it withdrew the account (published `nil`) or
-	/// landed `.signedOut`. Every trigger then clears instead of asking the backend, until AuthState
-	/// publishes an account again. Asking would undo the clear: before validation the backend
-	/// already reports the incoming account, and after a revocation it may still hold the cached
-	/// user. Starts `false` — before AuthState has said anything, the backend's persisted session is
-	/// the best answer (a relaunch targets immediately, even offline).
-	private var accountWithdrawn = false
+	/// Which account may be targeted. The backend's user is targeted only when it matches.
+	///
+	/// The backend (`identity`) runs ahead of ``AuthState``: before validation it already reports
+	/// an incoming account, and after a revocation it may still hold the cached user. So once
+	/// AuthState has published an account (or landed `.signedOut`), that verdict decides. Before it
+	/// has said anything, the backend's persisted session is the best answer — a relaunch targets
+	/// immediately, even offline — but only the first user seen: a different one appearing before
+	/// AuthState speaks is a switch nobody validated.
+	private enum Vouched: Equatable {
+		/// AuthState has not spoken; the first signed-in user the backend reported, if any.
+		case backend(firstSeen: String?)
+		/// AuthState's published account; `nil` when it vouches for nobody.
+		case authState(String?)
+	}
+
+	private var vouched: Vouched = .backend(firstSeen: nil)
 
 	init(
 		identity: @escaping @MainActor () -> (userID: String?, isSignedIn: Bool),
@@ -88,14 +97,14 @@ final class TargetingCoordinator {
 
 		// All three publishers are `@Published` projections, which emit on willSet from the main
 		// actor; `assumeIsolated` mirrors MessageCenterState's foreground observer (AGENTS §4).
-		// The sinks use only the emitted value (see ``accountWithdrawn``), never a re-read.
+		// The sinks use only the emitted value (see ``Vouched``), never a re-read.
 		authGateChanges
 			.removeDuplicates()
 			.dropFirst()
 			.sink { [weak self] gate in
 				MainActor.assumeIsolated {
 					guard let self else { return }
-					if gate == .signedOut { self.accountWithdrawn = true }
+					if gate == .signedOut { self.vouched = .authState(nil) }
 					self.recompute()
 				}
 			}
@@ -106,7 +115,7 @@ final class TargetingCoordinator {
 			.sink { [weak self] account in
 				MainActor.assumeIsolated {
 					guard let self else { return }
-					self.accountWithdrawn = account == nil
+					self.vouched = .authState(account)
 					self.recompute()
 				}
 			}
@@ -122,9 +131,23 @@ final class TargetingCoordinator {
 		recompute()
 	}
 
+	/// The backend's user if it may be targeted (see ``Vouched``), else `nil`.
+	private func targetableUser() -> String? {
+		let (userID, isSignedIn) = identity()
+		guard isSignedIn, let userID else { return nil }
+		switch vouched {
+		case .backend(firstSeen: nil):
+			vouched = .backend(firstSeen: userID)
+			return userID
+		case let .backend(firstSeen: firstSeen?):
+			return userID == firstSeen ? userID : nil
+		case let .authState(account):
+			return userID == account ? userID : nil
+		}
+	}
+
 	private func recompute() {
-		let (userID, isSignedIn) = accountWithdrawn ? (nil, false) : identity()
-		if isSignedIn, let userID {
+		if let userID = targetableUser() {
 			let context = Context(id: userID, custom: [
 				"appVersion": appVersion,
 				"platform": "iOS",

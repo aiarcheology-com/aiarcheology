@@ -154,8 +154,8 @@ final class TargetingCoordinatorTests: XCTestCase {
 		gateSubject.send(.ready)
 		XCTAssertNotNil(defaults.data(forKey: TargetingCoordinator.contextDefaultsKey))
 
-		// Revoked: AuthState publishes nil and `.signedOut`; the backend has not dropped the user.
-		accountSubject.send(nil)
+		// Revoked: AuthState lands `.signedOut` (its account was already nil here, so only the gate
+		// moves) while the backend has not dropped the cached user.
 		gateSubject.send(.signedOut)
 
 		XCTAssertEqual(provider.calls.last, .clear)
@@ -362,5 +362,31 @@ final class TargetingCoordinatorTests: XCTestCase {
 			return XCTFail("expected targeting on B, got \(provider.calls)")
 		}
 		XCTAssertEqual(lastID, accountB)
+	}
+
+	/// AIA-0522: a cold launch offline never gets an AuthState verdict, so the backend's persisted
+	/// user is targeted (as before). A different user appearing before AuthState has spoken is a
+	/// switch nobody validated: a later trigger must not target it.
+	func test_coldOfflineLaunch_thenUnvalidatedSwitch_isNotTargeted() async {
+		let accountA = "user_A"
+		let accountB = "user_B"
+		let auth = MockAuthProvider(outcome: .offline, accountID: accountA)
+		let (authState, provider, coordinator) = makeAuthDrivenSUT(auth: auth)
+		_ = coordinator
+
+		await authState.start()
+		XCTAssertEqual(authState.gate, .offline)
+		guard case let .set(launchID, _)? = provider.calls.last else {
+			return XCTFail("an offline relaunch still targets the persisted session, got \(provider.calls)")
+		}
+		XCTAssertEqual(launchID, accountA)
+
+		auth.setAccountIDForTesting(accountB)
+		await authState.refresh()
+		subscribedSubject.send(true)
+
+		XCTAssertEqual(provider.calls.last, .clear, "B was never validated")
+		XCTAssertFalse(provider.calls.contains { if case .set(accountB, _) = $0 { return true }; return false })
+		XCTAssertNil(defaults.data(forKey: TargetingCoordinator.contextDefaultsKey))
 	}
 }
