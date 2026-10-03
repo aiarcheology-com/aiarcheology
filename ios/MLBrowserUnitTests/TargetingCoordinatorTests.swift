@@ -261,6 +261,11 @@ final class TargetingCoordinatorTests: XCTestCase {
 			return XCTFail("expected targeting on B, got \(provider.calls)")
 		}
 		XCTAssertEqual(lastID, accountB, "targeting must follow the account, not stay on A")
+		let targetedB = provider.calls.filter {
+			if case let .set(id, _) = $0 { return id == accountB }
+			return false
+		}
+		XCTAssertEqual(targetedB.count, 1, "B is targeted once, after validation, not on the nil write before it")
 		let data = defaults.data(forKey: TargetingCoordinator.contextDefaultsKey)
 		let context = data.flatMap { try? JSONDecoder().decode(TargetingCoordinator.Context.self, from: $0) }
 		XCTAssertEqual(context?.id, accountB, "the persisted background context must follow too")

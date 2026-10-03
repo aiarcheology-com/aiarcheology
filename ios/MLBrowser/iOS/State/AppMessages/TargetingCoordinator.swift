@@ -8,8 +8,8 @@
 import Combine
 import Foundation
 
-/// Recomputes the ConfigCat targeting user on every auth-gate transition, every change of the
-/// signed-in account, *and* every subscription-entitlement change (they move independently), then
+/// Recomputes the ConfigCat targeting user on every auth-gate transition, every newly validated
+/// account, *and* every subscription-entitlement change (they move independently), then
 /// forces the two updates the SDK does not deliver by itself:
 ///
 /// 1. `FeatureFlagsState.refresh()` — `setDefaultUser` fires no change hook, and the state
@@ -85,9 +85,13 @@ final class TargetingCoordinator {
 			.dropFirst()
 			.sink { [weak self] _ in MainActor.assumeIsolated { self?.recompute() } }
 			.store(in: &observations)
+		// Only arriving accounts. `AuthState` writes `nil` before validating an incoming account,
+		// and acting on that write would target the new account before it is validated; signing
+		// out is already delivered by the gate.
 		accountChanges
 			.removeDuplicates()
 			.dropFirst()
+			.filter { $0 != nil }
 			.sink { [weak self] _ in MainActor.assumeIsolated { self?.recompute() } }
 			.store(in: &observations)
 		subscriptionChanges
