@@ -173,7 +173,11 @@ Row 2 note (AIA-0955): payments off is the app's free mode, not only a dark laun
 (tour armed) meets a Welcome screen that introduces the app and its tour: title, one sentence, and
 Continue — no headline, price, window length, reassurances, or App Store product fetch. Its receipt
 is durable and belongs to onboarding (`TourState`), written when it is shown, so returning installs
-and a force-quit mid-tour never see it again. A window granted under payments on is still honoured,
+and a force-quit mid-tour never see it again. Either Welcome counts: a priced Welcome recorded only
+as the window's `day0Shown` (1.0.7 and 1.0.8, before this receipt existed) is carried over at launch, so a
+user who met it is never introduced a second time (AIA-1036). Because the window outlives a
+reinstall, that includes a payments-off reinstall after the priced Welcome: the tour runs with no
+Welcome, as it already does under payments on. A window granted under payments on is still honoured,
 but its unshown day-0 offer is withheld (not cleared) and comes back if payments do. The account
 deletion dialog drops its billing sentence and Manage Subscription, and Support withdraws the
 purchase category, because removing the subscription from sale stops renewals.

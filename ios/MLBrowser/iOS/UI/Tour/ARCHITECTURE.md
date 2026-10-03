@@ -133,7 +133,8 @@ flowchart TD
     B -->|no| C{legacy keepSlideShowActive<br/>present AND == false?}
     C -->|yes opted out| D["markSeen() — don't re-onboard"]
     C -->|no| E["arm() — onboarding is owed, nothing runs yet"]
-    E --> F{"SubscriptionGateView.startTourIfClear():<br/>content on screen, no Welcome presented,<br/>none due or none presentable?"}
+    E --> R["after freeAccess.start(): adoptEarlierWelcomeReceipt —<br/>a priced Welcome already shown (day0Shown)<br/>counts as the introduction (AIA-1036)"]
+    R --> F{"SubscriptionGateView.startTourIfClear():<br/>content on screen, no Welcome presented,<br/>none due or none presentable?"}
     F -->|no| G["wait — the Welcome screen has the display"]
     F -->|yes| H["startIfArmed() → start(), arm cleared, isFirstRun set"]
     I["UI tests: startOnboardingTour flag<br/>(ephemeral suite, opt-in only)"] -.-> E

@@ -424,6 +424,50 @@ final class FreeAccessStateTests: XCTestCase {
 		XCTAssertNotNil(paymentsBackOn.duePrompt, "suppression must not have marked the screen shown")
 	}
 
+	// MARK: - Priced Welcome receipt for the onboarding carry-over (AIA-1036)
+
+	@MainActor
+	func testHasShownDay0Welcome_beforeStart_andForAnUnshownWindow_isFalse() throws {
+		let clock = TestClock(try date(2026, 3, 2))
+		let durableStore = StubDurableStore()
+		let state = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+		XCTAssertFalse(state.hasShownDay0Welcome, "nothing has been read yet")
+
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+		XCTAssertNotNil(state.duePrompt, "precondition: a granted window owes its day-0 screen")
+		XCTAssertFalse(state.hasShownDay0Welcome, "a granted window is not a shown Welcome")
+
+		state.markPromptShown()
+		XCTAssertTrue(state.hasShownDay0Welcome)
+	}
+
+	/// The upgrade from 1.0.7/1.0.8 after payments are switched off: the record says the priced screen was
+	/// shown, and that must be the answer however the session is configured — payments off and free
+	/// access off both included — and whether or not the window has since run out.
+	@MainActor
+	func testHasShownDay0Welcome_readsTheRecord_whateverThePhaseAndFlags() throws {
+		let grantDate = try date(2026, 3, 2)
+		for ageDays in [3, 20] {
+			for shown in [true, false] {
+				var record = FreeAccessWindow.record(grantedAt: grantDate, thresholds: .standard, calendar: calendar)
+				record.day0Shown = shown
+				try seedFastRecord(record)
+				let clock = TestClock(try day(ageDays, after: grantDate))
+				let state = makeState(
+					service: try makeService(clock: clock, durableStore: StubDurableStore(record: record)),
+					isFreeAccessPeriodEnabled: false
+				)
+
+				state.start(isEntitled: false, isPaymentsSurfaceEnabled: false)
+
+				XCTAssertEqual(state.hasShownDay0Welcome, shown, "day \(ageDays), day0Shown \(shown)")
+				if ageDays == 20 {
+					XCTAssertEqual(state.availability, .closed, "precondition: the day-20 window has expired")
+				}
+			}
+		}
+	}
+
 	/// Away from day 5 to day 16: the wall is what they meet, and the explanation of a window that is
 	/// already spent does not fire on the way to it.
 	@MainActor

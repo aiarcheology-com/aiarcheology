@@ -182,6 +182,27 @@ final class FreeAccessState: ObservableObject {
 		return remaining
 	}
 
+	/// Whether this window's priced day-0 Welcome screen has ever been put on screen (AIA-1036).
+	///
+	/// It exists for one reader: the launch in `AppState.initialize()` that carries this receipt
+	/// over to the onboarding tour's own. 1.0.7 and 1.0.8 recorded the priced Welcome only here, as
+	/// `day0Shown`; the tour's receipt arrived in 1.0.9. Without the carry-over, a user of those
+	/// builds who met that screen and never finished the tour is welcomed a second time, by the
+	/// payments-off introduction, once payments are switched off.
+	///
+	/// Read straight off the record, **deliberately not** through the phase or ``duePrompt``: an
+	/// expired window whose day 0 was shown still answers `true`, because the user still saw the
+	/// screen. And deliberately **not** withheld under payments off, unlike `resolvedDuePrompt()`:
+	/// payments off is exactly the session that needs the answer. Making it agree with either
+	/// would bring the second Welcome back.
+	///
+	/// A one-shot launch read, not an observable value. Nothing publishes when it changes, so do
+	/// not read it in a `body` (the same caution ``windowDaysRemaining`` gives).
+	var hasShownDay0Welcome: Bool {
+		guard hasStarted, case let .granted(record) = window.anchor else { return false }
+		return record.day0Shown
+	}
+
 	private let notificationCenter: NotificationCenter
 	private var foregroundObservation: AnyCancellable?
 	private var expiryTask: Task<Void, Never>?
