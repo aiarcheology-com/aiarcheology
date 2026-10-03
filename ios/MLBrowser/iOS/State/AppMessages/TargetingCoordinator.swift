@@ -8,8 +8,8 @@
 import Combine
 import Foundation
 
-/// Recomputes the ConfigCat targeting user on every auth-gate transition, every newly validated
-/// account, *and* every subscription-entitlement change (they move independently), then
+/// Recomputes the ConfigCat targeting user on every auth-gate transition, every change of the
+/// published account, *and* every subscription-entitlement change (they move independently), then
 /// forces the two updates the SDK does not deliver by itself:
 ///
 /// 1. `FeatureFlagsState.refresh()` — `setDefaultUser` fires no change hook, and the state
@@ -85,14 +85,16 @@ final class TargetingCoordinator {
 			.dropFirst()
 			.sink { [weak self] _ in MainActor.assumeIsolated { self?.recompute() } }
 			.store(in: &observations)
-		// Only arriving accounts. `AuthState` writes `nil` before validating an incoming account,
-		// and acting on that write would target the new account before it is validated; signing
-		// out is already delivered by the gate.
+		// The account published is the one to target, so a `nil` clears targeting without asking the
+		// backend. `AuthState` writes `nil` before it validates an incoming account: asking would
+		// target that account unvalidated, and ignoring the write would leave the outgoing one
+		// targeted for as long as validation cannot finish (offline, or no usable identifier).
 		accountChanges
 			.removeDuplicates()
 			.dropFirst()
-			.filter { $0 != nil }
-			.sink { [weak self] _ in MainActor.assumeIsolated { self?.recompute() } }
+			.sink { [weak self] account in
+				MainActor.assumeIsolated { self?.recompute(clearingAccount: account == nil) }
+			}
 			.store(in: &observations)
 		subscriptionChanges
 			.removeDuplicates()
@@ -105,8 +107,10 @@ final class TargetingCoordinator {
 		recompute()
 	}
 
-	private func recompute() {
-		let (userID, isSignedIn) = identity()
+	/// - Parameter clearingAccount: targets nobody, whatever the backend reports — for the moment
+	///   ``AuthState`` stops publishing an account.
+	private func recompute(clearingAccount: Bool = false) {
+		let (userID, isSignedIn) = clearingAccount ? (nil, false) : identity()
 		if isSignedIn, let userID {
 			let context = Context(id: userID, custom: [
 				"appVersion": appVersion,
@@ -126,7 +130,7 @@ final class TargetingCoordinator {
 		} else {
 			provider.clearUser()
 			defaults.removeObject(forKey: Self.contextDefaultsKey)
-			LoggingPolicy.debug("App messages: targeting cleared (signed out)", logger: .state)
+			LoggingPolicy.debug("App messages: targeting cleared (no account)", logger: .state)
 		}
 
 		// Identity gates visibility synchronously (interactive ⇢ signed-in), independent of

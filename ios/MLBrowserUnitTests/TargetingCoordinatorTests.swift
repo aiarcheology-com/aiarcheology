@@ -205,18 +205,14 @@ final class TargetingCoordinatorTests: XCTestCase {
 		XCTAssertNil(center.nextMessage(for: .inApp), "sign-out hides interactive again")
 	}
 
-	/// AIA-0522: an in-place account switch (A to B while the gate stays `.ready`) publishes nothing
-	/// on the gate, so targeting must follow the account. Driven through a real ``AuthState`` so the
-	/// test proves the account publisher actually fires on that switch, not just that the
-	/// coordinator reacts to a subject the test pushes by hand.
+	/// A coordinator fed by a real ``AuthState`` over `auth`, as `DependencyContainer` wires it.
 	///
 	/// `identity` reads the provider, never `authState`: `@Published` emits on willSet, so the
 	/// property still holds the outgoing value when the sink runs (production reads Clerk directly
 	/// for the same reason).
-	func test_inPlaceAccountSwitch_whileReady_retargetsToNewAccount() async {
-		let accountA = "user_A"
-		let accountB = "user_B"
-		let auth = MockAuthProvider(outcome: .ready, accountID: accountA)
+	private func makeAuthDrivenSUT(
+		auth: MockAuthProvider
+	) -> (AuthState, RecordingFlagProvider, TargetingCoordinator) {
 		let authState = AuthState(provider: auth)
 		let provider = RecordingFlagProvider()
 		let flags = FeatureFlagsState(provider: provider)
@@ -238,6 +234,18 @@ final class TargetingCoordinatorTests: XCTestCase {
 			messageCenter: center,
 			defaults: defaults
 		)
+		return (authState, provider, coordinator)
+	}
+
+	/// AIA-0522: an in-place account switch (A to B while the gate stays `.ready`) publishes nothing
+	/// on the gate, so targeting must follow the account. Driven through a real ``AuthState`` so the
+	/// test proves the account publisher actually fires on that switch, not just that the
+	/// coordinator reacts to a subject the test pushes by hand.
+	func test_inPlaceAccountSwitch_whileReady_retargetsToNewAccount() async {
+		let accountA = "user_A"
+		let accountB = "user_B"
+		let auth = MockAuthProvider(outcome: .ready, accountID: accountA)
+		let (authState, provider, coordinator) = makeAuthDrivenSUT(auth: auth)
 		_ = coordinator
 
 		await authState.start()
@@ -269,5 +277,33 @@ final class TargetingCoordinatorTests: XCTestCase {
 		let data = defaults.data(forKey: TargetingCoordinator.contextDefaultsKey)
 		let context = data.flatMap { try? JSONDecoder().decode(TargetingCoordinator.Context.self, from: $0) }
 		XCTAssertEqual(context?.id, accountB, "the persisted background context must follow too")
+	}
+
+	/// AIA-0522: a switch that cannot be validated (offline, so the gate cannot move) must not leave
+	/// the outgoing account targeted, and must not target the incoming one before it is validated.
+	func test_accountSwitch_whileOffline_clearsTargetingUntilValidated() async {
+		let accountA = "user_A"
+		let accountB = "user_B"
+		let auth = MockAuthProvider(outcome: .ready, accountID: accountA)
+		let (authState, provider, coordinator) = makeAuthDrivenSUT(auth: auth)
+		_ = coordinator
+
+		await authState.start()
+		auth.setOutcomeForTesting(.offline)
+		await authState.refresh()
+		XCTAssertEqual(authState.gate, .offline)
+		guard case let .set(offlineID, _)? = provider.calls.last else {
+			return XCTFail("a lost connection keeps the account targeted, got \(provider.calls)")
+		}
+		XCTAssertEqual(offlineID, accountA)
+
+		auth.setAccountIDForTesting(accountB)
+		await authState.refresh()
+
+		XCTAssertEqual(authState.gate, .offline)
+		XCTAssertNil(authState.accountIdentifier)
+		XCTAssertEqual(provider.calls.last, .clear, "neither A (gone) nor B (not validated) may stay targeted")
+		XCTAssertFalse(provider.calls.contains { if case .set(accountB, _) = $0 { return true }; return false })
+		XCTAssertNil(defaults.data(forKey: TargetingCoordinator.contextDefaultsKey))
 	}
 }
