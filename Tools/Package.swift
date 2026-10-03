@@ -31,7 +31,7 @@ let package = Package(
         // carries none of it (AIA-1006). ProjectTool is a host: the trait keeps the client and the
         // runner in a `-c release` build, and since 1.0.0 the simulator launcher behind `headless`
         // (AIA-1008). The app must never enable it.
-        .package(url: "https://github.com/aiarcheology-com/HeadlessKit.git", exact: "1.2.0", traits: ["HeadlessHost"])
+        .package(url: "https://github.com/aiarcheology-com/HeadlessKit.git", exact: "1.3.0", traits: ["HeadlessHost"])
     ],
     targets: [
         // Pure, testable logic. A test target cannot `@testable import` an executable target,
