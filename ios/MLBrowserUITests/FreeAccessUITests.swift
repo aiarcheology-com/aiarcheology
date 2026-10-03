@@ -405,10 +405,11 @@ final class FreeAccessUITests: UITestCase {
 		assertExists(AID.welcomeHeadline, true)
 	}
 
-	/// The 1.0.8 upgrade (AIA-1036): the priced Welcome was shown — 1.0.8 recorded that only as the
-	/// window's `day0Shown`, which is the default seed — and the tour never reached its end, so it is
-	/// armed again. Every UI-test launch wipes the tour's suite, so there is no introduction receipt:
-	/// exactly the state 1.0.8 left behind. With payments off the tour resumes, with no second Welcome.
+	/// The upgrade from 1.0.7/1.0.8 (AIA-1036): the priced Welcome was shown — those builds recorded
+	/// it only as the window's `day0Shown`, which is the default seed — and the tour never reached its
+	/// end, so it is armed again. Every UI-test launch wipes the tour's suite, so there is no
+	/// introduction receipt: exactly the state those builds left behind. With payments off the tour
+	/// resumes, with no second Welcome.
 	func testPaymentsOff_tourArmedAfterThePricedWelcome_resumesTheTourWithoutAnotherWelcome() {
 		launch(
 			LaunchConfig(
@@ -437,7 +438,12 @@ final class FreeAccessUITests: UITestCase {
 		launch(
 			LaunchConfig(
 				startOnboardingTour: true,
-				featureFlagOverrides: ["isPaymentsEnabled": false, "isFreeAccessPeriodEnabled": true],
+				featureFlagOverrides: [
+					"isPaymentsEnabled": false,
+					"isFreeAccessPeriodEnabled": true,
+					"isAnalyticsEnabled": true
+				],
+				analyticsScenario: .prompt,
 				freeAccessAnchorAgeDays: 3,
 				freeAccessDay0Unshown: true
 			),
@@ -449,10 +455,7 @@ final class FreeAccessUITests: UITestCase {
 		assertExists(AID.welcomeHeadline, false)
 		assertExists(AID.welcomePriceNote, false)
 
-		let continueButton = app.buttons[AID.welcomeContinue]
-		XCTAssertTrue(continueButton.waitForExistence(timeout: 15), "Welcome offered no way past")
-		continueButton.tap()
-		XCTAssertTrue(element(AID.tourBubble).waitForExistence(timeout: 15), "Continue did not hand the screen to the tour")
+		assertContinueThenTourThenConsent()
 	}
 
 	/// A returning install with a window that ran out under payments on: with payments off there is

@@ -441,7 +441,7 @@ final class FreeAccessStateTests: XCTestCase {
 		XCTAssertTrue(state.hasShownDay0Welcome)
 	}
 
-	/// The 1.0.8 upgrade after payments are switched off: the record says the priced screen was
+	/// The upgrade from 1.0.7/1.0.8 after payments are switched off: the record says the priced screen was
 	/// shown, and that must be the answer however the session is configured — payments off and free
 	/// access off both included — and whether or not the window has since run out.
 	@MainActor

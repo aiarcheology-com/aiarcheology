@@ -358,12 +358,12 @@ final class TourStateTests: XCTestCase {
 
 	// MARK: - Priced Welcome recorded before the receipt existed (AIA-1036)
 
-	func testAdoptEarlierWelcomeReceipt_pricedWelcomeMetUnder108_isNotIntroducedAgain() {
-		// The 1.0.8 upgrade: the priced Welcome was shown (only `day0Shown` recorded), the tour never
-		// reached its end, so this launch re-arms with no introduction receipt.
+	func testAdoptEarlierWelcomeReceipt_pricedWelcomeMetBefore109_isNotIntroducedAgain() {
+		// The upgrade from 1.0.7/1.0.8: the priced Welcome was shown (only `day0Shown` recorded), the
+		// tour never reached its end, so this launch re-arms with no introduction receipt.
 		let upgraded = TourState(steps: scriptedSteps(count: 2), defaults: defaults)
 		XCTAssertTrue(upgraded.migrateAndArmIfNeeded(), "precondition: the unfinished tour is owed again")
-		XCTAssertTrue(upgraded.isIntroductionOwed, "precondition: no receipt from 1.0.8")
+		XCTAssertTrue(upgraded.isIntroductionOwed, "precondition: no receipt before 1.0.9")
 
 		upgraded.adoptEarlierWelcomeReceipt(dayZeroWelcomeShown: true)
 		XCTAssertFalse(upgraded.isIntroductionOwed, "A user who met the priced Welcome was introduced again")

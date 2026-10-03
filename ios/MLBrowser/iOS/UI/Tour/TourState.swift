@@ -73,9 +73,10 @@ final class TourState {
 	/// tour the user had already started, after a force-quit halfway through it — the payments-on
 	/// path, whose `day0Shown` marker is also written at presentation, shows only the tour again.
 	///
-	/// **Either Welcome counts, including one recorded before this receipt existed.** 1.0.8 kept the
-	/// priced Welcome's receipt only in the free-access window; ``adoptEarlierWelcomeReceipt(dayZeroWelcomeShown:)``
-	/// carries it over at launch, before the first frame (AIA-1036).
+	/// **Either Welcome counts, including one recorded before this receipt existed.** 1.0.7 and
+	/// 1.0.8 kept the priced Welcome's receipt only in the free-access window;
+	/// ``adoptEarlierWelcomeReceipt(dayZeroWelcomeShown:)`` carries it over at launch, before the
+	/// first frame (AIA-1036).
 	///
 	/// Stored, so `@Observable` tracks it; the gate reads it next to the payments flag, which is
 	/// the half that decides whether the introduction is the screen to show at all.
@@ -222,11 +223,12 @@ final class TourState {
 	/// Carries over a priced Welcome screen that was recorded before this receipt existed
 	/// (AIA-1036).
 	///
-	/// 1.0.8 showed the priced Welcome ahead of the tour and recorded it only in the free-access
-	/// window (`day0Shown`); ``introductionShownKey`` arrived in 1.0.9. A 1.0.8 user who met that
-	/// screen and never finished the tour is armed again here with no receipt, so once payments are
-	/// off ``arm()`` alone would owe them the introduction — a second Welcome. Writing the existing
-	/// key leaves them exactly where a 1.0.9 user who met the priced screen already is.
+	/// 1.0.7 and 1.0.8 showed the priced Welcome ahead of the tour and recorded it only in the
+	/// free-access window (`day0Shown`); ``introductionShownKey`` arrived in 1.0.9. A user of those
+	/// builds who met that screen and never finished the tour is armed again here with no receipt,
+	/// so once payments are off ``arm()`` alone would owe them the introduction — a second Welcome.
+	/// Writing the existing key leaves them exactly where a 1.0.9 user who met the priced screen
+	/// already is.
 	///
 	/// A no-op unless an introduction is currently owed, so installs with no armed tour gain no write.
 	/// Called once per launch, after the free-access window has been reconciled and before the root

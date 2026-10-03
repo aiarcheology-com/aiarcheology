@@ -10,7 +10,7 @@ Test Focus: a small bug-fix release. Signing in should finish on its own, withou
 
 STILL WORTH RETESTING FROM THE PREVIOUS BUILD
 
-- Fresh install, first launch: you should see "Welcome to ML Browser", one sentence about what the app does, and Continue, with no price, trial or subscription mentioned. After Continue the guided tour starts, and only after you finish or skip it does the analytics question appear.
+- Fresh install, first launch: you should see "Welcome to ML Browser", one sentence about what the app does, and Continue, with no price, trial or subscription mentioned. After Continue the guided tour starts, and only after you finish or skip it does the analytics question appear. If this device ever showed the earlier Welcome that mentioned a price, it is remembered even after deleting the app: then no Welcome appears and the guided tour starts straight away, which is expected. Please report any case where you see a Welcome a second time.
 
 - Crash fix: keep this build installed with Background App Refresh on (Settings > General > Background App Refresh) and use it normally over a few days. Please report any crash, especially one right after opening the app.
 

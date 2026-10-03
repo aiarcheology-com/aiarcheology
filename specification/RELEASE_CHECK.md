@@ -139,6 +139,9 @@ broken feature.** That is the trade this file exists to catch.
          subscribers through their current period — the app is free, so that holds.
       3. On the shipped build, verify both: fresh install → neutral Welcome → tour → consent, no
          price anywhere; relaunch after the sync → no paywall, no Settings Subscription section.
+         Use a device that has never shown the priced Welcome: the free-access window survives
+         deleting the app, and from 1.0.10 a device that has shown it goes straight to the tour
+         (AIA-1036).
       Not ticked from a code read; record the dates and evidence here.
 
 - [ ] **Disable the old Sentry client key.** The DSN that reached a public commit (`2d0d3638`,

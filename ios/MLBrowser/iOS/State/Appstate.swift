@@ -216,7 +216,7 @@ final class AppState: ObservableObject {
 			isPaymentsSurfaceEnabled: subscriptionState.isPaymentsSurfaceEnabled
 		)
 
-		// 3d. A priced Welcome met under 1.0.8 counts as this onboarding's introduction (AIA-1036).
+		// 3d. A priced Welcome met before 1.0.9 counts as this onboarding's introduction (AIA-1036).
 		// Must follow `freeAccess.start` — before it the window is unreconciled and reads as never
 		// shown — and precede `isReady`, so the gate's first frame never sees the stale "owed".
 		tour.adoptEarlierWelcomeReceipt(dayZeroWelcomeShown: freeAccess.hasShownDay0Welcome)
