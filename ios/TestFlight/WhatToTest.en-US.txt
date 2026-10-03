@@ -1,31 +1,17 @@
-Build: 1.0.9 — Welcome, safer model storage and map findings
+Build: 1.0.10 — Sign-in fix
 
-Test Focus: The app can now run with no subscription at all. In this build that free mode is used for the very first launch after a fresh install; payments stay on from the second launch, exactly as before. Please test on a device where you can delete and reinstall the app.
+Test Focus: a small bug-fix release. Signing in should finish on its own, without you having to close the sign-in screen.
 
-- Fresh install, first launch. Delete ML Browser, install this build, open it. You should see "Welcome to ML Browser", one sentence about what the app does, and Continue. It must NOT mention a price, a trial, "free for 14 days", "no payment today" or a subscription anywhere. Please report any wording that does.
+- Sign in. Start signed out (Settings > Account > Manage account > Sign out if needed). Open Menu > Sign In and finish signing in with your account. The sign-in screen must close by itself within a few seconds, and Settings > Account must then show you as signed in. Please report it if the screen stays open, or if you have to close it yourself and only then find you are signed in.
 
-- The order after Continue: the guided tour starts, and only after you finish or skip it does the analytics question appear. Nothing should appear on top of the Welcome screen, and the tour must not start behind it.
-
-- On that first launch, open Settings. There should be no Subscription section at all. Settings > About the app > Report a problem > Send email: the "What is this about?" list should not offer "Purchase or subscription".
-
-- With an internet connection, close the app completely (swipe it away) and open it again. Now payments are back on: you should see the familiar Welcome screen that offers the free period and names the price. Continue, and Settings > Subscription is back too. This second-launch switch is expected in this build.
-
-- Interrupted first run: fresh install, tap Continue, then close the app in the middle of the tour. On reopening, the price-offer Welcome screen appears (payments are on now) and the tour runs again after it, but the plain Welcome screen from step 1 must not come back.
-
-- If you already have the app installed and just update, nothing should change for you: no new Welcome screen, and your subscription status in Settings as before.
-
-- Crash fix: the app could crash on its own when iOS woke it in the background to check for new messages, often right as you opened it. Keep this build installed with Background App Refresh on (Settings > General > Background App Refresh) and use it normally over a few days. Please report any crash, especially one right after opening the app.
-
-- Delete asks first. Menu > Models: swipe a model left (or long-press it) and tap Delete. An alert should name the model; Cancel keeps it, Delete removes it. A long fast swipe must not delete without the alert. Settings > Delete cache > Delete: an alert should say all cookies and website data will be deleted; Cancel changes nothing.
-
-- Findings on maps: on a map site, tap Find, pan, and store a finding. The saved picture, Page and GPS must all describe the same view. If the page moves or changes as you tap, the crosshair may go red again; tap once more. Report a finding whose picture and Page/GPS disagree.
-
-- Reopened map pages: turn on Settings > Reopen Last Page. On atlas.bayern.de, pan somewhere, close the app completely, reopen it, and store a finding WITHOUT panning. Its Page must be exactly the address the map showed, not a different place.
-
-- Model replacement: import a model, then replace it with another model of the same name. It must still load and detect. Cancel or fail a replacement and confirm the original still works. A rejected import must leave its source file intact.
-
-- Large model import: Menu > Models > Import a ~500 MB .tar detector checkpoint. It should either import, or show a clear "not enough memory" message, never make the app vanish. Please send the numbers from the message and the conversion log (Models > failed import > log icon > Share), with your device named. A model that imported fine before but now reports low memory is a bug.
-
-- Delete Account: Settings > Account > Manage account > Delete Account sits under Sign out. Cancel must leave the account untouched; only confirm on a throwaway account.
+- Sign in again a few times. Sign out and sign back in at least three times, including once right after bringing the app back from the Home screen. The screen must close by itself every time.
 
 - Mac: replay onboarding three times. The Models highlight must surround the CPU button; click it to open Models. Repeat after resizing the window.
+
+STILL WORTH RETESTING FROM THE PREVIOUS BUILD
+
+- Fresh install, first launch: you should see "Welcome to ML Browser", one sentence about what the app does, and Continue, with no price, trial or subscription mentioned. After Continue the guided tour starts, and only after you finish or skip it does the analytics question appear.
+
+- Crash fix: keep this build installed with Background App Refresh on (Settings > General > Background App Refresh) and use it normally over a few days. Please report any crash, especially one right after opening the app.
+
+- Findings on maps: on a map site, tap Find, pan, and store a finding. The saved picture, Page and GPS must all describe the same view. Report a finding whose picture and Page/GPS disagree.
