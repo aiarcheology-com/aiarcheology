@@ -392,11 +392,21 @@ final class SupportMailUnavailableCopyTests: XCTestCase {
 		}
 	}
 
-	/// The simulator is iOS 18+ and not a Mac, so the live platform must resolve to the current
-	/// iOS path, never the pre-18 one or the Mac one.
+	/// The live platform names the host this test runs on. The expectation is derived from the raw
+	/// process facts rather than from `HostPlatform`, so a mapping that sent an iOS 18 host to the
+	/// pre-18 path — or a Mac to Settings — fails here on whichever host runs the suite.
 	@MainActor
-	func testTheSimulatorResolvesToTheCurrentIOSPath() {
-		XCTAssertEqual(SupportMailUnavailableCopy.MailSetupPlatform.current, .iOS)
+	func testTheLivePlatformMatchesTheHost() {
+		let info = ProcessInfo.processInfo
+		let expected: SupportMailUnavailableCopy.MailSetupPlatform =
+			if info.isiOSAppOnMac || info.isMacCatalystApp {
+				.mac
+			} else if info.operatingSystemVersion.majorVersion >= 18 {
+				.iOS
+			} else {
+				.iOSBefore18
+			}
+		XCTAssertEqual(SupportMailUnavailableCopy.MailSetupPlatform.current, expected)
 	}
 
 	/// Payments off withdraws the purchase category from the picker (AIA-0955); payments on offers

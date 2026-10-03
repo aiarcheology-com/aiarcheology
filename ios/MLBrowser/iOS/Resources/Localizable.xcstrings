@@ -56344,7 +56344,7 @@
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "ईमेल अकाउंट जोड़ने के लिए सेटिंग्ज़ → ऐप्स → Mail → Mail अकाउंट पर जाएँ।"
+            "value" : "ईमेल खाता जोड़ने के लिए सेटिंग्ज़ → ऐप्स → मेल → मेल खाते पर जाएँ।"
           }
         },
         "hu" : {
@@ -56356,7 +56356,7 @@
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Aby dodać konto e-mail, przejdź do Ustawienia → Aplikacje → Mail → Konta Mail."
+            "value" : "Aby dodać konto e-mail, przejdź do Ustawienia → Aplikacje → Poczta → Konta pocztowe."
           }
         },
         "ru" : {
@@ -56452,7 +56452,7 @@
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "ईमेल अकाउंट जोड़ने के लिए सेटिंग्ज़ → Mail → अकाउंट पर जाएँ।"
+            "value" : "ईमेल खाता जोड़ने के लिए सेटिंग्ज़ → मेल → खाते पर जाएँ।"
           }
         },
         "hu" : {
@@ -56464,7 +56464,7 @@
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Aby dodać konto e-mail, przejdź do Ustawienia → Mail → Konta."
+            "value" : "Aby dodać konto e-mail, przejdź do Ustawienia → Poczta → Konta."
           }
         },
         "ru" : {
@@ -56560,7 +56560,7 @@
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "ईमेल अकाउंट जोड़ने के लिए Mail खोलें और Mail → अकाउंट जोड़ें चुनें।"
+            "value" : "ईमेल खाता जोड़ने के लिए मेल खोलें और मेल → खाता जोड़ें चुनें।"
           }
         },
         "hu" : {
@@ -56572,7 +56572,7 @@
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Aby dodać konto e-mail, otwórz Mail i wybierz Mail → Dodaj konto."
+            "value" : "Aby dodać konto e-mail, otwórz Pocztę i wybierz Poczta → Dodaj konto."
           }
         },
         "ru" : {
@@ -56602,7 +56602,7 @@
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "如要加入電郵帳戶，請開啟「郵件」並選擇「郵件」→「新增帳戶」。"
+            "value" : "如要加入電郵帳戶，請開啟「郵件」並選擇「郵件」→「加入帳户」。"
           }
         }
       }
