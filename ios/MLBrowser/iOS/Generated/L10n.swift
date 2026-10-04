@@ -1261,8 +1261,6 @@ internal enum L10n {
     internal static let detectScreenshots = L10n.tr("Localizable", "support.detectScreenshots", fallback: "Detect screenshots")
     /// Include application log
     internal static let includeApplicationLog = L10n.tr("Localizable", "support.includeApplicationLog", fallback: "Include application log")
-    /// Open Settings
-    internal static let openSettings = L10n.tr("Localizable", "support.openSettings", fallback: "Open Settings")
     /// Nothing is sent until you send it. You will see the whole email and can remove any screenshot or app log attachment before sending.
     internal static let privacyNote = L10n.tr("Localizable", "support.privacyNote", fallback: "Nothing is sent until you send it. You will see the whole email and can remove any screenshot or app log attachment before sending.")
     /// Report copied. Paste it into an email to %@.
@@ -1311,14 +1309,22 @@ internal enum L10n {
       /// Purchase or subscription
       internal static let purchase = L10n.tr("Localizable", "support.category.purchase", fallback: "Purchase or subscription")
     }
+    internal enum MailSetup {
+      /// To add an email account, go to Settings → Apps → Mail → Mail Accounts.
+      internal static let ios = L10n.tr("Localizable", "support.mailSetup.ios", fallback: "To add an email account, go to Settings → Apps → Mail → Mail Accounts.")
+      /// To add an email account, go to Settings → Mail → Accounts.
+      internal static let iosLegacy = L10n.tr("Localizable", "support.mailSetup.iosLegacy", fallback: "To add an email account, go to Settings → Mail → Accounts.")
+      /// To add an email account, open Mail and choose Mail → Add Account.
+      internal static let mac = L10n.tr("Localizable", "support.mailSetup.mac", fallback: "To add an email account, open Mail and choose Mail → Add Account.")
+    }
     internal enum MailUnavailable {
-      /// We opened your default mail app instead — attachments cannot be added that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere.
-      internal static func message(_ p1: Any) -> String {
-        return L10n.tr("Localizable", "support.mailUnavailable.message", String(describing: p1), fallback: "We opened your default mail app instead — attachments cannot be added that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere.")
+      /// We opened your default mail app instead — attachments cannot be added that way. You can also copy the report and send it to %@ from anywhere.
+      internal static func mailAppOpened(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "support.mailUnavailable.mailAppOpened", String(describing: p1), fallback: "We opened your default mail app instead — attachments cannot be added that way. You can also copy the report and send it to %@ from anywhere.")
       }
-      /// No mail app could be opened. Add an email account in Settings → Mail → Mail Accounts, or copy the report and send it to %@ from another device.
-      internal static func messageNoMailApp(_ p1: Any) -> String {
-        return L10n.tr("Localizable", "support.mailUnavailable.messageNoMailApp", String(describing: p1), fallback: "No mail app could be opened. Add an email account in Settings → Mail → Mail Accounts, or copy the report and send it to %@ from another device.")
+      /// No mail app could be opened. You can copy the report and send it to %@ from another device.
+      internal static func noMailApp(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "support.mailUnavailable.noMailApp", String(describing: p1), fallback: "No mail app could be opened. You can copy the report and send it to %@ from another device.")
       }
       /// Couldn't open Mail
       internal static let title = L10n.tr("Localizable", "support.mailUnavailable.title", fallback: "Couldn't open Mail")

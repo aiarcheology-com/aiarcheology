@@ -145,9 +145,10 @@ struct SupportRequestView: View {
 			}
 			// Not a dead end: `canSendMail()` is false whenever Mail.app has no account — and the
 			// user cannot be sent straight to Mail's setup pane, because iOS exposes no such URL
-			// (`openSettingsURLString` only opens THIS app's page, and `App-Prefs:root=MAIL` is
-			// undocumented and an App Review risk). So offer the two things that do work: the
-			// Settings app, and a clipboard copy so the report survives either way.
+			// (`openSettingsURLString` only opens THIS app's page — on a Mac, the app's own settings
+			// window — and `App-Prefs:root=MAIL` is undocumented and an App Review risk). So the
+			// notice says in words where accounts are added (AIA-0641), and offers a clipboard copy
+			// so the report survives either way.
 			.modifier(SupportRequestNotices(
 				recipient: recipient,
 				mailtoOpened: mailtoOpened,
@@ -155,7 +156,6 @@ struct SupportRequestView: View {
 				showCopiedConfirmation: $showCopiedConfirmation,
 				showScreenshotTooSmallNotice: $showScreenshotTooSmallNotice,
 				showScreenshotUnreadableNotice: $showScreenshotUnreadableNotice,
-				openSettings: { openAppSettings() },
 				copyReport: { copyReport() },
 				dismiss: { dismiss() }
 			))
@@ -638,15 +638,6 @@ struct SupportRequestView: View {
 		try? FileManager.default.removeItem(at: applicationLogExportDirectory)
 	}
 
-	/// Opens the Settings app. This lands on **ML Browser's own page**, not Mail's — iOS offers no
-	/// public URL for another app's settings, and the undocumented `App-Prefs:root=MAIL` is an App
-	/// Review risk. The alert copy therefore names the path (Mail → Mail Accounts) rather than
-	/// pretending the button goes straight there.
-	private func openAppSettings() {
-		guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-		Task { await UIApplication.shared.open(url) }
-	}
-
 	/// Puts the whole report on the clipboard so a missing mail account cannot destroy the user's
 	/// work — they can paste it into any app, or onto another device.
 	private func copyReport() {
@@ -656,13 +647,38 @@ struct SupportRequestView: View {
 	}
 }
 
-/// Which sentence the mail-unavailable alert shows. `mailto:` opened means the device has a mail
-/// app and the user can finish there; otherwise they have to leave the app entirely.
+/// Which sentences the mail-unavailable alert shows. `mailto:` opened means the device has a mail
+/// app and the user can finish there; otherwise they have to leave the app entirely. Either way the
+/// second paragraph says where an email account is added, which differs by platform (AIA-0641).
 enum SupportMailUnavailableCopy {
-	static func message(mailtoOpened: Bool, recipient: String) -> String {
-		mailtoOpened
-			? L10n.Support.MailUnavailable.message(recipient)
-			: L10n.Support.MailUnavailable.messageNoMailApp(recipient)
+	/// Where the host keeps its email accounts. Settings moved Mail under Apps in iOS 18; on a Mac
+	/// the accounts belong to Apple's Mail app, not to the system Settings this app could open.
+	enum MailSetupPlatform: Equatable {
+		case iOS
+		case iOSBefore18
+		case mac
+
+		@MainActor
+		static var current: MailSetupPlatform {
+			if HostPlatform.current.isMac { return .mac }
+			if #available(iOS 18, *) { return .iOS }
+			return .iOSBefore18
+		}
+
+		var hint: String {
+			switch self {
+			case .iOS: L10n.Support.MailSetup.ios
+			case .iOSBefore18: L10n.Support.MailSetup.iosLegacy
+			case .mac: L10n.Support.MailSetup.mac
+			}
+		}
+	}
+
+	static func message(mailtoOpened: Bool, recipient: String, platform: MailSetupPlatform) -> String {
+		let base = mailtoOpened
+			? L10n.Support.MailUnavailable.mailAppOpened(recipient)
+			: L10n.Support.MailUnavailable.noMailApp(recipient)
+		return base + "\n\n" + platform.hint
 	}
 }
 
@@ -675,18 +691,20 @@ private struct SupportRequestNotices: ViewModifier {
 	@Binding var showCopiedConfirmation: Bool
 	@Binding var showScreenshotTooSmallNotice: Bool
 	@Binding var showScreenshotUnreadableNotice: Bool
-	let openSettings: () -> Void
 	let copyReport: () -> Void
 	let dismiss: () -> Void
 
 	func body(content: Content) -> some View {
 		content
 			.alert(L10n.Support.MailUnavailable.title, isPresented: $showMailUnavailableNotice) {
-				Button(L10n.Support.openSettings) { openSettings() }
 				Button(L10n.Support.copyReport) { copyReport() }
 				Button(L10n.Common.ok, role: .cancel) { dismiss() }
 			} message: {
-				Text(SupportMailUnavailableCopy.message(mailtoOpened: mailtoOpened, recipient: recipient))
+				Text(SupportMailUnavailableCopy.message(
+					mailtoOpened: mailtoOpened,
+					recipient: recipient,
+					platform: .current
+				))
 			}
 			.alert(L10n.Support.title, isPresented: $showCopiedConfirmation) {
 				Button(L10n.Common.ok, role: .cancel) { dismiss() }

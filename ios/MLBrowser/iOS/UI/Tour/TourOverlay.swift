@@ -16,6 +16,11 @@ import SwiftUI
 /// the bubble is centered instead of pointing at a hole. A `dimsBackground == false` step (the
 /// map-capture step) renders only the bubble — no dim, no cutout — so the user's tap reaches the
 /// live app beneath.
+///
+/// Deliberately **not** modal for VoiceOver, unlike the Welcome and paywall overlays (AIA-0988):
+/// several steps are completed by acting on the live app beneath it — the map-capture step, the
+/// in-sheet Save, the drawer's model switch — so hiding that content would cut a VoiceOver user off
+/// from the very control the step asks for.
 private struct TourOverlayModifier: ViewModifier {
 	@Bindable var tour: TourState
 	/// `false` for the root overlay (renders non-sheet steps); `true` for the overlay hosted

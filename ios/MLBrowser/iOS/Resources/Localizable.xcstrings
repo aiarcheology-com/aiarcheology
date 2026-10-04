@@ -56283,218 +56283,542 @@
         }
       }
     },
-    "support.mailUnavailable.message" : {
-      "comment" : "Shown when the mail composer is unavailable but a default mail app opened via mailto. %@ is the support email address.",
+    "support.mailSetup.ios" : {
+      "comment" : "How to add an email account on iPhone/iPad with iOS 18 or later, shown under the mail-unavailable alert message. Names the Settings path; keep the menu names as they appear in localized iOS.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "فتحنا تطبيق البريد الافتراضي لديك بدلًا من ذلك، ولا يمكن إضافة مرفقات بهذه الطريقة. إذا ظهر أنه لا يوجد حساب مُعد، فأضف حسابًا من الإعدادات ← البريد ← حسابات البريد. يمكنك أيضًا نسخ التقرير وإرساله إلى %@ من أي مكان."
+            "value" : "لإضافة حساب بريد إلكتروني، انتقل إلى الإعدادات ← التطبيقات ← البريد ← حسابات البريد."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "আমরা বদলে আপনার ডিফল্ট মেল অ্যাপ খুলেছি — সেভাবে অ্যাটাচমেন্ট যোগ করা যায় না। যদি বলে কোনো অ্যাকাউন্ট সেট করা নেই, তাহলে সেটিংস → Mail → Mail অ্যাকাউন্ট-এ একটি যোগ করুন। আপনি রিপোর্টটি কপি করে যেকোনো জায়গা থেকে %@ ঠিকানায় পাঠাতে পারেন।"
+            "value" : "একটি ইমেল অ্যাকাউন্ট যোগ করতে সেটিংস → অ্যাপ → Mail → Mail অ্যাকাউন্ট-এ যান।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Otevřeli jsme místo toho vaši výchozí poštovní aplikaci — tam nelze přidat přílohy. Pokud hlásí, že není nastaven žádný účet, přidejte ho v Nastavení → Mail → Účty. Hlášení můžete také zkopírovat a odeslat odkudkoli na %@."
+            "value" : "E-mailový účet přidáte v Nastavení → Aplikace → Mail → Účty Mailu."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Wir haben stattdessen Ihre Standard-Mail-App geöffnet – auf diesem Weg lassen sich keine Anhänge hinzufügen. Falls dort kein Account eingerichtet ist, fügen Sie einen unter Einstellungen → Mail → Accounts hinzu. Sie können den Bericht auch kopieren und von überall an %@ senden."
+            "value" : "Um einen E-Mail-Account hinzuzufügen, öffnen Sie Einstellungen → Apps → Mail → Mail-Accounts."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "We opened your default mail app instead — attachments cannot be added that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere."
+            "value" : "To add an email account, go to Settings → Apps → Mail → Mail Accounts."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Hemos abierto tu app de correo por omisión: así no se pueden añadir archivos adjuntos. Si indica que no hay ninguna cuenta configurada, añade una en Ajustes → Mail → Cuentas de Mail. También puedes copiar el informe y enviarlo a %@ desde donde quieras."
+            "value" : "Para añadir una cuenta de correo, ve a Ajustes → Apps → Mail → Cuentas de Mail."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "به‌جای آن، برنامهٔ ایمیل پیش‌فرض شما را باز کردیم؛ به این روش نمی‌توان پیوست اضافه کرد. اگر می‌گوید هیچ حسابی تنظیم نشده، از تنظیمات ← ایمیل ← حساب‌های ایمیل یکی اضافه کنید. همچنین می‌توانید گزارش را کپی کنید و از هر جایی به %@ بفرستید."
+            "value" : "برای افزودن حساب ایمیل، به تنظیمات ← برنامه‌ها ← ایمیل ← حساب‌های ایمیل بروید."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Nous avons ouvert votre app de mail par défaut — les pièces jointes ne peuvent pas être ajoutées ainsi. Si elle indique qu’aucun compte n’est configuré, ajoutez-en un dans Réglages → Mail → Comptes Mail. Vous pouvez aussi copier le rapport et l’envoyer à %@ depuis n’importe où."
+            "value" : "Pour ajouter un compte de messagerie, accédez à Réglages → Apps → Mail → Comptes Mail."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "פתחנו במקום זאת את אפליקציית הדואר שמוגדרת כברירת מחדל — לא ניתן לצרף קבצים בדרך זו. אם מופיעה הודעה שלא הוגדר חשבון, הוסף חשבון בהגדרות > דואר > חשבונות דואר. אפשר גם להעתיק את הדוח ולשלוח אותו אל %@ מכל מקום."
+            "value" : "כדי להוסיף חשבון דוא״ל, עבור אל הגדרות > יישומים > דואר > חשבונות דואר."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "हमने इसके बजाय आपका डिफ़ॉल्ट मेल ऐप खोला — उस तरीके से अटैचमेंट नहीं जोड़े जा सकते। अगर यह कहे कि कोई अकाउंट सेट नहीं है, तो सेटिंग्ज़ → Mail → Mail अकाउंट में एक जोड़ें। आप रिपोर्ट कॉपी करके कहीं से भी %@ पर भेज सकते हैं।"
+            "value" : "ईमेल खाता जोड़ने के लिए सेटिंग्ज़ → ऐप्स → मेल → मेल खाते पर जाएँ।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Helyette az alapértelmezett levelezőalkalmazást nyitottuk meg – így nem lehet mellékletet hozzáadni. Ha azt jelzi, hogy nincs beállítva fiók, adjon hozzá egyet a Beállítások → Mail → Fiókok menüben. A jelentést ki is másolhatja, és bárhonnan elküldheti ide: %@."
+            "value" : "E-mail-fiók hozzáadásához nyissa meg a Beállítások → Appok → Mail → Mail-fiókok menüt."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Otworzyliśmy zamiast tego twoją domyślną aplikację pocztową — w ten sposób nie można dodać załączników. Jeśli pojawi się komunikat o braku konta, dodaj je w Ustawienia → Mail → Konta. Możesz też skopiować raport i wysłać go na %@ z dowolnego miejsca."
+            "value" : "Aby dodać konto e-mail, przejdź do Ustawienia → Aplikacje → Poczta → Konta pocztowe."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Мы открыли ваше почтовое приложение по умолчанию — вложения так добавить нельзя. Если оно сообщает, что учётная запись не настроена, добавьте её в «Настройки» → «Почта» → «Учётные записи». Также можно скопировать отчёт и отправить его на %@ откуда угодно."
+            "value" : "Чтобы добавить учётную запись почты, откройте «Настройки» → «Приложения» → «Почта» → «Учётные записи почты»."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Ми відкрили ваш типовий поштовий застосунок — вкладення так додати не можна. Якщо він повідомляє, що обліковий запис не налаштовано, додайте його в «Налаштування» → «Пошта» → «Облікові записи». Також можна скопіювати звіт і надіслати його на %@ звідки завгодно."
+            "value" : "Щоб додати обліковий запис пошти, відкрийте «Параметри» → «Програми» → «Пошта» → «Облікові записи пошти»."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "我们改为打开了你的默认邮件 App，这种方式无法添加附件。如果提示未设置账户，请在“设置”→“邮件”→“邮件账户”中添加。你也可以复制报告，从任意位置发送至 %@。"
+            "value" : "要添加电子邮件账户，请前往“设置”→“App”→“邮件”→“邮件账户”。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "我們改為打開你的預設郵件 App — 這種方式無法加入附件。若顯示尚未設定帳號，請前往「設定」>「郵件」>「郵件帳號」加入帳號。你也可以拷貝報告，從任何地方寄到 %@。"
+            "value" : "若要加入電子郵件帳號，請前往「設定」>「App」>「郵件」>「郵件帳號」。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "我們改為開啟了你的預設郵件 App，這種方式無法加入附件。如顯示未設定帳戶，請在「設定」→「郵件」→「郵件帳戶」中加入。你亦可拷貝報告，從任何地方傳送至 %@。"
+            "value" : "如要加入電郵帳戶，請前往「設定」→「App」→「郵件」→「郵件帳戶」。"
           }
         }
       }
     },
-    "support.mailUnavailable.messageNoMailApp" : {
-      "comment" : "Shown when no mail app could be opened at all. %@ is the support email address.",
+    "support.mailSetup.iosLegacy" : {
+      "comment" : "How to add an email account on iOS 17, shown under the mail-unavailable alert message. Names the Settings path; keep the menu names as they appear in localized iOS.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "تعذّر فتح أي تطبيق بريد. أضف حساب بريد إلكتروني من الإعدادات ← البريد ← حسابات البريد، أو انسخ التقرير وأرسله إلى %@ من جهاز آخر."
+            "value" : "لإضافة حساب بريد إلكتروني، انتقل إلى الإعدادات ← البريد ← الحسابات."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "কোনো মেল অ্যাপ খোলা যায়নি। সেটিংস → Mail → Mail অ্যাকাউন্ট-এ একটি ইমেল অ্যাকাউন্ট যোগ করুন, অথবা রিপোর্টটি কপি করে অন্য ডিভাইস থেকে %@ ঠিকানায় পাঠান।"
+            "value" : "একটি ইমেল অ্যাকাউন্ট যোগ করতে সেটিংস → Mail → অ্যাকাউন্ট-এ যান।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Nepodařilo se otevřít žádnou poštovní aplikaci. Přidejte e-mailový účet v Nastavení → Mail → Účty, nebo hlášení zkopírujte a odešlete z jiného zařízení na %@."
+            "value" : "E-mailový účet přidáte v Nastavení → Mail → Účty."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Es konnte keine Mail-App geöffnet werden. Fügen Sie unter Einstellungen → Mail → Accounts einen E-Mail-Account hinzu oder kopieren Sie den Bericht und senden Sie ihn von einem anderen Gerät an %@."
+            "value" : "Um einen E-Mail-Account hinzuzufügen, öffnen Sie Einstellungen → Mail → Accounts."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No mail app could be opened. Add an email account in Settings → Mail → Mail Accounts, or copy the report and send it to %@ from another device."
+            "value" : "To add an email account, go to Settings → Mail → Accounts."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "No se pudo abrir ninguna app de correo. Añade una cuenta de correo en Ajustes → Mail → Cuentas de Mail, o copia el informe y envíalo a %@ desde otro dispositivo."
+            "value" : "Para añadir una cuenta de correo, ve a Ajustes → Mail → Cuentas."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "هیچ برنامهٔ ایمیلی باز نشد. از تنظیمات ← ایمیل ← حساب‌های ایمیل یک حساب ایمیل اضافه کنید، یا گزارش را کپی کنید و از دستگاهی دیگر به %@ بفرستید."
+            "value" : "برای افزودن حساب ایمیل، به تنظیمات ← ایمیل ← حساب‌ها بروید."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Aucune app de mail n’a pu être ouverte. Ajoutez un compte de messagerie dans Réglages → Mail → Comptes Mail, ou copiez le rapport et envoyez-le à %@ depuis un autre appareil."
+            "value" : "Pour ajouter un compte de messagerie, accédez à Réglages → Mail → Comptes."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "לא ניתן היה לפתוח אף אפליקציית דואר. הוסף חשבון דוא״ל בהגדרות > דואר > חשבונות דואר, או העתק את הדוח ושלח אותו אל %@ ממכשיר אחר."
+            "value" : "כדי להוסיף חשבון דוא״ל, עבור אל הגדרות > דואר > חשבונות."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "कोई मेल ऐप नहीं खुल सका। सेटिंग्ज़ → Mail → Mail अकाउंट में एक ईमेल अकाउंट जोड़ें, या रिपोर्ट कॉपी करके किसी दूसरे डिवाइस से %@ पर भेजें।"
+            "value" : "ईमेल खाता जोड़ने के लिए सेटिंग्ज़ → मेल → खाते पर जाएँ।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Egyetlen levelezőalkalmazást sem sikerült megnyitni. Adjon hozzá egy e-mail-fiókot a Beállítások → Mail → Fiókok menüben, vagy másolja ki a jelentést, és küldje el egy másik eszközről ide: %@."
+            "value" : "E-mail-fiók hozzáadásához nyissa meg a Beállítások → Mail → Fiókok menüt."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Nie udało się otworzyć żadnej aplikacji pocztowej. Dodaj konto e-mail w Ustawienia → Mail → Konta albo skopiuj raport i wyślij go na %@ z innego urządzenia."
+            "value" : "Aby dodać konto e-mail, przejdź do Ustawienia → Poczta → Konta."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Не удалось открыть ни одно почтовое приложение. Добавьте учётную запись почты в «Настройки» → «Почта» → «Учётные записи» или скопируйте отчёт и отправьте его на %@ с другого устройства."
+            "value" : "Чтобы добавить учётную запись почты, откройте «Настройки» → «Почта» → «Учётные записи»."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Не вдалося відкрити жодного поштового застосунку. Додайте обліковий запис пошти в «Налаштування» → «Пошта» → «Облікові записи» або скопіюйте звіт і надішліть його на %@ з іншого пристрою."
+            "value" : "Щоб додати обліковий запис пошти, відкрийте «Параметри» → «Пошта» → «Облікові записи»."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "无法打开任何邮件 App。请在“设置”→“邮件”→“邮件账户”中添加电子邮件账户，或复制报告并从其他设备发送至 %@。"
+            "value" : "要添加电子邮件账户，请前往“设置”→“邮件”→“账户”。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "無法打開任何郵件 App。請前往「設定」>「郵件」>「郵件帳號」加入電子郵件帳號，或拷貝報告並從其他裝置寄到 %@。"
+            "value" : "若要加入電子郵件帳號，請前往「設定」>「郵件」>「帳號」。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "無法開啟任何郵件 App。請在「設定」→「郵件」→「郵件帳戶」中加入電郵帳戶，或拷貝報告並從其他裝置傳送至 %@。"
+            "value" : "如要加入電郵帳戶，請前往「設定」→「郵件」→「帳戶」。"
+          }
+        }
+      }
+    },
+    "support.mailSetup.mac" : {
+      "comment" : "How to add an email account when the app runs on a Mac, shown under the mail-unavailable alert message. Names the menu in Apple's Mail app on macOS.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لإضافة حساب بريد إلكتروني، افتح تطبيق البريد واختر البريد ← إضافة حساب."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "একটি ইমেল অ্যাকাউন্ট যোগ করতে Mail খুলে Mail → অ্যাকাউন্ট যোগ করুন বেছে নিন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "E-mailový účet přidáte tak, že otevřete Mail a zvolíte Mail → Přidat účet."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Um einen E-Mail-Account hinzuzufügen, öffnen Sie Mail und wählen Sie Mail → Account hinzufügen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To add an email account, open Mail and choose Mail → Add Account."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Para añadir una cuenta de correo, abre Mail y elige Mail → Añadir cuenta."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "برای افزودن حساب ایمیل، برنامهٔ ایمیل را باز کنید و ایمیل ← افزودن حساب را انتخاب کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pour ajouter un compte de messagerie, ouvrez Mail et choisissez Mail → Ajouter un compte."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "כדי להוסיף חשבון דוא״ל, פתח את הדואר ובחר דואר > הוספת חשבון."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ईमेल खाता जोड़ने के लिए मेल खोलें और मेल → खाता जोड़ें चुनें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "E-mail-fiók hozzáadásához nyissa meg a Mailt, és válassza a Mail → Fiók hozzáadása menüpontot."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aby dodać konto e-mail, otwórz Pocztę i wybierz Poczta → Dodaj konto."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Чтобы добавить учётную запись почты, откройте «Почту» и выберите «Почта» → «Добавить учётную запись»."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Щоб додати обліковий запис пошти, відкрийте «Пошту» й виберіть «Пошта» → «Додати обліковий запис»."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "要添加电子邮件账户，请打开“邮件”并选取“邮件”→“添加账户”。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "若要加入電子郵件帳號，請打開「郵件」並選擇「郵件」>「加入帳號」。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "如要加入電郵帳戶，請開啟「郵件」並選擇「郵件」→「加入帳户」。"
+          }
+        }
+      }
+    },
+    "support.mailUnavailable.mailAppOpened" : {
+      "comment" : "Shown when the in-app mail composer is unavailable but the default mail app was opened instead. %@ is the support email address. A separate sentence explaining how to add an email account follows it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "فتحنا تطبيق البريد الافتراضي لديك بدلًا من ذلك، ولا يمكن إضافة مرفقات بهذه الطريقة. يمكنك أيضًا نسخ التقرير وإرساله إلى %@ من أي مكان."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আমরা বদলে আপনার ডিফল্ট মেল অ্যাপ খুলেছি — সেভাবে অ্যাটাচমেন্ট যোগ করা যায় না। আপনি রিপোর্টটি কপি করে যেকোনো জায়গা থেকে %@ ঠিকানায় পাঠাতে পারেন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Otevřeli jsme místo toho vaši výchozí poštovní aplikaci — tam nelze přidat přílohy. Hlášení můžete také zkopírovat a odeslat odkudkoli na %@."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wir haben stattdessen Ihre Standard-Mail-App geöffnet – auf diesem Weg lassen sich keine Anhänge hinzufügen. Sie können den Bericht auch kopieren und von überall an %@ senden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We opened your default mail app instead — attachments cannot be added that way. You can also copy the report and send it to %@ from anywhere."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Hemos abierto tu app de correo por omisión: así no se pueden añadir archivos adjuntos. También puedes copiar el informe y enviarlo a %@ desde donde quieras."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "به‌جای آن، برنامهٔ ایمیل پیش‌فرض شما را باز کردیم؛ به این روش نمی‌توان پیوست اضافه کرد. همچنین می‌توانید گزارش را کپی کنید و از هر جایی به %@ بفرستید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nous avons ouvert votre app de mail par défaut — les pièces jointes ne peuvent pas être ajoutées ainsi. Vous pouvez aussi copier le rapport et l’envoyer à %@ depuis n’importe où."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "פתחנו במקום זאת את אפליקציית הדואר שמוגדרת כברירת מחדל — לא ניתן לצרף קבצים בדרך זו. אפשר גם להעתיק את הדוח ולשלוח אותו אל %@ מכל מקום."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "हमने इसके बजाय आपका डिफ़ॉल्ट मेल ऐप खोला — उस तरीके से अटैचमेंट नहीं जोड़े जा सकते। आप रिपोर्ट कॉपी करके कहीं से भी %@ पर भेज सकते हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Helyette az alapértelmezett levelezőalkalmazást nyitottuk meg – így nem lehet mellékletet hozzáadni. A jelentést ki is másolhatja, és bárhonnan elküldheti ide: %@."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Otworzyliśmy zamiast tego twoją domyślną aplikację pocztową — w ten sposób nie można dodać załączników. Możesz też skopiować raport i wysłać go na %@ z dowolnego miejsca."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Мы открыли ваше почтовое приложение по умолчанию — вложения так добавить нельзя. Также можно скопировать отчёт и отправить его на %@ откуда угодно."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ми відкрили ваш типовий поштовий застосунок — вкладення так додати не можна. Також можна скопіювати звіт і надіслати його на %@ звідки завгодно."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "我们改为打开了你的默认邮件 App，这种方式无法添加附件。你也可以复制报告，从任意位置发送至 %@。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "我們改為打開你的預設郵件 App — 這種方式無法加入附件。你也可以拷貝報告，從任何地方寄到 %@。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "我們改為開啟了你的預設郵件 App，這種方式無法加入附件。你亦可拷貝報告，從任何地方傳送至 %@。"
+          }
+        }
+      }
+    },
+    "support.mailUnavailable.noMailApp" : {
+      "comment" : "Shown when no mail app could be opened at all. %@ is the support email address. A separate sentence explaining how to add an email account follows it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تعذّر فتح أي تطبيق بريد. يمكنك نسخ التقرير وإرساله إلى %@ من جهاز آخر."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "কোনো মেল অ্যাপ খোলা যায়নি। আপনি রিপোর্টটি কপি করে অন্য ডিভাইস থেকে %@ ঠিকানায় পাঠাতে পারেন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nepodařilo se otevřít žádnou poštovní aplikaci. Hlášení můžete zkopírovat a odeslat z jiného zařízení na %@."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Es konnte keine Mail-App geöffnet werden. Sie können den Bericht kopieren und von einem anderen Gerät an %@ senden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No mail app could be opened. You can copy the report and send it to %@ from another device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No se pudo abrir ninguna app de correo. Puedes copiar el informe y enviarlo a %@ desde otro dispositivo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "هیچ برنامهٔ ایمیلی باز نشد. می‌توانید گزارش را کپی کنید و از دستگاهی دیگر به %@ بفرستید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aucune app de mail n’a pu être ouverte. Vous pouvez copier le rapport et l’envoyer à %@ depuis un autre appareil."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לא ניתן היה לפתוח אף אפליקציית דואר. אפשר להעתיק את הדוח ולשלוח אותו אל %@ ממכשיר אחר."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "कोई मेल ऐप नहीं खुल सका। आप रिपोर्ट कॉपी करके किसी दूसरे डिवाइस से %@ पर भेज सकते हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Egyetlen levelezőalkalmazást sem sikerült megnyitni. A jelentést kimásolhatja, és egy másik eszközről elküldheti ide: %@."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nie udało się otworzyć żadnej aplikacji pocztowej. Możesz skopiować raport i wysłać go na %@ z innego urządzenia."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не удалось открыть ни одно почтовое приложение. Можно скопировать отчёт и отправить его на %@ с другого устройства."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не вдалося відкрити жоден поштовий застосунок. Можна скопіювати звіт і надіслати його на %@ з іншого пристрою."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "无法打开任何邮件 App。你可以复制报告，从其他设备发送至 %@。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無法打開任何郵件 App。你可以拷貝報告，再從其他裝置寄到 %@。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無法開啟任何郵件 App。你可以拷貝報告，再從其他裝置傳送至 %@。"
           }
         }
       }
@@ -56603,114 +56927,6 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "無法開啟「郵件」"
-          }
-        }
-      }
-    },
-    "support.openSettings" : {
-      "comment" : "Button that opens the Settings app so the user can add an email account.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "فتح الإعدادات"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "সেটিংস খুলুন"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Otevřít Nastavení"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Einstellungen öffnen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open Settings"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Abrir Ajustes"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "باز کردن تنظیمات"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Ouvrir Réglages"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "פתח הגדרות"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "सेटिंग्ज़ खोलें"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Beállítások megnyitása"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Otwórz Ustawienia"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Открыть Настройки"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Відкрити Налаштування"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "打开“设置”"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "打開「設定」"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "開啟「設定」"
           }
         }
       }
