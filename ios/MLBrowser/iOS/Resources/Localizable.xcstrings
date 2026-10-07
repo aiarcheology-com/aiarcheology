@@ -20616,12 +20616,6 @@
             "value" : "Із цим посиланням не надсилається жодна веб-адреса."
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "呢條連結唔會帶上任何網址。"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -20632,6 +20626,12 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "此連結不會帶上任何網址。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "呢條連結唔會帶上任何網址。"
           }
         }
       }
@@ -20724,12 +20724,6 @@
             "value" : "Це посилання несе щонайбільше:"
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "呢條連結最多會帶上："
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -20740,6 +20734,12 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "此連結最多會帶上："
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "呢條連結最多會帶上："
           }
         }
       }
@@ -20832,12 +20832,6 @@
             "value" : "Поділитися повною веб-адресою"
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "分享完整網址"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -20845,6 +20839,12 @@
           }
         },
         "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "分享完整網址"
+          }
+        },
+        "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "分享完整網址"
@@ -20940,12 +20940,6 @@
             "value" : "Картографічні сайти зберігають переглядуваний вигляд просто у веб-адресі. Лише повна адреса дасть іншій людині відкрити той самий вигляд; якщо вимкнено, надсилається тільки сам сайт."
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "地圖網站會把你正在睇緊嘅視圖保存喺網址入面。只有完整分享網址，其他人先可以打開同一個視圖；關閉後只會分享網站本身。"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -20956,6 +20950,12 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "地圖網站會把你正在檢視的視圖保存在網址中。只有完整分享網址，別人才能開啟同一個視圖；關閉後只分享網站本身。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "地圖網站會把你正在睇緊嘅視圖保存喺網址入面。只有完整分享網址，其他人先可以打開同一個視圖；關閉後只會分享網站本身。"
           }
         }
       }
@@ -21048,12 +21048,6 @@
             "value" : "Виявлення за %1$@ зліва та %2$@ згори, займає близько %3$@ сторінки."
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "偵測位於距左邊 %1$@、距頂部 %2$@ 位置，大約佔頁面嘅 %3$@。"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -21064,6 +21058,12 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "偵測位於距左側 %1$@、距頂部 %2$@ 處，約佔頁面的 %3$@。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "偵測位於距左邊 %1$@、距頂部 %2$@ 位置，大約佔頁面嘅 %3$@。"
           }
         }
       }
@@ -21156,12 +21156,6 @@
             "value" : "Де на сторінці"
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "喺頁面上嘅位置"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -21172,6 +21166,12 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "在頁面上的位置"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "喺頁面上嘅位置"
           }
         }
       }
