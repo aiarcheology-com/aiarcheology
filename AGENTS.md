@@ -27,6 +27,14 @@ resources, Xcode configuration, and iOS tests. Load references only when relevan
   consequential requirement or permission cannot be inferred. Do not repeat an answered approval request.
 - Prefer existing tools, patterns, and dependencies. Add abstractions for real boundaries or test
   seams. Reuse decisions only when their meaning and lifecycle match.
+- Make domain decisions explicit through named states and outcomes, types that exclude invalid
+  combinations, and exhaustive handling where practical. Distinguish rejection, deferral, and
+  intentional inaction when their meanings differ. Keep independent decisions independent; do
+  not add empty branches or enumerate irrelevant combinations merely to appear complete.
+- Encode enforceable constraints in code and protect consequential behavior with meaningful tests.
+  Preserve concise comments for rationale, external constraints, and tradeoffs that code and tests
+  cannot explain. Avoid comments that merely restate the implementation; update rationale when
+  its underlying decision changes. Exhaustive handling does not prove the domain model is complete.
 - New repository tooling normally belongs in `Tools/ProjectTool`, with thin `scripts/*.sh`
   wrappers. Existing Python tools and ready-made libraries are appropriate when they avoid
   disproportionate implementation or maintenance cost. Do not rewrite tooling for a language preference.
