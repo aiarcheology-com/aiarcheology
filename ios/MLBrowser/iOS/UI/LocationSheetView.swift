@@ -133,6 +133,8 @@ struct LocationSheetView: View {
 			// Debounce: a fresh keystroke cancels this task, so the filter only follows
 			// once typing pauses.
 			try? await Task.sleep(for: .milliseconds(250))
+			// Cancellation ends the sleep immediately; an obsolete task must not publish early.
+			guard Task.isCancelled == false else { return }
 			filterText = searchText == prefilledURL ? "" : searchText
 		}
 	}

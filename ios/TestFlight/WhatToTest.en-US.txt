@@ -1,6 +1,8 @@
-Build: 1.0.10 — Sign-in fix
+Build: 1.0.10 — Sign-in and location search fixes
 
 Test Focus: a small bug-fix release. Signing in should finish on its own, without you having to close the sign-in screen. VoiceOver users can no longer reach the app hidden behind the Welcome or subscription screen, and the problem-report screen no longer sends you to the wrong Settings.
+
+- Location search: open the address sheet and type quickly. After you pause, history should match your query. Clear the field to restore history, then type again, dismiss and reopen the sheet. History must return, and an existing page address must remain prefilled without hiding other history. Report any typing freeze; this cancellation fix does not establish that all reported app hangs are resolved.
 
 - Sign in. Start signed out (Settings > Account > Manage account > Sign out if needed). Open Menu > Sign In and finish signing in with your account. The sign-in screen must close by itself within a few seconds, and Settings > Account must then show you as signed in. Please report it if the screen stays open, or if you have to close it yourself and only then find you are signed in.
 

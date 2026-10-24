@@ -67,6 +67,53 @@ final class AddressBarUITests: UITestCase {
         XCTAssertGreaterThanOrEqual(items.count, 2, "Expected multiple seeded history items")
     }
 
+    /// Behavioral coverage for the debounced filter; debounce timing is not asserted by UI polling.
+    func testLocationSheet_filterClearAndReopenRestoresHistory() {
+        launch()
+        openLocationSheet()
+        let firstItem = app.buttons.matching(identifier: AID.locationHistoryItem).firstMatch
+        XCTAssertTrue(firstItem.waitForExistence(timeout: 10))
+
+        let input = app.textFields[AID.locationInput]
+        let query = "no-matching-history.invalid"
+        input.tap()
+        input.typeText(query)
+        XCTAssertTrue(waitForDisappearance(of: firstItem), "Unmatched query should hide history")
+
+        input.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: query.count))
+        XCTAssertTrue(firstItem.waitForExistence(timeout: 10), "Clearing the query should restore history")
+
+        input.typeText(query)
+        XCTAssertTrue(waitForDisappearance(of: firstItem), "Second query should become the active filter")
+        app.buttons[AID.locationDismiss].tap()
+        XCTAssertTrue(waitForDisappearance(of: input))
+        openLocationSheet()
+        XCTAssertNotEqual(input.value as? String, query, "Reopening should discard the previous query")
+        XCTAssertTrue(firstItem.waitForExistence(timeout: 10), "Reopening should reset the previous filter")
+    }
+
+    func testLocationSheet_prefilledAddressDoesNotFilterHistory() {
+        launch(LaunchConfig(pageScenario: .localFixture, fixtureName: "uitest_page"))
+        XCTAssertTrue(waitForCheckpoint(AID.cpCurrentPageFile, equals: "uitest_page.html"))
+        openLocationSheet()
+
+        let input = app.textFields[AID.locationInput]
+        let originalAddress = input.value as? String ?? ""
+        XCTAssertTrue(originalAddress.contains("uitest_page.html"), "Current page should be prefilled")
+        let items = app.buttons.matching(identifier: AID.locationHistoryItem)
+        XCTAssertTrue(items.firstMatch.waitForExistence(timeout: 10))
+
+        // The current address is selected on initial focus, so typing replaces the prefill.
+        let query = "no-matching-history.invalid"
+        input.typeText(query)
+        XCTAssertEqual(input.value as? String, query)
+        XCTAssertTrue(waitForDisappearance(of: items.firstMatch))
+        input.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: query.count))
+        input.typeText(originalAddress)
+        XCTAssertTrue(items.firstMatch.waitForExistence(timeout: 10), "Restoring the prefill should restore history")
+        XCTAssertGreaterThanOrEqual(items.count, 2, "Prefilling must not narrow history to the current page")
+    }
+
     // Smoke check: the full-URLs control is present and interactive, and toggling the display
     // mode keeps the location sheet functional (history still listed). The per-row host↔full-URL
     // truncation change itself is not asserted: each row button carries its testability identifier
