@@ -1,23 +1,21 @@
-Build: 1.0.10 — Sign-in and location search fixes
+Build: 1.0.11 — Location search cancellation fix
 
-Test Focus: a small bug-fix release. Signing in should finish on its own, without you having to close the sign-in screen. VoiceOver users can no longer reach the app hidden behind the Welcome or subscription screen, and the problem-report screen no longer sends you to the wrong Settings.
+This beta contains a small location-search fix. Cancelled searches now stop before publishing an old filter. It does not establish that all reported app hangs are fixed; please continue reporting freezes during launch or normal use.
 
-- Location search: open the address sheet and type quickly. After you pause, history should match your query. Clear the field to restore history, then type again, dismiss and reopen the sheet. History must return, and an existing page address must remain prefilled without hiding other history. Report any typing freeze; this cancellation fix does not establish that all reported app hangs are resolved.
+LOCATION SEARCH
 
-- Sign in. Start signed out (Settings > Account > Manage account > Sign out if needed). Open Menu > Sign In and finish signing in with your account. The sign-in screen must close by itself within a few seconds, and Settings > Account must then show you as signed in. Please report it if the screen stays open, or if you have to close it yourself and only then find you are signed in.
+- Open the address sheet and type quickly into the location search field. After you pause, the history list should match your final query, without jumping back to an earlier query.
+- Clear the field: the full history should return. Type another query, dismiss the sheet while filtering, and reopen it. The history should be restored.
+- With a web page already open, open the address sheet. Its current address should remain prefilled without hiding other history. Filter the list, dismiss the sheet, and reopen it: the address and unfiltered history should return.
+- Repeat the steps several times, including after sending the app to the background and reopening it. Check on iPhone, iPad and the Mac if available.
 
-- Sign in again a few times. Sign out and sign back in at least three times, including once right after bringing the app back from the Home screen. The screen must close by itself every time.
+GENERAL RESPONSIVENESS
 
-- VoiceOver: the Welcome screen and the subscription screen must hide the app behind them. Turn on VoiceOver (Settings > Accessibility > VoiceOver). Whenever either screen covers the app (for example the Welcome screen on a device that has never run the app), swipe right through everything on it: VoiceOver must read only that screen, never the browser's toolbar or address bar behind it. Tap Continue: the browser must be readable again. Any sheet opened from the subscription screen, such as Privacy Policy or Sign In, must stay readable.
+- Cold-launch the app several times and use browsing, tabs and findings normally. Report any freeze, whether during launch, typing, changing pages or returning from the background.
+- If a freeze occurs, note the device and OS version, the approximate time, the screen and action just before it, and whether the app recovered or had to be force-quit. Never include private page content or credentials in a report.
 
-- Report a problem without Mail. On a device or Mac where Apple's Mail app has no email account, open Settings > About the app > Report a problem and tap Send email. The "Couldn't open Mail" message must no longer offer Open Settings. It must offer Copy report and OK, and say where to add an account: Settings > Apps > Mail > Mail Accounts on iPhone and iPad (Settings > Mail > Accounts on iOS 17), or Mail > Add Account on a Mac.
+REGRESSION CHECKS
 
-- Mac: replay onboarding three times. The Models highlight must surround the CPU button; click it to open Models. Repeat after resizing the window.
-
-STILL WORTH RETESTING FROM THE PREVIOUS BUILD
-
-- Fresh install, first launch: you should see "Welcome to ML Browser", one sentence about what the app does, and Continue, with no price, trial or subscription mentioned. After Continue the guided tour starts, and only after you finish or skip it does the analytics question appear. If this device ever showed the earlier Welcome that mentioned a price, it is remembered even after deleting the app: then no Welcome appears and the guided tour starts straight away, which is expected. Please report any case where you see a Welcome a second time.
-
-- Crash fix: keep this build installed with Background App Refresh on (Settings > General > Background App Refresh) and use it normally over a few days. Please report any crash, especially one right after opening the app.
-
-- Findings on maps: on a map site, tap Find, pan, and store a finding. The saved picture, Page and GPS must all describe the same view. Report a finding whose picture and Page/GPS disagree.
+- Sign in, sign out and sign in again. The sign-in sheet should close on its own and Settings should show the correct account.
+- Save and reopen a finding. On a map page, check that its saved image, Page and GPS refer to the same view.
+- A fresh installation should show the neutral Welcome, the tour and then the analytics question, with no payment or trial requirement. Returning users should not see Welcome again.
