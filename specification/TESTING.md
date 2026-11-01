@@ -24,11 +24,24 @@ it is not implemented. Selection today is manual and does not replace existing r
 | Xcode catalog stability | `./scripts/check_localization_build.sh` builds and checks that both catalogs remain unchanged. This is separate from semantic validation and does not execute app tests. |
 | Swift style | `./scripts/swiftlint.sh` lints `ios/`. For a file, pass an absolute path after `lint`, since the wrapper changes directory. Preserve required hook/CI scope. |
 | Catalog/ONNX manifest consistency | `./scripts/verify_catalog_onnx_sync.sh`; relevant to catalog entries and converter fixture manifests. |
-| Findings Worker | In `cloudflare/findings-worker`, `npm run typecheck` and `npm test` cover types and the local Worker test environment. Staging E2E is a separate command and provisioning step. |
+| Findings Worker | In `cloudflare/findings-worker`, run `npm ci`, `npm run typecheck`, `npm test`, `npm audit --audit-level=moderate`, and `npm run dry-run`. The Findings Worker workflow runs these on PRs into `main`/`develop` and pushes to those branches. Tests use local bindings; dry-runs bundle both environments without deploying. Staging E2E remains separate. |
+| Dependency changes | The Dependency Review workflow rejects newly introduced moderate-or-higher vulnerabilities in runtime, development and unknown dependency scopes on PRs into `main`/`develop`. It uses a read-only token and does not post comments or enforce a new license policy. |
+| Code vulnerabilities | The CodeQL workflow scans Actions, JavaScript/TypeScript, Python and Swift on protected-branch PRs/pushes, with a weekly default-branch scan. Swift builds the app in Debug for the simulator with empty service keys, then the host-side root package products and ProjectTool; it does not archive, upload or run the app. Successful analysis jobs establish scan execution, not the absence of vulnerabilities; review the code-scanning alerts. |
 
 Consult test plans and target membership for the current execution scope; do not infer scope from a
 folder name. Shared formats, persistence, app composition, dependency changes, and build settings
 often affect several rows. If the consumer set is unclear, broaden coverage.
+
+The security workflows use standard hosted runners with no database/artifact upload beyond CodeQL
+scan results. Dependency Review and CodeQL use pinned actions that must remain in the repository's
+exact Actions allowlist. A Dependabot action-pin update needs maintainer review and an allowlist
+update before it can execute; do not loosen the SHA requirement to make it pass.
+
+`.github/dependabot.yml` schedules weekly npm, GitHub Actions and Tools SwiftPM version updates into
+`develop`, with small PR limits. The root package has no external package dependencies; Xcode-only
+`Package.resolved` pins still need manual review. GitHub reads this configuration from `main`, so a
+develop-only merge does not activate the schedule. Existing Dependabot security updates continue
+to target `main` independently of those version-update targets.
 
 ## Observe Xcode Cloud
 

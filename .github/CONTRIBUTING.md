@@ -100,8 +100,9 @@ verifies their pinned hashes. Use `--verify` for an offline cache check. The fir
 have no published upstream against which to verify their provenance.
 
 [TESTING.md](../specification/TESTING.md) has the full picture, including the UI suite and how to run a subset.
-A green local run is what makes a review worth someone's time; CI is paid, so please do not use it
-as your first test run.
+A green local run is what makes a review worth someone's time. Standard GitHub-hosted checks are
+free for this public repository; Xcode Cloud uses its separate allocation. Run the relevant local
+checks before requesting review; the additional security and Worker gates are listed in TESTING.md.
 
 ## What makes a reviewable pull request
 
