@@ -44,8 +44,8 @@ to make it pass.
 develop-only merge does not activate the schedule. Existing Dependabot security updates continue
 to target `main` independently of those version-update targets.
 
-An existing PR whose head predates the new workflows may need **Update branch** to receive and run
-new required checks. Do not manufacture passing statuses or weaken the existing gates to merge it.
+After the new checks become required, an existing PR whose head predates these workflows may need
+**Update branch** to receive and run them. Do not manufacture passing statuses or weaken the existing gates to merge it.
 
 Swift CodeQL deliberately uses the standard `macos-26-intel` runner with Xcode 26.6 and one
 simulator architecture. CodeQL 2.27 cannot trace compiled-language builds on macOS 27 or with
