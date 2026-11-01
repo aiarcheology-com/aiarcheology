@@ -1,7 +1,7 @@
 name: Findings Worker
 
 on:
-  # This check is required on both protected branches, so always report a result.
+  # Always report a result so this check can protect both branches without path-filter gaps.
   pull_request:
     branches: [develop, main]
   push:
