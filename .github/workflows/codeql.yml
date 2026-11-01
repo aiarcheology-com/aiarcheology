@@ -55,6 +55,8 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           queries: security-extended
+          trap-caching: false
+          dependency-caching: false
 
       - name: Build Swift app without service keys
         if: matrix.language == 'swift'

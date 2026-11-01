@@ -32,8 +32,8 @@ Consult test plans and target membership for the current execution scope; do not
 folder name. Shared formats, persistence, app composition, dependency changes, and build settings
 often affect several rows. If the consumer set is unclear, broaden coverage.
 
-The security workflows use standard hosted runners with no database/artifact upload beyond CodeQL
-scan results. Dependency Review and CodeQL use pinned actions that must remain in the repository's
+The security workflows use standard hosted runners without new persistent caches or database/
+artifact uploads beyond CodeQL scan results. Dependency Review and CodeQL use pinned actions that must remain in the repository's
 exact Actions allowlist. A Dependabot action-pin update needs maintainer review and an allowlist
 update before it can execute; do not loosen the SHA requirement to make it pass.
 
