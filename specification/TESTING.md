@@ -47,6 +47,11 @@ to target `main` independently of those version-update targets.
 An existing PR whose head predates the new workflows may need **Update branch** to receive and run
 new required checks. Do not manufacture passing statuses or weaken the existing gates to merge it.
 
+Swift CodeQL deliberately uses the standard `macos-26-intel` runner with Xcode 26.6 and one
+simulator architecture. CodeQL 2.27 cannot trace compiled-language builds on macOS 27 or with
+Xcode 27 selected. Check [CodeQL system requirements](https://codeql.github.com/docs/codeql-overview/system-requirements/)
+before changing that pair; the other app/test workflows retain their own toolchain selection.
+
 ## Observe Xcode Cloud
 
 `scripts/aia-xcode-cloud-poll.sh` is a thin wrapper around `ProjectTool asc cloud`. It makes
