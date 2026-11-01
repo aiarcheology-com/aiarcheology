@@ -51,6 +51,8 @@ Swift CodeQL deliberately uses the standard `macos-26-intel` runner with Xcode 2
 simulator architecture. CodeQL 2.27 cannot trace compiled-language builds on macOS 27 or with
 Xcode 27 selected. Check [CodeQL system requirements](https://codeql.github.com/docs/codeql-overview/system-requirements/)
 before changing that pair; the other app/test workflows retain their own toolchain selection.
+The scan also disables compilation caches and the Swift integrated driver as required by
+[CodeQL's Swift build guidance](https://docs.github.com/en/code-security/tutorials/customize-code-scanning/prepare-code-for-analysis).
 
 ## Observe Xcode Cloud
 
