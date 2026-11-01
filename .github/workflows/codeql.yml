@@ -19,7 +19,8 @@ concurrency:
 jobs:
   analyze:
     name: CodeQL (${{ matrix.language }})
-    runs-on: ${{ matrix.language == 'swift' && 'macos-latest' || 'ubuntu-latest' }}
+    # CodeQL 2.27 cannot trace builds on macOS 27 or with Xcode 27.
+    runs-on: ${{ matrix.language == 'swift' && 'macos-26-intel' || 'ubuntu-latest' }}
     timeout-minutes: 30
     permissions:
       actions: read
@@ -47,7 +48,13 @@ jobs:
         if: matrix.language == 'swift'
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
-          xcode-version: latest-stable
+          xcode-version: "26.6"
+
+      - name: Show Swift toolchain
+        if: matrix.language == 'swift'
+        run: |
+          xcodebuild -version
+          swift --version
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
@@ -79,6 +86,7 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/codeql-swift" \
             -skipPackagePluginValidation \
             -skipMacroValidation \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
           # Trace the host-side public package products and credential/support-log tooling too.
           swift build
