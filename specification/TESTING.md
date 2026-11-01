@@ -33,15 +33,19 @@ folder name. Shared formats, persistence, app composition, dependency changes, a
 often affect several rows. If the consumer set is unclear, broaden coverage.
 
 The security workflows use standard hosted runners without new persistent caches or database/
-artifact uploads beyond CodeQL scan results. Dependency Review and CodeQL use pinned actions that must remain in the repository's
-exact Actions allowlist. A Dependabot action-pin update needs maintainer review and an allowlist
-update before it can execute; do not loosen the SHA requirement to make it pass.
+artifact uploads beyond CodeQL scan results. Dependency Review and CodeQL use pinned actions that
+must remain in the repository's exact Actions allowlist. A Dependabot action-pin update needs
+maintainer review and an allowlist update before it can execute; do not loosen the SHA requirement
+to make it pass.
 
 `.github/dependabot.yml` schedules weekly npm, GitHub Actions and Tools SwiftPM version updates into
 `develop`, with small PR limits. The root package has no external package dependencies; Xcode-only
 `Package.resolved` pins still need manual review. GitHub reads this configuration from `main`, so a
 develop-only merge does not activate the schedule. Existing Dependabot security updates continue
 to target `main` independently of those version-update targets.
+
+An existing PR whose head predates the new workflows may need **Update branch** to receive and run
+new required checks. Do not manufacture passing statuses or weaken the existing gates to merge it.
 
 ## Observe Xcode Cloud
 
