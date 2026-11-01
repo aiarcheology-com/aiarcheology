@@ -78,7 +78,7 @@ jobs:
           CONFIGCAT_SDK_KEY_LIVE =
           TELEMETRYDECK_APP_ID =
           EOF
-          xcodebuild build -quiet \
+          xcodebuild build \
             -project ios/MLBrowser.xcodeproj \
             -scheme MLBrowser \
             -configuration Debug \
@@ -87,6 +87,8 @@ jobs:
             -skipPackagePluginValidation \
             -skipMacroValidation \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+            COMPILATION_CACHE_ENABLE_CACHING=NO \
+            SWIFT_ENABLE_COMPILE_CACHE=NO SWIFT_USE_INTEGRATED_DRIVER=NO \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
           # Trace the host-side public package products and credential/support-log tooling too.
           swift build
