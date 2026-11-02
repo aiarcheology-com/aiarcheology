@@ -47,6 +47,15 @@ to target `main` independently of those version-update targets.
 After the new checks become required, an existing PR whose head predates these workflows may need
 **Update branch** to receive and run them. Do not manufacture passing statuses or weaken the existing gates to merge it.
 
+The required-job policy keeps the four existing checks and adds Findings Worker Tests, Dependency
+Review, and the three fast CodeQL language jobs: nine required jobs in total. CodeQL findings need
+manual review. The combined CodeQL findings rule is intentionally not required: GitHub expects
+every baseline configuration on each PR, which conflicts with weekly/manual Swift scanning.
+The combined CodeQL summary can therefore be neutral with a missing Swift configuration; verify
+the three fast analysis jobs separately and review their alerts. This does not establish Swift PR
+coverage or automatically block a merge for source findings. Dependency Review still blocks newly
+introduced moderate-or-higher dependency vulnerabilities.
+
 Swift CodeQL deliberately uses the standard `macos-26-intel` runner with Xcode 26.6 and ARM64
 targets for both the simulator and host packages. The converter's Float16 code does not compile
 for an Intel target; cross-compiling the packages avoids changing app/tool behavior for scanning.
