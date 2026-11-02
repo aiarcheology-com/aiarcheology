@@ -13,14 +13,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # A PR/push must not cancel a longer scheduled or manually requested scan.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   analyze:
     name: CodeQL (${{ matrix.language }})
-    # CodeQL 2.27 cannot trace builds on macOS 27 or with Xcode 27.
-    runs-on: ${{ matrix.language == 'swift' && 'macos-26-intel' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       actions: read
@@ -29,15 +29,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - language: actions
-            build-mode: none
-          - language: javascript-typescript
-            build-mode: none
-          - language: python
-            build-mode: none
-          - language: swift
-            build-mode: manual
+        language: [actions, javascript-typescript, python]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+          trap-caching: false
+          dependency-caching: false
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:${{ matrix.language }}
+          upload-database: false
+
+  swift:
+    name: CodeQL (swift, weekly or manual)
+    # Cold dependency compilation/extraction exceeded 30 minutes before reaching app sources.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # CodeQL 2.27 cannot trace builds on macOS 27 or with Xcode 27.
+    runs-on: macos-26-intel
+    timeout-minutes: 90
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -45,13 +69,11 @@ jobs:
           persist-credentials: false
 
       - name: Select Xcode for Swift
-        if: matrix.language == 'swift'
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
           xcode-version: "26.6"
 
       - name: Show Swift toolchain
-        if: matrix.language == 'swift'
         run: |
           xcodebuild -version
           swift --version
@@ -59,14 +81,13 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          languages: swift
+          build-mode: manual
           queries: security-extended
           trap-caching: false
           dependency-caching: false
 
       - name: Build Swift app without service keys
-        if: matrix.language == 'swift'
         shell: bash
         run: |
           # Follow the contributor Debug/simulator setup; no vault or production credential.
@@ -97,5 +118,5 @@ jobs:
       - name: Analyze
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
-          category: /language:${{ matrix.language }}
+          category: /language:swift
           upload-database: false
