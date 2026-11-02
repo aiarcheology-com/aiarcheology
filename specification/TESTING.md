@@ -24,11 +24,54 @@ it is not implemented. Selection today is manual and does not replace existing r
 | Xcode catalog stability | `./scripts/check_localization_build.sh` builds and checks that both catalogs remain unchanged. This is separate from semantic validation and does not execute app tests. |
 | Swift style | `./scripts/swiftlint.sh` lints `ios/`. For a file, pass an absolute path after `lint`, since the wrapper changes directory. Preserve required hook/CI scope. |
 | Catalog/ONNX manifest consistency | `./scripts/verify_catalog_onnx_sync.sh`; relevant to catalog entries and converter fixture manifests. |
-| Findings Worker | In `cloudflare/findings-worker`, `npm run typecheck` and `npm test` cover types and the local Worker test environment. Staging E2E is a separate command and provisioning step. |
+| Findings Worker | In `cloudflare/findings-worker`, run `npm ci`, `npm run typecheck`, `npm test`, `npm audit --audit-level=moderate`, and `npm run dry-run`. The Findings Worker workflow runs these on PRs into `main`/`develop` and pushes to those branches. Tests use local bindings; dry-runs bundle both environments without deploying. Staging E2E remains separate. |
+| Dependency changes | The Dependency Review workflow rejects newly introduced moderate-or-higher vulnerabilities in runtime, development and unknown dependency scopes on PRs into `main`/`develop`. It uses a read-only token and does not post comments or enforce a new license policy. |
+| Code vulnerabilities | CodeQL scans Actions, JavaScript/TypeScript and Python on protected-branch PRs/pushes. Weekly and manually requested scans additionally build Swift for both `main` and `develop`: the keyless Debug simulator app, host-side root package products and ProjectTool. Swift does not run on PRs/pushes and does not archive, upload or run the app. Successful analysis jobs establish scan execution, not the absence of vulnerabilities; review the code-scanning alerts. |
 
 Consult test plans and target membership for the current execution scope; do not infer scope from a
 folder name. Shared formats, persistence, app composition, dependency changes, and build settings
 often affect several rows. If the consumer set is unclear, broaden coverage.
+
+The security workflows use standard hosted runners without new persistent caches or database/
+artifact uploads beyond CodeQL scan results. Dependency Review and CodeQL use pinned actions that
+must remain in the repository's exact Actions allowlist. A Dependabot action-pin update needs
+maintainer review and an allowlist update before it can execute; do not loosen the SHA requirement
+to make it pass.
+
+`.github/dependabot.yml` schedules weekly npm, GitHub Actions and Tools SwiftPM version updates into
+`develop`, with small PR limits. The root package has no external package dependencies; Xcode-only
+`Package.resolved` pins still need manual review. GitHub reads this configuration from `main`, so a
+develop-only merge does not activate the schedule. Existing Dependabot security updates continue
+to target `main` independently of those version-update targets.
+
+After the new checks become required, an existing PR whose head predates these workflows may need
+**Update branch** to receive and run them. Do not manufacture passing statuses or weaken the existing gates to merge it.
+
+The required-job policy keeps the four existing checks and adds Findings Worker Tests, Dependency
+Review, and the three fast CodeQL language jobs: nine required jobs in total. CodeQL findings need
+manual review. The combined CodeQL findings rule is intentionally not required: GitHub expects
+every baseline configuration on each PR, which conflicts with weekly/manual Swift scanning.
+The combined CodeQL summary can therefore be neutral with a missing Swift configuration; verify
+the three fast analysis jobs separately and review their alerts. This does not establish Swift PR
+coverage or automatically block a merge for source findings. Dependency Review still blocks newly
+introduced moderate-or-higher dependency vulnerabilities.
+
+Swift CodeQL deliberately uses the standard `macos-26-intel` runner with Xcode 26.6 and ARM64
+targets for both the simulator and host packages. The converter's Float16 code does not compile
+for an Intel target; cross-compiling the packages avoids changing app/tool behavior for scanning.
+The built executables are not run. CodeQL 2.27 cannot trace compiled-language builds on macOS 27 or with
+Xcode 27 selected. Check [CodeQL system requirements](https://codeql.github.com/docs/codeql-overview/system-requirements/)
+before changing that pair; the other app/test workflows retain their own toolchain selection.
+The scan also disables compilation caches and the Swift integrated driver as required by
+[CodeQL's Swift build guidance](https://docs.github.com/en/code-security/tutorials/customize-code-scanning/prepare-code-for-analysis).
+Cold dependency compilation/extraction exceeded the initial 30-minute limit before reaching app
+sources. Swift therefore has a 90-minute limit on weekly/manual scans and is not a PR merge gate;
+Swift vulnerabilities introduced by a PR may only be detected by a later full scan. A skipped Swift
+job on a PR is expected and does not establish Swift coverage. The weekly workflow is read from
+`main`; its Swift matrix explicitly checks out both protected branches and uploads results with
+each branch's actual checked-out SHA. Manual runs also scan both protected branches, regardless
+of the ref selected for the workflow definition. Verify a successful full scan for each branch
+when activating this configuration; timed-out or failed attempts do not establish coverage.
 
 ## Observe Xcode Cloud
 
