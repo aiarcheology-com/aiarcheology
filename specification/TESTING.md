@@ -26,7 +26,7 @@ it is not implemented. Selection today is manual and does not replace existing r
 | Catalog/ONNX manifest consistency | `./scripts/verify_catalog_onnx_sync.sh`; relevant to catalog entries and converter fixture manifests. |
 | Findings Worker | In `cloudflare/findings-worker`, run `npm ci`, `npm run typecheck`, `npm test`, `npm audit --audit-level=moderate`, and `npm run dry-run`. The Findings Worker workflow runs these on PRs into `main`/`develop` and pushes to those branches. Tests use local bindings; dry-runs bundle both environments without deploying. Staging E2E remains separate. |
 | Dependency changes | The Dependency Review workflow rejects newly introduced moderate-or-higher vulnerabilities in runtime, development and unknown dependency scopes on PRs into `main`/`develop`. It uses a read-only token and does not post comments or enforce a new license policy. |
-| Code vulnerabilities | CodeQL scans Actions, JavaScript/TypeScript and Python on protected-branch PRs/pushes. Weekly and manually requested scans additionally build Swift: the keyless Debug simulator app, host-side root package products and ProjectTool. Swift does not run on PRs/pushes and does not archive, upload or run the app. Successful analysis jobs establish scan execution, not the absence of vulnerabilities; review the code-scanning alerts. |
+| Code vulnerabilities | CodeQL scans Actions, JavaScript/TypeScript and Python on protected-branch PRs/pushes. Weekly and manually requested scans additionally build Swift for both `main` and `develop`: the keyless Debug simulator app, host-side root package products and ProjectTool. Swift does not run on PRs/pushes and does not archive, upload or run the app. Successful analysis jobs establish scan execution, not the absence of vulnerabilities; review the code-scanning alerts. |
 
 Consult test plans and target membership for the current execution scope; do not infer scope from a
 folder name. Shared formats, persistence, app composition, dependency changes, and build settings
@@ -58,8 +58,11 @@ The scan also disables compilation caches and the Swift integrated driver as req
 Cold dependency compilation/extraction exceeded the initial 30-minute limit before reaching app
 sources. Swift therefore has a 90-minute limit on weekly/manual scans and is not a PR merge gate;
 Swift vulnerabilities introduced by a PR may only be detected by a later full scan. A skipped Swift
-job on a PR is expected and does not establish Swift coverage. Verify the first full scan after
-default-branch activation; the timed-out attempts do not count as successful analyses.
+job on a PR is expected and does not establish Swift coverage. The weekly workflow is read from
+`main`; its Swift matrix explicitly checks out both protected branches and uploads results with
+each branch's actual checked-out SHA. Manual runs also scan both protected branches, regardless
+of the ref selected for the workflow definition. Verify a successful full scan for each branch
+when activating this configuration; timed-out or failed attempts do not establish coverage.
 
 ## Observe Xcode Cloud
 
