@@ -47,8 +47,10 @@ to target `main` independently of those version-update targets.
 After the new checks become required, an existing PR whose head predates these workflows may need
 **Update branch** to receive and run them. Do not manufacture passing statuses or weaken the existing gates to merge it.
 
-Swift CodeQL deliberately uses the standard `macos-26-intel` runner with Xcode 26.6 and one
-simulator architecture. CodeQL 2.27 cannot trace compiled-language builds on macOS 27 or with
+Swift CodeQL deliberately uses the standard `macos-26-intel` runner with Xcode 26.6 and ARM64
+targets for both the simulator and host packages. The converter's Float16 code does not compile
+for an Intel target; cross-compiling the packages avoids changing app/tool behavior for scanning.
+The built executables are not run. CodeQL 2.27 cannot trace compiled-language builds on macOS 27 or with
 Xcode 27 selected. Check [CodeQL system requirements](https://codeql.github.com/docs/codeql-overview/system-requirements/)
 before changing that pair; the other app/test workflows retain their own toolchain selection.
 The scan also disables compilation caches and the Swift integrated driver as required by
