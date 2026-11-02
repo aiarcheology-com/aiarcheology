@@ -52,7 +52,7 @@ jobs:
           upload-database: false
 
   swift:
-    name: CodeQL (swift, weekly or manual)
+    name: CodeQL (swift, ${{ matrix.branch }})
     # Cold dependency compilation/extraction exceeded 30 minutes before reaching app sources.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     # CodeQL 2.27 cannot trace builds on macOS 27 or with Xcode 27.
@@ -62,11 +62,20 @@ jobs:
       actions: read
       contents: read
       security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [main, develop]
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+          ref: refs/heads/${{ matrix.branch }}
+
+      - name: Record checked-out commit
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Select Xcode for Swift
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
@@ -120,4 +129,6 @@ jobs:
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           category: /language:swift
+          ref: refs/heads/${{ matrix.branch }}
+          sha: ${{ steps.source.outputs.sha }}
           upload-database: false

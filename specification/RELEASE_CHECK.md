@@ -145,10 +145,12 @@ broken feature.** That is the trade this file exists to catch.
       public commit `2d0d3638` (removed in `8738cc7e`) was rotated during AIA-0898. The owner
       confirmed that the historical client key was disabled; see #906, C1. This records that
       confirmation, not an independent Sentry API or live-ingest recheck. Older builds using
-      that key can no longer report through it; current builds carry the replacement key.
+      that key can no longer report through it.
 
-      The new key needs no action; it is already in 1Password, the Xcode Cloud environment, and
-      every build cut since. See [.github/SECURITY.md](../.github/SECURITY.md).
+      A replacement key was issued during rotation. Before relying on crash reporting for a
+      shipping build, verify its resolved replacement DSN without publishing the value. This
+      retirement record does not independently verify 1Password, Xcode Cloud, or shipped-binary
+      key delivery. See [.github/SECURITY.md](../.github/SECURITY.md).
 
 ## 1.0.8
 

@@ -42,9 +42,10 @@ is generated locally and is gitignored; the tracked `ios/Secrets.template.xcconf
 references, not values.
 
 One credential did reach a public commit historically: the **Sentry DSN**, added in `2d0d3638` and
-removed in `8738cc7e`. **It has been rotated**: a new client key was issued and is what current
-builds carry. The owner confirmed on 2026-10-24 that the old client key was disabled. Older
-builds carrying that key can no longer report through it; see #906, C1, for the retirement record.
+removed in `8738cc7e`. **It has been rotated**: a replacement client key was issued. The owner
+confirmed on 2026-10-24 that the old client key was disabled. Older builds carrying that key can
+no longer report through it; see #906, C1, for the retirement record. This audit has not independently
+verified replacement-key delivery in shipped binaries or the current build environment.
 
 Note what a Sentry DSN is, so the severity is neither overstated nor understated: it is a
 write-only ingest endpoint that ships inside every copy of the application binary, so it is not
