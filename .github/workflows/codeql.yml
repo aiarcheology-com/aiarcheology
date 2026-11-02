@@ -112,8 +112,9 @@ jobs:
             SWIFT_ENABLE_COMPILE_CACHE=NO SWIFT_USE_INTEGRATED_DRIVER=NO \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
           # Trace the host-side public package products and credential/support-log tooling too.
-          swift build
-          swift build --package-path Tools --product ProjectTool
+          # The converter uses Float16; target ARM64 even on this Intel build host.
+          swift build --arch arm64
+          swift build --arch arm64 --package-path Tools --product ProjectTool
 
       - name: Analyze
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
